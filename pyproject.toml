@@ -1,0 +1,16 @@
+# Python tooling for the add-on, the UE5 scripts, the e2e script, and the generated shared types.
+[tool.ruff]
+line-length = 180
+target-version = "py311"
+extend-exclude = ["node_modules", "target", ".testenv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"shared/py/*" = ["I", "E", "F", "UP", "N"]
+# The folder name carries a hyphen and Blender fixes the operator and panel class names.
+"blender-addon/**" = ["N999"]
+"blender-addon/nkata/panel.py" = ["N801"]
+"blender-addon/tests/*" = ["N801", "N802", "I001"]

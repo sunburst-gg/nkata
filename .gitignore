@@ -9,3 +9,4 @@ target/
 .pnpm-store/
 coverage/
 .testenv/
+blender-addon/nkata/nkata_shared/
