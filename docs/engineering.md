@@ -51,7 +51,7 @@ Postgres. Every table has `id` (ULID), `studio_id`, `created_at`, `updated_at`. 
 | --- | --- | --- |
 | `studio` | name | One per customer |
 | `user` | email, name, avatar\_url | Magic link auth |
-| `membership` | user\_id, studio\_id, roles\[\] | Roles: artist, art\_director, engineer, writer, producer |
+| `membership` | user\_id, studio\_id, roles\[\] | Roles: artist, art\_director, engineer, writer, producer, viewer |
 | `project` | studio\_id, name, folder\_name, blender\_version, ue\_version, package\_version | Pinned tool versions |
 | `template` | project\_id, name, file\_path, schema JSONB | The file in the folder is the truth; this row is the cache |
 | `asset` | project\_id, template\_id, name, reference\_files\[\] | State is derived from parts |
@@ -113,6 +113,8 @@ One call: `PUT /remote/object/call` on the Python command subsystem with a snipp
 
 `/auth/magic-link`, `/projects`, `/projects/:id/templates`, `/assets`, `/parts`, `/parts/:id/versions`, `/parts/:id/lock` (POST acquire, DELETE release, PUT heartbeat), `/comments`, `/reviews`, `/events?since=`, `/files/upload-urls` (returns signed PUT URLs for missing chunk hashes), `/files/download-urls`, `/export/:asset_id`.
 
+The server enforces the role on every mutating route. A viewer gets 403 on lock, publish, review, rollback, gate, template, and project export routes. Comments are allowed. A single asset export as images and glTF is allowed.
+
 **Server WebSocket, `wss://api.<domain>/ws?project=`**
 
 Server to client events: `presence.changed`, `lock.granted`, `lock.released`, `lock.requested` (someone asked the holder), `version.created`, `mirror.result`, `part.state`, `comment.created`, `review.decided`, `gate.opened`. Client to server: `presence.heartbeat`, `lock.request`, `lock.release`. Every event carries `project_id`, `actor_id`, `at`. The agent re-syncs with `/events?since=` after a reconnect, so a missed socket event is never lost.
@@ -134,6 +136,8 @@ Server to client events: `presence.changed`, `lock.granted`, `lock.released`, `l
 **Spool.** `~/.nkata/<project>/spool/<part_id>/` holds exports for the mirror and the UE5 import log. Kept for 7 days then pruned.
 
 **Export.** `/export/:asset_id` returns a signed zip, or the agent builds it locally from the index: plain files plus `manifest.json` with parts, owners, states, versions, and comments. Works with no server.
+
+**Stream mode.** A viewer agent runs in stream mode. No index, no watcher, no upload. It downloads previews and single files on demand through `/files/download-urls` into a cache at `~/.nkata/<project>/cache/`, capped at 5 GB, least recently used evicted first.
 
 **Numbers to hold.** 20 GB project, 40k files: first full sync under 30 minutes on 100 Mbps; rescan under 20 seconds; a 400 MB `.blend` save uploads under 20 MB on a typical edit.
 
@@ -212,7 +216,7 @@ If step 0 fails on the physics or materials, the fallback is Interchange with a 
 ## Testing
 
 - `shared`: schema tests, protocol round-trips Python to TypeScript.
-- `server`: unit tests on lock grant, gate evaluation, state transitions, chunk dedupe. Integration tests against Docker Postgres and MinIO.
+- `server`: unit tests on lock grant, gate evaluation, state transitions, chunk dedupe. Integration tests against Docker Postgres and MinIO. One test signs in with a viewer token and asserts 403 on each mutating route and 201 on comments.
 - `desktop`: Rust unit tests for FastCDC, index rescan, queue drain. Fixture folder of 40k small files for the rescan budget.
 - `blender-addon`: tests run in `blender --background --python` against fixture `.blend` files. Hashing, changed-object detection, exporter trigger, check results.
 - `ue5-plugin`: tests run with `UnrealEditor-Cmd -run=pythonscript` against a fixture project. Import, reimport, materials kept, reference scan.

@@ -21,7 +21,7 @@
     },
     "Role": {
       "type": "string",
-      "enum": ["artist", "art_director", "engineer", "writer", "producer"]
+      "enum": ["artist", "art_director", "engineer", "writer", "producer", "viewer"]
     },
     "MirrorStatus": {
       "type": "string",

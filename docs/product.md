@@ -41,23 +41,24 @@ The state machine for a part: Locked (gate not open) to Draft (owner is working,
 
 ## Roles and permissions
 
-Four roles. One person can hold more than one. Producers are admins. The art director is an artist with review rights.
+Five roles. One person can hold more than one. Producers are admins. The art director is an artist with review rights. A viewer reads everything and comments. Viewers are for investors, publishers, outside writers, voice directors, and anyone who checks progress without Blender or UE5. A viewer needs only install and sign in.
 
-| Action | Artist | Art director | Engineer | Writer | Producer |
-| --- | --- | --- | --- | --- | --- |
-| Edit and publish a part they own | Yes | Yes | Blueprints, builds | Scripts | Yes |
-| Edit a part they do not own | No | Yes | No | No | Yes |
-| Comment on any part | Yes | Yes | Yes | Yes | Yes |
-| Mark a part Ready | Owner only | Yes | Owner only | Owner only | Yes |
-| Score and approve a part | No | Yes | Engine changes | Canon | Yes |
-| Reopen an approved part | No | Yes | No | No | Yes |
-| Remove a gate | No | Yes | No | No | Yes |
-| Edit a template | No | Yes | No | No | Yes |
-| Pin reference and tool versions | No | Yes | No | No | Yes |
-| Assign owners | No | Yes | No | No | Yes |
-| Roll back a part | Own parts | Yes | Own parts | Own parts | Yes |
-| Invite, remove, set roles | No | No | No | No | Yes |
-| Export asset or project to plain folders | Yes | Yes | Yes | Yes | Yes |
+| Action | Artist | Art director | Engineer | Writer | Producer | Viewer |
+| --- | --- | --- | --- | --- | --- | --- |
+| Edit and publish a part they own | Yes | Yes | Blueprints, builds | Scripts | Yes | No |
+| Edit a part they do not own | No | Yes | No | No | Yes | No |
+| Comment on any part | Yes | Yes | Yes | Yes | Yes | Yes |
+| Mark a part Ready | Owner only | Yes | Owner only | Owner only | Yes | No |
+| Score and approve a part | No | Yes | Engine changes | Canon | Yes | No |
+| Reopen an approved part | No | Yes | No | No | Yes | No |
+| Remove a gate | No | Yes | No | No | Yes | No |
+| Edit a template | No | Yes | No | No | Yes | No |
+| Pin reference and tool versions | No | Yes | No | No | Yes | No |
+| Assign owners | No | Yes | No | No | Yes | No |
+| Roll back a part | Own parts | Yes | Own parts | Own parts | Yes | No |
+| Invite, remove, set roles | No | No | No | No | Yes | No |
+| Export asset or project to plain folders | Yes | Yes | Yes | Yes | Yes | One asset, as images and glTF |
+| Sync the project folder | Yes | Yes | Yes | Yes | Yes | No |
 
 Every action is logged with who and when. The log is visible to producers and art directors.
 
@@ -101,6 +102,12 @@ Ordered by priority inside each role.
 3. As a producer, I want to see idle assets with no change in 14 days, so nothing is forgotten.
 4. As a producer, I want to invite a person, give them roles, and assign them parts, so onboarding is one screen.
 
+**Viewer**
+
+1. As a viewer, I want to see the whole project without Blender or UE5, so I can check progress from any machine.
+2. As a viewer, I want to open any asset, rotate the model, and read and add comments, so my feedback lands on the work.
+3. As a viewer, I want to follow what changed this week, so I never ask for a status update.
+
 **Edge cases**
 
 - The mirror fails (UE5 closed, import error). The artist sees one line in the panel with the reason. The save still goes to the timeline.
@@ -108,6 +115,7 @@ Ordered by priority inside each role.
 - A check fails and cannot auto-fix. Publish is blocked with the list. The artist can still save.
 - Offline. Saves queue locally. Presence shows "offline since". Sync resumes on reconnect with no action.
 - Nkata is gone. The folder still holds every file. Export to plain folders works with no server.
+- A viewer opens an asset whose preview was never exported. The app shows the last render, or "No preview yet" with the owner's name.
 
 ## Requirements: P0, v1 cannot ship without these
 
@@ -179,6 +187,7 @@ Ordered by priority inside each role.
 
 - [ ] Sign in with email. Producer invites by email and sets roles. One person can hold several roles.
 - [ ] Permissions as in the roles table. Every privileged action is logged.
+- [ ] Viewers are invited by a producer like any member. Viewer seats do not sync files. The app streams previews, renders, textures, and scripts from the store on demand.
 
 **R12. Platforms**
 
@@ -219,6 +228,8 @@ Three surfaces. Same data, same words, same state colors everywhere.
 | Templates | The project's templates | Edit in the app (P1); open the file (v1) |
 | Project settings | Members, roles, pinned tool versions, Discord and Linear links | Invite, set roles, pin versions |
 | Setup | Sign in, pick project, folder location, first sync with progress | Done in under 5 minutes |
+
+For a viewer the desktop app hides every write action: no lock, Publish, Mark Ready, Approve, Send back, Roll back, Remove gate, or project export. No empty buttons. Export of one asset as images and glTF stays. Setup for a viewer skips the folder step: sign in, pick project, done.
 
 **Blender panel (add-on, N-panel)**
 

@@ -15,7 +15,7 @@ export type Timestamp = z.infer<typeof Timestamp>;
 export const PartState = z.enum(["locked", "draft", "ready", "approved"]);
 export type PartState = z.infer<typeof PartState>;
 
-export const Role = z.enum(["artist", "art_director", "engineer", "writer", "producer"]);
+export const Role = z.enum(["artist", "art_director", "engineer", "writer", "producer", "viewer"]);
 export type Role = z.infer<typeof Role>;
 
 /** Result of the Blender to UE5 mirror for one version. */

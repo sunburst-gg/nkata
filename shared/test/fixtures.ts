@@ -46,7 +46,7 @@ export const fixtures: Fixtures = {
     Ulid: { valid: [id], invalid: ["not-a-ulid", 12] },
     Timestamp: { valid: [at, "2026-10-01T12:00:00+09:00"], invalid: ["yesterday"] },
     PartState: { valid: ["locked", "draft", "ready", "approved"], invalid: ["Draft"] },
-    Role: { valid: ["artist", "producer"], invalid: ["admin"] },
+    Role: { valid: ["artist", "producer", "viewer"], invalid: ["admin", "guest"] },
     MirrorStatus: { valid: ["synced", "failed"], invalid: ["done"] },
     CheckSeverity: { valid: ["block", "warn"], invalid: ["error"] },
     ReviewDecision: { valid: ["approve", "send_back"], invalid: ["reject"] },
