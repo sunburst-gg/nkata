@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+members = ["desktop/src-tauri"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "UNLICENSED"
+publish = false
+
+[profile.release]
+lto = "thin"

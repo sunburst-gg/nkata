@@ -1,0 +1,10 @@
+{
+  "name": "@nkata/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Tauri 2 app. No UI in step 2. The agent core lives in src-tauri as a Rust crate.",
+  "scripts": {
+    "test": "echo 'desktop: no TypeScript tests yet (no UI in step 2)'"
+  }
+}

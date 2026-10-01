@@ -1,0 +1,5 @@
+#!/bin/sh
+# make test must be green before every push. See CLAUDE.md, How to work, rule 4.
+set -e
+cd "$(git rev-parse --show-toplevel)"
+make test
