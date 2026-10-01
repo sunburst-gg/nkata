@@ -1,0 +1,27 @@
+name: ff-main
+# Cloud sessions push a branch. This fast-forwards main when tests are green.
+# Terminal sessions push to main directly and skip this.
+on:
+  push:
+    branches-ignore: [main]
+jobs:
+  ff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: pnpm install --frozen-lockfile
+      - run: make test
+      - run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+          git checkout main
+          git merge --ff-only ${{ github.sha }}
+          git push origin main
