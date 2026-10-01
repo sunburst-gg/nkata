@@ -20,6 +20,22 @@ set +a
 pnpm -r typecheck
 pnpm -r test
 
+# The gate test needs a live server over the same Postgres and MinIO, seeded.
+export NKATA_DEV=1
+export PORT="${TEST_SERVER_PORT:-7401}"
+export PUBLIC_URL="http://127.0.0.1:$PORT"
+export LOG_LEVEL=warn
+pnpm --filter @nkata/server seed >/dev/null
+pnpm --filter @nkata/server start >"$ROOT/.testenv/server.log" 2>&1 &
+SERVER_PID=$!
+for _ in $(seq 1 100); do
+  if curl -sf "http://127.0.0.1:$PORT/health" >/dev/null; then break; fi
+  sleep 0.2
+done
+curl -sf "http://127.0.0.1:$PORT/health" >/dev/null || { echo "server did not start" >&2; cat "$ROOT/.testenv/server.log" >&2; exit 1; }
+export NKATA_TEST_SERVER_URL="http://127.0.0.1:$PORT"
+export NKATA_GATE_REPORT="$ROOT/.testenv/gate-report.json"
+
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace

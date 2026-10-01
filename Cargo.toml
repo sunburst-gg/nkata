@@ -10,3 +10,8 @@ publish = false
 
 [profile.release]
 lto = "thin"
+
+# Chunking and hashing in dependencies run optimized even in dev and test builds,
+# so the 2 GB gate test is bounded by disk and network, not by debug code.
+[profile.dev.package."*"]
+opt-level = 3
