@@ -5,15 +5,19 @@
 //! Storage and sync.
 
 pub mod agent;
+pub mod api;
 pub mod chunker;
 pub mod client;
 pub mod error;
 pub mod ids;
 pub mod ignore;
 pub mod index;
+pub mod mirror;
+pub mod protocol;
 pub mod queue;
 pub mod scan;
 pub mod sync;
+pub mod ue5;
 pub mod watch;
 
 pub use agent::{Agent, AgentConfig};

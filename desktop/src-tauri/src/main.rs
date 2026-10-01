@@ -54,6 +54,20 @@ enum Command {
         #[arg(long, default_value_t = 5)]
         pull_every_secs: u64,
     },
+    /// Run the local API for the editors on 127.0.0.1:7420 and the mirror into UE5.
+    Serve {
+        #[arg(long, default_value_t = nkata_agent::api::DEFAULT_PORT)]
+        port: u16,
+        /// UE5 Remote Control API.
+        #[arg(long, default_value = nkata_agent::ue5::DEFAULT_URL)]
+        ue5_url: String,
+        /// Folder with import_part.py and refresh.py.
+        #[arg(long, default_value = "ue5-plugin/scripts")]
+        ue5_scripts: PathBuf,
+        /// Token file the editors read. Defaults to <folder>/.nkata-agent/token.
+        #[arg(long)]
+        token_file: Option<PathBuf>,
+    },
 }
 
 fn init_logging() {
@@ -112,6 +126,38 @@ async fn run(cli: Cli) -> Result<serde_json::Value, AgentError> {
                         .watch(Duration::from_secs(pull_every_secs), rx)
                         .await?;
                     Ok(serde_json::json!({ "stopped": true }))
+                }
+                Command::Serve {
+                    port,
+                    ue5_url,
+                    ue5_scripts,
+                    token_file,
+                } => {
+                    let (tx, rx) = tokio::sync::watch::channel(false);
+                    tokio::spawn(async move {
+                        let _ = tokio::signal::ctrl_c().await;
+                        let _ = tx.send(true);
+                    });
+                    let scripts_dir = std::fs::canonicalize(&ue5_scripts)
+                        .map_err(|e| AgentError::io(&ue5_scripts, e))?;
+                    let server = nkata_agent::client::ServerClient::new(
+                        &agent.config().server_url,
+                        &agent.config().token,
+                        &agent.config().project_id,
+                    )?;
+                    let addr = nkata_agent::api::serve(
+                        server,
+                        nkata_agent::api::ServeOptions {
+                            folder,
+                            port,
+                            ue5_url,
+                            scripts_dir,
+                            token_file,
+                        },
+                        rx,
+                    )
+                    .await?;
+                    Ok(serde_json::json!({ "stopped": true, "addr": addr.to_string() }))
                 }
                 Command::Login { .. } | Command::Init { .. } => unreachable!("handled above"),
             }

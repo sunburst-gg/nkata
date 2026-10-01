@@ -7,6 +7,7 @@ use reqwest::{Client, StatusCode};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::error::{AgentError, Result};
+use crate::protocol::{LockInfo, MirrorStatus, ObjectManifest, PartSummary, UserRef};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ChunkSpec {
@@ -79,10 +80,51 @@ struct ErrorDetail {
     message: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct MeResponse {
-    pub user: serde_json::Value,
+#[derive(Debug, Clone, Deserialize)]
+pub struct ServerMe {
+    pub user: UserRef,
+    pub email: String,
     pub studio_id: String,
+    pub roles: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ServerProject {
+    pub id: String,
+    pub name: String,
+    pub folder_name: String,
+    pub package_version: String,
+}
+
+/// Lock call outcome. The server answers 200 when granted and 409 with the holder when held.
+#[derive(Debug, Clone, Deserialize)]
+pub struct LockOutcome {
+    pub granted: bool,
+    pub lock: LockInfo,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct VersionRow {
+    pub id: String,
+    pub part_id: String,
+    pub mirror_status: String,
+    pub mirror_ms: Option<u64>,
+    pub published: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct VersionCreate<'a> {
+    pub id: &'a str,
+    pub manifest: Option<&'a ObjectManifest>,
+    pub mirror_status: MirrorStatus,
+    pub note: &'a str,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MirrorUpdate<'a> {
+    pub mirror_status: MirrorStatus,
+    pub mirror_ms: Option<u64>,
+    pub message: &'a str,
 }
 
 #[derive(Clone)]
@@ -149,8 +191,117 @@ impl ServerClient {
         Self::decode(res).await
     }
 
-    pub async fn me(&self) -> Result<MeResponse> {
+    pub async fn me(&self) -> Result<ServerMe> {
         self.get("/auth/me").await
+    }
+
+    pub async fn project(&self) -> Result<ServerProject> {
+        #[derive(Deserialize)]
+        struct Wrap {
+            project: ServerProject,
+        }
+        let w: Wrap = self.get(&format!("/projects/{}", self.project_id)).await?;
+        Ok(w.project)
+    }
+
+    /// Parts mapped to a project file (blend_collection.file or file.path), or all parts when None.
+    pub async fn parts(&self, file: Option<&str>) -> Result<Vec<PartSummary>> {
+        #[derive(Deserialize)]
+        struct Wrap {
+            parts: Vec<PartSummary>,
+        }
+        let mut path = format!("/parts?project_id={}", self.project_id);
+        if let Some(f) = file {
+            path.push_str("&file=");
+            path.push_str(&urlencode(f));
+        }
+        let w: Wrap = self.get(&path).await?;
+        Ok(w.parts)
+    }
+
+    pub async fn part(&self, part_id: &str) -> Result<PartSummary> {
+        #[derive(Deserialize)]
+        struct Wrap {
+            part: PartSummary,
+        }
+        let w: Wrap = self.get(&format!("/parts/{part_id}")).await?;
+        Ok(w.part)
+    }
+
+    pub async fn acquire_lock(&self, part_id: &str) -> Result<LockOutcome> {
+        let res = self
+            .http
+            .post(format!("{}/parts/{part_id}/lock", self.base))
+            .bearer_auth(&self.token)
+            .send()
+            .await?;
+        if res.status() == StatusCode::CONFLICT {
+            // Held by someone else, or the gate is closed. Only the first carries a lock.
+            let text = res.text().await?;
+            if let Ok(out) = serde_json::from_str::<LockOutcome>(&text) {
+                return Ok(out);
+            }
+            let (code, message) = match serde_json::from_str::<ErrorBody>(&text) {
+                Ok(b) => (b.error.code, b.error.message),
+                Err(_) => ("conflict".to_string(), text),
+            };
+            return Err(AgentError::Server {
+                status: 409,
+                code,
+                message,
+            });
+        }
+        Self::decode(res).await
+    }
+
+    pub async fn release_lock(&self, part_id: &str) -> Result<bool> {
+        #[derive(Deserialize)]
+        struct Wrap {
+            released: bool,
+        }
+        let res = self
+            .http
+            .delete(format!("{}/parts/{part_id}/lock", self.base))
+            .bearer_auth(&self.token)
+            .send()
+            .await?;
+        let w: Wrap = Self::decode(res).await?;
+        Ok(w.released)
+    }
+
+    pub async fn create_version(
+        &self,
+        part_id: &str,
+        body: &VersionCreate<'_>,
+    ) -> Result<VersionRow> {
+        #[derive(Deserialize)]
+        struct Wrap {
+            version: VersionRow,
+        }
+        let w: Wrap = self
+            .post(&format!("/parts/{part_id}/versions"), body)
+            .await?;
+        Ok(w.version)
+    }
+
+    pub async fn put_mirror(
+        &self,
+        part_id: &str,
+        version_id: &str,
+        body: &MirrorUpdate<'_>,
+    ) -> Result<()> {
+        let res = self
+            .http
+            .put(format!(
+                "{}/parts/{part_id}/versions/{version_id}/mirror",
+                self.base
+            ))
+            .bearer_auth(&self.token)
+            .json(body)
+            .send()
+            .await?;
+        let _: serde_json::Value = Self::decode(res).await?;
+        Ok(())
     }
 
     pub async fn upload_urls(&self, chunks: &[ChunkSpec]) -> Result<UploadUrlsResponse> {
@@ -241,6 +392,19 @@ impl ServerClient {
         }
         Ok(bytes)
     }
+}
+
+fn urlencode(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for b in s.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char)
+            }
+            _ => out.push_str(&format!("%{b:02X}")),
+        }
+    }
+    out
 }
 
 /// Dev-mode sign in: request a magic link and redeem it in one go. Returns the session token.

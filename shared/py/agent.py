@@ -28,6 +28,7 @@ class MeResponse:
     project: ProjectRef
     package_version: str
     online: bool
+    spool_dir: str
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -284,14 +285,18 @@ def _v_MeResponse_package_version(value: object, path: str) -> str:
 def _v_MeResponse_online(value: object, path: str) -> bool:
     return _rt.check_bool(value, path)
 
+def _v_MeResponse_spool_dir(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
+
 def validate_MeResponse(value: object, path: str = "$") -> MeResponse:
-    obj = _rt.check_object(value, path, required=("v", "user", "project", "package_version", "online",), allowed=("v", "user", "project", "package_version", "online",))
+    obj = _rt.check_object(value, path, required=("v", "user", "project", "package_version", "online", "spool_dir",), allowed=("v", "user", "project", "package_version", "online", "spool_dir",))
     return MeResponse(
         v=_v_MeResponse_v(obj["v"], path + ".v"),
         user=validate_UserRef(obj["user"], path + ".user"),
         project=validate_ProjectRef(obj["project"], path + ".project"),
         package_version=_v_MeResponse_package_version(obj["package_version"], path + ".package_version"),
         online=_v_MeResponse_online(obj["online"], path + ".online"),
+        spool_dir=_v_MeResponse_spool_dir(obj["spool_dir"], path + ".spool_dir"),
     )
 
 def _v_PartSummary_asset_name(value: object, path: str) -> str:

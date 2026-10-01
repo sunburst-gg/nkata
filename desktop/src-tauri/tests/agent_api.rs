@@ -1,0 +1,413 @@
+//! Agent local API and mirror runner against the live test server and a fake Remote Control
+//! server. Needs NKATA_TEST_SERVER_URL (make test sets it); skipped otherwise.
+
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
+
+use axum::routing::put;
+use axum::{Json, Router};
+use futures_util::StreamExt;
+use nkata_agent::api::{bind, router, ServeOptions};
+use nkata_agent::client::{dev_login, ServerClient};
+use serde_json::{json, Value};
+use tokio::sync::Mutex;
+
+const ARTIST: &str = "artist@sunburst.gg";
+const DIRECTOR: &str = "director@sunburst.gg";
+
+/// What the fake editor answers next. Each call pops the front; empty means success.
+#[derive(Clone)]
+struct FakeUe5 {
+    script: Arc<Mutex<Vec<Value>>>,
+    calls: Arc<AtomicUsize>,
+    last_command: Arc<Mutex<String>>,
+}
+
+async fn fake_rc_call(
+    axum::extract::State(s): axum::extract::State<FakeUe5>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    s.calls.fetch_add(1, Ordering::SeqCst);
+    let command = body["parameters"]["PythonCommand"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+    *s.last_command.lock().await = command.clone();
+    let next = s.script.lock().await.pop();
+    let result = next.unwrap_or_else(|| json!({"ok": true, "message": "", "asset_path": "/Game/Nkata/Ojukwu/face", "first_import": false}));
+    Json(json!({
+        "ReturnValue": true,
+        "CommandResult": "",
+        "LogOutput": [
+            {"Type": "Info", "Output": "LogPython: importing"},
+            {"Type": "Info", "Output": format!("NKATA_RESULT {}", result)}
+        ]
+    }))
+}
+
+async fn start_fake_ue5(fake: FakeUe5) -> String {
+    let app = Router::new()
+        .route("/remote/object/call", put(fake_rc_call))
+        .with_state(fake);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    format!("http://{addr}")
+}
+
+struct Harness {
+    base: String,
+    token: String,
+    http: reqwest::Client,
+    folder: PathBuf,
+    fake: FakeUe5,
+    project_id: String,
+}
+
+impl Harness {
+    async fn get(&self, path: &str) -> (u16, Value) {
+        let r = self
+            .http
+            .get(format!("{}{path}", self.base))
+            .bearer_auth(&self.token)
+            .send()
+            .await
+            .unwrap();
+        (r.status().as_u16(), r.json().await.unwrap_or(Value::Null))
+    }
+    async fn post(&self, path: &str, body: Option<Value>) -> (u16, Value) {
+        let mut req = self
+            .http
+            .post(format!("{}{path}", self.base))
+            .bearer_auth(&self.token);
+        if let Some(b) = body {
+            req = req.json(&b);
+        }
+        let r = req.send().await.unwrap();
+        (r.status().as_u16(), r.json().await.unwrap_or(Value::Null))
+    }
+}
+
+async fn start(server_url: &str, fake: FakeUe5) -> Harness {
+    let token = dev_login(server_url, ARTIST).await.unwrap();
+    let projects: Value = reqwest::Client::new()
+        .get(format!("{server_url}/projects"))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let project_id = projects["projects"][0]["id"].as_str().unwrap().to_string();
+    let server = ServerClient::new(server_url, &token, &project_id).unwrap();
+    let folder = std::env::temp_dir().join(format!("nkata-api-{}", ulid::Ulid::new()));
+    std::fs::create_dir_all(&folder).unwrap();
+    let scripts_dir = std::fs::canonicalize(env!("CARGO_MANIFEST_DIR"))
+        .unwrap()
+        .join("../../ue5-plugin/scripts");
+    let ue5_url = start_fake_ue5(fake.clone()).await;
+    let (listener, state) = bind(
+        server,
+        ServeOptions {
+            folder: folder.clone(),
+            port: 0,
+            ue5_url,
+            scripts_dir,
+            token_file: None,
+        },
+    )
+    .await
+    .unwrap();
+    let addr = listener.local_addr().unwrap();
+    let mirror = Arc::clone(&state.mirror);
+    tokio::spawn(mirror.run());
+    tokio::spawn(async move { axum::serve(listener, router(state)).await.unwrap() });
+    let agent_token = std::fs::read_to_string(folder.join(".nkata-agent/token")).unwrap();
+    Harness {
+        base: format!("http://{addr}"),
+        token: agent_token,
+        http: reqwest::Client::new(),
+        folder,
+        fake,
+        project_id,
+    }
+}
+
+fn spool_export(h: &Harness, part_id: &str) -> String {
+    let dir = h.folder.join(".nkata-agent/spool").join(part_id);
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join(format!("{}.glb", ulid::Ulid::new()));
+    std::fs::write(&path, b"glTF").unwrap();
+    path.display().to_string()
+}
+
+fn manifest() -> Value {
+    json!({"v": 1, "objects": [{"name": "Face", "triangles": 1200, "materials": ["M_Skin"], "bounds_min": [0, 0, 0], "bounds_max": [1, 1, 2], "hash": "abc"}], "armature": null, "mirror_target": null})
+}
+
+async fn wait_for_mirror(h: &Harness, part_id: &str, want: &str) -> Value {
+    for _ in 0..200 {
+        let (_, body) = h.get(&format!("/parts/{part_id}/mirror")).await;
+        if body["mirror"]["status"] == want {
+            return body["mirror"].clone();
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    panic!("mirror never reached {want}");
+}
+
+#[tokio::test]
+async fn local_api_serves_me_parts_locks_saves_and_mirrors() {
+    let Ok(server_url) = std::env::var("NKATA_TEST_SERVER_URL") else {
+        eprintln!("agent_api: NKATA_TEST_SERVER_URL not set, skipped (make test sets it)");
+        return;
+    };
+    let fake = FakeUe5 {
+        script: Arc::new(Mutex::new(vec![])),
+        calls: Arc::new(AtomicUsize::new(0)),
+        last_command: Arc::new(Mutex::new(String::new())),
+    };
+    let h = start(&server_url, fake).await;
+
+    // Token required.
+    let r = h.http.get(format!("{}/me", h.base)).send().await.unwrap();
+    assert_eq!(r.status().as_u16(), 401);
+
+    let (st, me) = h.get("/me").await;
+    assert_eq!(st, 200);
+    assert_eq!(me["user"]["name"], "Rising Sun artist");
+    assert_eq!(me["project"]["folder_name"], "rising-sun");
+    assert_eq!(me["online"], true);
+    assert!(me["spool_dir"]
+        .as_str()
+        .unwrap()
+        .ends_with(".nkata-agent/spool"));
+
+    let (_, parts) = h.get("/parts?file=Ojukwu%2Fface.blend").await;
+    assert_eq!(parts["parts"].as_array().unwrap().len(), 1);
+    let face = parts["parts"][0]["id"].as_str().unwrap().to_string();
+    assert_eq!(parts["parts"][0]["mapping"]["kind"], "blend_collection");
+
+    // SSE subscriber sees lock and mirror events.
+    let events_url = format!("{}/events?token={}", h.base, h.token);
+    let resp = reqwest::Client::new()
+        .get(&events_url)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status().as_u16(), 200);
+    let seen: Arc<Mutex<Vec<Value>>> = Arc::new(Mutex::new(vec![]));
+    let seen2 = Arc::clone(&seen);
+    tokio::spawn(async move {
+        let mut stream = resp.bytes_stream();
+        let mut buf = String::new();
+        while let Some(Ok(chunk)) = stream.next().await {
+            buf.push_str(&String::from_utf8_lossy(&chunk));
+            while let Some(pos) = buf.find("\n\n") {
+                let frame = buf[..pos].to_string();
+                buf = buf[pos + 2..].to_string();
+                for line in frame.lines() {
+                    if let Some(data) = line.strip_prefix("data:") {
+                        if let Ok(v) = serde_json::from_str::<Value>(data.trim()) {
+                            seen2.lock().await.push(v);
+                        }
+                    }
+                }
+            }
+        }
+    });
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    // Open grants, a second open by someone else reports the holder, close releases.
+    let (st, open) = h.post(&format!("/parts/{face}/open"), None).await;
+    assert_eq!(st, 200, "{open}");
+    assert_eq!(open["granted"], true);
+    let director = dev_login(&server_url, DIRECTOR).await.unwrap();
+    let held: Value = reqwest::Client::new()
+        .post(format!("{server_url}/parts/{face}/lock"))
+        .bearer_auth(&director)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(held["granted"], false);
+    let (st, close) = h.post(&format!("/parts/{face}/close"), None).await;
+    assert_eq!(st, 200);
+    assert_eq!(close["released"], true);
+
+    // Save with nothing changed: a version, no mirror.
+    let (st, saved) = h.post(&format!("/parts/{face}/saved"), Some(json!({"v": 1, "changed": false, "spool_path": null, "manifest": null, "source_file": "Ojukwu/face.blend"}))).await;
+    assert_eq!(st, 201, "{saved}");
+    assert_eq!(saved["mirror"], "skipped");
+    assert_eq!(h.fake.calls.load(Ordering::SeqCst), 0);
+
+    // Save with a change: version, mirror runs, result on SSE and on the server.
+    let spool = spool_export(&h, &face);
+    let (st, saved) = h.post(&format!("/parts/{face}/saved"), Some(json!({"v": 1, "changed": true, "spool_path": spool, "manifest": manifest(), "source_file": "Ojukwu/face.blend"}))).await;
+    assert_eq!(st, 201, "{saved}");
+    assert_eq!(saved["mirror"], "pending");
+    let version_id = saved["version_id"].as_str().unwrap().to_string();
+    let mirror = wait_for_mirror(&h, &face, "synced").await;
+    assert_eq!(mirror["version_id"], version_id);
+    assert_eq!(mirror["failures"], 0);
+    assert_eq!(h.fake.calls.load(Ordering::SeqCst), 1);
+    let command = h.fake.last_command.lock().await.clone();
+    assert!(command.contains("import_part.py"), "{command}");
+    let args_path = command.split('"').nth(3).unwrap().to_string();
+    let args: Value = serde_json::from_str(&std::fs::read_to_string(&args_path).unwrap()).unwrap();
+    assert_eq!(args["destination_path"], "/Game/Nkata/Ojukwu/face");
+    assert_eq!(args["asset_name"], "face");
+
+    let versions: Value = reqwest::Client::new()
+        .get(format!("{server_url}/parts/{face}/versions"))
+        .bearer_auth(&director)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let v = versions["versions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|v| v["id"] == version_id)
+        .unwrap();
+    assert_eq!(v["mirror_status"], "synced");
+    assert!(v["mirror_ms"].as_u64().is_some());
+
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let kinds: Vec<String> = seen
+        .lock()
+        .await
+        .iter()
+        .map(|e| e["kind"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(
+        kinds,
+        vec!["lock.granted", "lock.released", "mirror.result"]
+    );
+    let last = seen.lock().await.last().cloned().unwrap();
+    assert_eq!(last["status"], "synced");
+    assert_eq!(last["project_id"], h.project_id);
+
+    // Three failures halt the part. Retry runs it again.
+    for _ in 0..3 {
+        h.fake
+            .script
+            .lock()
+            .await
+            .push(json!({"ok": false, "message": "RuntimeError: no skeleton"}));
+    }
+    let spool = spool_export(&h, &face);
+    h.post(&format!("/parts/{face}/saved"), Some(json!({"v": 1, "changed": true, "spool_path": spool, "manifest": manifest(), "source_file": "Ojukwu/face.blend"}))).await;
+    let failed = wait_for_mirror(&h, &face, "failed").await;
+    assert_eq!(failed["message"], "RuntimeError: no skeleton");
+    assert_eq!(failed["failures"], 1);
+    assert_eq!(failed["halted"], false);
+    for i in 2..=3 {
+        let spool = spool_export(&h, &face);
+        h.post(&format!("/parts/{face}/saved"), Some(json!({"v": 1, "changed": true, "spool_path": spool, "manifest": manifest(), "source_file": "Ojukwu/face.blend"}))).await;
+        for _ in 0..200 {
+            let (_, body) = h.get(&format!("/parts/{face}/mirror")).await;
+            if body["mirror"]["failures"] == i {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    }
+    let halted = wait_for_mirror(&h, &face, "failed").await;
+    assert_eq!(halted["failures"], 3);
+    assert_eq!(halted["halted"], true);
+    let calls_before = h.fake.calls.load(Ordering::SeqCst);
+    let spool = spool_export(&h, &face);
+    h.post(&format!("/parts/{face}/saved"), Some(json!({"v": 1, "changed": true, "spool_path": spool, "manifest": manifest(), "source_file": "Ojukwu/face.blend"}))).await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(
+        h.fake.calls.load(Ordering::SeqCst),
+        calls_before,
+        "halted part must not call UE5"
+    );
+    let (_, retry) = h.post(&format!("/parts/{face}/mirror/retry"), None).await;
+    assert_eq!(retry["queued"], true);
+    let ok = wait_for_mirror(&h, &face, "synced").await;
+    assert_eq!(ok["halted"], false);
+    assert_eq!(ok["failures"], 0);
+
+    std::fs::remove_dir_all(&h.folder).unwrap();
+}
+
+#[tokio::test]
+async fn unreachable_ue5_keeps_the_job_pending() {
+    let Ok(server_url) = std::env::var("NKATA_TEST_SERVER_URL") else {
+        return;
+    };
+    let fake = FakeUe5 {
+        script: Arc::new(Mutex::new(vec![])),
+        calls: Arc::new(AtomicUsize::new(0)),
+        last_command: Arc::new(Mutex::new(String::new())),
+    };
+    let token = dev_login(&server_url, ARTIST).await.unwrap();
+    let projects: Value = reqwest::Client::new()
+        .get(format!("{server_url}/projects"))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let project_id = projects["projects"][0]["id"].as_str().unwrap().to_string();
+    let server = ServerClient::new(&server_url, &token, &project_id).unwrap();
+    let folder = std::env::temp_dir().join(format!("nkata-api-{}", ulid::Ulid::new()));
+    std::fs::create_dir_all(&folder).unwrap();
+    let scripts_dir = std::fs::canonicalize(env!("CARGO_MANIFEST_DIR"))
+        .unwrap()
+        .join("../../ue5-plugin/scripts");
+    // A port with nothing listening.
+    let dead = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let dead_url = format!("http://{}", dead.local_addr().unwrap());
+    drop(dead);
+    let (listener, state) = bind(
+        server,
+        ServeOptions {
+            folder: folder.clone(),
+            port: 0,
+            ue5_url: dead_url,
+            scripts_dir,
+            token_file: None,
+        },
+    )
+    .await
+    .unwrap();
+    let addr = listener.local_addr().unwrap();
+    let mirror = Arc::clone(&state.mirror);
+    tokio::spawn(mirror.run());
+    tokio::spawn(async move { axum::serve(listener, router(state)).await.unwrap() });
+    let agent_token = std::fs::read_to_string(folder.join(".nkata-agent/token")).unwrap();
+    let h = Harness {
+        base: format!("http://{addr}"),
+        token: agent_token,
+        http: reqwest::Client::new(),
+        folder,
+        fake,
+        project_id,
+    };
+
+    let (_, parts) = h.get("/parts?file=Ojukwu%2Fcloth.blend").await;
+    let cloth = parts["parts"][0]["id"].as_str().unwrap().to_string();
+    let spool = spool_export(&h, &cloth);
+    let (st, _) = h.post(&format!("/parts/{cloth}/saved"), Some(json!({"v": 1, "changed": true, "spool_path": spool, "manifest": manifest(), "source_file": "Ojukwu/cloth.blend"}))).await;
+    assert_eq!(st, 201);
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let (_, body) = h.get(&format!("/parts/{cloth}/mirror")).await;
+    assert_eq!(body["mirror"]["status"], "pending");
+    assert_eq!(body["mirror"]["message"], "Waiting for UE5");
+    assert_eq!(body["mirror"]["failures"], 0);
+    std::fs::remove_dir_all(&h.folder).unwrap();
+}

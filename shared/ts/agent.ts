@@ -19,6 +19,7 @@ export const MeResponse = z.strictObject({
   "project": ProjectRef,
   "package_version": z.string().min(1),
   "online": z.boolean(),
+  "spool_dir": z.string().min(1),
 });
 export type MeResponse = z.infer<typeof MeResponse>;
 
