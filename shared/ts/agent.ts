@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @nkata/shared generate
 
 import { z } from "zod";
-import { CheckResult, CommentPin, Gate, LockInfo, MirrorStatus, PartMapping, PartState, ReviewDecision, Ulid, UserRef, Vec3 } from "./common.js";
+import { CheckResult, CommentPin, Gate, LockInfo, MirrorStatus, PartMapping, PartState, ReviewDecision, Timestamp, Ulid, UserRef, Vec3 } from "./common.js";
 import { CommentCreated, LockGranted, LockReleased, LockRequested, MirrorResult, PartStateChanged, PresenceChanged, PresenceEntry } from "./events.js";
 
 export const ProjectRef = z.strictObject({
@@ -179,3 +179,31 @@ export type PresenceResponse = z.infer<typeof PresenceResponse>;
 /** GET /events (SSE). The agent relays these server events to editors. */
 export const AgentEvent = z.discriminatedUnion("kind", [PresenceChanged, LockGranted, LockReleased, LockRequested, MirrorResult, PartStateChanged, CommentCreated]);
 export type AgentEvent = z.infer<typeof AgentEvent>;
+
+/** POST /parts/:id/mirror/retry. Clears the failure count and queues the newest pending mirror again. */
+export const MirrorRetryResponse = z.strictObject({
+  "v": z.literal(1),
+  "part_id": Ulid,
+  "queued": z.boolean(),
+});
+export type MirrorRetryResponse = z.infer<typeof MirrorRetryResponse>;
+
+/** What the agent knows about one part's mirror, for the panels. */
+export const MirrorState = z.strictObject({
+  "part_id": Ulid,
+  "status": MirrorStatus,
+  "version_id": Ulid.nullable(),
+  "at": Timestamp.nullable(),
+  "mirror_ms": z.number().int().min(0).nullable(),
+  "message": z.string(),
+  "failures": z.number().int().min(0),
+  "halted": z.boolean(),
+});
+export type MirrorState = z.infer<typeof MirrorState>;
+
+/** GET /parts/:id/mirror */
+export const MirrorStateResponse = z.strictObject({
+  "v": z.literal(1),
+  "mirror": MirrorState,
+});
+export type MirrorStateResponse = z.infer<typeof MirrorStateResponse>;

@@ -26,6 +26,7 @@ const template = {
 const manifestObject = { name: "Face", triangles: 12000, materials: ["M_Skin"], bounds_min: [-1, -1, 0], bounds_max: [1, 1, 2], hash: "abc" };
 const manifest = { v: 1, objects: [manifestObject], armature: null, mirror_target: "/Game/Characters/Ojukwu/face" };
 const mapping = { kind: "blend_collection", file: "face.blend", collection: "face" };
+const mirrorState = { part_id: id, status: "synced", version_id: id2, at, mirror_ms: 4200, message: "", failures: 0, halted: false };
 const partSummary = { id, asset_id: id2, asset_name: "Ojukwu", name: "face", state: "draft", owner: user, lock, gate: { after: [] }, mapping };
 
 const events = {
@@ -115,5 +116,8 @@ export const fixtures: Fixtures = {
     PresenceRequest: { valid: [{ v: 1, part_id: null }, { v: 1, part_id: id }], invalid: [{ v: 1 }] },
     PresenceResponse: { valid: [{ v: 1, online: [presenceEntry] }], invalid: [{ v: 1, online: null }] },
     AgentEvent: { valid: [events.LockGranted, events.MirrorResult, events.CommentCreated], invalid: [events.GateOpened] },
+    MirrorRetryResponse: { valid: [{ v: 1, part_id: id, queued: true }], invalid: [{ v: 1, part_id: id }] },
+    MirrorState: { valid: [mirrorState, { ...mirrorState, status: "pending", version_id: null, at: null, mirror_ms: null }], invalid: [{ ...mirrorState, failures: -1 }] },
+    MirrorStateResponse: { valid: [{ v: 1, mirror: mirrorState }], invalid: [{ v: 1 }] },
   },
 };

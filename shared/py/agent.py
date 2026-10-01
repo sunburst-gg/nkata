@@ -6,10 +6,10 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from . import _runtime as _rt
-from .common import CheckResult, CommentPin, Gate, LockInfo, MirrorStatus, PartMapping, PartState, ReviewDecision, Ulid, UserRef, Vec3, validate_CheckResult, validate_CommentPin, validate_Gate, validate_LockInfo, validate_MirrorStatus, validate_PartMapping, validate_PartState, validate_ReviewDecision, validate_Ulid, validate_UserRef, validate_Vec3
+from .common import CheckResult, CommentPin, Gate, LockInfo, MirrorStatus, PartMapping, PartState, ReviewDecision, Timestamp, Ulid, UserRef, Vec3, validate_CheckResult, validate_CommentPin, validate_Gate, validate_LockInfo, validate_MirrorStatus, validate_PartMapping, validate_PartState, validate_ReviewDecision, validate_Timestamp, validate_Ulid, validate_UserRef, validate_Vec3
 from .events import CommentCreated, LockGranted, LockReleased, LockRequested, MirrorResult, PartStateChanged, PresenceChanged, PresenceEntry, validate_CommentCreated, validate_LockGranted, validate_LockReleased, validate_LockRequested, validate_MirrorResult, validate_PartStateChanged, validate_PresenceChanged, validate_PresenceEntry
 
-__imported__ = (CheckResult, CommentCreated, CommentPin, Gate, LockGranted, LockInfo, LockReleased, LockRequested, MirrorResult, MirrorStatus, PartMapping, PartState, PartStateChanged, PresenceChanged, PresenceEntry, ReviewDecision, Ulid, UserRef, Vec3, validate_CheckResult, validate_CommentCreated, validate_CommentPin, validate_Gate, validate_LockGranted, validate_LockInfo, validate_LockReleased, validate_LockRequested, validate_MirrorResult, validate_MirrorStatus, validate_PartMapping, validate_PartState, validate_PartStateChanged, validate_PresenceChanged, validate_PresenceEntry, validate_ReviewDecision, validate_Ulid, validate_UserRef, validate_Vec3,)
+__imported__ = (CheckResult, CommentCreated, CommentPin, Gate, LockGranted, LockInfo, LockReleased, LockRequested, MirrorResult, MirrorStatus, PartMapping, PartState, PartStateChanged, PresenceChanged, PresenceEntry, ReviewDecision, Timestamp, Ulid, UserRef, Vec3, validate_CheckResult, validate_CommentCreated, validate_CommentPin, validate_Gate, validate_LockGranted, validate_LockInfo, validate_LockReleased, validate_LockRequested, validate_MirrorResult, validate_MirrorStatus, validate_PartMapping, validate_PartState, validate_PartStateChanged, validate_PresenceChanged, validate_PresenceEntry, validate_ReviewDecision, validate_Timestamp, validate_Ulid, validate_UserRef, validate_Vec3,)
 
 @dataclass(frozen=True)
 class ProjectRef:
@@ -220,6 +220,40 @@ class PresenceRequest:
 class PresenceResponse:
     v: Literal[1]
     online: list[PresenceEntry]
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
+@dataclass(frozen=True)
+class MirrorRetryResponse:
+    """POST /parts/:id/mirror/retry. Clears the failure count and queues the newest pending mirror again."""
+    v: Literal[1]
+    part_id: Ulid
+    queued: bool
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
+@dataclass(frozen=True)
+class MirrorState:
+    """What the agent knows about one part's mirror, for the panels."""
+    part_id: Ulid
+    status: MirrorStatus
+    version_id: Ulid | None
+    at: Timestamp | None
+    mirror_ms: int | None
+    message: str
+    failures: int
+    halted: bool
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
+@dataclass(frozen=True)
+class MirrorStateResponse:
+    """GET /parts/:id/mirror"""
+    v: Literal[1]
+    mirror: MirrorState
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -610,3 +644,67 @@ def _v_AgentEvent(value: object, path: str) -> Any:
 
 def validate_AgentEvent(value: object, path: str = "$") -> Any:
     return _v_AgentEvent(value, path)
+
+def _v_MirrorRetryResponse_v(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, (1,))
+
+def _v_MirrorRetryResponse_queued(value: object, path: str) -> bool:
+    return _rt.check_bool(value, path)
+
+def validate_MirrorRetryResponse(value: object, path: str = "$") -> MirrorRetryResponse:
+    obj = _rt.check_object(value, path, required=("v", "part_id", "queued",), allowed=("v", "part_id", "queued",))
+    return MirrorRetryResponse(
+        v=_v_MirrorRetryResponse_v(obj["v"], path + ".v"),
+        part_id=validate_Ulid(obj["part_id"], path + ".part_id"),
+        queued=_v_MirrorRetryResponse_queued(obj["queued"], path + ".queued"),
+    )
+
+def _v_MirrorState_version_id(value: object, path: str) -> Any:
+    if value is None:
+        return None
+    return validate_Ulid(value, path)
+
+def _v_MirrorState_at(value: object, path: str) -> Any:
+    if value is None:
+        return None
+    return validate_Timestamp(value, path)
+
+def _v_MirrorState_mirror_ms_inner(value: object, path: str) -> int:
+    return _rt.check_int(value, path, minimum=0, maximum=None)
+
+def _v_MirrorState_mirror_ms(value: object, path: str) -> Any:
+    if value is None:
+        return None
+    return _v_MirrorState_mirror_ms_inner(value, path)
+
+def _v_MirrorState_message(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=0, pattern=None, fmt=None)
+
+def _v_MirrorState_failures(value: object, path: str) -> int:
+    return _rt.check_int(value, path, minimum=0, maximum=None)
+
+def _v_MirrorState_halted(value: object, path: str) -> bool:
+    return _rt.check_bool(value, path)
+
+def validate_MirrorState(value: object, path: str = "$") -> MirrorState:
+    obj = _rt.check_object(value, path, required=("part_id", "status", "version_id", "at", "mirror_ms", "message", "failures", "halted",), allowed=("part_id", "status", "version_id", "at", "mirror_ms", "message", "failures", "halted",))
+    return MirrorState(
+        part_id=validate_Ulid(obj["part_id"], path + ".part_id"),
+        status=validate_MirrorStatus(obj["status"], path + ".status"),
+        version_id=_v_MirrorState_version_id(obj["version_id"], path + ".version_id"),
+        at=_v_MirrorState_at(obj["at"], path + ".at"),
+        mirror_ms=_v_MirrorState_mirror_ms(obj["mirror_ms"], path + ".mirror_ms"),
+        message=_v_MirrorState_message(obj["message"], path + ".message"),
+        failures=_v_MirrorState_failures(obj["failures"], path + ".failures"),
+        halted=_v_MirrorState_halted(obj["halted"], path + ".halted"),
+    )
+
+def _v_MirrorStateResponse_v(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, (1,))
+
+def validate_MirrorStateResponse(value: object, path: str = "$") -> MirrorStateResponse:
+    obj = _rt.check_object(value, path, required=("v", "mirror",), allowed=("v", "mirror",))
+    return MirrorStateResponse(
+        v=_v_MirrorStateResponse_v(obj["v"], path + ".v"),
+        mirror=validate_MirrorState(obj["mirror"], path + ".mirror"),
+    )

@@ -7,248 +7,706 @@
     "ProjectRef": {
       "type": "object",
       "properties": {
-        "id": { "$ref": "common.schema.json#/$defs/Ulid" },
-        "name": { "type": "string", "minLength": 1 },
-        "folder_name": { "type": "string", "minLength": 1 }
+        "id": {
+          "$ref": "common.schema.json#/$defs/Ulid"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "folder_name": {
+          "type": "string",
+          "minLength": 1
+        }
       },
-      "required": ["id", "name", "folder_name"],
+      "required": [
+        "id",
+        "name",
+        "folder_name"
+      ],
       "additionalProperties": false
     },
     "MeResponse": {
       "description": "GET /me",
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "user": { "$ref": "common.schema.json#/$defs/UserRef" },
-        "project": { "$ref": "#/$defs/ProjectRef" },
-        "package_version": { "type": "string", "minLength": 1 },
-        "online": { "type": "boolean" }
+        "v": {
+          "const": 1
+        },
+        "user": {
+          "$ref": "common.schema.json#/$defs/UserRef"
+        },
+        "project": {
+          "$ref": "#/$defs/ProjectRef"
+        },
+        "package_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "online": {
+          "type": "boolean"
+        }
       },
-      "required": ["v", "user", "project", "package_version", "online"],
+      "required": [
+        "v",
+        "user",
+        "project",
+        "package_version",
+        "online"
+      ],
       "additionalProperties": false
     },
     "PartSummary": {
       "type": "object",
       "properties": {
-        "id": { "$ref": "common.schema.json#/$defs/Ulid" },
-        "asset_id": { "$ref": "common.schema.json#/$defs/Ulid" },
-        "asset_name": { "type": "string", "minLength": 1 },
-        "name": { "type": "string", "minLength": 1 },
-        "state": { "$ref": "common.schema.json#/$defs/PartState" },
-        "owner": { "anyOf": [{ "$ref": "common.schema.json#/$defs/UserRef" }, { "type": "null" }] },
-        "lock": { "anyOf": [{ "$ref": "common.schema.json#/$defs/LockInfo" }, { "type": "null" }] },
-        "gate": { "$ref": "common.schema.json#/$defs/Gate" },
-        "mapping": { "$ref": "common.schema.json#/$defs/PartMapping" }
+        "id": {
+          "$ref": "common.schema.json#/$defs/Ulid"
+        },
+        "asset_id": {
+          "$ref": "common.schema.json#/$defs/Ulid"
+        },
+        "asset_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "state": {
+          "$ref": "common.schema.json#/$defs/PartState"
+        },
+        "owner": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/UserRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lock": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/LockInfo"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gate": {
+          "$ref": "common.schema.json#/$defs/Gate"
+        },
+        "mapping": {
+          "$ref": "common.schema.json#/$defs/PartMapping"
+        }
       },
-      "required": ["id", "asset_id", "asset_name", "name", "state", "owner", "lock", "gate", "mapping"],
+      "required": [
+        "id",
+        "asset_id",
+        "asset_name",
+        "name",
+        "state",
+        "owner",
+        "lock",
+        "gate",
+        "mapping"
+      ],
       "additionalProperties": false
     },
     "PartsResponse": {
       "description": "GET /parts?file=",
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "parts": { "type": "array", "items": { "$ref": "#/$defs/PartSummary" } }
+        "v": {
+          "const": 1
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PartSummary"
+          }
+        }
       },
-      "required": ["v", "parts"],
+      "required": [
+        "v",
+        "parts"
+      ],
       "additionalProperties": false
     },
     "PartOpenResponse": {
       "description": "POST /parts/:id/open. Granted, or the holder so the panel can show a request-unlock button.",
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "granted": { "type": "boolean" },
-        "lock": { "$ref": "common.schema.json#/$defs/LockInfo" }
+        "v": {
+          "const": 1
+        },
+        "granted": {
+          "type": "boolean"
+        },
+        "lock": {
+          "$ref": "common.schema.json#/$defs/LockInfo"
+        }
       },
-      "required": ["v", "granted", "lock"],
+      "required": [
+        "v",
+        "granted",
+        "lock"
+      ],
       "additionalProperties": false
     },
     "PartCloseResponse": {
       "description": "POST /parts/:id/close",
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "released": { "type": "boolean" }
+        "v": {
+          "const": 1
+        },
+        "released": {
+          "type": "boolean"
+        }
       },
-      "required": ["v", "released"],
+      "required": [
+        "v",
+        "released"
+      ],
       "additionalProperties": false
     },
     "ManifestObject": {
       "type": "object",
       "properties": {
-        "name": { "type": "string", "minLength": 1 },
-        "triangles": { "type": "integer", "minimum": 0 },
-        "materials": { "type": "array", "items": { "type": "string" } },
-        "bounds_min": { "$ref": "common.schema.json#/$defs/Vec3" },
-        "bounds_max": { "$ref": "common.schema.json#/$defs/Vec3" },
-        "hash": { "type": "string", "description": "Hash of mesh data, material slots, and transform." }
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "triangles": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "materials": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "bounds_min": {
+          "$ref": "common.schema.json#/$defs/Vec3"
+        },
+        "bounds_max": {
+          "$ref": "common.schema.json#/$defs/Vec3"
+        },
+        "hash": {
+          "type": "string",
+          "description": "Hash of mesh data, material slots, and transform."
+        }
       },
-      "required": ["name", "triangles", "materials", "bounds_min", "bounds_max", "hash"],
+      "required": [
+        "name",
+        "triangles",
+        "materials",
+        "bounds_min",
+        "bounds_max",
+        "hash"
+      ],
       "additionalProperties": false
     },
     "ObjectManifest": {
       "type": "object",
       "description": "Written next to the export in the spool. See docs/engineering.md, The mirror, step 2.",
       "properties": {
-        "v": { "const": 1 },
-        "objects": { "type": "array", "items": { "$ref": "#/$defs/ManifestObject" } },
-        "armature": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "mirror_target": { "anyOf": [{ "type": "string" }, { "type": "null" }], "description": "Destination path in the engine, from the part mapping." }
+        "v": {
+          "const": 1
+        },
+        "objects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ManifestObject"
+          }
+        },
+        "armature": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mirror_target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Destination path in the engine, from the part mapping."
+        }
       },
-      "required": ["v", "objects", "armature", "mirror_target"],
+      "required": [
+        "v",
+        "objects",
+        "armature",
+        "mirror_target"
+      ],
       "additionalProperties": false
     },
     "PartSavedRequest": {
       "description": "POST /parts/:id/saved, from Blender on save_post.",
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "changed": { "type": "boolean" },
-        "spool_path": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
-        "manifest": { "anyOf": [{ "$ref": "#/$defs/ObjectManifest" }, { "type": "null" }] },
-        "source_file": { "type": "string", "minLength": 1 }
+        "v": {
+          "const": 1
+        },
+        "changed": {
+          "type": "boolean"
+        },
+        "spool_path": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "manifest": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObjectManifest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source_file": {
+          "type": "string",
+          "minLength": 1
+        }
       },
-      "required": ["v", "changed", "spool_path", "manifest", "source_file"],
+      "required": [
+        "v",
+        "changed",
+        "spool_path",
+        "manifest",
+        "source_file"
+      ],
       "additionalProperties": false
     },
     "PartSavedResponse": {
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "version_id": { "$ref": "common.schema.json#/$defs/Ulid" },
-        "mirror": { "$ref": "common.schema.json#/$defs/MirrorStatus" }
+        "v": {
+          "const": 1
+        },
+        "version_id": {
+          "$ref": "common.schema.json#/$defs/Ulid"
+        },
+        "mirror": {
+          "$ref": "common.schema.json#/$defs/MirrorStatus"
+        }
       },
-      "required": ["v", "version_id", "mirror"],
+      "required": [
+        "v",
+        "version_id",
+        "mirror"
+      ],
       "additionalProperties": false
     },
     "PublishRequest": {
       "description": "POST /parts/:id/publish",
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "check_results": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/CheckResult" } },
-        "ready": { "type": "boolean" }
+        "v": {
+          "const": 1
+        },
+        "check_results": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/CheckResult"
+          }
+        },
+        "ready": {
+          "type": "boolean"
+        }
       },
-      "required": ["v", "check_results", "ready"],
+      "required": [
+        "v",
+        "check_results",
+        "ready"
+      ],
       "additionalProperties": false
     },
     "PublishResponse": {
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "published": { "type": "boolean" },
-        "version_id": { "$ref": "common.schema.json#/$defs/Ulid" },
-        "state": { "$ref": "common.schema.json#/$defs/PartState" },
-        "blocked_by": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/CheckResult" } }
+        "v": {
+          "const": 1
+        },
+        "published": {
+          "type": "boolean"
+        },
+        "version_id": {
+          "$ref": "common.schema.json#/$defs/Ulid"
+        },
+        "state": {
+          "$ref": "common.schema.json#/$defs/PartState"
+        },
+        "blocked_by": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/CheckResult"
+          }
+        }
       },
-      "required": ["v", "published", "version_id", "state", "blocked_by"],
+      "required": [
+        "v",
+        "published",
+        "version_id",
+        "state",
+        "blocked_by"
+      ],
       "additionalProperties": false
     },
     "ChecksRequest": {
       "description": "POST /parts/:id/checks",
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "results": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/CheckResult" } }
+        "v": {
+          "const": 1
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/CheckResult"
+          }
+        }
       },
-      "required": ["v", "results"],
+      "required": [
+        "v",
+        "results"
+      ],
       "additionalProperties": false
     },
     "ChecksResponse": {
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "version_id": { "$ref": "common.schema.json#/$defs/Ulid" },
-        "recorded": { "type": "integer", "minimum": 0 }
+        "v": {
+          "const": 1
+        },
+        "version_id": {
+          "$ref": "common.schema.json#/$defs/Ulid"
+        },
+        "recorded": {
+          "type": "integer",
+          "minimum": 0
+        }
       },
-      "required": ["v", "version_id", "recorded"],
+      "required": [
+        "v",
+        "version_id",
+        "recorded"
+      ],
       "additionalProperties": false
     },
     "CommentsResponse": {
       "description": "GET /parts/:id/comments",
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "comments": { "type": "array", "items": { "$ref": "common.schema.json#/$defs/CommentPin" } }
+        "v": {
+          "const": 1
+        },
+        "comments": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/CommentPin"
+          }
+        }
       },
-      "required": ["v", "comments"],
+      "required": [
+        "v",
+        "comments"
+      ],
       "additionalProperties": false
     },
     "CommentCreateRequest": {
       "description": "POST /parts/:id/comments",
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "point": { "$ref": "common.schema.json#/$defs/Vec3" },
-        "normal": { "$ref": "common.schema.json#/$defs/Vec3" },
-        "body": { "type": "string", "minLength": 1 },
-        "linear_issue": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+        "v": {
+          "const": 1
+        },
+        "point": {
+          "$ref": "common.schema.json#/$defs/Vec3"
+        },
+        "normal": {
+          "$ref": "common.schema.json#/$defs/Vec3"
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1
+        },
+        "linear_issue": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
       },
-      "required": ["v", "point", "normal", "body", "linear_issue"],
+      "required": [
+        "v",
+        "point",
+        "normal",
+        "body",
+        "linear_issue"
+      ],
       "additionalProperties": false
     },
     "CommentCreateResponse": {
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "comment": { "$ref": "common.schema.json#/$defs/CommentPin" }
+        "v": {
+          "const": 1
+        },
+        "comment": {
+          "$ref": "common.schema.json#/$defs/CommentPin"
+        }
       },
-      "required": ["v", "comment"],
+      "required": [
+        "v",
+        "comment"
+      ],
       "additionalProperties": false
     },
     "ReviewRequest": {
       "description": "POST /parts/:id/review, UE5 only, art director only.",
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "score": { "type": "integer", "minimum": 1, "maximum": 5 },
-        "decision": { "$ref": "common.schema.json#/$defs/ReviewDecision" },
-        "note": { "type": "string" }
+        "v": {
+          "const": 1
+        },
+        "score": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "decision": {
+          "$ref": "common.schema.json#/$defs/ReviewDecision"
+        },
+        "note": {
+          "type": "string"
+        }
       },
-      "required": ["v", "score", "decision", "note"],
+      "required": [
+        "v",
+        "score",
+        "decision",
+        "note"
+      ],
       "additionalProperties": false
     },
     "ReviewResponse": {
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "review_id": { "$ref": "common.schema.json#/$defs/Ulid" },
-        "state": { "$ref": "common.schema.json#/$defs/PartState" }
+        "v": {
+          "const": 1
+        },
+        "review_id": {
+          "$ref": "common.schema.json#/$defs/Ulid"
+        },
+        "state": {
+          "$ref": "common.schema.json#/$defs/PartState"
+        }
       },
-      "required": ["v", "review_id", "state"],
+      "required": [
+        "v",
+        "review_id",
+        "state"
+      ],
       "additionalProperties": false
     },
     "PresenceRequest": {
       "description": "POST /presence, every 15 s.",
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "part_id": { "anyOf": [{ "$ref": "common.schema.json#/$defs/Ulid" }, { "type": "null" }] }
+        "v": {
+          "const": 1
+        },
+        "part_id": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/Ulid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
       },
-      "required": ["v", "part_id"],
+      "required": [
+        "v",
+        "part_id"
+      ],
       "additionalProperties": false
     },
     "PresenceResponse": {
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "online": { "type": "array", "items": { "$ref": "events.schema.json#/$defs/PresenceEntry" } }
+        "v": {
+          "const": 1
+        },
+        "online": {
+          "type": "array",
+          "items": {
+            "$ref": "events.schema.json#/$defs/PresenceEntry"
+          }
+        }
       },
-      "required": ["v", "online"],
+      "required": [
+        "v",
+        "online"
+      ],
       "additionalProperties": false
     },
     "AgentEvent": {
       "description": "GET /events (SSE). The agent relays these server events to editors.",
       "oneOf": [
-        { "$ref": "events.schema.json#/$defs/PresenceChanged" },
-        { "$ref": "events.schema.json#/$defs/LockGranted" },
-        { "$ref": "events.schema.json#/$defs/LockReleased" },
-        { "$ref": "events.schema.json#/$defs/LockRequested" },
-        { "$ref": "events.schema.json#/$defs/MirrorResult" },
-        { "$ref": "events.schema.json#/$defs/PartStateChanged" },
-        { "$ref": "events.schema.json#/$defs/CommentCreated" }
+        {
+          "$ref": "events.schema.json#/$defs/PresenceChanged"
+        },
+        {
+          "$ref": "events.schema.json#/$defs/LockGranted"
+        },
+        {
+          "$ref": "events.schema.json#/$defs/LockReleased"
+        },
+        {
+          "$ref": "events.schema.json#/$defs/LockRequested"
+        },
+        {
+          "$ref": "events.schema.json#/$defs/MirrorResult"
+        },
+        {
+          "$ref": "events.schema.json#/$defs/PartStateChanged"
+        },
+        {
+          "$ref": "events.schema.json#/$defs/CommentCreated"
+        }
       ]
+    },
+    "MirrorRetryResponse": {
+      "description": "POST /parts/:id/mirror/retry. Clears the failure count and queues the newest pending mirror again.",
+      "type": "object",
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "part_id": {
+          "$ref": "common.schema.json#/$defs/Ulid"
+        },
+        "queued": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "v",
+        "part_id",
+        "queued"
+      ],
+      "additionalProperties": false
+    },
+    "MirrorState": {
+      "description": "What the agent knows about one part's mirror, for the panels.",
+      "type": "object",
+      "properties": {
+        "part_id": {
+          "$ref": "common.schema.json#/$defs/Ulid"
+        },
+        "status": {
+          "$ref": "common.schema.json#/$defs/MirrorStatus"
+        },
+        "version_id": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/Ulid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "at": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/Timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mirror_ms": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "failures": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "halted": {
+          "type": "boolean",
+          "description": "True after three failures in a row. Retry clears it."
+        }
+      },
+      "required": [
+        "part_id",
+        "status",
+        "version_id",
+        "at",
+        "mirror_ms",
+        "message",
+        "failures",
+        "halted"
+      ],
+      "additionalProperties": false
+    },
+    "MirrorStateResponse": {
+      "description": "GET /parts/:id/mirror",
+      "type": "object",
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "mirror": {
+          "$ref": "#/$defs/MirrorState"
+        }
+      },
+      "required": [
+        "v",
+        "mirror"
+      ],
+      "additionalProperties": false
     }
   }
 }
