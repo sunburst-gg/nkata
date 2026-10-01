@@ -4,13 +4,20 @@
 //! and the CLI binary both call into this crate. See docs/engineering.md,
 //! Storage and sync.
 
+pub mod agent;
+pub mod chunker;
+pub mod client;
+pub mod error;
+pub mod ids;
+pub mod ignore;
+pub mod index;
+pub mod queue;
+pub mod scan;
+pub mod sync;
+pub mod watch;
+
+pub use agent::{Agent, AgentConfig};
+pub use error::AgentError;
+
 /// Package version. A project pins this number. See docs/engineering.md, Repo and stack.
 pub const PACKAGE_VERSION: &str = env!("CARGO_PKG_VERSION");
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn package_version_is_set() {
-        assert!(!super::PACKAGE_VERSION.is_empty());
-    }
-}

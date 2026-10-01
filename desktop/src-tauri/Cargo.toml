@@ -15,6 +15,21 @@ name = "nkata-agent"
 path = "src/main.rs"
 
 [dependencies]
+blake3 = "1"
+clap = { version = "4", features = ["derive"] }
+fastcdc = "3"
+notify = "8"
+notify-debouncer-full = "0.5"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "sync", "time", "io-util", "signal"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+ulid = "1"
+walkdir = "2"
 
 [dev-dependencies]
+tempfile = "3"
