@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nkata.dev/schemas/check.schema.json",
+  "title": "Nkata check contract",
+  "description": "One file per check at shared/checks/<id>.json. See docs/engineering.md, Checks.",
+  "$defs": {
+    "CheckTarget": {
+      "type": "string",
+      "enum": ["blender", "ue5", "file"]
+    },
+    "CheckContract": {
+      "type": "object",
+      "properties": {
+        "v": { "const": 1 },
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "title": { "type": "string", "minLength": 1 },
+        "severity": { "$ref": "common.schema.json#/$defs/CheckSeverity" },
+        "auto_fix": { "type": "boolean" },
+        "params": {
+          "type": "object",
+          "description": "JSON Schema for the params a template may pass to this check.",
+          "additionalProperties": true
+        },
+        "applies_to": { "type": "array", "items": { "$ref": "#/$defs/CheckTarget" }, "minItems": 1 }
+      },
+      "required": ["v", "id", "title", "severity", "auto_fix", "params", "applies_to"],
+      "additionalProperties": false
+    }
+  }
+}

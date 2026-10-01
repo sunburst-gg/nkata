@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "id": "rig_bone_count",
+  "title": "Rig bone count is within budget",
+  "severity": "block",
+  "auto_fix": false,
+  "params": {"type": "object", "properties": {"max": {"type": "integer", "minimum": 1}}, "required": ["max"], "additionalProperties": false},
+  "applies_to": ["blender"]
+}

@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nkata.dev/schemas/common.schema.json",
+  "title": "Nkata common types",
+  "description": "Shared primitives used by every protocol. See docs/engineering.md, Data model.",
+  "$defs": {
+    "Ulid": {
+      "type": "string",
+      "description": "Crockford base32 ULID, 26 chars. Every id in Nkata is a ULID.",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "Timestamp": {
+      "type": "string",
+      "description": "ISO 8601 UTC instant on the wire.",
+      "format": "date-time"
+    },
+    "PartState": {
+      "type": "string",
+      "description": "Part state machine. See docs/product.md, Core concepts.",
+      "enum": ["locked", "draft", "ready", "approved"]
+    },
+    "Role": {
+      "type": "string",
+      "enum": ["artist", "art_director", "engineer", "writer", "producer"]
+    },
+    "MirrorStatus": {
+      "type": "string",
+      "description": "Result of the Blender to UE5 mirror for one version.",
+      "enum": ["pending", "syncing", "synced", "failed", "skipped"]
+    },
+    "CheckSeverity": {
+      "type": "string",
+      "enum": ["block", "warn"]
+    },
+    "ReviewDecision": {
+      "type": "string",
+      "enum": ["approve", "send_back"]
+    },
+    "Vec3": {
+      "type": "array",
+      "description": "Three floats in the part's local space.",
+      "items": { "type": "number" },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "UserRef": {
+      "type": "object",
+      "description": "Enough of a user to show a name and a face.",
+      "properties": {
+        "id": { "$ref": "#/$defs/Ulid" },
+        "name": { "type": "string", "minLength": 1 },
+        "avatar_url": { "anyOf": [{ "type": "string", "format": "uri" }, { "type": "null" }] }
+      },
+      "required": ["id", "name", "avatar_url"],
+      "additionalProperties": false
+    },
+    "Gate": {
+      "type": "object",
+      "description": "A part is Locked until every part named in after is Approved.",
+      "properties": {
+        "after": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      },
+      "required": ["after"],
+      "additionalProperties": false
+    },
+    "PartMapping": {
+      "description": "What real thing a part maps to. See docs/engineering.md, Data model, part.mapping.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "blend_collection" },
+            "file": { "type": "string", "minLength": 1 },
+            "collection": { "type": "string", "minLength": 1 }
+          },
+          "required": ["kind", "file", "collection"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "ue_actor" },
+            "level": { "type": "string", "minLength": 1 },
+            "actor": { "type": "string", "minLength": 1 }
+          },
+          "required": ["kind", "level", "actor"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "ue_asset" },
+            "path": { "type": "string", "minLength": 1 }
+          },
+          "required": ["kind", "path"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "file" },
+            "path": { "type": "string", "minLength": 1 }
+          },
+          "required": ["kind", "path"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "LockInfo": {
+      "type": "object",
+      "description": "Who holds the editor lock on a part. Separate from part state.",
+      "properties": {
+        "holder": { "$ref": "#/$defs/UserRef" },
+        "granted_at": { "$ref": "#/$defs/Timestamp" },
+        "heartbeat_at": { "$ref": "#/$defs/Timestamp" },
+        "expires_at": { "$ref": "#/$defs/Timestamp" },
+        "stale": { "type": "boolean", "description": "True after 2 minutes with no heartbeat." }
+      },
+      "required": ["holder", "granted_at", "heartbeat_at", "expires_at", "stale"],
+      "additionalProperties": false
+    },
+    "CheckResult": {
+      "type": "object",
+      "description": "One check run on one version, reported by the editor.",
+      "properties": {
+        "check_id": { "type": "string", "minLength": 1 },
+        "severity": { "$ref": "#/$defs/CheckSeverity" },
+        "passed": { "type": "boolean" },
+        "auto_fixed": { "type": "boolean" },
+        "message": { "type": "string" }
+      },
+      "required": ["check_id", "severity", "passed", "auto_fixed", "message"],
+      "additionalProperties": false
+    },
+    "CommentPin": {
+      "type": "object",
+      "description": "A comment pinned to a point on a part, in part local space at a version.",
+      "properties": {
+        "id": { "$ref": "#/$defs/Ulid" },
+        "part_id": { "$ref": "#/$defs/Ulid" },
+        "version_id": { "$ref": "#/$defs/Ulid" },
+        "author": { "$ref": "#/$defs/UserRef" },
+        "point": { "$ref": "#/$defs/Vec3" },
+        "normal": { "$ref": "#/$defs/Vec3" },
+        "body": { "type": "string", "minLength": 1 },
+        "linear_issue": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "resolved_at": { "anyOf": [{ "$ref": "#/$defs/Timestamp" }, { "type": "null" }] },
+        "created_at": { "$ref": "#/$defs/Timestamp" }
+      },
+      "required": ["id", "part_id", "version_id", "author", "point", "normal", "body", "linear_issue", "resolved_at", "created_at"],
+      "additionalProperties": false
+    },
+    "ErrorBody": {
+      "type": "object",
+      "description": "Every error response on every HTTP boundary has this shape.",
+      "properties": {
+        "v": { "const": 1 },
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": { "type": "string", "minLength": 1 },
+            "message": { "type": "string", "minLength": 1 }
+          },
+          "required": ["code", "message"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["v", "error"],
+      "additionalProperties": false
+    }
+  }
+}

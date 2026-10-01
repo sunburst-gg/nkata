@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nkata.dev/schemas/template.schema.json",
+  "title": "Nkata template",
+  "description": "One file per template at <project>/.nkata/templates/<name>.json. See docs/engineering.md, Templates.",
+  "$defs": {
+    "TemplateMappingKind": {
+      "type": "string",
+      "enum": ["file", "blend_collection", "ue_asset", "ue_actor"]
+    },
+    "TemplatePart": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "pattern": "^[a-z][a-z0-9_]*$" },
+        "mapping": { "$ref": "#/$defs/TemplateMappingKind" },
+        "gate": {
+          "type": "array",
+          "description": "Names of parts that must be Approved before this part opens. Absent means no gate.",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "checks": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "params": {
+          "type": "object",
+          "description": "Per check parameters keyed by check id.",
+          "additionalProperties": true
+        }
+      },
+      "required": ["name", "mapping", "checks"],
+      "additionalProperties": false
+    },
+    "TemplateExport": {
+      "type": "object",
+      "properties": {
+        "ue_path": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 }
+      },
+      "required": ["ue_path", "name"],
+      "additionalProperties": false
+    },
+    "BlendLayout": {
+      "type": "string",
+      "enum": ["one_file_per_part", "one_file_per_asset"]
+    },
+    "Template": {
+      "type": "object",
+      "properties": {
+        "v": { "const": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "parts": { "type": "array", "items": { "$ref": "#/$defs/TemplatePart" }, "minItems": 1 },
+        "reference_slots": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "export": { "$ref": "#/$defs/TemplateExport" },
+        "blend_layout": { "$ref": "#/$defs/BlendLayout" }
+      },
+      "required": ["v", "name", "parts", "reference_slots", "export", "blend_layout"],
+      "additionalProperties": false
+    }
+  }
+}

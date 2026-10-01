@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nkata.dev/schemas/events.schema.json",
+  "title": "Nkata server events",
+  "description": "WebSocket messages on wss://api.<domain>/ws?project=. Every server event carries project_id, actor_id, at. See docs/engineering.md, Protocols.",
+  "$defs": {
+    "ServerEventKind": {
+      "type": "string",
+      "enum": [
+        "presence.changed",
+        "lock.granted",
+        "lock.released",
+        "lock.requested",
+        "version.created",
+        "mirror.result",
+        "part.state",
+        "comment.created",
+        "review.decided",
+        "gate.opened"
+      ]
+    },
+    "PresenceEntry": {
+      "type": "object",
+      "properties": {
+        "user": { "$ref": "common.schema.json#/$defs/UserRef" },
+        "part_id": { "anyOf": [{ "$ref": "common.schema.json#/$defs/Ulid" }, { "type": "null" }] },
+        "since": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "last_seen": { "$ref": "common.schema.json#/$defs/Timestamp" }
+      },
+      "required": ["user", "part_id", "since", "last_seen"],
+      "additionalProperties": false
+    },
+    "PresenceChanged": {
+      "type": "object",
+      "properties": {
+        "v": { "const": 1 },
+        "kind": { "const": "presence.changed" },
+        "project_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "actor_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "online": { "type": "array", "items": { "$ref": "#/$defs/PresenceEntry" } }
+      },
+      "required": ["v", "kind", "project_id", "actor_id", "at", "online"],
+      "additionalProperties": false
+    },
+    "LockGranted": {
+      "type": "object",
+      "properties": {
+        "v": { "const": 1 },
+        "kind": { "const": "lock.granted" },
+        "project_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "actor_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "part_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "lock": { "$ref": "common.schema.json#/$defs/LockInfo" }
+      },
+      "required": ["v", "kind", "project_id", "actor_id", "at", "part_id", "lock"],
+      "additionalProperties": false
+    },
+    "LockReleased": {
+      "type": "object",
+      "properties": {
+        "v": { "const": 1 },
+        "kind": { "const": "lock.released" },
+        "project_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "actor_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "part_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "reason": { "type": "string", "enum": ["closed", "published", "expired", "broken", "handed_off", "approved"] }
+      },
+      "required": ["v", "kind", "project_id", "actor_id", "at", "part_id", "reason"],
+      "additionalProperties": false
+    },
+    "LockRequested": {
+      "type": "object",
+      "description": "Someone asked the holder to release. The holder's panel shows a one-click release.",
+      "properties": {
+        "v": { "const": 1 },
+        "kind": { "const": "lock.requested" },
+        "project_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "actor_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "part_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "requester": { "$ref": "common.schema.json#/$defs/UserRef" },
+        "holder_id": { "$ref": "common.schema.json#/$defs/Ulid" }
+      },
+      "required": ["v", "kind", "project_id", "actor_id", "at", "part_id", "requester", "holder_id"],
+      "additionalProperties": false
+    },
+    "VersionCreated": {
+      "type": "object",
+      "properties": {
+        "v": { "const": 1 },
+        "kind": { "const": "version.created" },
+        "project_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "actor_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "part_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "version_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "published": { "type": "boolean" }
+      },
+      "required": ["v", "kind", "project_id", "actor_id", "at", "part_id", "version_id", "published"],
+      "additionalProperties": false
+    },
+    "MirrorResult": {
+      "type": "object",
+      "properties": {
+        "v": { "const": 1 },
+        "kind": { "const": "mirror.result" },
+        "project_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "actor_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "part_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "version_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "status": { "$ref": "common.schema.json#/$defs/MirrorStatus" },
+        "mirror_ms": { "anyOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] },
+        "message": { "type": "string", "description": "One line. Empty when synced." }
+      },
+      "required": ["v", "kind", "project_id", "actor_id", "at", "part_id", "version_id", "status", "mirror_ms", "message"],
+      "additionalProperties": false
+    },
+    "PartStateChanged": {
+      "type": "object",
+      "properties": {
+        "v": { "const": 1 },
+        "kind": { "const": "part.state" },
+        "project_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "actor_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "part_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "from": { "$ref": "common.schema.json#/$defs/PartState" },
+        "to": { "$ref": "common.schema.json#/$defs/PartState" }
+      },
+      "required": ["v", "kind", "project_id", "actor_id", "at", "part_id", "from", "to"],
+      "additionalProperties": false
+    },
+    "CommentCreated": {
+      "type": "object",
+      "properties": {
+        "v": { "const": 1 },
+        "kind": { "const": "comment.created" },
+        "project_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "actor_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "comment": { "$ref": "common.schema.json#/$defs/CommentPin" }
+      },
+      "required": ["v", "kind", "project_id", "actor_id", "at", "comment"],
+      "additionalProperties": false
+    },
+    "ReviewDecided": {
+      "type": "object",
+      "properties": {
+        "v": { "const": 1 },
+        "kind": { "const": "review.decided" },
+        "project_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "actor_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "part_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "version_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "review_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "decision": { "$ref": "common.schema.json#/$defs/ReviewDecision" },
+        "score": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "note": { "type": "string" }
+      },
+      "required": ["v", "kind", "project_id", "actor_id", "at", "part_id", "version_id", "review_id", "decision", "score", "note"],
+      "additionalProperties": false
+    },
+    "GateOpened": {
+      "type": "object",
+      "properties": {
+        "v": { "const": 1 },
+        "kind": { "const": "gate.opened" },
+        "project_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "actor_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "part_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "opened_by": { "type": "array", "description": "Part ids whose Approved state opened this gate.", "items": { "$ref": "common.schema.json#/$defs/Ulid" } }
+      },
+      "required": ["v", "kind", "project_id", "actor_id", "at", "part_id", "opened_by"],
+      "additionalProperties": false
+    },
+    "ServerEvent": {
+      "description": "Server to client. Discriminated on kind.",
+      "oneOf": [
+        { "$ref": "#/$defs/PresenceChanged" },
+        { "$ref": "#/$defs/LockGranted" },
+        { "$ref": "#/$defs/LockReleased" },
+        { "$ref": "#/$defs/LockRequested" },
+        { "$ref": "#/$defs/VersionCreated" },
+        { "$ref": "#/$defs/MirrorResult" },
+        { "$ref": "#/$defs/PartStateChanged" },
+        { "$ref": "#/$defs/CommentCreated" },
+        { "$ref": "#/$defs/ReviewDecided" },
+        { "$ref": "#/$defs/GateOpened" }
+      ]
+    },
+    "PresenceHeartbeat": {
+      "type": "object",
+      "properties": {
+        "v": { "const": 1 },
+        "kind": { "const": "presence.heartbeat" },
+        "part_id": { "anyOf": [{ "$ref": "common.schema.json#/$defs/Ulid" }, { "type": "null" }] }
+      },
+      "required": ["v", "kind", "part_id"],
+      "additionalProperties": false
+    },
+    "LockRequest": {
+      "type": "object",
+      "properties": {
+        "v": { "const": 1 },
+        "kind": { "const": "lock.request" },
+        "part_id": { "$ref": "common.schema.json#/$defs/Ulid" }
+      },
+      "required": ["v", "kind", "part_id"],
+      "additionalProperties": false
+    },
+    "LockRelease": {
+      "type": "object",
+      "properties": {
+        "v": { "const": 1 },
+        "kind": { "const": "lock.release" },
+        "part_id": { "$ref": "common.schema.json#/$defs/Ulid" }
+      },
+      "required": ["v", "kind", "part_id"],
+      "additionalProperties": false
+    },
+    "ClientMessage": {
+      "description": "Client to server. Discriminated on kind.",
+      "oneOf": [
+        { "$ref": "#/$defs/PresenceHeartbeat" },
+        { "$ref": "#/$defs/LockRequest" },
+        { "$ref": "#/$defs/LockRelease" }
+      ]
+    }
+  }
+}

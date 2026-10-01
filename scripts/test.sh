@@ -17,6 +17,7 @@ set -a
 source ./scripts/testenv.sh up
 set +a
 
+pnpm -r typecheck
 pnpm -r test
 
 cargo test --workspace

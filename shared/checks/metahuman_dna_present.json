@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "id": "metahuman_dna_present",
+  "title": "MetaHuman DNA data is still on the mesh",
+  "severity": "block",
+  "auto_fix": false,
+  "params": {"type": "object", "properties": {}, "additionalProperties": false},
+  "applies_to": ["ue5"]
+}

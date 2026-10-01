@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "id": "collision_present",
+  "title": "Asset has collision",
+  "severity": "block",
+  "auto_fix": false,
+  "params": {"type": "object", "properties": {}, "additionalProperties": false},
+  "applies_to": ["ue5"]
+}

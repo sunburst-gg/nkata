@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "id": "rig_bone_names",
+  "title": "Rig bone names match the skeleton",
+  "severity": "block",
+  "auto_fix": false,
+  "params": {"type": "object", "properties": {"skeleton": {"type": "string"}}, "required": ["skeleton"], "additionalProperties": false},
+  "applies_to": ["blender"]
+}

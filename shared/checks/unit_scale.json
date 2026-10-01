@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "id": "unit_scale",
+  "title": "Unit scale is 1.0 metres",
+  "severity": "block",
+  "auto_fix": true,
+  "params": {"type": "object", "properties": {"expected": {"type": "number", "default": 1.0}}, "additionalProperties": false},
+  "applies_to": ["blender"]
+}

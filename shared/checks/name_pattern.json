@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "id": "name_pattern",
+  "title": "Object names match the template pattern",
+  "severity": "block",
+  "auto_fix": true,
+  "params": {"type": "object", "properties": {"pattern": {"type": "string"}}, "required": ["pattern"], "additionalProperties": false},
+  "applies_to": ["blender", "ue5", "file"]
+}
