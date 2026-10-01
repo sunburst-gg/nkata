@@ -20,11 +20,13 @@ set +a
 pnpm -r typecheck
 pnpm -r test
 
-# The gate test needs a live server over the same Postgres and MinIO, seeded.
+# The gate test needs a live server over the same Postgres and MinIO, seeded from a clean schema.
+# The server tests leave their last fixtures behind and the seed finds rows by name.
 export NKATA_DEV=1
 export PORT="${TEST_SERVER_PORT:-7401}"
 export PUBLIC_URL="http://127.0.0.1:$PORT"
 export LOG_LEVEL=warn
+pnpm --filter @nkata/server db:reset >/dev/null
 pnpm --filter @nkata/server seed >/dev/null
 pnpm --filter @nkata/server start >"$ROOT/.testenv/server.log" 2>&1 &
 SERVER_PID=$!
