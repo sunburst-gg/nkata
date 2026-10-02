@@ -19,6 +19,7 @@ set +a
 
 pnpm -r typecheck
 pnpm -r test
+pnpm --filter @nkata/desktop build
 
 # Python: the add-on core with bpy stubbed, the UE5 scripts, and the e2e marker. ruff clean.
 python3 -m ruff --version >/dev/null 2>&1 || python3 -m pip install -q ruff
