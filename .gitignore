@@ -10,3 +10,4 @@ target/
 coverage/
 .testenv/
 blender-addon/nkata/nkata_shared/
+shots/

@@ -1,0 +1,98 @@
+/* Entry stylesheet. Tokens are the source of truth (handoff/tokens). Tailwind utilities map to them. */
+@import "./fonts.css";
+@import "./tokens.css";
+@import "./avatars.css";
+@import "tailwindcss";
+
+/* Tailwind theme mapped to the token variables. No hex values in components. */
+@theme inline {
+  --color-canvas: var(--bg-canvas);
+  --color-panel: var(--bg-panel);
+  --color-raised: var(--bg-raised);
+  --color-hover: var(--bg-hover);
+  --color-active: var(--bg-active);
+  --color-hairline: var(--line-hairline);
+  --color-border: var(--line-border);
+  --color-heading: var(--fg-heading);
+  --color-body: var(--fg-body);
+  --color-secondary: var(--fg-secondary);
+  --color-muted: var(--fg-muted);
+  --color-disabled: var(--fg-disabled);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-pressed: var(--accent-pressed);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-text: var(--accent-text);
+  --color-state-locked: var(--state-locked);
+  --color-state-draft: var(--state-draft);
+  --color-state-ready: var(--state-ready);
+  --color-state-approved: var(--state-approved);
+  --color-state-failed: var(--state-failed);
+  --color-state-synced: var(--state-synced);
+  --color-state-syncing: var(--state-syncing);
+  --color-state-sync-failed: var(--state-sync-failed);
+  --color-state-fg: var(--state-fg);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --radius-editor: var(--radius-editor);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-full: var(--radius-full);
+  --shadow-1: var(--shadow-1);
+  --shadow-2: var(--shadow-2);
+  --shadow-focus: var(--shadow-focus);
+  --ease-standard: var(--ease-standard);
+  --ease-exit: var(--ease-exit);
+  --default-transition-duration: var(--dur-state);
+  --default-transition-timing-function: var(--ease-standard);
+}
+
+@layer base {
+  html, body, #root { height: 100%; margin: 0; }
+  body {
+    background: var(--bg-canvas);
+    color: var(--fg-heading);
+    font: var(--role-app);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+  * { box-sizing: border-box; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  a { color: inherit; text-decoration: none; }
+  :focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+  ::selection { background: var(--accent); color: var(--accent-fg); }
+}
+
+@keyframes nk-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+@keyframes nk-spin { to { transform: rotate(360deg); } }
+@keyframes nk-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes nk-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+.nk-pulse { animation: nk-pulse 1.2s ease-in-out infinite; }
+.nk-spin { animation: nk-spin .8s linear infinite; }
+.nk-panel-in { animation: nk-rise var(--dur-panel) var(--ease-standard); }
+.nk-fade-in { animation: nk-fade-in var(--dur-panel) var(--ease-standard); }
+
+/* Type roles as utilities. */
+.role-caption { font: var(--role-caption); }
+.role-mono { font: var(--role-mono); }
+.role-panel { font: var(--role-panel); }
+.role-app { font: var(--role-app); }
+.role-body { font: var(--role-body); }
+.role-lead { font: var(--role-lead); }
+.role-tile { font: var(--weight-medium) var(--text-16)/1.4 var(--font-sans); }
+.role-asset-title { font: var(--role-asset-title); letter-spacing: var(--tracking-24); }
+.role-statement { font: var(--weight-semibold) var(--text-32)/1.15 var(--font-sans); letter-spacing: var(--tracking-32); }
+.role-section { font: var(--role-section); letter-spacing: var(--tracking-48); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+/* Type sizes as utilities (text-11 ... text-32). */
+@theme inline {
+  --text-11: 11px; --text-12: 12px; --text-13: 13px; --text-14: 14px; --text-15: 15px; --text-16: 16px;
+  --text-20: 20px; --text-24: 24px; --text-28: 28px; --text-32: 32px;
+}

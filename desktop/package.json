@@ -3,8 +3,43 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Tauri 2 app. No UI in step 2. The agent core lives in src-tauri as a Rust crate.",
+  "description": "Nkata desktop app. Tauri 2, React, Vite. The agent core is a Rust crate in src-tauri.",
   "scripts": {
-    "test": "echo 'desktop: no TypeScript tests yet (no UI in step 2)'"
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "tokens": "tsx scripts/tokens.ts",
+    "renders": "tsx scripts/renders.ts",
+    "copy": "tsx scripts/copy.ts",
+    "shots": "tsx scripts/shots.ts"
+  },
+  "dependencies": {
+    "@radix-ui/react-avatar": "^1.2.6",
+    "@radix-ui/react-dialog": "^1.1.23",
+    "@radix-ui/react-dropdown-menu": "^2.1.24",
+    "@radix-ui/react-tabs": "^1.1.21",
+    "@radix-ui/react-toast": "^1.2.23",
+    "@radix-ui/react-tooltip": "^1.2.16",
+    "@tauri-apps/api": "^2.12.1",
+    "geist": "^1.7.2",
+    "lucide-react": "^1.49.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-router": "^7.18.4",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@tauri-apps/cli": "^2.12.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "playwright-core": "^1.63.0",
+    "sharp": "^0.35.5",
+    "tailwindcss": "^4.3.3",
+    "vite": "^7.3.6"
   }
 }

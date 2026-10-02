@@ -14,8 +14,19 @@ path = "src/lib.rs"
 name = "nkata-agent"
 path = "src/main.rs"
 
+[[bin]]
+name = "nkata-desktop"
+path = "src/desktop.rs"
+required-features = ["desktop"]
+
+[features]
+default = []
+# The Tauri window. Needs WebKit on Linux; off by default so tests build anywhere.
+desktop = ["dep:tauri", "dep:tauri-build"]
+
 [dependencies]
 axum = "0.8"
+tauri = { version = "2", optional = true }
 blake3 = "1"
 clap = { version = "4", features = ["derive"] }
 fastcdc = "3"
@@ -36,3 +47,6 @@ walkdir = "2"
 [dev-dependencies]
 tempfile = "3"
 futures-util = "0.3"
+
+[build-dependencies]
+tauri-build = { version = "2", optional = true }
