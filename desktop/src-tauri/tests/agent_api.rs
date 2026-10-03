@@ -17,6 +17,7 @@ use tokio::sync::Mutex;
 
 const ARTIST: &str = "artist@sunburst.gg";
 const DIRECTOR: &str = "director@sunburst.gg";
+const ENV_ARTIST: &str = "env@sunburst.gg";
 
 /// What the fake editor answers next. Each call pops the front; empty means success.
 #[derive(Clone)]
@@ -92,7 +93,13 @@ impl Harness {
 }
 
 async fn start(server_url: &str, fake: FakeUe5) -> Harness {
-    let token = dev_login(server_url, ARTIST).await.unwrap();
+    start_as(server_url, fake, ARTIST).await
+}
+
+/// The agent signed in as one seed user. Parts are owned per user, so a prop needs the
+/// environment artist.
+async fn start_as(server_url: &str, fake: FakeUe5, email: &str) -> Harness {
+    let token = dev_login(server_url, email).await.unwrap();
     let projects: Value = reqwest::Client::new()
         .get(format!("{server_url}/projects"))
         .bearer_auth(&token)
@@ -351,6 +358,61 @@ async fn local_api_serves_me_parts_locks_saves_and_mirrors() {
     assert_eq!(ok["failures"], 0);
 
     std::fs::remove_dir_all(&h.folder).unwrap();
+}
+
+#[tokio::test]
+async fn a_prop_save_runs_the_static_import_and_stores_where_it_is_placed() {
+    let Ok(server_url) = std::env::var("NKATA_TEST_SERVER_URL") else {
+        eprintln!("agent_api: NKATA_TEST_SERVER_URL not set, skipped (make test sets it)");
+        return;
+    };
+    let fake = FakeUe5 {
+        script: Arc::new(Mutex::new(vec![])),
+        calls: Arc::new(AtomicUsize::new(0)),
+        last_command: Arc::new(Mutex::new(String::new())),
+    };
+    let h = start_as(&server_url, fake, ENV_ARTIST).await;
+    let (_, parts) = h.get("/parts?file=Kettle%2Fmodel.blend").await;
+    let model = parts["parts"][0]["id"].as_str().unwrap().to_string();
+    assert_eq!(parts["parts"][0]["kind"], "prop");
+
+    // The fake pops from the end: the import answers first, then the scan.
+    h.fake.script.lock().await.push(json!({"ok": true, "levels": [{"level": "/Game/Levels/L_EnuguMarket", "actors": 2}, {"level": "/Game/Levels/L_Compound", "actors": 1}], "referencers": 3}));
+    h.fake.script.lock().await.push(json!({"ok": true, "message": "", "asset_path": "/Game/Nkata/Kettle/model", "first_import": false, "referencers": 3}));
+    let spool = spool_export(&h, &model);
+    let prop_manifest = json!({"v": 1, "kind": "prop", "objects": [{"name": "SM_Kettle", "triangles": 900, "materials": ["MI_Kettle"], "bounds_min": [-0.2, -0.2, 0], "bounds_max": [0.2, 0.2, 0.3], "hash": "k", "origin": [0, 0, 0], "scale": [1, 1, 1]}], "bone_count": null, "armature": null, "mirror_target": null});
+    let (st, saved) = h.post(&format!("/parts/{model}/saved"), Some(json!({"v": 1, "changed": true, "spool_path": spool, "manifest": prop_manifest, "source_file": "Kettle/model.blend"}))).await;
+    assert_eq!(st, 201, "{saved}");
+    let version_id = saved["version_id"].as_str().unwrap().to_string();
+    wait_for_mirror(&h, &model, "synced").await;
+    assert_eq!(h.fake.calls.load(Ordering::SeqCst), 2, "import then scan");
+    let command = h.fake.last_command.lock().await.clone();
+    assert!(command.contains("scan_refs.py"), "{command}");
+    let args_path = command.split('"').nth(3).unwrap().to_string();
+    let args: Value = serde_json::from_str(&std::fs::read_to_string(&args_path).unwrap()).unwrap();
+    assert_eq!(args["asset_path"], "/Game/Nkata/Kettle/model");
+
+    let director = dev_login(&server_url, DIRECTOR).await.unwrap();
+    let versions: Value = reqwest::Client::new()
+        .get(format!("{server_url}/parts/{model}/versions"))
+        .bearer_auth(&director)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let v = versions["versions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|v| v["id"] == version_id)
+        .unwrap();
+    assert_eq!(v["mirror_status"], "synced");
+    assert_eq!(
+        v["refs"],
+        json!([{"level": "/Game/Levels/L_EnuguMarket", "actors": 2}, {"level": "/Game/Levels/L_Compound", "actors": 1}])
+    );
 }
 
 #[tokio::test]

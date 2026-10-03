@@ -15,6 +15,13 @@
       "when": 1791032416104,
       "tag": "0001_drop_comment_linear_issue",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791034574218,
+      "tag": "0002_version_refs",
+      "breakpoints": true
     }
   ]
 }

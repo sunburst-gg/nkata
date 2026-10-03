@@ -16,7 +16,7 @@ use crate::error::{AgentError, Result};
 use crate::protocol::{
     iso_now, AgentEvent, MirrorState, MirrorStatus, ObjectManifest, PartMapping, TemplateKind,
 };
-use crate::ue5::{CallOutcome, Ue5Client};
+use crate::ue5::{CallOutcome, LevelRef, ScriptResult, Ue5Client};
 
 pub const MAX_FAILURES: u32 = 3;
 pub const POLL_WHEN_UNREACHABLE: Duration = Duration::from_secs(5);
@@ -219,19 +219,67 @@ impl MirrorRunner {
                 return true;
             }
             Ok(CallOutcome::Done(result)) => {
+                let refs = if result.ok {
+                    self.scan_refs(&job, &result).await
+                } else {
+                    None
+                };
                 let (status, message) = if result.ok {
                     (MirrorStatus::Synced, String::new())
                 } else {
                     (MirrorStatus::Failed, result.message)
                 };
-                self.finish(entry, &job, status, mirror_ms, message).await;
+                self.finish(entry, &job, status, mirror_ms, message, refs)
+                    .await;
             }
             Err(e) => {
-                self.finish(entry, &job, MirrorStatus::Failed, mirror_ms, e.to_string())
-                    .await;
+                self.finish(
+                    entry,
+                    &job,
+                    MirrorStatus::Failed,
+                    mirror_ms,
+                    e.to_string(),
+                    None,
+                )
+                .await;
             }
         }
         false
+    }
+
+    /// After a static import: which levels place the mesh. The one piece of the dependency map
+    /// in v1 (docs/product.md, Later). A scan failure is logged, never a mirror failure.
+    async fn scan_refs(&self, job: &MirrorJob, result: &ScriptResult) -> Option<Vec<LevelRef>> {
+        if job.kind != TemplateKind::Prop {
+            return None;
+        }
+        let asset_path = result.asset_path.clone()?;
+        let script = self.scripts_dir.join("scan_refs.py");
+        let args_path = job.spool_path.with_extension("refs.args.json");
+        let args = serde_json::json!({ "v": 1, "asset_path": asset_path });
+        if let Err(e) = std::fs::write(&args_path, serde_json::to_vec_pretty(&args).ok()?) {
+            tracing::warn!(part_id = job.part_id, error = %e, "scan_refs: args not written");
+            return None;
+        }
+        match self.ue5.run_script(&script, &args_path).await {
+            Ok(CallOutcome::Done(r)) if r.ok => r.levels,
+            Ok(CallOutcome::Done(r)) => {
+                tracing::warn!(
+                    part_id = job.part_id,
+                    message = r.message,
+                    "scan_refs: failed"
+                );
+                None
+            }
+            Ok(CallOutcome::Unreachable(why)) => {
+                tracing::warn!(part_id = job.part_id, why, "scan_refs: UE5 not reachable");
+                None
+            }
+            Err(e) => {
+                tracing::warn!(part_id = job.part_id, error = %e, "scan_refs: error");
+                None
+            }
+        }
     }
 
     async fn finish(
@@ -241,6 +289,7 @@ impl MirrorRunner {
         status: MirrorStatus,
         mirror_ms: u64,
         message: String,
+        refs: Option<Vec<LevelRef>>,
     ) {
         if status == MirrorStatus::Failed {
             entry.state.failures += 1;
@@ -271,6 +320,7 @@ impl MirrorRunner {
                     mirror_status: status,
                     mirror_ms: Some(mirror_ms),
                     message: &message,
+                    refs,
                 },
             )
             .await
@@ -297,6 +347,7 @@ impl MirrorRunner {
                 message: format!("export not found at {}", job.spool_path.display()),
                 asset_path: None,
                 first_import: false,
+                levels: None,
             }));
         }
         let Some(script_name) = script_for(job.kind) else {
@@ -305,6 +356,7 @@ impl MirrorRunner {
                 message: "a level area is edited in UE5, nothing to mirror".to_string(),
                 asset_path: None,
                 first_import: false,
+                levels: None,
             }));
         };
         let destination = destination_for(&job.mapping, &job.asset_name, &job.part_name);

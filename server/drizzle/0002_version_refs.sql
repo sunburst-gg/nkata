@@ -1,0 +1,1 @@
+ALTER TABLE "version" ADD COLUMN "refs" jsonb;

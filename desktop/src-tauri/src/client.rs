@@ -130,6 +130,8 @@ pub struct MirrorUpdate<'a> {
     pub mirror_status: MirrorStatus,
     pub mirror_ms: Option<u64>,
     pub message: &'a str,
+    /// Where a static mesh is placed, from scan_refs.py. None leaves the stored value alone.
+    pub refs: Option<Vec<crate::ue5::LevelRef>>,
 }
 
 #[derive(Clone)]

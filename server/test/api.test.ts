@@ -139,7 +139,12 @@ describe.skipIf(!hasInfra)("server api", () => {
       expect(res.statusCode).toBe(201);
       faceVersion = (res.json() as { version: { id: string } }).version.id;
       const mirror = await h.app.inject({ method: "PUT", url: `/parts/${face}/versions/${faceVersion}/mirror`, ...h.as(ARTIST), payload: { mirror_status: "synced", mirror_ms: 4200 } });
-      expect((mirror.json() as { version: { mirror_status: string; mirror_ms: number } }).version).toMatchObject({ mirror_status: "synced", mirror_ms: 4200 });
+      expect((mirror.json() as { version: { mirror_status: string; mirror_ms: number; refs: unknown } }).version).toMatchObject({ mirror_status: "synced", mirror_ms: 4200, refs: null });
+      const placed = await h.app.inject({ method: "PUT", url: `/parts/${face}/versions/${faceVersion}/mirror`, ...h.as(ARTIST), payload: { mirror_status: "synced", mirror_ms: 4300, refs: [{ level: "/Game/Levels/L_EnuguMarket", actors: 2 }] } });
+      expect((placed.json() as { version: { refs: unknown } }).version.refs).toEqual([{ level: "/Game/Levels/L_EnuguMarket", actors: 2 }]);
+      const listed = await h.app.inject({ method: "GET", url: `/parts/${face}/versions`, ...h.as(ARTIST) });
+      expect((listed.json() as { versions: { id: string; refs: unknown }[] }).versions.find((v) => v.id === faceVersion)?.refs).toEqual([{ level: "/Game/Levels/L_EnuguMarket", actors: 2 }]);
+      expect((await h.app.inject({ method: "PUT", url: `/parts/${face}/versions/${faceVersion}/mirror`, ...h.as(ARTIST), payload: { mirror_status: "synced", refs: [{ level: "", actors: -1 }] } })).statusCode).toBe(400);
       const replay = await h.app.inject({ method: "POST", url: `/parts/${face}/versions`, ...h.as(ARTIST), payload: { id: faceVersion, mirror_status: "pending" } });
       expect(replay.statusCode).toBe(200);
       expect((replay.json() as { version: { note: string } }).version.note).toBe("first save");

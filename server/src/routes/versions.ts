@@ -20,10 +20,14 @@ const VersionBody = z.object({
   note: z.string().default(""),
 });
 
+/** One level that places the mesh, from scan_refs.py. See docs/engineering.md, The mirror, Static. */
+const LevelRef = z.object({ level: z.string().min(1), actors: z.number().int().min(0) });
+
 const MirrorBody = z.object({
   mirror_status: MirrorStatus,
   mirror_ms: z.number().int().min(0).nullable().default(null),
   message: z.string().default(""),
+  refs: z.array(LevelRef).nullable().default(null),
 });
 
 const PublishBody = z.object({
@@ -76,7 +80,7 @@ export async function versionRoutes(app: TypedApp): Promise<void> {
     const now = app.now();
     const rows = await app.db
       .update(version)
-      .set({ mirror_status: req.body.mirror_status, mirror_ms: req.body.mirror_ms, updated_at: now })
+      .set({ mirror_status: req.body.mirror_status, mirror_ms: req.body.mirror_ms, ...(req.body.refs === null ? {} : { refs: req.body.refs }), updated_at: now })
       .where(and(eq(version.id, req.params.vid), eq(version.part_id, row.id)))
       .returning();
     const saved = rows[0];
