@@ -63,6 +63,11 @@ pub struct FileVersion {
 }
 
 #[derive(Debug, Deserialize)]
+struct FileVersionEnvelope {
+    file_version: FileVersion,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct FileVersionsPage {
     pub file_versions: Vec<FileVersion>,
     pub next: Option<String>,
@@ -340,6 +345,13 @@ impl ServerClient {
             )
             .await?;
         Ok(w.file_version)
+    }
+
+    pub async fn get_file_version(&self, id: &str) -> Result<FileVersion> {
+        let res: FileVersionEnvelope = self
+            .get(&format!("/projects/{}/file-versions/{id}", self.project_id))
+            .await?;
+        Ok(res.file_version)
     }
 
     pub async fn list_file_versions(

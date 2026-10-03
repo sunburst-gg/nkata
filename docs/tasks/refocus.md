@@ -121,3 +121,4 @@ Appended as each lands, with the commit subject.
 - Add template kinds and seed the environment assets: `kind` on the template schema, `ue_area` mapping, Environment prop and Level area templates, Kettle, Wooden stool, Market stall, Enugu Market / square seeded for the environment artist; animation and sound parts removed from Character.
 - Cut the roles to artist, art director, producer, viewer: shared Role enum, seed users (engineer out, viewer in), one server hook that refuses every viewer write, one test per refused route.
 - Remove Linear issue IDs from comments: CommentPin and CommentCreateRequest schemas, server column with migration 0001, comments route.
+- Add stream mode for a viewer: cache module with LRU eviction and unit tests, CLI init --stream, fetch, serve --cache, MeResponse.mode, a server route for one file version, and an integration test that fills a 2.5 MiB cache with three 1 MiB files and watches the oldest go first.

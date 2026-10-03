@@ -11,6 +11,7 @@ use axum::{Json, Router};
 use futures_util::StreamExt;
 use nkata_agent::api::{bind, router, ServeOptions};
 use nkata_agent::client::{dev_login, ServerClient};
+use nkata_agent::protocol::AgentMode;
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
 
@@ -117,6 +118,7 @@ async fn start(server_url: &str, fake: FakeUe5) -> Harness {
             ue5_url,
             scripts_dir,
             token_file: None,
+            mode: AgentMode::Sync,
         },
     )
     .await
@@ -381,6 +383,7 @@ async fn unreachable_ue5_keeps_the_job_pending() {
             ue5_url: dead_url,
             scripts_dir,
             token_file: None,
+            mode: AgentMode::Sync,
         },
     )
     .await

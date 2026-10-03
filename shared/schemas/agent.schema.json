@@ -26,6 +26,11 @@
       ],
       "additionalProperties": false
     },
+    "AgentMode": {
+      "type": "string",
+      "description": "sync: a project folder with index, watcher, and upload. stream: a viewer, files fetched on demand into a capped cache. See docs/engineering.md, Stream mode.",
+      "enum": ["sync", "stream"]
+    },
     "MeResponse": {
       "description": "GET /me",
       "type": "object",
@@ -50,6 +55,9 @@
           "type": "string",
           "minLength": 1,
           "description": "Folder where Blender writes exports for the mirror: <spool_dir>/<part_id>/<version_id>.glb"
+        },
+        "mode": {
+          "$ref": "#/$defs/AgentMode"
         }
       },
       "required": [
@@ -58,7 +66,8 @@
         "project",
         "package_version",
         "online",
-        "spool_dir"
+        "spool_dir",
+        "mode"
       ],
       "additionalProperties": false
     },

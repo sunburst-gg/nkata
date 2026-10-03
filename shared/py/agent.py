@@ -29,6 +29,7 @@ class MeResponse:
     package_version: str
     online: bool
     spool_dir: str
+    mode: AgentMode
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -258,6 +259,9 @@ class MirrorStateResponse:
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
 
+# sync: a project folder with index, watcher, and upload. stream: a viewer, files fetched on demand into a capped cache. See docs/engineering.md, Stream mode.
+AgentMode = Literal["sync", "stream"]
+
 # GET /events (SSE). The agent relays these server events to editors.
 AgentEvent = PresenceChanged | LockGranted | LockReleased | LockRequested | MirrorResult | PartStateChanged | CommentCreated
 
@@ -275,6 +279,12 @@ def validate_ProjectRef(value: object, path: str = "$") -> ProjectRef:
         folder_name=_v_ProjectRef_folder_name(obj["folder_name"], path + ".folder_name"),
     )
 
+def _v_AgentMode(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, ("sync", "stream",))
+
+def validate_AgentMode(value: object, path: str = "$") -> Any:
+    return _v_AgentMode(value, path)
+
 def _v_MeResponse_v(value: object, path: str) -> Any:
     return _rt.check_literal(value, path, (1,))
 
@@ -288,7 +298,7 @@ def _v_MeResponse_spool_dir(value: object, path: str) -> str:
     return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
 
 def validate_MeResponse(value: object, path: str = "$") -> MeResponse:
-    obj = _rt.check_object(value, path, required=("v", "user", "project", "package_version", "online", "spool_dir",), allowed=("v", "user", "project", "package_version", "online", "spool_dir",))
+    obj = _rt.check_object(value, path, required=("v", "user", "project", "package_version", "online", "spool_dir", "mode",), allowed=("v", "user", "project", "package_version", "online", "spool_dir", "mode",))
     return MeResponse(
         v=_v_MeResponse_v(obj["v"], path + ".v"),
         user=validate_UserRef(obj["user"], path + ".user"),
@@ -296,6 +306,7 @@ def validate_MeResponse(value: object, path: str = "$") -> MeResponse:
         package_version=_v_MeResponse_package_version(obj["package_version"], path + ".package_version"),
         online=_v_MeResponse_online(obj["online"], path + ".online"),
         spool_dir=_v_MeResponse_spool_dir(obj["spool_dir"], path + ".spool_dir"),
+        mode=validate_AgentMode(obj["mode"], path + ".mode"),
     )
 
 def _v_PartSummary_asset_name(value: object, path: str) -> str:

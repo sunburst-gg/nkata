@@ -12,6 +12,10 @@ export const ProjectRef = z.strictObject({
 });
 export type ProjectRef = z.infer<typeof ProjectRef>;
 
+/** sync: a project folder with index, watcher, and upload. stream: a viewer, files fetched on demand into a capped cache. See docs/engineering.md, Stream mode. */
+export const AgentMode = z.enum(["sync", "stream"]);
+export type AgentMode = z.infer<typeof AgentMode>;
+
 /** GET /me */
 export const MeResponse = z.strictObject({
   "v": z.literal(1),
@@ -20,6 +24,7 @@ export const MeResponse = z.strictObject({
   "package_version": z.string().min(1),
   "online": z.boolean(),
   "spool_dir": z.string().min(1),
+  "mode": AgentMode,
 });
 export type MeResponse = z.infer<typeof MeResponse>;
 

@@ -79,6 +79,13 @@ pub struct ProjectRef {
     pub folder_name: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AgentMode {
+    Sync,
+    Stream,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MeResponse {
     pub v: u8,
@@ -87,6 +94,7 @@ pub struct MeResponse {
     pub package_version: String,
     pub online: bool,
     pub spool_dir: String,
+    pub mode: AgentMode,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

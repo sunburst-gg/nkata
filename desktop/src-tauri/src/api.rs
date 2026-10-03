@@ -22,7 +22,7 @@ use crate::ids::new_id;
 use crate::ignore::AGENT_DIR;
 use crate::mirror::{MirrorJob, MirrorRunner};
 use crate::protocol::{
-    iso_now, AgentEvent, ErrorBody, ErrorDetail, LockReleaseReason, MeResponse,
+    iso_now, AgentEvent, AgentMode, ErrorBody, ErrorDetail, LockReleaseReason, MeResponse,
     MirrorRetryResponse, MirrorStateResponse, MirrorStatus, PartCloseResponse, PartOpenResponse,
     PartSavedRequest, PartSavedResponse, PartsResponse, ProjectRef, UserRef,
 };
@@ -40,6 +40,7 @@ pub struct ApiState {
     pub project: ProjectRef,
     pub package_version: String,
     pub spool_dir: PathBuf,
+    pub mode: AgentMode,
 }
 
 type Shared = Arc<ApiState>;
@@ -158,6 +159,7 @@ async fn me(State(s): State<Shared>, headers: HeaderMap) -> Result<Json<MeRespon
         package_version: s.package_version.clone(),
         online,
         spool_dir: s.spool_dir.display().to_string(),
+        mode: s.mode,
     }))
 }
 
@@ -236,6 +238,13 @@ async fn saved(
     Json(body): Json<PartSavedRequest>,
 ) -> Result<(StatusCode, Json<PartSavedResponse>), ApiError> {
     check_token(&s, &headers)?;
+    if s.mode == AgentMode::Stream {
+        return Err(ApiError(
+            StatusCode::FORBIDDEN,
+            "forbidden",
+            "a viewer in stream mode cannot save a part".into(),
+        ));
+    }
     if body.changed && (body.spool_path.is_none() || body.manifest.is_none()) {
         return Err(ApiError(
             StatusCode::BAD_REQUEST,
@@ -354,11 +363,13 @@ async fn events(
 }
 
 pub struct ServeOptions {
+    /// The project folder, or the stream cache root in stream mode.
     pub folder: PathBuf,
     pub port: u16,
     pub ue5_url: String,
     pub scripts_dir: PathBuf,
     pub token_file: Option<PathBuf>,
+    pub mode: AgentMode,
 }
 
 /// Builds the state, binds the port, and runs the API and the mirror runner until `stop`.
@@ -371,8 +382,11 @@ pub async fn serve(
     let addr = listener
         .local_addr()
         .map_err(|e| AgentError::io("listener", e))?;
-    let mirror = Arc::clone(&state.mirror);
-    tokio::spawn(mirror.run());
+    // Stream mode has no spool and nothing to mirror.
+    if state.mode == AgentMode::Sync {
+        let mirror = Arc::clone(&state.mirror);
+        tokio::spawn(mirror.run());
+    }
     axum::serve(listener, router(state))
         .with_graceful_shutdown(async move {
             let _ = stop.wait_for(|v| *v).await;
@@ -415,6 +429,7 @@ pub async fn bind(
         },
         package_version: crate::PACKAGE_VERSION.to_string(),
         spool_dir,
+        mode: opts.mode,
     });
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", opts.port))
         .await

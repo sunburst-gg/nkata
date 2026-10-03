@@ -16,6 +16,7 @@ pub mod mirror;
 pub mod protocol;
 pub mod queue;
 pub mod scan;
+pub mod stream;
 pub mod sync;
 pub mod ue5;
 pub mod watch;

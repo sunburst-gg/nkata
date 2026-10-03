@@ -29,7 +29,8 @@ enum Command {
         #[arg(long)]
         email: String,
     },
-    /// Bind this folder to a project on a server.
+    /// Bind this folder to a project on a server. With --stream, bind a viewer cache instead:
+    /// no folder, no index, files fetched on demand into ~/.nkata/<project>/cache.
     Init {
         #[arg(long)]
         server: String,
@@ -37,6 +38,23 @@ enum Command {
         project: String,
         #[arg(long)]
         token: String,
+        #[arg(long, default_value_t = false)]
+        stream: bool,
+        /// Stream cache root. Defaults to ~/.nkata/<project>/cache (NKATA_HOME overrides ~/.nkata).
+        #[arg(long)]
+        cache: Option<PathBuf>,
+        /// Stream cache cap in bytes. Default 5 GB.
+        #[arg(long, default_value_t = nkata_agent::stream::DEFAULT_CAP_BYTES)]
+        cap_bytes: u64,
+    },
+    /// Stream mode: fetch one file version into the cache and print its path.
+    Fetch {
+        #[arg(long)]
+        file_version: String,
+        #[arg(long)]
+        cache: PathBuf,
+        #[arg(long, default_value_t = nkata_agent::stream::DEFAULT_CAP_BYTES)]
+        cap_bytes: u64,
     },
     /// Rescan the folder (or one subfolder) into the index.
     Scan {
@@ -67,6 +85,9 @@ enum Command {
         /// Token file the editors read. Defaults to <folder>/.nkata-agent/token.
         #[arg(long)]
         token_file: Option<PathBuf>,
+        /// Stream mode for a viewer: serve from the cache at --cache, no index, no mirror.
+        #[arg(long)]
+        cache: Option<PathBuf>,
     },
 }
 
@@ -90,6 +111,81 @@ async fn run(cli: Cli) -> Result<serde_json::Value, AgentError> {
             server,
             project,
             token,
+            stream: true,
+            cache,
+            cap_bytes,
+        } => {
+            let root = cache.unwrap_or_else(|| nkata_agent::stream::default_root(&project));
+            let store = nkata_agent::stream::StreamCache::open(&root, cap_bytes)?;
+            store.save_config(&nkata_agent::stream::StreamConfig {
+                server_url: server,
+                token,
+                project_id: project.clone(),
+            })?;
+            Ok(
+                serde_json::json!({ "initialised": true, "project_id": project, "cache": root, "cap_bytes": cap_bytes }),
+            )
+        }
+        Command::Fetch {
+            file_version,
+            cache,
+            cap_bytes,
+        } => {
+            let store = nkata_agent::stream::StreamCache::open(&cache, cap_bytes)?;
+            let config = store.load_config()?;
+            let server = nkata_agent::client::ServerClient::new(
+                &config.server_url,
+                &config.token,
+                &config.project_id,
+            )?;
+            let fv = server.get_file_version(&file_version).await?;
+            Ok(serde_json::to_value(store.fetch(&server, &fv).await?)?)
+        }
+        Command::Serve {
+            port,
+            ue5_url,
+            ue5_scripts,
+            token_file,
+            cache: Some(cache),
+        } => {
+            let store = nkata_agent::stream::StreamCache::open(
+                &cache,
+                nkata_agent::stream::DEFAULT_CAP_BYTES,
+            )?;
+            let config = store.load_config()?;
+            let server = nkata_agent::client::ServerClient::new(
+                &config.server_url,
+                &config.token,
+                &config.project_id,
+            )?;
+            let (tx, rx) = tokio::sync::watch::channel(false);
+            tokio::spawn(async move {
+                let _ = tokio::signal::ctrl_c().await;
+                let _ = tx.send(true);
+            });
+            let scripts_dir =
+                std::fs::canonicalize(&ue5_scripts).map_err(|e| AgentError::io(&ue5_scripts, e))?;
+            let addr = nkata_agent::api::serve(
+                server,
+                nkata_agent::api::ServeOptions {
+                    folder: cache,
+                    port,
+                    ue5_url,
+                    scripts_dir,
+                    token_file,
+                    mode: nkata_agent::protocol::AgentMode::Stream,
+                },
+                rx,
+            )
+            .await?;
+            Ok(serde_json::json!({ "stopped": true, "addr": addr.to_string(), "mode": "stream" }))
+        }
+        Command::Init {
+            server,
+            project,
+            token,
+            stream: false,
+            ..
         } => {
             let folder =
                 std::fs::canonicalize(&cli.folder).map_err(|e| AgentError::io(&cli.folder, e))?;
@@ -132,6 +228,7 @@ async fn run(cli: Cli) -> Result<serde_json::Value, AgentError> {
                     ue5_url,
                     ue5_scripts,
                     token_file,
+                    cache: None,
                 } => {
                     let (tx, rx) = tokio::sync::watch::channel(false);
                     tokio::spawn(async move {
@@ -153,13 +250,17 @@ async fn run(cli: Cli) -> Result<serde_json::Value, AgentError> {
                             ue5_url,
                             scripts_dir,
                             token_file,
+                            mode: nkata_agent::protocol::AgentMode::Sync,
                         },
                         rx,
                     )
                     .await?;
                     Ok(serde_json::json!({ "stopped": true, "addr": addr.to_string() }))
                 }
-                Command::Login { .. } | Command::Init { .. } => unreachable!("handled above"),
+                Command::Login { .. }
+                | Command::Init { .. }
+                | Command::Fetch { .. }
+                | Command::Serve { cache: Some(_), .. } => unreachable!("handled above"),
             }
         }
     }

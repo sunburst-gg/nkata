@@ -73,7 +73,8 @@ fn samples() -> Vec<(&'static str, Value)> {
                 },
                 package_version: "0.1.0".into(),
                 online: true,
-                spool_dir: "/x".into()
+                spool_dir: "/x".into(),
+                mode: AgentMode::Stream
             }),
         ),
         (
