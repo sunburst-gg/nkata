@@ -7,7 +7,7 @@ import { AppRoutes } from "./App";
 import { TooltipProvider } from "./components/Tooltip";
 import { useStore } from "./store";
 
-const ROUTES = ["/home", "/profile", "/p/rising-sun", "/p/rising-sun/a/ojukwu", "/p/rising-sun/a/ojukwu/face", "/p/rising-sun/a/act1-scene3", "/p/rising-sun/changes", "/p/rising-sun/people", "/p/rising-sun/templates", "/p/rising-sun/settings", "/join", "/join/start"];
+const ROUTES = ["/home", "/profile", "/p/rising-sun", "/p/rising-sun/a/ojukwu", "/p/rising-sun/a/ojukwu/face", "/p/rising-sun/a/kettle", "/p/rising-sun/changes", "/p/rising-sun/people", "/p/rising-sun/templates", "/p/rising-sun/settings", "/join", "/join/start"];
 // Screens with the app header show the Viewer label beside the avatar. Setup screens have no header.
 const HEADERLESS = ["/join", "/join/start"];
 // Control labels, as they sit inside a button or menu item.
@@ -33,7 +33,7 @@ describe("viewer role", () => {
     expect(render("/p/rising-sun/a/ojukwu")).toContain("Download images");
     expect(render("/p/rising-sun/a/ojukwu")).toContain("Comment");
     expect(render("/p/rising-sun/changes")).toContain("Open Nkata on this page");
-    expect(render("/p/rising-sun/a/act1-scene3")).toContain("No preview yet");
+    expect(render("/p/rising-sun/a/kettle")).toContain("No preview yet");
   });
 
   it("an artist sees the write actions a viewer does not", () => {
@@ -43,7 +43,7 @@ describe("viewer role", () => {
     expect(part).toContain("Mark Ready");
     expect(part).toContain("Open in Blender");
     expect(part).toContain(">Fix<");
-    expect(render("/p/rising-sun")).toContain("6 online · 14 changed today · 4 ready for review");
+    expect(render("/p/rising-sun")).toContain("5 online · 14 changed today · 4 ready for review");
     expect(render("/p/rising-sun")).toContain(">Review<");
     expect(render("/home")).toContain("New project");
     expect(render("/p/rising-sun/a/ojukwu")).toContain(">Export<");

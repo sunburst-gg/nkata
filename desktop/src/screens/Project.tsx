@@ -7,7 +7,7 @@ import { AssetTile } from "@/components/AssetTile";
 import { Tabs } from "@/components/Tabs";
 import { useGo, usePeople, useProject } from "@/lib/hooks";
 
-const TABS: ("All" | AssetKind)[] = ["All", "Characters", "Levels", "Props", "Scripts", "Sound"];
+const TABS: ("All" | AssetKind)[] = ["All", "Characters", "Props", "Levels"];
 
 export function Project() {
   const project = useProject();

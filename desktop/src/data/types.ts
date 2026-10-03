@@ -27,7 +27,7 @@ export type PartState = "draft" | "ready" | "approved" | "locked" | "waiting";
 export type AssetState = "draft" | "ready" | "approved" | "locked" | "failed";
 export type MirrorState = "synced" | "syncing" | "failed" | "offline";
 export type CheckStatus = "pass" | "fail" | "warn" | "running" | "waiting";
-export type AssetKind = "Characters" | "Levels" | "Props" | "Scripts" | "Sound";
+export type AssetKind = "Characters" | "Props" | "Levels";
 
 export interface Render {
   key: RenderKey;

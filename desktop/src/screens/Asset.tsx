@@ -53,7 +53,7 @@ export function Asset() {
         <CommentThread comments={comments} people={people} showPart onAdd={can("comment") && firstPart ? (text) => source.addComment(asset.slug, firstPart.name, text) : undefined} />
       </div>
       {gated ? (
-        <Dialog open={gateFor !== null} onOpenChange={(o) => { if (!o) setGateFor(null); }} title={t("gate.confirm", { part: gated.name })} description={`${by(gated.ownerId).name.split(" ")[0]} can start before ${gated.gate[0]} is approved. The asset timeline will say "${by(useStore.getState().db.session.user.id).name.split(" ")[0]} removed the gate on ${gated.name}."`} actions={<><Button autoFocus onClick={() => setGateFor(null)}>Keep gate</Button><Button variant="primary" onClick={() => { source.removeGate(asset.slug, gated.name); setGateFor(null); toast(`Gate removed on ${gated.name}. ${by(gated.ownerId).name.split(" ")[0]} was told on Discord.`, "approved"); }}>Remove gate</Button></>} />
+        <Dialog open={gateFor !== null} onOpenChange={(o) => { if (!o) setGateFor(null); }} title={t("gate.confirm", { part: gated.name })} description={`${by(gated.ownerId).name.split(" ")[0]} can start before ${gated.gate[0]} is approved. The asset timeline will say "${by(useStore.getState().db.session.user.id).name.split(" ")[0]} removed the gate on ${gated.name}."`} actions={<><Button autoFocus onClick={() => setGateFor(null)}>Keep gate</Button><Button variant="primary" onClick={() => { source.removeGate(asset.slug, gated.name); setGateFor(null); toast(`Gate removed on ${gated.name}. ${by(gated.ownerId).name.split(" ")[0]} can start now.`, "approved"); }}>Remove gate</Button></>} />
       ) : null}
     </div>
   );

@@ -8,8 +8,6 @@ const P = {
   ngozi: { id: "ngozi", name: "Ngozi Obi", initial: "N", tone: 3, title: "Texture artist", role: "artist", email: "ngozi@sunburst.studio", presence: "online", where: "In Ojukwu / hair, Blender", seen: "now" },
   emeka: { id: "emeka", name: "Emeka Nwosu", initial: "E", tone: 4, title: "Art director", role: "art_director", email: "emeka@sunburst.studio", presence: "online", where: "Reviewing Compound / interior, UE5", seen: "now" },
   tobe: { id: "tobe", name: "Tobe Anyanwu", initial: "T", tone: 5, title: "Environment artist", role: "artist", email: "tobe@sunburst.studio", presence: "online", where: "In Enugu Market / stalls, UE5", seen: "now" },
-  ify: { id: "ify", name: "Ify Okoro", initial: "I", tone: 6, title: "Narrative designer", role: "writer", email: "ify@sunburst.studio", presence: "online", where: "In Act1_Scene3 / dialogue", seen: "now" },
-  kene: { id: "kene", name: "Kene Udo", initial: "K", tone: 7, title: "Blueprint scripter", role: "engineer", email: "kene@sunburst.studio", presence: "idle", where: "Published build 0.3.1", seen: "2 h" },
   emmanuel: { id: "emmanuel", name: "Emmanuel Njoku", initial: "E", tone: 8, title: "Producer", role: "producer", email: "emmanuel@sunburst.studio", presence: "offline", where: "Last on the board", seen: "1 d" },
   funmi: { id: "funmi", name: "Funmi Adebayo", initial: "F", tone: 2, title: "Publisher", role: "viewer", email: "funmi@lagosinteractive.com", presence: "online", where: "Reading What changed", seen: "now" },
 } satisfies Record<string, Person>;
@@ -72,15 +70,14 @@ function levelParts(names: [string, Part["state"], string][], render: RenderKey)
 
 function assets(): Asset[] {
   return [
-    { id: "ojukwu", slug: "ojukwu", name: "Ojukwu", kind: "Characters", state: "draft", render: r("ground", "60% 40%"), meta: "Character · changed 12 min ago", ownerId: "ada", present: ["ada", "chidi", "ngozi"], parts: ojukwuParts(), template: "Character", usedIn: ["Enugu Market", "Act1_Scene3"], changedOrder: 0 },
-    { id: "compound-interior", slug: "compound-interior", name: "Compound / interior", kind: "Levels", state: "ready", render: r("interior"), meta: "Level · marked Ready 14 min ago", ownerId: "ada", present: ["ada"], parts: levelParts([["set dressing", "ready", "ada"], ["lighting", "approved", "emeka"], ["props", "draft", "tobe"]], "interior"), template: "Level", usedIn: [], changedOrder: 1 },
-    { id: "enugu-market", slug: "enugu-market", name: "Enugu Market", kind: "Levels", state: "ready", render: r("overview"), meta: "Level · changed 1 h ago", ownerId: "tobe", present: ["tobe", "emeka"], parts: levelParts([["square", "approved", "tobe"], ["stalls", "ready", "tobe"], ["lighting", "waiting", "emeka"]], "overview"), template: "Level", usedIn: [], changedOrder: 2 },
-    { id: "compound", slug: "compound", name: "Compound", kind: "Levels", state: "approved", render: r("courtyard"), meta: "Level · approved yesterday", ownerId: "tobe", present: [], parts: levelParts([["blockout", "approved", "tobe"], ["set dressing", "approved", "tobe"], ["lighting", "approved", "emeka"]], "courtyard"), template: "Level", usedIn: [], changedOrder: 3 },
-    { id: "act1-scene3", slug: "act1-scene3", name: "Act1_Scene3", kind: "Scripts", state: "draft", render: null, noRenderText: "outline · draft · dialogue", meta: "Script · changed 1 h ago", ownerId: "ify", present: ["ify"], parts: [part("outline", "approved", "ify", null, { versions: versions("outline", 3, { 3: "current" }, "tree", "ify") }), part("draft", "draft", "ify", null, { versions: versions("draft", 4, { 4: "current" }, "tree", "ify") }), part("dialogue", "draft", "ify", null)], template: "Script", usedIn: [], changedOrder: 4 },
+    { id: "ojukwu", slug: "ojukwu", name: "Ojukwu", kind: "Characters", state: "draft", render: r("ground", "60% 40%"), meta: "Character · changed 12 min ago", ownerId: "ada", present: ["ada", "chidi", "ngozi"], parts: ojukwuParts(), template: "Character", usedIn: ["Enugu Market"], changedOrder: 0 },
+    { id: "compound-interior", slug: "compound-interior", name: "Compound / interior", kind: "Levels", state: "ready", render: r("interior"), meta: "Level · marked Ready 14 min ago", ownerId: "ada", present: ["ada"], parts: levelParts([["set dressing", "ready", "ada"], ["lighting", "approved", "emeka"], ["props", "draft", "tobe"]], "interior"), template: "Level area", usedIn: [], changedOrder: 1 },
+    { id: "enugu-market", slug: "enugu-market", name: "Enugu Market", kind: "Levels", state: "ready", render: r("overview"), meta: "Level · changed 1 h ago", ownerId: "tobe", present: ["tobe", "emeka"], parts: levelParts([["square", "approved", "tobe"], ["stalls", "ready", "tobe"], ["lighting", "waiting", "emeka"]], "overview"), template: "Level area", usedIn: [], changedOrder: 2 },
+    { id: "compound", slug: "compound", name: "Compound", kind: "Levels", state: "approved", render: r("courtyard"), meta: "Level · approved yesterday", ownerId: "tobe", present: [], parts: levelParts([["blockout", "approved", "tobe"], ["set dressing", "approved", "tobe"], ["lighting", "approved", "emeka"]], "courtyard"), template: "Level area", usedIn: [], changedOrder: 3 },
     { id: "clay-oven", slug: "clay-oven", name: "Clay oven", kind: "Props", state: "approved", render: r("tree", "20% 10%"), meta: "Prop · approved Monday", ownerId: "tobe", present: [], parts: levelParts([["model", "approved", "tobe"], ["textures", "approved", "ngozi"]], "tree"), template: "Environment prop", usedIn: ["Compound"], changedOrder: 5 },
     { id: "zinc-roof-house", slug: "zinc-roof-house", name: "Zinc roof house", kind: "Props", state: "locked", render: r("courtyard", "80% 20%"), meta: "Prop · Chidi has it", ownerId: "chidi", present: ["chidi"], parts: levelParts([["model", "locked", "chidi"], ["textures", "waiting", "ngozi"]], "courtyard"), template: "Environment prop", usedIn: ["Compound"], changedOrder: 6 },
     { id: "market-stall", slug: "market-stall", name: "Market stall", kind: "Props", state: "ready", render: r("overview", "30% 70%"), meta: "Prop · marked Ready 3 h ago", ownerId: "tobe", present: ["tobe"], parts: levelParts([["model", "ready", "tobe"], ["textures", "draft", "ngozi"]], "overview"), template: "Environment prop", usedIn: ["Enugu Market"], changedOrder: 7 },
-    { id: "village-ambience", slug: "village-ambience", name: "Village ambience", kind: "Sound", state: "draft", render: null, noRenderText: "4 layers · 02:40", meta: "Sound · changed Tuesday", ownerId: "tobe", present: [], parts: [part("layers", "draft", "tobe", null), part("mix", "waiting", "tobe", null, { gate: ["layers"] })], template: "Sound", usedIn: ["Compound"], changedOrder: 8 },
+    { id: "kettle", slug: "kettle", name: "Kettle", kind: "Props", state: "draft", render: null, noRenderText: "concept · model · uvs", meta: "Prop · changed 1 h ago", ownerId: "tobe", present: [], parts: [part("concept", "approved", "tobe", null, { versions: versions("concept", 2, { 2: "current" }, "tree", "tobe") }), part("model", "draft", "tobe", null, { versions: versions("model", 4, { 4: "current" }, "tree", "tobe") }), part("uvs", "waiting", "tobe", null, { gate: ["model"] })], template: "Environment prop", usedIn: [], changedOrder: 4 },
   ];
 }
 
@@ -90,7 +87,7 @@ const ACTIVITY: ActivityItem[] = [
   { id: "a3", personId: "emeka", text: "pinned 2 comments.", target: "Ojukwu / face", when: "14 min", dot: "muted", assetSlug: "ojukwu", partName: "face" },
   { id: "a4", personId: "ada", text: "hit the triangle budget.", target: "Ojukwu / face", when: "20 min", dot: "failed", assetSlug: "ojukwu", partName: "face" },
   { id: "a5", personId: "tobe", text: "published v22.", target: "Enugu Market / square", when: "1 h", dot: "approved", assetSlug: "enugu-market" },
-  { id: "a6", personId: "ify", text: "saved v4.", target: "Act1_Scene3 / draft", when: "1 h", dot: "synced", assetSlug: "act1-scene3" },
+  { id: "a6", personId: "tobe", text: "saved v4.", target: "Kettle / model", when: "1 h", dot: "synced", assetSlug: "kettle", partName: "model" },
   { id: "a7", personId: "emeka", text: "approved. Locked.", target: "Compound / lighting", when: "2 h", dot: "approved", assetSlug: "compound" },
   { id: "a8", personId: "chidi", text: "opened. Lock started.", target: "Zinc roof house / model", when: "2 h", dot: "locked", assetSlug: "zinc-roof-house" },
   { id: "a9", personId: "ngozi", text: "marked Ready.", target: "Ojukwu / hair", when: "1 d", dot: "ready", assetSlug: "ojukwu", partName: "hair" },
@@ -106,17 +103,11 @@ const TEMPLATES: Template[] = [
     { id: "t5", name: "rig", gate: ["textures"], checks: ["Rig names", "Scale"], refs: 0 },
     { id: "t6", name: "lookdev", gate: ["rig"], checks: ["LODs 3", "Collision"], refs: 1 },
   ] },
-  { id: "prop", name: "Environment prop", usedBy: 3, tools: "Blender 4.2 · Unreal 5.4 · FBX, 3 LODs, 2048", parts: [
-    { id: "p1", name: "model", gate: [], checks: ["Scale", "Naming", "Tris 15k"], refs: 2 }, { id: "p2", name: "textures", gate: ["model"], checks: ["Size 2048", "Naming"], refs: 1 }, { id: "p3", name: "collision", gate: ["model"], checks: ["Collision"], refs: 0 }, { id: "p4", name: "lods", gate: ["model"], checks: ["LODs 3"], refs: 0 }, { id: "p5", name: "lookdev", gate: ["textures", "lods"], checks: ["Naming"], refs: 1 }, { id: "p6", name: "placement", gate: ["lookdev"], checks: [], refs: 0 },
+  { id: "prop", name: "Environment prop", usedBy: 4, tools: "Blender 4.2 · Unreal 5.4 · glTF, 3 LODs, 2048", parts: [
+    { id: "p1", name: "concept", gate: [], checks: ["Size 2048"], refs: 2 }, { id: "p2", name: "model", gate: [], checks: ["Scale", "Naming", "Tris 15k", "Pivot at base"], refs: 2 }, { id: "p3", name: "uvs", gate: ["model"], checks: ["UV set", "Naming"], refs: 0 }, { id: "p4", name: "textures", gate: ["uvs"], checks: ["Size 2048", "Naming"], refs: 1 }, { id: "p5", name: "lods", gate: ["textures"], checks: ["LODs 3"], refs: 0 }, { id: "p6", name: "collision", gate: ["model"], checks: ["Collision"], refs: 0 },
   ] },
-  { id: "level", name: "Level", usedBy: 3, tools: "Unreal 5.4 · One File Per Actor", parts: [
-    { id: "l1", name: "blockout", gate: [], checks: ["Scale"], refs: 2 }, { id: "l2", name: "set dressing", gate: ["blockout"], checks: ["Naming"], refs: 1 }, { id: "l3", name: "props", gate: ["blockout"], checks: ["Naming"], refs: 0 }, { id: "l4", name: "lighting", gate: ["set dressing"], checks: [], refs: 1 }, { id: "l5", name: "audio", gate: ["set dressing"], checks: [], refs: 0 }, { id: "l6", name: "collision", gate: ["set dressing"], checks: ["Collision"], refs: 0 }, { id: "l7", name: "polish", gate: ["lighting", "audio"], checks: [], refs: 0 },
-  ] },
-  { id: "script", name: "Script", usedBy: 2, tools: "Markdown · string table on Publish", parts: [
-    { id: "s1", name: "outline", gate: [], checks: [], refs: 1 }, { id: "s2", name: "draft", gate: ["outline"], checks: [], refs: 0 }, { id: "s3", name: "dialogue", gate: ["draft"], checks: ["Dialogue IDs"], refs: 0 }, { id: "s4", name: "review", gate: ["dialogue"], checks: [], refs: 0 }, { id: "s5", name: "final", gate: ["review"], checks: ["Dialogue IDs"], refs: 0 },
-  ] },
-  { id: "sound", name: "Sound", usedBy: 1, tools: "WAV 48 kHz", parts: [
-    { id: "d1", name: "layers", gate: [], checks: ["Loudness"], refs: 1 }, { id: "d2", name: "mix", gate: ["layers"], checks: ["Loudness"], refs: 0 }, { id: "d3", name: "master", gate: ["mix"], checks: ["Loudness"], refs: 0 }, { id: "d4", name: "cues", gate: ["master"], checks: [], refs: 0 },
+  { id: "level", name: "Level area", usedBy: 3, tools: "Unreal 5.4 · One File Per Actor", parts: [
+    { id: "l1", name: "blockout", gate: [], checks: ["Scale"], refs: 2 }, { id: "l2", name: "layout", gate: ["blockout"], checks: ["Naming"], refs: 1 }, { id: "l3", name: "set dressing", gate: ["layout"], checks: ["Naming"], refs: 1 }, { id: "l4", name: "lighting", gate: ["set dressing"], checks: [], refs: 1 },
   ] },
 ];
 
@@ -135,7 +126,7 @@ const DIGESTS: Digest[] = [
     ],
     weekNotes: [
       { personId: "emeka", on: "Ojukwu / face", when: "Thu", text: "Shadow under the table is crushed. Approve after fix." },
-      { personId: "ify", on: "Act1_Scene3 / outline", when: "Wed", text: "Scene 3 now opens in the market, not the compound." },
+      { personId: "tobe", on: "Kettle / model", when: "Wed", text: "Spout reads too thin from the gate. Thicker in v4." },
       { personId: "chidi", on: "Ojukwu / cloth", when: "Tue", text: "Collar matches the sheet now." },
       { personId: "funmi", on: "Enugu Market", when: "Mon", text: "The market reads busy from the gate. Keep that." },
     ],
@@ -155,9 +146,9 @@ const DIGESTS: Digest[] = [
 ];
 
 const STUDIO: Studio = {
-  id: "sunburst", name: "Sunburst", initial: "S", peopleCount: 8,
+  id: "sunburst", name: "Sunburst", initial: "S", peopleCount: 7,
   projects: [
-    { id: "rising-sun", slug: "rising-sun", name: "Rising Sun", assetCount: 14, changed: "changed 12 min ago", renders: ["ground", "overview", "interior"], present: ["ada", "chidi", "ngozi", "emeka"], folder: "~/Projects/Rising Sun", blender: "4.2.3 LTS", unreal: "5.4.4", inviteLink: "nkata.app/join/rising-sun-7f3a", sizeLabel: "3.4 GB" },
+    { id: "rising-sun", slug: "rising-sun", name: "Rising Sun", assetCount: 8, changed: "changed 12 min ago", renders: ["ground", "overview", "interior"], present: ["ada", "chidi", "ngozi", "emeka"], folder: "~/Projects/Rising Sun", blender: "4.2.3 LTS", unreal: "5.4.4", inviteLink: "nkata.app/join/rising-sun-7f3a", sizeLabel: "3.4 GB" },
     { id: "greybox", slug: "greybox-tests", name: "Greybox tests", assetCount: 3, changed: "changed Tuesday", renders: ["courtyard"], present: [], folder: "~/Projects/Greybox", blender: "4.2.3 LTS", unreal: "5.4.4", inviteLink: "nkata.app/join/greybox-2c1d", sizeLabel: "420 MB" },
   ],
 };
@@ -237,7 +228,7 @@ export function createMockSource(initialRole: "artist" | "viewer" = "artist"): D
       return c;
     },
     invite: (email: string, role: Role) => {
-      activity = [{ id: `act-${Date.now()}`, personId: session.user.id, text: `invited ${email} as ${role === "art_director" ? "an art director" : role === "artist" || role === "engineer" ? `an ${role}` : `a ${role}`}.`, target: "Rising Sun", when: "now", dot: "muted", assetSlug: "" }, ...activity];
+      activity = [{ id: `act-${Date.now()}`, personId: session.user.id, text: `invited ${email} as ${role === "art_director" ? "an art director" : role === "artist" ? "an artist" : `a ${role}`}.`, target: "Rising Sun", when: "now", dot: "muted", assetSlug: "" }, ...activity];
       emit();
     },
     setDigestIndex: (i) => { digestIndex = Math.max(0, Math.min(DIGESTS.length - 1, i)); emit(); },

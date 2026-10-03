@@ -40,8 +40,7 @@ export const en = {
   "gate.log": "{name} removed the gate on {part}.",
   "rollback.confirm": "Roll back to v{a}. It becomes v{b} and goes to Unreal. Nothing is deleted.",
   "rollback.done": "{part} is v{b}, from v{a}. In Unreal.",
-  "discord.publish": "{name} published {asset} / {part}, version {n}.",
-  "discord.unlock": "{part} unlocked for {name}.",
+  "discord.review": "{name} {decision} {asset} / {part}. {note}",
   "conflict": "Two saves on {part}. Yours is current. {name}'s is kept as v{n}b.",
   // Strings the prototype shows on screen that the handoff list does not key. Same voice.
   "viewer.status": "{n} changed this week",
