@@ -64,7 +64,7 @@
       "additionalProperties": false
     },
     "PartMapping": {
-      "description": "What real thing a part maps to. See docs/engineering.md, Data model, part.mapping.",
+      "description": "What real thing a part maps to. See docs/engineering.md, Data model, part.mapping. ue_area is the set of actors tagged nkata.area=<area> in one level.",
       "oneOf": [
         {
           "type": "object",
@@ -84,6 +84,16 @@
             "actor": { "type": "string", "minLength": 1 }
           },
           "required": ["kind", "level", "actor"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "ue_area" },
+            "level": { "type": "string", "minLength": 1 },
+            "area": { "type": "string", "minLength": 1 }
+          },
+          "required": ["kind", "level", "area"],
           "additionalProperties": false
         },
         {

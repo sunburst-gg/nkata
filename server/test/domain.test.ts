@@ -11,7 +11,7 @@ describe("gate evaluation", () => {
     { id: "c", name: "hair", state: "draft" as const, gate: { after: [] } },
     { id: "d", name: "textures", state: "locked" as const, gate: { after: ["face", "cloth", "hair"] } },
     { id: "e", name: "rig", state: "locked" as const, gate: { after: ["textures"] } },
-    { id: "f", name: "sound", state: "locked" as const, gate: { after: ["face"] } },
+    { id: "f", name: "lookdev", state: "locked" as const, gate: { after: ["face"] } },
   ];
 
   it("opens a gate only when every named part is approved", () => {

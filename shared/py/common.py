@@ -44,6 +44,15 @@ class PartMapping_ue_actor:
         return _rt.to_dict(self)
 
 @dataclass(frozen=True)
+class PartMapping_ue_area:
+    kind: Literal["ue_area"]
+    level: str
+    area: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
+@dataclass(frozen=True)
 class PartMapping_ue_asset:
     kind: Literal["ue_asset"]
     path: str
@@ -138,8 +147,8 @@ ReviewDecision = Literal["approve", "send_back"]
 # Three floats in the part's local space.
 Vec3 = list[float]
 
-# What real thing a part maps to. See docs/engineering.md, Data model, part.mapping.
-PartMapping = PartMapping_blend_collection | PartMapping_ue_actor | PartMapping_ue_asset | PartMapping_file
+# What real thing a part maps to. See docs/engineering.md, Data model, part.mapping. ue_area is the set of actors tagged nkata.area=<area> in one level.
+PartMapping = PartMapping_blend_collection | PartMapping_ue_actor | PartMapping_ue_area | PartMapping_ue_asset | PartMapping_file
 
 def _v_Ulid(value: object, path: str) -> str:
     return _rt.check_str(value, path, min_length=0, pattern="^[0-9A-HJKMNP-TV-Z]{26}$", fmt=None)
@@ -257,6 +266,23 @@ def validate_PartMapping_ue_actor(value: object, path: str = "$") -> PartMapping
         actor=_v_PartMapping_ue_actor_actor(obj["actor"], path + ".actor"),
     )
 
+def _v_PartMapping_ue_area_kind(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, ("ue_area",))
+
+def _v_PartMapping_ue_area_level(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
+
+def _v_PartMapping_ue_area_area(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
+
+def validate_PartMapping_ue_area(value: object, path: str = "$") -> PartMapping_ue_area:
+    obj = _rt.check_object(value, path, required=("kind", "level", "area",), allowed=("kind", "level", "area",))
+    return PartMapping_ue_area(
+        kind=_v_PartMapping_ue_area_kind(obj["kind"], path + ".kind"),
+        level=_v_PartMapping_ue_area_level(obj["level"], path + ".level"),
+        area=_v_PartMapping_ue_area_area(obj["area"], path + ".area"),
+    )
+
 def _v_PartMapping_ue_asset_kind(value: object, path: str) -> Any:
     return _rt.check_literal(value, path, ("ue_asset",))
 
@@ -287,6 +313,7 @@ def _v_PartMapping(value: object, path: str) -> Any:
     return _rt.check_discriminated(value, path, "kind", {
         "blend_collection": validate_PartMapping_blend_collection,
         "ue_actor": validate_PartMapping_ue_actor,
+        "ue_area": validate_PartMapping_ue_area,
         "ue_asset": validate_PartMapping_ue_asset,
         "file": validate_PartMapping_file,
     })

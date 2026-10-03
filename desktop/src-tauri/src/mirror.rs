@@ -86,6 +86,7 @@ pub fn destination_for(mapping: &PartMapping, asset_name: &str, part_name: &str)
     match mapping {
         PartMapping::UeAsset { path } => path.clone(),
         PartMapping::UeActor { level, actor } => format!("/Game/{level}/{actor}"),
+        PartMapping::UeArea { level, area } => format!("/Game/{level}/{area}"),
         PartMapping::BlendCollection { .. } | PartMapping::File { .. } => {
             format!("/Game/Nkata/{asset_name}/{part_name}")
         }
@@ -331,6 +332,17 @@ mod tests {
                 "face"
             ),
             "/Game/Nkata/Ojukwu/face"
+        );
+        assert_eq!(
+            destination_for(
+                &PartMapping::UeArea {
+                    level: "Enugu Market".into(),
+                    area: "square".into()
+                },
+                "Enugu Market / square",
+                "blockout"
+            ),
+            "/Game/Enugu Market/square"
         );
     }
 }

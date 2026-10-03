@@ -19,7 +19,7 @@ const head = { v: 1, project_id: id, actor_id: id2, at };
 const presenceEntry = { user, part_id: null, since: at, last_seen: at };
 const templatePart = { name: "face", mapping: "blend_collection", gate: [], checks: ["unit_scale"], params: { triangle_budget: 60000 } };
 const template = {
-  v: 1, name: "Character", parts: [templatePart, { name: "rig", mapping: "blend_collection", gate: ["face"], checks: [] }],
+  v: 1, name: "Character", kind: "character", parts: [templatePart, { name: "rig", mapping: "blend_collection", gate: ["face"], checks: [] }],
   reference_slots: ["concept_sheet"], export: { ue_path: "/Game/Characters/{asset}/{part}", name: "SK_{asset}_{part}" },
   blend_layout: "one_file_per_part",
 };
@@ -55,8 +55,8 @@ export const fixtures: Fixtures = {
     UserRef: { valid: [user, user2], invalid: [{ id, name: "" , avatar_url: null }, { id, name: "x" }] },
     Gate: { valid: [{ after: [] }, { after: ["face", "cloth"] }], invalid: [{}, { after: [""] }] },
     PartMapping: {
-      valid: [mapping, { kind: "ue_actor", level: "L_Main", actor: "BP_Door" }, { kind: "ue_asset", path: "/Game/X" }, { kind: "file", path: "script.md" }],
-      invalid: [{ kind: "blend_collection", path: "x" }, { kind: "other" }],
+      valid: [mapping, { kind: "ue_actor", level: "L_Main", actor: "BP_Door" }, { kind: "ue_area", level: "L_EnuguMarket", area: "square" }, { kind: "ue_asset", path: "/Game/X" }, { kind: "file", path: "concept.png" }],
+      invalid: [{ kind: "blend_collection", path: "x" }, { kind: "ue_area", level: "L" }, { kind: "other" }],
     },
     LockInfo: { valid: [lock], invalid: [{ ...lock, stale: "no" }] },
     CheckResult: { valid: [checkResult], invalid: [{ ...checkResult, severity: "fatal" }] },
@@ -64,11 +64,12 @@ export const fixtures: Fixtures = {
     ErrorBody: { valid: [{ v: 1, error: { code: "not_found", message: "No part" } }], invalid: [{ v: 1, error: { code: "" , message: "x" } }] },
   },
   template: {
-    TemplateMappingKind: { valid: ["file", "ue_asset"], invalid: ["blend"] },
-    TemplatePart: { valid: [templatePart, { name: "sound", mapping: "file", checks: [] }], invalid: [{ name: "Face", mapping: "file", checks: [] }] },
+    TemplateKind: { valid: ["character", "prop", "level_area"], invalid: ["script", "sound"] },
+    TemplateMappingKind: { valid: ["file", "ue_asset", "ue_area"], invalid: ["blend"] },
+    TemplatePart: { valid: [templatePart, { name: "concept", mapping: "file", checks: [] }, { name: "layout", mapping: "ue_area", gate: ["blockout"], checks: [] }], invalid: [{ name: "Face", mapping: "file", checks: [] }] },
     TemplateExport: { valid: [template.export], invalid: [{ ue_path: "/Game" }] },
     BlendLayout: { valid: ["one_file_per_part"], invalid: ["one_file"] },
-    Template: { valid: [template], invalid: [{ ...template, v: 2 }, { ...template, parts: [] }] },
+    Template: { valid: [template], invalid: [{ ...template, v: 2 }, { ...template, parts: [] }, { ...template, kind: "script" }] },
   },
   check: {
     CheckTarget: { valid: ["blender", "ue5", "file"], invalid: ["maya"] },

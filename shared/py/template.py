@@ -30,6 +30,7 @@ class TemplateExport:
 class Template:
     v: Literal[1]
     name: str
+    kind: TemplateKind
     parts: list[TemplatePart]
     reference_slots: list[str]
     export: TemplateExport
@@ -38,12 +39,21 @@ class Template:
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
 
-TemplateMappingKind = Literal["file", "blend_collection", "ue_asset", "ue_actor"]
+# Picks the import script and the panel layout. See docs/engineering.md, Templates.
+TemplateKind = Literal["character", "prop", "level_area"]
+
+TemplateMappingKind = Literal["file", "blend_collection", "ue_asset", "ue_actor", "ue_area"]
 
 BlendLayout = Literal["one_file_per_part", "one_file_per_asset"]
 
+def _v_TemplateKind(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, ("character", "prop", "level_area",))
+
+def validate_TemplateKind(value: object, path: str = "$") -> Any:
+    return _v_TemplateKind(value, path)
+
 def _v_TemplateMappingKind(value: object, path: str) -> Any:
-    return _rt.check_literal(value, path, ("file", "blend_collection", "ue_asset", "ue_actor",))
+    return _rt.check_literal(value, path, ("file", "blend_collection", "ue_asset", "ue_actor", "ue_area",))
 
 def validate_TemplateMappingKind(value: object, path: str = "$") -> Any:
     return _v_TemplateMappingKind(value, path)
@@ -111,10 +121,11 @@ def _v_Template_reference_slots(value: object, path: str) -> list[Any]:
     return _rt.check_list(value, path, _v_Template_reference_slots_item, min_items=None, max_items=None)
 
 def validate_Template(value: object, path: str = "$") -> Template:
-    obj = _rt.check_object(value, path, required=("v", "name", "parts", "reference_slots", "export", "blend_layout",), allowed=("v", "name", "parts", "reference_slots", "export", "blend_layout",))
+    obj = _rt.check_object(value, path, required=("v", "name", "kind", "parts", "reference_slots", "export", "blend_layout",), allowed=("v", "name", "kind", "parts", "reference_slots", "export", "blend_layout",))
     return Template(
         v=_v_Template_v(obj["v"], path + ".v"),
         name=_v_Template_name(obj["name"], path + ".name"),
+        kind=validate_TemplateKind(obj["kind"], path + ".kind"),
         parts=_v_Template_parts(obj["parts"], path + ".parts"),
         reference_slots=_v_Template_reference_slots(obj["reference_slots"], path + ".reference_slots"),
         export=validate_TemplateExport(obj["export"], path + ".export"),

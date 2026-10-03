@@ -37,11 +37,26 @@ describe.skipIf(!hasInfra)("server api", () => {
   it("seeds the Ojukwu asset with gated parts locked", async () => {
     const res = await h.app.inject({ method: "GET", url: `/assets/${h.seeded.asset_id}`, ...h.as(ARTIST) });
     const body = res.json() as { asset: { state: string }; parts: { name: string; state: string; mapping: { kind: string } }[] };
-    expect(body.parts.map((p) => p.name)).toEqual(["concept", "face", "cloth", "hair", "textures", "rig", "lookdev", "animation", "sound"]);
+    expect(body.parts.map((p) => p.name)).toEqual(["concept", "face", "cloth", "hair", "textures", "rig", "lookdev"]);
     expect(body.parts.find((p) => p.name === "textures")?.state).toBe("locked");
     expect(body.parts.find((p) => p.name === "face")?.state).toBe("draft");
     expect(body.parts.find((p) => p.name === "lookdev")?.mapping).toEqual({ kind: "ue_asset", path: "/Game/Characters/Ojukwu/lookdev" });
     expect(body.asset.state).toBe("draft");
+  });
+
+  it("seeds three props and one level area for the environment artist", async () => {
+    const res = await h.app.inject({ method: "GET", url: `/assets?project_id=${h.seeded.project_id}`, ...h.as(ARTIST) });
+    const names = (res.json() as { assets: { name: string }[] }).assets.map((a) => a.name).sort();
+    expect(names).toEqual(["Enugu Market / square", "Kettle", "Market stall", "Ojukwu", "Wooden stool"]);
+    const kettle = await h.app.inject({ method: "GET", url: `/assets/${h.seeded.assets["Kettle"]}`, ...h.as(ARTIST) });
+    const kettleParts = (kettle.json() as { parts: { name: string; mapping: unknown }[] }).parts;
+    expect(kettleParts.map((p) => p.name)).toEqual(["concept", "model", "uvs", "textures", "lods", "collision"]);
+    expect(kettleParts.find((p) => p.name === "lods")?.mapping).toEqual({ kind: "ue_asset", path: "/Game/Props/Kettle" });
+    const square = await h.app.inject({ method: "GET", url: `/assets/${h.seeded.assets["Enugu Market / square"]}`, ...h.as(ARTIST) });
+    const squareParts = (square.json() as { parts: { name: string; state: string; mapping: unknown }[] }).parts;
+    expect(squareParts.map((p) => p.name)).toEqual(["blockout", "layout", "set_dressing", "lighting"]);
+    expect(squareParts[0]?.mapping).toEqual({ kind: "ue_area", level: "Enugu Market", area: "square" });
+    expect(squareParts.map((p) => p.state)).toEqual(["draft", "locked", "locked", "locked"]);
   });
 
   it("finds parts by open file", async () => {
@@ -63,7 +78,7 @@ describe.skipIf(!hasInfra)("server api", () => {
     });
     expect(res.statusCode).toBe(201);
     const body = res.json() as { parts: { name: string; owner_id: string | null; state: string }[] };
-    expect(body.parts).toHaveLength(9);
+    expect(body.parts).toHaveLength(7);
     expect(body.parts.find((p) => p.name === "face")?.owner_id).toBe(h.seeded.users[ARTIST]);
     expect(body.parts.find((p) => p.name === "rig")?.state).toBe("locked");
     const bad = await h.app.inject({ method: "POST", url: "/assets", ...h.as(AD), payload: { project_id: h.seeded.project_id, template_name: "Character", name: "Bad", owners: { nope: h.seeded.users[ARTIST] } } });
@@ -171,9 +186,9 @@ describe.skipIf(!hasInfra)("server api", () => {
     });
 
     it("removing a gate opens the part at once", async () => {
-      expect((await h.app.inject({ method: "POST", url: `/parts/${parts["sound"]}/gate/remove`, ...h.as(ARTIST) })).statusCode).toBe(403);
-      const res = await h.app.inject({ method: "POST", url: `/parts/${parts["sound"]}/gate/remove`, ...h.as(AD) });
-      expect(res.json()).toMatchObject({ opened: [parts["sound"]] });
+      expect((await h.app.inject({ method: "POST", url: `/parts/${parts["lookdev"]}/gate/remove`, ...h.as(ARTIST) })).statusCode).toBe(403);
+      const res = await h.app.inject({ method: "POST", url: `/parts/${parts["lookdev"]}/gate/remove`, ...h.as(AD) });
+      expect(res.json()).toMatchObject({ opened: [parts["lookdev"]] });
     });
 
     it("rollback creates a new version and keeps history", async () => {

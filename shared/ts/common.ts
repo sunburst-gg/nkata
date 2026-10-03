@@ -46,7 +46,7 @@ export const Gate = z.strictObject({
 });
 export type Gate = z.infer<typeof Gate>;
 
-/** What real thing a part maps to. See docs/engineering.md, Data model, part.mapping. */
+/** What real thing a part maps to. See docs/engineering.md, Data model, part.mapping. ue_area is the set of actors tagged nkata.area=<area> in one level. */
 export const PartMapping = z.discriminatedUnion("kind", [z.strictObject({
   "kind": z.literal("blend_collection"),
   "file": z.string().min(1),
@@ -55,6 +55,10 @@ export const PartMapping = z.discriminatedUnion("kind", [z.strictObject({
   "kind": z.literal("ue_actor"),
   "level": z.string().min(1),
   "actor": z.string().min(1),
+}), z.strictObject({
+  "kind": z.literal("ue_area"),
+  "level": z.string().min(1),
+  "area": z.string().min(1),
 }), z.strictObject({
   "kind": z.literal("ue_asset"),
   "path": z.string().min(1),

@@ -12,15 +12,26 @@ const AssetBody = z.object({
   id: Ulid.optional(),
   project_id: Ulid,
   template_name: z.string().min(1),
-  name: z.string().min(1).regex(/^[A-Za-z0-9][A-Za-z0-9 _-]*$/),
+  name: z.string().min(1).regex(/^[A-Za-z0-9][A-Za-z0-9 _/-]*$/),
   owners: z.record(z.string(), Ulid).default({}),
   reference_files: z.array(z.string()).default([]),
 });
+
+/** A level area asset is named "<level> / <area>". Without the slash the level is the asset and the area is the part. */
+export function levelAndArea(assetName: string, partName: string): { level: string; area: string } {
+  const slash = assetName.indexOf(" / ");
+  if (slash < 0) return { level: assetName, area: partName };
+  return { level: assetName.slice(0, slash).trim(), area: assetName.slice(slash + 3).trim() };
+}
 
 /** Where a part lives on disk and in the engine, from the template rules. See docs/decisions.md. */
 export function mappingFor(tpl: Template, tp: TemplatePart, assetName: string): PartMapping {
   const fill = (s: string) => s.replaceAll("{asset}", assetName).replaceAll("{part}", tp.name);
   switch (tp.mapping) {
+    case "ue_area": {
+      const { level, area } = levelAndArea(assetName, tp.name);
+      return { kind: "ue_area", level, area };
+    }
     case "blend_collection":
       return { kind: "blend_collection", file: tpl.blend_layout === "one_file_per_part" ? `${assetName}/${tp.name}.blend` : `${assetName}/${assetName}.blend`, collection: tp.name };
     case "ue_asset":

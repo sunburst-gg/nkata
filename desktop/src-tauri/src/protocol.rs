@@ -27,6 +27,8 @@ pub enum PartMapping {
     BlendCollection { file: String, collection: String },
     #[serde(rename = "ue_actor")]
     UeActor { level: String, actor: String },
+    #[serde(rename = "ue_area")]
+    UeArea { level: String, area: String },
     #[serde(rename = "ue_asset")]
     UeAsset { path: String },
     #[serde(rename = "file")]
@@ -288,6 +290,16 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&m).unwrap(),
             r#"{"kind":"ue_asset","path":"/Game/X"}"#
+        );
+        let area: PartMapping =
+            serde_json::from_str(r#"{"kind":"ue_area","level":"Enugu Market","area":"square"}"#)
+                .unwrap();
+        assert_eq!(
+            area,
+            PartMapping::UeArea {
+                level: "Enugu Market".into(),
+                area: "square".into()
+            }
         );
     }
 }
