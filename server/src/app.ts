@@ -50,6 +50,13 @@ export type AppDeps = {
 export type App = FastifyInstance;
 
 // Routes that run without a session token.
+/** The only non GET routes a viewer may call. */
+const VIEWER_WRITES: ReadonlySet<string> = new Set(["/comments", "/comments/:id/resolve", "/files/download-urls"]);
+
+function isViewerOnly(p: Principal): boolean {
+  return p.roles.length > 0 && p.roles.every((r) => r === "viewer");
+}
+
 const PUBLIC = new Set(["/health", "/auth/magic-link", "/auth/callback"]);
 
 export async function buildApp(deps: AppDeps): Promise<App> {
@@ -99,6 +106,11 @@ export async function buildApp(deps: AppDeps): Promise<App> {
     if (!header.startsWith("Bearer ")) throw new AppError("unauthorized", "missing bearer token");
     req.principal = await resolveSession(app.db, header.slice("Bearer ".length), app.now());
     req.log = req.log.child({ studio_id: req.principal.studio_id, user_id: req.principal.user_id });
+    // A viewer reads everything and comments. Every other write is refused at this one boundary,
+    // before any route runs. docs/product.md, Roles and permissions.
+    if (req.method !== "GET" && isViewerOnly(req.principal) && !VIEWER_WRITES.has(req.routeOptions.url ?? "")) {
+      throw new AppError("forbidden", "a viewer can comment and export one asset, nothing else", { roles: req.principal.roles });
+    }
   });
 
   const typed = app.withTypeProvider<ZodTypeProvider>();

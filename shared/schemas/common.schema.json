@@ -21,7 +21,8 @@
     },
     "Role": {
       "type": "string",
-      "enum": ["artist", "art_director", "engineer", "writer", "producer", "viewer"]
+      "description": "Four roles in v1. The enum stays open for later roles. See docs/product.md, Roles and permissions.",
+      "enum": ["artist", "art_director", "producer", "viewer"]
     },
     "MirrorStatus": {
       "type": "string",

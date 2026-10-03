@@ -119,3 +119,4 @@ Appended as each lands, with the commit subject.
 - Add the refocus audit and plan (this file).
 - Refocus the docs on four people: product.md, engineering.md, task files 01a, 01b, 03, 04, 05; 01-mirror.md deleted; 02-core.md marked done; README layout rows.
 - Add template kinds and seed the environment assets: `kind` on the template schema, `ue_area` mapping, Environment prop and Level area templates, Kettle, Wooden stool, Market stall, Enugu Market / square seeded for the environment artist; animation and sound parts removed from Character.
+- Cut the roles to artist, art director, producer, viewer: shared Role enum, seed users (engineer out, viewer in), one server hook that refuses every viewer write, one test per refused route.

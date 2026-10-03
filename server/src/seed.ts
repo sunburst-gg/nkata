@@ -66,8 +66,8 @@ export const SEED_USERS: { email: string; name: string; roles: Role[] }[] = [
   { email: "artist@sunburst.gg", name: "Rising Sun artist", roles: ["artist"] },
   { email: "env@sunburst.gg", name: "Environment artist", roles: ["artist"] },
   { email: "director@sunburst.gg", name: "Art director", roles: ["artist", "art_director"] },
-  { email: "engineer@sunburst.gg", name: "Engineer", roles: ["engineer"] },
   { email: "producer@sunburst.gg", name: "Producer", roles: ["producer"] },
+  { email: "viewer@sunburst.gg", name: "Publisher", roles: ["viewer"] },
 ];
 
 /** The seeded assets: name, template, owner of every part. */

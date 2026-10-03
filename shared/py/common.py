@@ -135,7 +135,8 @@ Timestamp = str
 # Part state machine. See docs/product.md, Core concepts.
 PartState = Literal["locked", "draft", "ready", "approved"]
 
-Role = Literal["artist", "art_director", "engineer", "writer", "producer", "viewer"]
+# Four roles in v1. The enum stays open for later roles. See docs/product.md, Roles and permissions.
+Role = Literal["artist", "art_director", "producer", "viewer"]
 
 # Result of the Blender to UE5 mirror for one version.
 MirrorStatus = Literal["pending", "syncing", "synced", "failed", "skipped"]
@@ -169,7 +170,7 @@ def validate_PartState(value: object, path: str = "$") -> Any:
     return _v_PartState(value, path)
 
 def _v_Role(value: object, path: str) -> Any:
-    return _rt.check_literal(value, path, ("artist", "art_director", "engineer", "writer", "producer", "viewer",))
+    return _rt.check_literal(value, path, ("artist", "art_director", "producer", "viewer",))
 
 def validate_Role(value: object, path: str = "$") -> Any:
     return _v_Role(value, path)
