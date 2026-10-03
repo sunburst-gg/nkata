@@ -102,7 +102,6 @@ class CommentPin:
     point: Vec3
     normal: Vec3
     body: str
-    linear_issue: str | None
     resolved_at: Timestamp | None
     created_at: Timestamp
 
@@ -360,21 +359,13 @@ def validate_CheckResult(value: object, path: str = "$") -> CheckResult:
 def _v_CommentPin_body(value: object, path: str) -> str:
     return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
 
-def _v_CommentPin_linear_issue_inner(value: object, path: str) -> str:
-    return _rt.check_str(value, path, min_length=0, pattern=None, fmt=None)
-
-def _v_CommentPin_linear_issue(value: object, path: str) -> Any:
-    if value is None:
-        return None
-    return _v_CommentPin_linear_issue_inner(value, path)
-
 def _v_CommentPin_resolved_at(value: object, path: str) -> Any:
     if value is None:
         return None
     return validate_Timestamp(value, path)
 
 def validate_CommentPin(value: object, path: str = "$") -> CommentPin:
-    obj = _rt.check_object(value, path, required=("id", "part_id", "version_id", "author", "point", "normal", "body", "linear_issue", "resolved_at", "created_at",), allowed=("id", "part_id", "version_id", "author", "point", "normal", "body", "linear_issue", "resolved_at", "created_at",))
+    obj = _rt.check_object(value, path, required=("id", "part_id", "version_id", "author", "point", "normal", "body", "resolved_at", "created_at",), allowed=("id", "part_id", "version_id", "author", "point", "normal", "body", "resolved_at", "created_at",))
     return CommentPin(
         id=validate_Ulid(obj["id"], path + ".id"),
         part_id=validate_Ulid(obj["part_id"], path + ".part_id"),
@@ -383,7 +374,6 @@ def validate_CommentPin(value: object, path: str = "$") -> CommentPin:
         point=validate_Vec3(obj["point"], path + ".point"),
         normal=validate_Vec3(obj["normal"], path + ".normal"),
         body=_v_CommentPin_body(obj["body"], path + ".body"),
-        linear_issue=_v_CommentPin_linear_issue(obj["linear_issue"], path + ".linear_issue"),
         resolved_at=_v_CommentPin_resolved_at(obj["resolved_at"], path + ".resolved_at"),
         created_at=validate_Timestamp(obj["created_at"], path + ".created_at"),
     )

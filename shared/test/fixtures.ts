@@ -13,7 +13,7 @@ const lock = { holder: user, granted_at: at, heartbeat_at: at, expires_at: at, s
 const checkResult = { check_id: "unit_scale", severity: "block", passed: true, auto_fixed: false, message: "" };
 const comment = {
   id, part_id: id, version_id: id2, author: user, point: [0, 1, 2], normal: [0, 0, 1],
-  body: "Shorter here", linear_issue: null, resolved_at: null, created_at: at,
+  body: "Shorter here", resolved_at: null, created_at: at,
 };
 const head = { v: 1, project_id: id, actor_id: id2, at };
 const presenceEntry = { user, part_id: null, since: at, last_seen: at };
@@ -60,7 +60,7 @@ export const fixtures: Fixtures = {
     },
     LockInfo: { valid: [lock], invalid: [{ ...lock, stale: "no" }] },
     CheckResult: { valid: [checkResult], invalid: [{ ...checkResult, severity: "fatal" }] },
-    CommentPin: { valid: [comment, { ...comment, linear_issue: "SUN-12", resolved_at: at }], invalid: [{ ...comment, point: [1] }] },
+    CommentPin: { valid: [comment, { ...comment, resolved_at: at }], invalid: [{ ...comment, point: [1] }, { ...comment, linear_issue: "SUN-12" }] },
     ErrorBody: { valid: [{ v: 1, error: { code: "not_found", message: "No part" } }], invalid: [{ v: 1, error: { code: "" , message: "x" } }] },
   },
   template: {
@@ -110,7 +110,7 @@ export const fixtures: Fixtures = {
     ChecksRequest: { valid: [{ v: 1, results: [] }], invalid: [{ v: 1, results: [{}] }] },
     ChecksResponse: { valid: [{ v: 1, version_id: id, recorded: 3 }], invalid: [{ v: 1, version_id: id, recorded: -1 }] },
     CommentsResponse: { valid: [{ v: 1, comments: [comment] }], invalid: [{ v: 1, comments: comment }] },
-    CommentCreateRequest: { valid: [{ v: 1, point: [0, 0, 0], normal: [0, 0, 1], body: "Hi", linear_issue: null }], invalid: [{ v: 1, point: [0, 0, 0], normal: [0, 0, 1], body: "", linear_issue: null }] },
+    CommentCreateRequest: { valid: [{ v: 1, point: [0, 0, 0], normal: [0, 0, 1], body: "Hi" }], invalid: [{ v: 1, point: [0, 0, 0], normal: [0, 0, 1], body: "" }] },
     CommentCreateResponse: { valid: [{ v: 1, comment }], invalid: [{ v: 1 }] },
     ReviewRequest: { valid: [{ v: 1, score: 5, decision: "approve", note: "" }], invalid: [{ v: 1, score: 6, decision: "approve", note: "" }] },
     ReviewResponse: { valid: [{ v: 1, review_id: id, state: "approved" }], invalid: [{ v: 1, state: "approved" }] },

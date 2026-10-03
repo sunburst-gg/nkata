@@ -189,7 +189,6 @@ export const comment = pgTable("comment", {
   point: real("point").array().notNull(),
   normal: real("normal").array().notNull(),
   body: text("body").notNull(),
-  linear_issue: text("linear_issue"),
   resolved_at: ts("resolved_at"),
 });
 

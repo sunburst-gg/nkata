@@ -14,14 +14,13 @@ const CommentBody = z.object({
   point: Vec3,
   normal: Vec3,
   body: z.string().min(1),
-  linear_issue: z.string().nullable().default(null),
 });
 
 export async function commentWire(app: TypedApp, rows: (typeof comment.$inferSelect)[]): Promise<CommentPin[]> {
   const authors = await userRefs(app.db, rows.map((r) => r.author_id));
   return rows.map((r) => ({
     id: r.id, part_id: r.part_id, version_id: r.version_id, author: authors.get(r.author_id)!,
-    point: r.point, normal: r.normal, body: r.body, linear_issue: r.linear_issue,
+    point: r.point, normal: r.normal, body: r.body,
     resolved_at: r.resolved_at ? r.resolved_at.toISOString() : null, created_at: r.created_at.toISOString(),
   }));
 }
@@ -43,7 +42,7 @@ export async function commentRoutes(app: TypedApp): Promise<void> {
     const now = app.now();
     const [saved] = await app.db
       .insert(comment)
-      .values({ id, studio_id: a.studio_id, part_id: row.id, version_id: ver.id, author_id: req.principal.user_id, point: req.body.point, normal: req.body.normal, body: req.body.body, linear_issue: req.body.linear_issue, created_at: now, updated_at: now })
+      .values({ id, studio_id: a.studio_id, part_id: row.id, version_id: ver.id, author_id: req.principal.user_id, point: req.body.point, normal: req.body.normal, body: req.body.body, created_at: now, updated_at: now })
       .returning();
     const [pin] = await commentWire(app, [saved!]);
     await app.bus.emit({

@@ -138,7 +138,6 @@ export const CommentCreateRequest = z.strictObject({
   "point": Vec3,
   "normal": Vec3,
   "body": z.string().min(1),
-  "linear_issue": z.string().nullable(),
 });
 export type CommentCreateRequest = z.infer<typeof CommentCreateRequest>;
 

@@ -154,11 +154,10 @@
         "point": { "$ref": "#/$defs/Vec3" },
         "normal": { "$ref": "#/$defs/Vec3" },
         "body": { "type": "string", "minLength": 1 },
-        "linear_issue": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
         "resolved_at": { "anyOf": [{ "$ref": "#/$defs/Timestamp" }, { "type": "null" }] },
         "created_at": { "$ref": "#/$defs/Timestamp" }
       },
-      "required": ["id", "part_id", "version_id", "author", "point", "normal", "body", "linear_issue", "resolved_at", "created_at"],
+      "required": ["id", "part_id", "version_id", "author", "point", "normal", "body", "resolved_at", "created_at"],
       "additionalProperties": false
     },
     "ErrorBody": {

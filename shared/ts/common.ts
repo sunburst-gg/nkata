@@ -98,7 +98,6 @@ export const CommentPin = z.strictObject({
   "point": Vec3,
   "normal": Vec3,
   "body": z.string().min(1),
-  "linear_issue": z.string().nullable(),
   "resolved_at": Timestamp.nullable(),
   "created_at": Timestamp,
 });

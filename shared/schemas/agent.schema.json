@@ -458,24 +458,13 @@
         "body": {
           "type": "string",
           "minLength": 1
-        },
-        "linear_issue": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
         }
       },
       "required": [
         "v",
         "point",
         "normal",
-        "body",
-        "linear_issue"
+        "body"
       ],
       "additionalProperties": false
     },

@@ -175,7 +175,6 @@ class CommentCreateRequest:
     point: Vec3
     normal: Vec3
     body: str
-    linear_issue: str | None
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -551,22 +550,13 @@ def _v_CommentCreateRequest_v(value: object, path: str) -> Any:
 def _v_CommentCreateRequest_body(value: object, path: str) -> str:
     return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
 
-def _v_CommentCreateRequest_linear_issue_inner(value: object, path: str) -> str:
-    return _rt.check_str(value, path, min_length=0, pattern=None, fmt=None)
-
-def _v_CommentCreateRequest_linear_issue(value: object, path: str) -> Any:
-    if value is None:
-        return None
-    return _v_CommentCreateRequest_linear_issue_inner(value, path)
-
 def validate_CommentCreateRequest(value: object, path: str = "$") -> CommentCreateRequest:
-    obj = _rt.check_object(value, path, required=("v", "point", "normal", "body", "linear_issue",), allowed=("v", "point", "normal", "body", "linear_issue",))
+    obj = _rt.check_object(value, path, required=("v", "point", "normal", "body",), allowed=("v", "point", "normal", "body",))
     return CommentCreateRequest(
         v=_v_CommentCreateRequest_v(obj["v"], path + ".v"),
         point=validate_Vec3(obj["point"], path + ".point"),
         normal=validate_Vec3(obj["normal"], path + ".normal"),
         body=_v_CommentCreateRequest_body(obj["body"], path + ".body"),
-        linear_issue=_v_CommentCreateRequest_linear_issue(obj["linear_issue"], path + ".linear_issue"),
     )
 
 def _v_CommentCreateResponse_v(value: object, path: str) -> Any:
