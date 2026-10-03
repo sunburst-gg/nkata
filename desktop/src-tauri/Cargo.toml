@@ -5,6 +5,8 @@ edition.workspace = true
 license.workspace = true
 publish.workspace = true
 description = "Nkata local agent core: index, chunking, sync, queue. Library plus a CLI for tests."
+# `cargo run` and `tauri dev` start the window; the CLI is `cargo run --bin nkata-agent`.
+default-run = "nkata-desktop"
 
 [lib]
 name = "nkata_agent"
