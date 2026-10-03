@@ -11,6 +11,7 @@ use serde_json::Value;
 const MIB: u64 = 1024 * 1024;
 const VIEWER: &str = "viewer@sunburst.gg";
 const ARTIST: &str = "artist@sunburst.gg";
+const PRODUCER: &str = "producer@sunburst.gg";
 
 fn agent(bin: &str, folder: &Path, args: &[&str]) -> Value {
     let out = Command::new(bin)
@@ -28,6 +29,19 @@ fn agent(bin: &str, folder: &Path, args: &[&str]) -> Value {
         String::from_utf8_lossy(&out.stderr)
     );
     serde_json::from_slice(&out.stdout).expect("agent prints json")
+}
+
+async fn post(server: &str, token: &str, path: &str, body: Value) -> Value {
+    reqwest::Client::new()
+        .post(format!("{server}{path}"))
+        .bearer_auth(token)
+        .json(&body)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap()
 }
 
 async fn get(server: &str, token: &str, path: &str) -> Value {
@@ -69,11 +83,32 @@ async fn a_viewer_cache_fetches_on_demand_and_evicts_the_least_recently_used() {
     let cache = root.join("cache");
     fs::create_dir_all(&folder).unwrap();
 
-    // The artist pushes three files of 1 MiB each, with a folder name no other test uses.
+    // A project of its own, so the sync gate's file count in the seeded project stays exact.
     let stamp = ulid::Ulid::new().to_string();
-    let names: Vec<String> = (1..=3)
-        .map(|i| format!("Stream-{stamp}/T_{i}.png"))
-        .collect();
+    let producer_token = agent(
+        bin,
+        &folder,
+        &["login", "--server", &server, "--email", PRODUCER],
+    )["token"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let project = post(
+        &server,
+        &producer_token,
+        "/projects",
+        serde_json::json!({
+            "name": format!("Stream {stamp}"), "folder_name": format!("stream-{stamp}"),
+            "blender_version": "4.2", "ue_version": "5.4", "package_version": "0.1.0"
+        }),
+    )
+    .await["project"]["id"]
+        .as_str()
+        .expect("project created")
+        .to_string();
+
+    // The artist pushes three files of 1 MiB each.
+    let names: Vec<String> = (1..=3).map(|i| format!("Textures/T_{i}.png")).collect();
     for (i, name) in names.iter().enumerate() {
         let path = folder.join(name);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -84,10 +119,6 @@ async fn a_viewer_cache_fetches_on_demand_and_evicts_the_least_recently_used() {
         &folder,
         &["login", "--server", &server, "--email", ARTIST],
     )["token"]
-        .as_str()
-        .unwrap()
-        .to_string();
-    let project = get(&server, &artist_token, "/projects").await["projects"][0]["id"]
         .as_str()
         .unwrap()
         .to_string();
