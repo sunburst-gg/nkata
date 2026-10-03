@@ -6,7 +6,9 @@ Python Editor Script Plugin plus an Editor Utility Widget. Import in place, pane
 
 Snippets the agent runs through the Remote Control API (`PUT /remote/object/call` on the Python script library, `ExecuteFile` mode). Each takes one argument, the path of a JSON args file, and prints one line `NKATA_RESULT {...}` last. The agent reads that line from the log output.
 
-- `import_part.py`: import or reimport one part export in place. `replace_existing`, `automated`, `save`. Reimport keeps skeleton, physics asset, and materials.
+- `import_character.py`: import or reimport a character part as a skeletal mesh, in place. Reimport keeps skeleton, physics asset, and materials, and fails when either link changes.
+- `import_static.py`: import or reimport a prop part as a static mesh, in place. Nanite, LOD group, and collision set once on first import. Reimport keeps material instances and collision, and fails when the referencer count drops.
+- `inspect_asset.py`: what the mirror must keep on an asset, for the e2e scripts.
 - `refresh.py`: rescan a content path and sync the Content Browser.
 
 Enable the Python Editor Script Plugin and the Remote Control API plugin in the project. Remote Control listens on `localhost:30010`.

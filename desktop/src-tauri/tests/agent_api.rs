@@ -147,7 +147,7 @@ fn spool_export(h: &Harness, part_id: &str) -> String {
 }
 
 fn manifest() -> Value {
-    json!({"v": 1, "objects": [{"name": "Face", "triangles": 1200, "materials": ["M_Skin"], "bounds_min": [0, 0, 0], "bounds_max": [1, 1, 2], "hash": "abc"}], "armature": null, "mirror_target": null})
+    json!({"v": 1, "kind": "character", "objects": [{"name": "Face", "triangles": 1200, "materials": ["M_Skin"], "bounds_min": [0, 0, 0], "bounds_max": [1, 1, 2], "hash": "abc", "origin": [0, 0, 0], "scale": [1, 1, 1]}], "bone_count": 42, "armature": "Armature", "mirror_target": null})
 }
 
 async fn wait_for_mirror(h: &Harness, part_id: &str, want: &str) -> Value {
@@ -189,9 +189,16 @@ async fn local_api_serves_me_parts_locks_saves_and_mirrors() {
         .ends_with(".nkata-agent/spool"));
 
     let (_, parts) = h.get("/parts?file=Ojukwu%2Fface.blend").await;
-    assert_eq!(parts["parts"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        parts["parts"]
+            .as_array()
+            .unwrap_or_else(|| panic!("{parts}"))
+            .len(),
+        1
+    );
     let face = parts["parts"][0]["id"].as_str().unwrap().to_string();
     assert_eq!(parts["parts"][0]["mapping"]["kind"], "blend_collection");
+    assert_eq!(parts["parts"][0]["kind"], "character");
 
     // SSE subscriber sees lock and mirror events.
     let events_url = format!("{}/events?token={}", h.base, h.token);
@@ -259,11 +266,13 @@ async fn local_api_serves_me_parts_locks_saves_and_mirrors() {
     assert_eq!(mirror["failures"], 0);
     assert_eq!(h.fake.calls.load(Ordering::SeqCst), 1);
     let command = h.fake.last_command.lock().await.clone();
-    assert!(command.contains("import_part.py"), "{command}");
+    assert!(command.contains("import_character.py"), "{command}");
     let args_path = command.split('"').nth(3).unwrap().to_string();
     let args: Value = serde_json::from_str(&std::fs::read_to_string(&args_path).unwrap()).unwrap();
     assert_eq!(args["destination_path"], "/Game/Nkata/Ojukwu/face");
     assert_eq!(args["asset_name"], "face");
+    assert_eq!(args["kind"], "character");
+    assert_eq!(args["bone_count"], 42);
 
     let versions: Value = reqwest::Client::new()
         .get(format!("{server_url}/parts/{face}/versions"))

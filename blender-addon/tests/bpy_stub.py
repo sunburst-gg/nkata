@@ -52,13 +52,23 @@ class FakeSlot:
 
 
 class FakeObject:
-    def __init__(self, name: str, kind: str = "MESH", coords: list[float] | None = None, materials: list[str] | None = None) -> None:
+    def __init__(
+        self,
+        name: str,
+        kind: str = "MESH",
+        coords: list[float] | None = None,
+        materials: list[str] | None = None,
+        bones: int = 0,
+        location: tuple[float, float, float] = (0.0, 0.0, 0.0),
+        scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+    ) -> None:
         self.name = name
         self.type = kind
         coords = coords if coords is not None else [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0]
-        self.data = FakeMesh(coords, [0, 1, 2], [3]) if kind == "MESH" else None
+        self.data = FakeMesh(coords, [0, 1, 2], [3]) if kind == "MESH" else types.SimpleNamespace(bones=[object()] * bones)
         self.material_slots = [FakeSlot(m) for m in (materials or [])]
-        self.matrix_world = [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
+        self.scale = scale
+        self.matrix_world = [[scale[0], 0.0, 0.0, location[0]], [0.0, scale[1], 0.0, location[1]], [0.0, 0.0, scale[2], location[2]], [0.0, 0.0, 0.0, 1.0]]
         n = len(coords) // 3
         pts = [(coords[i * 3], coords[i * 3 + 1], coords[i * 3 + 2]) for i in range(n)]
         self.bound_box = [FakeVec(*p) for p in pts] if pts else []

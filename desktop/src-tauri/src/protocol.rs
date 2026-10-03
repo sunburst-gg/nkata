@@ -35,6 +35,15 @@ pub enum PartMapping {
     File { path: String },
 }
 
+/// The template kind. Picks the import script and the panel layout.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TemplateKind {
+    Character,
+    Prop,
+    LevelArea,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Gate {
     pub after: Vec<String>,
@@ -70,6 +79,7 @@ pub struct PartSummary {
     pub lock: Option<LockInfo>,
     pub gate: Gate,
     pub mapping: PartMapping,
+    pub kind: TemplateKind,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -124,12 +134,16 @@ pub struct ManifestObject {
     pub bounds_min: [f64; 3],
     pub bounds_max: [f64; 3],
     pub hash: String,
+    pub origin: [f64; 3],
+    pub scale: [f64; 3],
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ObjectManifest {
     pub v: u8,
+    pub kind: TemplateKind,
     pub objects: Vec<ManifestObject>,
+    pub bone_count: Option<u64>,
     pub armature: Option<String>,
     pub mirror_target: Option<String>,
 }

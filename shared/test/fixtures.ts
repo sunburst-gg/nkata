@@ -23,11 +23,11 @@ const template = {
   reference_slots: ["concept_sheet"], export: { ue_path: "/Game/Characters/{asset}/{part}", name: "SK_{asset}_{part}" },
   blend_layout: "one_file_per_part",
 };
-const manifestObject = { name: "Face", triangles: 12000, materials: ["M_Skin"], bounds_min: [-1, -1, 0], bounds_max: [1, 1, 2], hash: "abc" };
-const manifest = { v: 1, objects: [manifestObject], armature: null, mirror_target: "/Game/Characters/Ojukwu/face" };
+const manifestObject = { name: "Face", triangles: 12000, materials: ["M_Skin"], bounds_min: [-1, -1, 0], bounds_max: [1, 1, 2], hash: "abc", origin: [0, 0, 0], scale: [1, 1, 1] };
+const manifest = { v: 1, kind: "character", objects: [manifestObject], bone_count: 42, armature: "Armature", mirror_target: "/Game/Characters/Ojukwu/face" };
 const mapping = { kind: "blend_collection", file: "face.blend", collection: "face" };
 const mirrorState = { part_id: id, status: "synced", version_id: id2, at, mirror_ms: 4200, message: "", failures: 0, halted: false };
-const partSummary = { id, asset_id: id2, asset_name: "Ojukwu", name: "face", state: "draft", owner: user, lock, gate: { after: [] }, mapping };
+const partSummary = { id, asset_id: id2, asset_name: "Ojukwu", name: "face", state: "draft", owner: user, lock, gate: { after: [] }, mapping, kind: "character" };
 
 const events = {
   PresenceChanged: { ...head, kind: "presence.changed", online: [presenceEntry] },

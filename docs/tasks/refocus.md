@@ -122,3 +122,4 @@ Appended as each lands, with the commit subject.
 - Cut the roles to artist, art director, producer, viewer: shared Role enum, seed users (engineer out, viewer in), one server hook that refuses every viewer write, one test per refused route.
 - Remove Linear issue IDs from comments: CommentPin and CommentCreateRequest schemas, server column with migration 0001, comments route.
 - Add stream mode for a viewer: cache module with LRU eviction and unit tests, CLI init --stream, fetch, serve --cache, MeResponse.mode, a server route for one file version, and an integration test that fills a 2.5 MiB cache with three 1 MiB files and watches the oldest go first.
+- Split the mirror by kind: `kind` on PartSummary and ObjectManifest; the agent picks import_character.py or import_static.py and skips level areas; import_part.py deleted; Blender exports characters with skins and refuses a prop off its base or scaled; manifest carries origin, scale, and bone count.

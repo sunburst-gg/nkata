@@ -37,11 +37,12 @@ describe.skipIf(!hasInfra)("server api", () => {
 
   it("seeds the Ojukwu asset with gated parts locked", async () => {
     const res = await h.app.inject({ method: "GET", url: `/assets/${h.seeded.asset_id}`, ...h.as(ARTIST) });
-    const body = res.json() as { asset: { state: string }; parts: { name: string; state: string; mapping: { kind: string } }[] };
+    const body = res.json() as { asset: { state: string }; parts: { name: string; state: string; kind: string; mapping: { kind: string } }[] };
     expect(body.parts.map((p) => p.name)).toEqual(["concept", "face", "cloth", "hair", "textures", "rig", "lookdev"]);
     expect(body.parts.find((p) => p.name === "textures")?.state).toBe("locked");
     expect(body.parts.find((p) => p.name === "face")?.state).toBe("draft");
     expect(body.parts.find((p) => p.name === "lookdev")?.mapping).toEqual({ kind: "ue_asset", path: "/Game/Characters/Ojukwu/lookdev" });
+    expect(new Set(body.parts.map((p) => p.kind))).toEqual(new Set(["character"]));
     expect(body.asset.state).toBe("draft");
   });
 
@@ -50,12 +51,14 @@ describe.skipIf(!hasInfra)("server api", () => {
     const names = (res.json() as { assets: { name: string }[] }).assets.map((a) => a.name).sort();
     expect(names).toEqual(["Enugu Market / square", "Kettle", "Market stall", "Ojukwu", "Wooden stool"]);
     const kettle = await h.app.inject({ method: "GET", url: `/assets/${h.seeded.assets["Kettle"]}`, ...h.as(ARTIST) });
-    const kettleParts = (kettle.json() as { parts: { name: string; mapping: unknown }[] }).parts;
+    const kettleParts = (kettle.json() as { parts: { name: string; kind: string; mapping: unknown }[] }).parts;
     expect(kettleParts.map((p) => p.name)).toEqual(["concept", "model", "uvs", "textures", "lods", "collision"]);
     expect(kettleParts.find((p) => p.name === "lods")?.mapping).toEqual({ kind: "ue_asset", path: "/Game/Props/Kettle" });
     const square = await h.app.inject({ method: "GET", url: `/assets/${h.seeded.assets["Enugu Market / square"]}`, ...h.as(ARTIST) });
-    const squareParts = (square.json() as { parts: { name: string; state: string; mapping: unknown }[] }).parts;
+    const squareParts = (square.json() as { parts: { name: string; state: string; kind: string; mapping: unknown }[] }).parts;
     expect(squareParts.map((p) => p.name)).toEqual(["blockout", "layout", "set_dressing", "lighting"]);
+    expect(squareParts[0]?.kind).toBe("level_area");
+    expect(kettleParts[0]?.kind).toBe("prop");
     expect(squareParts[0]?.mapping).toEqual({ kind: "ue_area", level: "Enugu Market", area: "square" });
     expect(squareParts.map((p) => p.state)).toEqual(["draft", "locked", "locked", "locked"]);
   });

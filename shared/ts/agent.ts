@@ -4,6 +4,7 @@
 import { z } from "zod";
 import { CheckResult, CommentPin, Gate, LockInfo, MirrorStatus, PartMapping, PartState, ReviewDecision, Timestamp, Ulid, UserRef, Vec3 } from "./common.js";
 import { CommentCreated, LockGranted, LockReleased, LockRequested, MirrorResult, PartStateChanged, PresenceChanged, PresenceEntry } from "./events.js";
+import { TemplateKind } from "./template.js";
 
 export const ProjectRef = z.strictObject({
   "id": Ulid,
@@ -38,6 +39,7 @@ export const PartSummary = z.strictObject({
   "lock": LockInfo.nullable(),
   "gate": Gate,
   "mapping": PartMapping,
+  "kind": TemplateKind,
 });
 export type PartSummary = z.infer<typeof PartSummary>;
 
@@ -70,13 +72,17 @@ export const ManifestObject = z.strictObject({
   "bounds_min": Vec3,
   "bounds_max": Vec3,
   "hash": z.string(),
+  "origin": Vec3,
+  "scale": Vec3,
 });
 export type ManifestObject = z.infer<typeof ManifestObject>;
 
 /** Written next to the export in the spool. See docs/engineering.md, The mirror, step 2. */
 export const ObjectManifest = z.strictObject({
   "v": z.literal(1),
+  "kind": TemplateKind,
   "objects": z.array(ManifestObject),
+  "bone_count": z.number().int().min(0).nullable(),
   "armature": z.string().nullable(),
   "mirror_target": z.string().nullable(),
 });

@@ -79,7 +79,7 @@ enum Command {
         /// UE5 Remote Control API.
         #[arg(long, default_value = nkata_agent::ue5::DEFAULT_URL)]
         ue5_url: String,
-        /// Folder with import_part.py and refresh.py.
+        /// Folder with import_character.py, import_static.py, and refresh.py.
         #[arg(long, default_value = "ue5-plugin/scripts")]
         ue5_scripts: PathBuf,
         /// Token file the editors read. Defaults to <folder>/.nkata-agent/token.

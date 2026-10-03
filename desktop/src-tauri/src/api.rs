@@ -254,7 +254,9 @@ async fn saved(
     }
     let part = s.server.part(&id).await?;
     let version_id = new_id();
-    let mirror = if body.changed {
+    // A level area has no export: its actor files sync like any other file.
+    let mirrors = body.changed && crate::mirror::script_for(part.kind).is_some();
+    let mirror = if mirrors {
         MirrorStatus::Pending
     } else {
         MirrorStatus::Skipped
@@ -278,13 +280,14 @@ async fn saved(
         source_file = body.source_file,
         "saved"
     );
-    if body.changed {
+    if mirrors {
         let (Some(spool), Some(manifest)) = (body.spool_path, body.manifest) else {
             unreachable!("checked above")
         };
         s.mirror
             .enqueue(MirrorJob {
                 part_id: id.clone(),
+                kind: part.kind,
                 version_id: version_id.clone(),
                 spool_path: PathBuf::from(spool),
                 manifest,

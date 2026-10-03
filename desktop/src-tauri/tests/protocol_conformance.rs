@@ -25,6 +25,7 @@ fn samples() -> Vec<(&'static str, Value)> {
     };
     let manifest = ObjectManifest {
         v: 1,
+        kind: TemplateKind::Prop,
         objects: vec![ManifestObject {
             name: "Face".into(),
             triangles: 12,
@@ -32,7 +33,10 @@ fn samples() -> Vec<(&'static str, Value)> {
             bounds_min: [0.0, 0.0, 0.0],
             bounds_max: [1.0, 1.0, 1.0],
             hash: "h".into(),
+            origin: [0.0, 0.0, 0.0],
+            scale: [1.0, 1.0, 1.0],
         }],
+        bone_count: None,
         armature: None,
         mirror_target: Some("/Game/X".into()),
     };
@@ -49,6 +53,7 @@ fn samples() -> Vec<(&'static str, Value)> {
             file: "Ojukwu/face.blend".into(),
             collection: "face".into(),
         },
+        kind: TemplateKind::Character,
     };
     let state = MirrorState {
         part_id: id.into(),

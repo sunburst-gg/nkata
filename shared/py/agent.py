@@ -8,8 +8,9 @@ from typing import Any, Literal
 from . import _runtime as _rt
 from .common import CheckResult, CommentPin, Gate, LockInfo, MirrorStatus, PartMapping, PartState, ReviewDecision, Timestamp, Ulid, UserRef, Vec3, validate_CheckResult, validate_CommentPin, validate_Gate, validate_LockInfo, validate_MirrorStatus, validate_PartMapping, validate_PartState, validate_ReviewDecision, validate_Timestamp, validate_Ulid, validate_UserRef, validate_Vec3
 from .events import CommentCreated, LockGranted, LockReleased, LockRequested, MirrorResult, PartStateChanged, PresenceChanged, PresenceEntry, validate_CommentCreated, validate_LockGranted, validate_LockReleased, validate_LockRequested, validate_MirrorResult, validate_PartStateChanged, validate_PresenceChanged, validate_PresenceEntry
+from .template import TemplateKind, validate_TemplateKind
 
-__imported__ = (CheckResult, CommentCreated, CommentPin, Gate, LockGranted, LockInfo, LockReleased, LockRequested, MirrorResult, MirrorStatus, PartMapping, PartState, PartStateChanged, PresenceChanged, PresenceEntry, ReviewDecision, Timestamp, Ulid, UserRef, Vec3, validate_CheckResult, validate_CommentCreated, validate_CommentPin, validate_Gate, validate_LockGranted, validate_LockInfo, validate_LockReleased, validate_LockRequested, validate_MirrorResult, validate_MirrorStatus, validate_PartMapping, validate_PartState, validate_PartStateChanged, validate_PresenceChanged, validate_PresenceEntry, validate_ReviewDecision, validate_Timestamp, validate_Ulid, validate_UserRef, validate_Vec3,)
+__imported__ = (CheckResult, CommentCreated, CommentPin, Gate, LockGranted, LockInfo, LockReleased, LockRequested, MirrorResult, MirrorStatus, PartMapping, PartState, PartStateChanged, PresenceChanged, PresenceEntry, ReviewDecision, TemplateKind, Timestamp, Ulid, UserRef, Vec3, validate_CheckResult, validate_CommentCreated, validate_CommentPin, validate_Gate, validate_LockGranted, validate_LockInfo, validate_LockReleased, validate_LockRequested, validate_MirrorResult, validate_MirrorStatus, validate_PartMapping, validate_PartState, validate_PartStateChanged, validate_PresenceChanged, validate_PresenceEntry, validate_ReviewDecision, validate_TemplateKind, validate_Timestamp, validate_Ulid, validate_UserRef, validate_Vec3,)
 
 @dataclass(frozen=True)
 class ProjectRef:
@@ -45,6 +46,7 @@ class PartSummary:
     lock: LockInfo | None
     gate: Gate
     mapping: PartMapping
+    kind: TemplateKind
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -85,6 +87,8 @@ class ManifestObject:
     bounds_min: Vec3
     bounds_max: Vec3
     hash: str
+    origin: Vec3
+    scale: Vec3
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -93,7 +97,9 @@ class ManifestObject:
 class ObjectManifest:
     """Written next to the export in the spool. See docs/engineering.md, The mirror, step 2."""
     v: Literal[1]
+    kind: TemplateKind
     objects: list[ManifestObject]
+    bone_count: int | None
     armature: str | None
     mirror_target: str | None
 
@@ -326,7 +332,7 @@ def _v_PartSummary_lock(value: object, path: str) -> Any:
     return validate_LockInfo(value, path)
 
 def validate_PartSummary(value: object, path: str = "$") -> PartSummary:
-    obj = _rt.check_object(value, path, required=("id", "asset_id", "asset_name", "name", "state", "owner", "lock", "gate", "mapping",), allowed=("id", "asset_id", "asset_name", "name", "state", "owner", "lock", "gate", "mapping",))
+    obj = _rt.check_object(value, path, required=("id", "asset_id", "asset_name", "name", "state", "owner", "lock", "gate", "mapping", "kind",), allowed=("id", "asset_id", "asset_name", "name", "state", "owner", "lock", "gate", "mapping", "kind",))
     return PartSummary(
         id=validate_Ulid(obj["id"], path + ".id"),
         asset_id=validate_Ulid(obj["asset_id"], path + ".asset_id"),
@@ -337,6 +343,7 @@ def validate_PartSummary(value: object, path: str = "$") -> PartSummary:
         lock=_v_PartSummary_lock(obj["lock"], path + ".lock"),
         gate=validate_Gate(obj["gate"], path + ".gate"),
         mapping=validate_PartMapping(obj["mapping"], path + ".mapping"),
+        kind=validate_TemplateKind(obj["kind"], path + ".kind"),
     )
 
 def _v_PartsResponse_v(value: object, path: str) -> Any:
@@ -395,7 +402,7 @@ def _v_ManifestObject_hash(value: object, path: str) -> str:
     return _rt.check_str(value, path, min_length=0, pattern=None, fmt=None)
 
 def validate_ManifestObject(value: object, path: str = "$") -> ManifestObject:
-    obj = _rt.check_object(value, path, required=("name", "triangles", "materials", "bounds_min", "bounds_max", "hash",), allowed=("name", "triangles", "materials", "bounds_min", "bounds_max", "hash",))
+    obj = _rt.check_object(value, path, required=("name", "triangles", "materials", "bounds_min", "bounds_max", "hash", "origin", "scale",), allowed=("name", "triangles", "materials", "bounds_min", "bounds_max", "hash", "origin", "scale",))
     return ManifestObject(
         name=_v_ManifestObject_name(obj["name"], path + ".name"),
         triangles=_v_ManifestObject_triangles(obj["triangles"], path + ".triangles"),
@@ -403,6 +410,8 @@ def validate_ManifestObject(value: object, path: str = "$") -> ManifestObject:
         bounds_min=validate_Vec3(obj["bounds_min"], path + ".bounds_min"),
         bounds_max=validate_Vec3(obj["bounds_max"], path + ".bounds_max"),
         hash=_v_ManifestObject_hash(obj["hash"], path + ".hash"),
+        origin=validate_Vec3(obj["origin"], path + ".origin"),
+        scale=validate_Vec3(obj["scale"], path + ".scale"),
     )
 
 def _v_ObjectManifest_v(value: object, path: str) -> Any:
@@ -410,6 +419,14 @@ def _v_ObjectManifest_v(value: object, path: str) -> Any:
 
 def _v_ObjectManifest_objects(value: object, path: str) -> list[Any]:
     return _rt.check_list(value, path, validate_ManifestObject, min_items=None, max_items=None)
+
+def _v_ObjectManifest_bone_count_inner(value: object, path: str) -> int:
+    return _rt.check_int(value, path, minimum=0, maximum=None)
+
+def _v_ObjectManifest_bone_count(value: object, path: str) -> Any:
+    if value is None:
+        return None
+    return _v_ObjectManifest_bone_count_inner(value, path)
 
 def _v_ObjectManifest_armature_inner(value: object, path: str) -> str:
     return _rt.check_str(value, path, min_length=0, pattern=None, fmt=None)
@@ -428,10 +445,12 @@ def _v_ObjectManifest_mirror_target(value: object, path: str) -> Any:
     return _v_ObjectManifest_mirror_target_inner(value, path)
 
 def validate_ObjectManifest(value: object, path: str = "$") -> ObjectManifest:
-    obj = _rt.check_object(value, path, required=("v", "objects", "armature", "mirror_target",), allowed=("v", "objects", "armature", "mirror_target",))
+    obj = _rt.check_object(value, path, required=("v", "kind", "objects", "bone_count", "armature", "mirror_target",), allowed=("v", "kind", "objects", "bone_count", "armature", "mirror_target",))
     return ObjectManifest(
         v=_v_ObjectManifest_v(obj["v"], path + ".v"),
+        kind=validate_TemplateKind(obj["kind"], path + ".kind"),
         objects=_v_ObjectManifest_objects(obj["objects"], path + ".objects"),
+        bone_count=_v_ObjectManifest_bone_count(obj["bone_count"], path + ".bone_count"),
         armature=_v_ObjectManifest_armature(obj["armature"], path + ".armature"),
         mirror_target=_v_ObjectManifest_mirror_target(obj["mirror_target"], path + ".mirror_target"),
     )
