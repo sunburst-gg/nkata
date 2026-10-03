@@ -114,7 +114,7 @@ Docs first, then code in this order. One concern per commit. `make test` green b
 
 ## Changes made
 
-Appended as each lands, with the commit subject.
+Appended as each lands, with the commit subject. Every item of the plan above has landed; the Blender N-panel and UE5 panel elements beyond the header and the mirror line wait on the step 3 routes (docs/tasks/03-parts-locks.md).
 
 - Add the refocus audit and plan (this file).
 - Refocus the docs on four people: product.md, engineering.md, task files 01a, 01b, 03, 04, 05; 01-mirror.md deleted; 02-core.md marked done; README layout rows.
@@ -127,3 +127,4 @@ Appended as each lands, with the commit subject.
 - Store where a prop is placed: scan_refs.py returns levels and actor counts, the agent runs it after every static import and the server stores it on the version as refs (migration 0002).
 - Desktop interface audit: four roles in permissions, tabs All, Characters, Props, Levels, writer and engineer people gone, script and sound assets and templates gone, Linear connection gone, Discord named once (review), Kettle prop as the empty preview case, tests and screenshots updated.
 - Fixture corpus: fixtures/build.py writes one rigged character, three props, and one level area, byte for byte reproducible; blender-addon/tests/test_fixtures.py and the agent's conformance test read it; `make fixtures` rebuilds it.
+- Quality bar: e2e/quality.py (@needs_editor) with panel_probe.py, e2e/environment.py for the step 1b gate, lost_save.rs in make test, `make quality`. Numbers that need editors are open questions in docs/decisions.md.
