@@ -13,7 +13,7 @@ from typing import Any
 import bpy
 from bpy.app.handlers import persistent
 
-from . import export, hashing, ids, manifest, mapping
+from . import checks, export, hashing, ids, manifest, mapping
 from .agent_client import AgentClient, AgentError, EventListener
 from .log import log
 from .state import STATE
@@ -72,6 +72,30 @@ def collect(collection: Any) -> Collected:
         scale = tuple(float(v) for v in getattr(obj, "scale", (1.0, 1.0, 1.0)))
         infos.append(manifest.ObjectInfo(obj.name, triangles, [m for m in materials if m], lo, hi, h, origin, (scale[0], scale[1], scale[2])))
     return Collected(hashes, infos, armature, bone_count)
+
+
+def gather_facts(collection: Any, skeletons: dict[str, tuple[str, ...]] | None = None) -> checks.SceneFacts:
+    """What the Blender checks look at, read once from the scene. Textures are the images the
+    collection's materials use; with no material graph the whole file's images count."""
+    objects: list[checks.ObjectFacts] = []
+    bone_names: tuple[str, ...] = ()
+    for obj in collection.all_objects:
+        if obj.type == "ARMATURE" and not bone_names:
+            bone_names = tuple(str(b.name) for b in getattr(obj.data, "bones", []) or [])
+        if obj.type != "MESH":
+            continue
+        _verts, _loops, _materials, matrix = _object_payload(obj)
+        lo, _hi = manifest.bounds_of([_world_corner(obj, c) for c in obj.bound_box])
+        triangles = sum(max(0, len(p.vertices) - 2) for p in obj.data.polygons)
+        uv_layers = tuple(str(u.name) for u in getattr(obj.data, "uv_layers", []) or [])
+        objects.append(checks.ObjectFacts(obj.name, triangles, uv_layers, lo, (float(matrix[3]), float(matrix[7]), float(matrix[11]))))
+    textures = tuple(
+        checks.TextureFacts(str(img.name), int(img.size[0]), int(img.size[1]))
+        for img in getattr(bpy.data, "images", []) or []
+        if getattr(img, "size", None) and int(img.size[0]) > 0
+    )
+    unit_scale = float(getattr(getattr(bpy.context.scene, "unit_settings", None), "scale_length", 1.0))
+    return checks.SceneFacts(unit_scale=unit_scale, objects=tuple(objects), textures=textures, bone_names=bone_names, skeletons=dict(skeletons or {}))
 
 
 def _ensure_listener(client: AgentClient) -> None:

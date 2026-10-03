@@ -34,7 +34,7 @@ export const PROP_TEMPLATE: Template = {
   kind: "prop",
   parts: [
     { name: "concept", mapping: "file", checks: ["texture_size"] },
-    { name: "model", mapping: "blend_collection", gate: [], checks: ["unit_scale", "name_pattern", "triangle_budget"], params: { triangle_budget: { max: 15000 } } },
+    { name: "model", mapping: "blend_collection", gate: [], checks: ["unit_scale", "name_pattern", "triangle_budget", "pivot_at_base"], params: { triangle_budget: { max: 15000 }, name_pattern: { pattern: "SM_.*" } } },
     { name: "uvs", mapping: "blend_collection", gate: ["model"], checks: ["uv_set_present", "name_pattern"] },
     { name: "textures", mapping: "file", gate: ["uvs"], checks: ["texture_size", "name_pattern"] },
     { name: "lods", mapping: "ue_asset", gate: ["textures"], checks: ["lod_count"], params: { lod_count: { min: 3 } } },

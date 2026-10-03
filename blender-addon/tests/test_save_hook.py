@@ -165,6 +165,19 @@ class SaveHookTest(unittest.TestCase):
         self.assertIn("set origin to the bottom", self.state.error)
         self.assertEqual(self.state.last_hashes, {}, "a refused export is tried again on the next save")
 
+    def test_gather_facts_reads_the_scene_for_the_checks(self) -> None:
+        from nkata import checks
+
+        facts = self.save_hook.gather_facts(self.collection, {"SK_Human": ("bone_0", "bone_1")})
+        self.assertEqual(facts.unit_scale, 1.0)
+        self.assertEqual([o.name for o in facts.objects], ["Face"])
+        self.assertEqual(facts.objects[0].uv_layers, ("UVMap",))
+        self.assertEqual(facts.objects[0].triangles, 1)
+        self.assertEqual(len(facts.bone_names), 42)
+        self.assertEqual(facts.textures[0].name, "T_Face_D")
+        results, _ = checks.run_checks(["unit_scale", "uv_set_present", "texture_size", "rig_bone_count"], {"rig_bone_count": {"max": 50}}, {}, facts)
+        self.assertTrue(all(r["passed"] for r in results), results)
+
     def test_file_outside_a_project_is_skipped(self) -> None:
         with tempfile.TemporaryDirectory() as d:
             out = self.save_hook.handle_save(str(Path(d) / "x.blend"))
