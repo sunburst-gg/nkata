@@ -11,7 +11,11 @@ publish = false
 [profile.release]
 lto = "thin"
 
-# Chunking and hashing in dependencies run optimized even in dev and test builds,
-# so the 2 GB gate test is bounded by disk and network, not by debug code.
-[profile.dev.package."*"]
+# Chunking and hashing run optimized even in dev and test builds, so the 2 GB gate test is
+# bounded by disk and network, not by debug code. Only these two: optimizing every dependency
+# made a Tauri dev build compile hundreds of crates at -O3 and exhaust memory.
+[profile.dev.package.fastcdc]
+opt-level = 3
+
+[profile.dev.package.blake3]
 opt-level = 3
