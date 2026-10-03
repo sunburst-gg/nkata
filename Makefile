@@ -1,4 +1,4 @@
-.PHONY: hooks dev dev-down test addon-vendor addon ue e2e
+.PHONY: hooks dev dev-down test addon-vendor addon ue e2e fixtures
 
 # One-time: route git hooks to the repo's .githooks folder.
 hooks:
@@ -33,6 +33,10 @@ ue:
 	@test -n "$(UE_PROJECT)" || { echo "set UE_PROJECT to the folder holding the .uproject"; exit 1; }
 	mkdir -p "$(UE_PROJECT)/Plugins"
 	ln -sfn "$(CURDIR)/ue5-plugin" "$(UE_PROJECT)/Plugins/Nkata"
+
+# Rebuild the fixture corpus from its recipe. Deterministic; see fixtures/README.md.
+fixtures:
+	python3 fixtures/build.py
 
 # The step 1 gate. Needs Blender and UE5; see e2e/README.md.
 e2e:

@@ -1,0 +1,65 @@
+{
+  "armature": "Armature",
+  "bone_count": 20,
+  "kind": "character",
+  "mirror_target": "/Game/Characters/Ojukwu/body",
+  "objects": [
+    {
+      "bounds_max": [
+        0.25,
+        0.25,
+        1.8
+      ],
+      "bounds_min": [
+        -0.25,
+        -0.25,
+        0.0
+      ],
+      "hash": "b7a413c980a3c1057dcd23c2e4b96091d80a355e4969119d616df024fbea7a9c",
+      "materials": [
+        "M_Skin"
+      ],
+      "name": "SK_Ojukwu_Body",
+      "origin": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "triangles": 960
+    },
+    {
+      "bounds_max": [
+        0.28,
+        0.28,
+        0.9
+      ],
+      "bounds_min": [
+        -0.28,
+        -0.28,
+        0.0
+      ],
+      "hash": "5a86f77b3c5fbc50753b01453af799a16d45de01efadc1f29c82cac331e9d1d0",
+      "materials": [
+        "M_Cloth"
+      ],
+      "name": "SK_Ojukwu_Cloth",
+      "origin": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "triangles": 960
+    }
+  ],
+  "v": 1
+}

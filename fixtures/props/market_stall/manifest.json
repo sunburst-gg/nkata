@@ -1,0 +1,65 @@
+{
+  "armature": null,
+  "bone_count": null,
+  "kind": "prop",
+  "mirror_target": "/Game/Props/Marketstall",
+  "objects": [
+    {
+      "bounds_max": [
+        1.0,
+        0.5,
+        0.1
+      ],
+      "bounds_min": [
+        -1.0,
+        -0.5,
+        0.0
+      ],
+      "hash": "535e0940f877be6c2ea802f31dd0d0318c3d3639a5b5742363d9f972811193b9",
+      "materials": [
+        "MI_market_stall"
+      ],
+      "name": "SM_MS_LOD0",
+      "origin": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "triangles": 12
+    },
+    {
+      "bounds_max": [
+        0.05,
+        0.05,
+        2.3000000000000003
+      ],
+      "bounds_min": [
+        -0.05,
+        -0.05,
+        0.1
+      ],
+      "hash": "862ea405c11cad2a4118a14408c1146b821f2963d5cc01ad8038e3410e0db205",
+      "materials": [
+        "MI_market_stall"
+      ],
+      "name": "SM_MS_Top_LOD0",
+      "origin": [
+        0.0,
+        0.0,
+        0.1
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "triangles": 12
+    }
+  ],
+  "v": 1
+}

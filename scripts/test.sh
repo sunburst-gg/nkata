@@ -23,7 +23,7 @@ pnpm --filter @nkata/desktop build
 
 # Python: the add-on core with bpy stubbed, the UE5 scripts, and the e2e marker. ruff clean.
 python3 -m ruff --version >/dev/null 2>&1 || python3 -m pip install -q ruff
-python3 -m ruff check blender-addon ue5-plugin shared/py e2e
+python3 -m ruff check blender-addon ue5-plugin shared/py e2e fixtures
 (cd blender-addon && python3 -m unittest discover -s tests -t . -q)
 python3 e2e/needs_editor.py
 
