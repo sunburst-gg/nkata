@@ -117,3 +117,4 @@ Docs first, then code in this order. One concern per commit. `make test` green b
 Appended as each lands, with the commit subject.
 
 - Add the refocus audit and plan (this file).
+- Refocus the docs on four people: product.md, engineering.md, task files 01a, 01b, 03, 04, 05; 01-mirror.md deleted; 02-core.md marked done; README layout rows.

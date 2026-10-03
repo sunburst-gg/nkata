@@ -17,8 +17,10 @@ Nkata is a desktop app plus a Blender add-on and a UE5 plugin. Game teams work o
 | `shared/` | JSON Schemas for every protocol type. Generated Zod in `ts/`, Python dataclasses in `py/`. |
 | `server/` | Fastify 5, Drizzle, Postgres 16. REST, WebSocket, auth, locks, signed store URLs. |
 | `desktop/` | Tauri 2 app. The agent core is a Rust crate in `src-tauri/` with a CLI for tests. |
-| `blender-addon/` | Blender 4.2+ extension. Later step. |
-| `ue5-plugin/` | UE 5.4+ Python plugin. Later step. |
+| `blender-addon/` | Blender 4.2+ extension. Save hook, collection export, N-panel. |
+| `ue5-plugin/` | UE 5.4+ Python scripts the agent runs over Remote Control. Import per kind, placement scan. |
+| `fixtures/` | Test corpus: one rigged character, three props, one level area. Built by `fixtures/build.py`. |
+| `e2e/` | Editor gates and the quality bar, marked `@needs_editor`. |
 | `infra/` | Docker Compose with Postgres and MinIO. |
 
 ## Run
