@@ -1,4 +1,5 @@
-// Seeds one studio, one project, the Character template, and the Ojukwu asset with its parts.
+// Seeds one studio, one project, the Character, Environment prop, and Level area templates,
+// the Ojukwu character, three props, and one level area.
 // Idempotent: finds by name before inserting. Run: pnpm --filter @nkata/server seed
 import { and, eq } from "drizzle-orm";
 import { Template, type Role } from "@nkata/shared";
@@ -8,10 +9,11 @@ import { asset, membership, part, project, studio, template, user } from "./db/s
 import { newId } from "./domain/ids.js";
 import { mappingFor } from "./routes/assets.js";
 
-// docs/engineering.md, Templates.
+// docs/engineering.md, Templates. Two templates, three kinds: character, prop, level_area.
 export const CHARACTER_TEMPLATE: Template = {
   v: 1,
   name: "Character",
+  kind: "character",
   parts: [
     { name: "concept", mapping: "file", checks: ["texture_size"] },
     { name: "face", mapping: "blend_collection", gate: [], checks: ["unit_scale", "name_pattern", "triangle_budget", "uv_set_present"], params: { triangle_budget: { max: 60000 } } },
@@ -19,23 +21,65 @@ export const CHARACTER_TEMPLATE: Template = {
     { name: "hair", mapping: "blend_collection", gate: [], checks: ["unit_scale", "name_pattern"] },
     { name: "textures", mapping: "file", gate: ["face", "cloth", "hair"], checks: ["texture_size", "name_pattern"] },
     { name: "rig", mapping: "blend_collection", gate: ["textures"], checks: ["rig_bone_names", "rig_bone_count", "metahuman_dna_present"] },
-    { name: "lookdev", mapping: "ue_asset", gate: ["rig"], checks: ["lod_count", "collision_present"] },
-    { name: "animation", mapping: "ue_asset", gate: ["lookdev"], checks: [] },
-    { name: "sound", mapping: "file", gate: ["lookdev"], checks: [] },
+    { name: "lookdev", mapping: "ue_asset", gate: ["rig"], checks: ["texture_size"] },
   ],
   reference_slots: ["concept_sheet", "style_guide", "color_scheme"],
   export: { ue_path: "/Game/Characters/{asset}/{part}", name: "SK_{asset}_{part}" },
   blend_layout: "one_file_per_part",
 };
 
+export const PROP_TEMPLATE: Template = {
+  v: 1,
+  name: "Environment prop",
+  kind: "prop",
+  parts: [
+    { name: "concept", mapping: "file", checks: ["texture_size"] },
+    { name: "model", mapping: "blend_collection", gate: [], checks: ["unit_scale", "name_pattern", "triangle_budget", "pivot_at_base"], params: { triangle_budget: { max: 15000 }, name_pattern: { pattern: "SM_.*" } } },
+    { name: "uvs", mapping: "blend_collection", gate: ["model"], checks: ["uv_set_present", "name_pattern"] },
+    { name: "textures", mapping: "file", gate: ["uvs"], checks: ["texture_size", "name_pattern"] },
+    { name: "lods", mapping: "ue_asset", gate: ["textures"], checks: ["lod_count"], params: { lod_count: { min: 3 } } },
+    { name: "collision", mapping: "ue_asset", gate: ["model"], checks: ["collision_present"] },
+  ],
+  reference_slots: ["concept_sheet", "style_guide"],
+  export: { ue_path: "/Game/Props/{asset}", name: "SM_{asset}" },
+  blend_layout: "one_file_per_part",
+};
+
+export const LEVEL_AREA_TEMPLATE: Template = {
+  v: 1,
+  name: "Level area",
+  kind: "level_area",
+  parts: [
+    { name: "blockout", mapping: "ue_area", gate: [], checks: ["unit_scale"] },
+    { name: "layout", mapping: "ue_area", gate: ["blockout"], checks: ["name_pattern"] },
+    { name: "set_dressing", mapping: "ue_area", gate: ["layout"], checks: ["name_pattern"] },
+    { name: "lighting", mapping: "ue_area", gate: ["set_dressing"], checks: [] },
+  ],
+  reference_slots: ["concept_sheet", "layout_sketch"],
+  export: { ue_path: "/Game/Levels/{asset}", name: "{asset}" },
+  blend_layout: "one_file_per_asset",
+};
+
+export const TEMPLATES: Template[] = [CHARACTER_TEMPLATE, PROP_TEMPLATE, LEVEL_AREA_TEMPLATE];
+
 export const SEED_USERS: { email: string; name: string; roles: Role[] }[] = [
   { email: "artist@sunburst.gg", name: "Rising Sun artist", roles: ["artist"] },
+  { email: "env@sunburst.gg", name: "Environment artist", roles: ["artist"] },
   { email: "director@sunburst.gg", name: "Art director", roles: ["artist", "art_director"] },
-  { email: "engineer@sunburst.gg", name: "Engineer", roles: ["engineer"] },
   { email: "producer@sunburst.gg", name: "Producer", roles: ["producer"] },
+  { email: "viewer@sunburst.gg", name: "Publisher", roles: ["viewer"] },
 ];
 
-export type Seeded = { studio_id: string; project_id: string; template_id: string; asset_id: string; users: Record<string, string> };
+/** The seeded assets: name, template, owner of every part. */
+export const SEED_ASSETS: { name: string; template: string; owner: string }[] = [
+  { name: "Ojukwu", template: "Character", owner: "artist@sunburst.gg" },
+  { name: "Kettle", template: "Environment prop", owner: "env@sunburst.gg" },
+  { name: "Wooden stool", template: "Environment prop", owner: "env@sunburst.gg" },
+  { name: "Market stall", template: "Environment prop", owner: "env@sunburst.gg" },
+  { name: "Enugu Market / square", template: "Level area", owner: "env@sunburst.gg" },
+];
+
+export type Seeded = { studio_id: string; project_id: string; template_id: string; asset_id: string; assets: Record<string, string>; users: Record<string, string> };
 
 export async function seed(db: Db): Promise<Seeded> {
   const now = new Date();
@@ -61,29 +105,36 @@ export async function seed(db: Db): Promise<Seeded> {
   }
   const projectId = proj!.id;
 
-  let tpl = (await db.select().from(template).where(and(eq(template.project_id, projectId), eq(template.name, "Character"))).limit(1))[0];
-  if (!tpl) {
-    [tpl] = await db
-      .insert(template)
-      .values({ id: newId(), studio_id: studioId, project_id: projectId, name: "Character", file_path: ".nkata/templates/Character.json", schema: CHARACTER_TEMPLATE, created_at: now, updated_at: now })
-      .returning();
+  const templates: Record<string, { id: string; schema: Template }> = {};
+  for (const schema of TEMPLATES) {
+    let tpl = (await db.select().from(template).where(and(eq(template.project_id, projectId), eq(template.name, schema.name))).limit(1))[0];
+    if (!tpl) {
+      [tpl] = await db
+        .insert(template)
+        .values({ id: newId(), studio_id: studioId, project_id: projectId, name: schema.name, file_path: `.nkata/templates/${schema.name}.json`, schema, created_at: now, updated_at: now })
+        .returning();
+    }
+    templates[schema.name] = { id: tpl!.id, schema };
   }
 
-  let oj = (await db.select().from(asset).where(and(eq(asset.project_id, projectId), eq(asset.name, "Ojukwu"))).limit(1))[0];
-  if (!oj) {
-    [oj] = await db.insert(asset).values({ id: newId(), studio_id: studioId, project_id: projectId, template_id: tpl!.id, name: "Ojukwu", reference_files: [], created_at: now, updated_at: now }).returning();
-    const artist = users["artist@sunburst.gg"]!;
-    const engineer = users["engineer@sunburst.gg"]!;
-    await db.insert(part).values(
-      CHARACTER_TEMPLATE.parts.map((tp, position) => ({
-        id: newId(), studio_id: studioId, asset_id: oj!.id, name: tp.name, position,
-        owner_id: tp.mapping === "ue_asset" ? engineer : artist,
-        state: (tp.gate ?? []).length > 0 ? ("locked" as const) : ("draft" as const),
-        gate: { after: tp.gate ?? [] }, mapping: mappingFor(CHARACTER_TEMPLATE, tp, "Ojukwu"), created_at: now, updated_at: now,
-      })),
-    );
+  const assets: Record<string, string> = {};
+  for (const sa of SEED_ASSETS) {
+    const tpl = templates[sa.template]!;
+    let row = (await db.select().from(asset).where(and(eq(asset.project_id, projectId), eq(asset.name, sa.name))).limit(1))[0];
+    if (!row) {
+      [row] = await db.insert(asset).values({ id: newId(), studio_id: studioId, project_id: projectId, template_id: tpl.id, name: sa.name, reference_files: [], created_at: now, updated_at: now }).returning();
+      await db.insert(part).values(
+        tpl.schema.parts.map((tp, position) => ({
+          id: newId(), studio_id: studioId, asset_id: row!.id, name: tp.name, position,
+          owner_id: users[sa.owner]!,
+          state: (tp.gate ?? []).length > 0 ? ("locked" as const) : ("draft" as const),
+          gate: { after: tp.gate ?? [] }, mapping: mappingFor(tpl.schema, tp, sa.name), created_at: now, updated_at: now,
+        })),
+      );
+    }
+    assets[sa.name] = row!.id;
   }
-  return { studio_id: studioId, project_id: projectId, template_id: tpl!.id, asset_id: oj!.id, users };
+  return { studio_id: studioId, project_id: projectId, template_id: templates["Character"]!.id, asset_id: assets["Ojukwu"]!, assets, users };
 }
 
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {

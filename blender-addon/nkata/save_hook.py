@@ -6,13 +6,14 @@ from __future__ import annotations
 
 import array
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import bpy
 from bpy.app.handlers import persistent
 
-from . import export, hashing, ids, manifest, mapping
+from . import checks, export, hashing, ids, manifest, mapping
 from .agent_client import AgentClient, AgentError, EventListener
 from .log import log
 from .state import STATE
@@ -31,24 +32,70 @@ def _object_payload(obj: Any) -> tuple[bytes, bytes, list[str], list[float]]:
     return verts.tobytes(), loops.tobytes(), materials, matrix
 
 
-def collect(collection: Any) -> tuple[dict[str, str], list[manifest.ObjectInfo], str | None]:
-    """Hash table, manifest rows, and armature name for every mesh object in the collection."""
+@dataclass(frozen=True)
+class Collected:
+    hashes: dict[str, str]
+    infos: list[manifest.ObjectInfo]
+    armature: str | None
+    bone_count: int | None
+
+
+def _world_corner(obj: Any, corner: Any) -> tuple[float, float, float]:
+    """A bound_box corner in world space. bound_box is in object space; apply the world matrix."""
+    m = obj.matrix_world
+    x, y, z = float(corner[0]), float(corner[1]), float(corner[2])
+    return (
+        float(m[0][0]) * x + float(m[0][1]) * y + float(m[0][2]) * z + float(m[0][3]),
+        float(m[1][0]) * x + float(m[1][1]) * y + float(m[1][2]) * z + float(m[1][3]),
+        float(m[2][0]) * x + float(m[2][1]) * y + float(m[2][2]) * z + float(m[2][3]),
+    )
+
+
+def collect(collection: Any) -> Collected:
+    """Hash table, manifest rows, armature name, and bone count for the collection."""
     hashes: dict[str, str] = {}
     infos: list[manifest.ObjectInfo] = []
     armature: str | None = None
+    bone_count: int | None = None
     for obj in collection.all_objects:
         if obj.type == "ARMATURE" and armature is None:
             armature = obj.name
+            bone_count = len(getattr(obj.data, "bones", []) or [])
         if obj.type != "MESH":
             continue
         verts, loops, materials, matrix = _object_payload(obj)
         h = hashing.hash_object(verts, loops, materials, matrix)
         hashes[obj.name] = h
-        corners = [tuple(obj.matrix_world @ bpy.mathutils_vector(c)) if hasattr(bpy, "mathutils_vector") else tuple(c) for c in obj.bound_box]
-        lo, hi = manifest.bounds_of([(float(c[0]), float(c[1]), float(c[2])) for c in corners])
+        lo, hi = manifest.bounds_of([_world_corner(obj, c) for c in obj.bound_box])
         triangles = sum(max(0, len(p.vertices) - 2) for p in obj.data.polygons)
-        infos.append(manifest.ObjectInfo(obj.name, triangles, [m for m in materials if m], lo, hi, h))
-    return hashes, infos, armature
+        origin = (float(matrix[3]), float(matrix[7]), float(matrix[11]))
+        scale = tuple(float(v) for v in getattr(obj, "scale", (1.0, 1.0, 1.0)))
+        infos.append(manifest.ObjectInfo(obj.name, triangles, [m for m in materials if m], lo, hi, h, origin, (scale[0], scale[1], scale[2])))
+    return Collected(hashes, infos, armature, bone_count)
+
+
+def gather_facts(collection: Any, skeletons: dict[str, tuple[str, ...]] | None = None) -> checks.SceneFacts:
+    """What the Blender checks look at, read once from the scene. Textures are the images the
+    collection's materials use; with no material graph the whole file's images count."""
+    objects: list[checks.ObjectFacts] = []
+    bone_names: tuple[str, ...] = ()
+    for obj in collection.all_objects:
+        if obj.type == "ARMATURE" and not bone_names:
+            bone_names = tuple(str(b.name) for b in getattr(obj.data, "bones", []) or [])
+        if obj.type != "MESH":
+            continue
+        _verts, _loops, _materials, matrix = _object_payload(obj)
+        lo, _hi = manifest.bounds_of([_world_corner(obj, c) for c in obj.bound_box])
+        triangles = sum(max(0, len(p.vertices) - 2) for p in obj.data.polygons)
+        uv_layers = tuple(str(u.name) for u in getattr(obj.data, "uv_layers", []) or [])
+        objects.append(checks.ObjectFacts(obj.name, triangles, uv_layers, lo, (float(matrix[3]), float(matrix[7]), float(matrix[11]))))
+    textures = tuple(
+        checks.TextureFacts(str(img.name), int(img.size[0]), int(img.size[1]))
+        for img in getattr(bpy.data, "images", []) or []
+        if getattr(img, "size", None) and int(img.size[0]) > 0
+    )
+    unit_scale = float(getattr(getattr(bpy.context.scene, "unit_settings", None), "scale_length", 1.0))
+    return checks.SceneFacts(unit_scale=unit_scale, objects=tuple(objects), textures=textures, bone_names=bone_names, skeletons=dict(skeletons or {}))
 
 
 def _ensure_listener(client: AgentClient) -> None:
@@ -78,34 +125,45 @@ def handle_save(filepath: str) -> dict[str, Any]:
     collection = bpy.data.collections.get(part["mapping"]["collection"])
     if collection is None:
         raise RuntimeError(f"collection {part['mapping']['collection']!r} not in this file")
-    hashes, infos, armature = collect(collection)
+    kind = str(part.get("kind") or "character")
+    got = collect(collection)
+    hashes, infos = got.hashes, got.infos
     changed = hashing.hash_table_changed(STATE.last_hashes.get(part["id"]), hashes)
     spool_path: str | None = None
     manifest_data: dict[str, Any] | None = None
     export_ms = 0
+    refused: list[str] = []
+    if changed and kind == "prop":
+        # A prop must sit on its origin at scale 1 or every placed copy lands wrong.
+        refused = manifest.static_problems(infos)
+    if changed and refused:
+        log("export.refused", part_id=part["id"], problems=refused)
+        changed = False
     if changed:
         me = client.me()
         version_name = ids.new_id()
         spool = Path(me.spool_dir) / part["id"] / f"{version_name}.glb"
         t = time.monotonic()
-        how = export.export_collection(collection, spool)
+        how = export.export_collection(collection, spool, kind)
         export_ms = int((time.monotonic() - t) * 1000)
-        manifest_data = manifest.build_manifest(infos, armature, part.get("mapping", {}).get("path"))
+        manifest_data = manifest.build_manifest(infos, got.armature, part.get("mapping", {}).get("path"), kind, got.bone_count)
         manifest.write_manifest(spool.with_name(f"{version_name}.manifest.json"), manifest_data)
         spool_path = str(spool)
-        log("export.done", part_id=part["id"], how=how, export_ms=export_ms, objects=len(infos))
+        log("export.done", part_id=part["id"], kind=kind, how=how, export_ms=export_ms, objects=len(infos))
     res = client.saved(part["id"], changed, spool_path, manifest_data, rel)
     with STATE.lock:
-        STATE.last_hashes[part["id"]] = hashes
+        if not refused:
+            STATE.last_hashes[part["id"]] = hashes
         view = STATE.mirror_for(part["id"])
         view.status = res.mirror
         view.version_id = res.version_id
         view.message = ""
         view.at = time.time()
+        STATE.error = "Export refused. " + " ".join(refused) if refused else ""
         STATE.dirty = True
     total_ms = int((time.monotonic() - started) * 1000)
     log("save.posted", part_id=part["id"], version_id=res.version_id, changed=changed, export_ms=export_ms, total_ms=total_ms)
-    return {"part_id": part["id"], "version_id": res.version_id, "changed": changed, "export_ms": export_ms, "total_ms": total_ms}
+    return {"part_id": part["id"], "version_id": res.version_id, "changed": changed, "export_ms": export_ms, "total_ms": total_ms, "refused": refused}
 
 
 @persistent

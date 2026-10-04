@@ -25,6 +25,7 @@ fn samples() -> Vec<(&'static str, Value)> {
     };
     let manifest = ObjectManifest {
         v: 1,
+        kind: TemplateKind::Prop,
         objects: vec![ManifestObject {
             name: "Face".into(),
             triangles: 12,
@@ -32,7 +33,10 @@ fn samples() -> Vec<(&'static str, Value)> {
             bounds_min: [0.0, 0.0, 0.0],
             bounds_max: [1.0, 1.0, 1.0],
             hash: "h".into(),
+            origin: [0.0, 0.0, 0.0],
+            scale: [1.0, 1.0, 1.0],
         }],
+        bone_count: None,
         armature: None,
         mirror_target: Some("/Game/X".into()),
     };
@@ -49,6 +53,7 @@ fn samples() -> Vec<(&'static str, Value)> {
             file: "Ojukwu/face.blend".into(),
             collection: "face".into(),
         },
+        kind: TemplateKind::Character,
     };
     let state = MirrorState {
         part_id: id.into(),
@@ -73,7 +78,8 @@ fn samples() -> Vec<(&'static str, Value)> {
                 },
                 package_version: "0.1.0".into(),
                 online: true,
-                spool_dir: "/x".into()
+                spool_dir: "/x".into(),
+                mode: AgentMode::Stream
             }),
         ),
         (
@@ -222,4 +228,29 @@ fn rust_types_validate_against_the_shared_python_validators() {
             item["type"]
         );
     }
+}
+
+/// The fixture corpus manifests parse as the agent's ObjectManifest, so a save of a fixture
+/// through the add-on and a save of a real asset take the same path.
+#[test]
+fn fixture_manifests_parse() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures");
+    let mut seen = 0;
+    for path in [
+        "character/manifest.json",
+        "props/kettle/manifest.json",
+        "props/wooden_stool/manifest.json",
+        "props/market_stall/manifest.json",
+    ] {
+        let text = std::fs::read_to_string(root.join(path)).expect("fixture present");
+        let m: ObjectManifest = serde_json::from_str(&text).expect("manifest parses");
+        assert!(!m.objects.is_empty(), "{path}");
+        match m.kind {
+            TemplateKind::Character => assert_eq!(m.bone_count, Some(20), "{path}"),
+            TemplateKind::Prop => assert_eq!(m.bone_count, None, "{path}"),
+            TemplateKind::LevelArea => panic!("no level area manifest: {path}"),
+        }
+        seen += 1;
+    }
+    assert_eq!(seen, 4);
 }

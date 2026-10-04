@@ -59,6 +59,11 @@ describe.skipIf(!hasInfra)("files", () => {
     expect(body.file_versions.map((f) => f.path)).toEqual(["Ojukwu/face.blend"]);
     const after = await h.app.inject({ method: "GET", url: `/projects/${pid}/file-versions?since=${body.next}`, ...h.as(ARTIST) });
     expect((after.json() as { file_versions: unknown[] }).file_versions).toHaveLength(0);
+
+    // One version by id, for stream mode. Unknown ids are 404.
+    const one = await h.app.inject({ method: "GET", url: `/projects/${pid}/file-versions/${body.next}`, ...h.as(ARTIST) });
+    expect((one.json() as { file_versions: never; file_version: { path: string } }).file_version.path).toBe("Ojukwu/face.blend");
+    expect((await h.app.inject({ method: "GET", url: `/projects/${pid}/file-versions/01ARZ3NDEKTSV4RRFFQ69G5FAV`, ...h.as(ARTIST) })).statusCode).toBe(404);
   });
 
   it("rejects paths that escape the project folder", async () => {

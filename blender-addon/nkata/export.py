@@ -25,8 +25,9 @@ def find_gltf_exporter(collection: Any) -> tuple[int, Any] | None:
     return None
 
 
-def export_collection(collection: Any, filepath: Path) -> str:
-    """Exports the collection to filepath. Returns which path ran: 'exporter' or 'fallback'."""
+def export_collection(collection: Any, filepath: Path, kind: str = "character") -> str:
+    """Exports the collection to filepath. Returns which path ran: 'exporter' or 'fallback'.
+    A character exports with its armature and skin weights; a prop exports meshes only."""
     filepath.parent.mkdir(parents=True, exist_ok=True)
     found = find_gltf_exporter(collection)
     if found is not None:
@@ -43,7 +44,11 @@ def export_collection(collection: Any, filepath: Path) -> str:
     if layer is not None:
         bpy.context.view_layer.active_layer_collection = layer
     try:
-        result = bpy.ops.export_scene.gltf(filepath=str(filepath), export_format="GLB", use_active_collection=True, export_apply=True)
+        skins = kind == "character"
+        result = bpy.ops.export_scene.gltf(
+            filepath=str(filepath), export_format="GLB", use_active_collection=True, export_apply=True,
+            export_skins=skins, export_animations=False, export_morph=skins,
+        )
     finally:
         if layer is not None:
             bpy.context.view_layer.active_layer_collection = previous

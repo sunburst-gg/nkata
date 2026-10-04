@@ -1,0 +1,1 @@
+ALTER TABLE "comment" DROP COLUMN "linear_issue";

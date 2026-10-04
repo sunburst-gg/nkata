@@ -1,13 +1,15 @@
-"""Import or reimport one part export into the editor, in place.
+"""Import or reimport one character part export as a skeletal mesh, in place.
 
 Called by the agent through Remote Control with one argument: a JSON args file
-{v, part_id, version_id, spool_path, destination_path, asset_name, armature}.
+{v, kind, part_id, version_id, spool_path, destination_path, asset_name, armature, bone_count}.
 
-Rules from docs/engineering.md, The mirror:
+Rules from docs/engineering.md, The mirror, Character:
 - AssetImportTask with replace_existing True, automated True, save True.
 - First import sets the full options. A reimport passes the existing skeleton and physics
   asset so materials, skeleton, and physics are kept. Options do not change on reimport.
-- Nothing is ever deleted from the mesh (MetaHuman DNA stays).
+- Nothing is ever deleted from the mesh. The MetaHuman DNA asset and its user data stay.
+- After a reimport the script checks that the skeleton and physics asset are the same objects
+  and fails the mirror if not, so a broken link never goes unseen.
 
 Python API: https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/
 AssetImportTask: https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/AssetImportTask
@@ -42,20 +44,20 @@ def find_existing(asset_path: str) -> Any | None:
 
 
 def fbx_options(existing: Any | None) -> Any:
-    """FbxImportUI. On reimport, pass the existing skeleton and physics asset."""
+    """FbxImportUI for a skeletal mesh. On reimport, pass the existing skeleton and physics asset."""
     ui = unreal.FbxImportUI()
-    ui.automated_import_should_detect_type = existing is None
+    ui.automated_import_should_detect_type = False
+    ui.import_as_skeletal = True
+    ui.mesh_type_to_import = unreal.FBXImportType.FBXIT_SKELETAL_MESH
     ui.import_materials = existing is None
     ui.import_textures = existing is None
-    ui.import_as_skeletal = isinstance(existing, unreal.SkeletalMesh) if existing is not None else True
+    ui.skeletal_mesh_import_data.import_morph_targets = True
     if isinstance(existing, unreal.SkeletalMesh):
-        ui.mesh_type_to_import = unreal.FBXImportType.FBXIT_SKELETAL_MESH
         ui.skeleton = existing.skeleton
         ui.physics_asset = existing.physics_asset
         ui.create_physics_asset = False
-        ui.skeletal_mesh_import_data.import_morph_targets = True
-    elif isinstance(existing, unreal.StaticMesh):
-        ui.mesh_type_to_import = unreal.FBXImportType.FBXIT_STATIC_MESH
+    else:
+        ui.create_physics_asset = True
     return ui
 
 
@@ -72,8 +74,6 @@ def gltf_options(existing: Any | None) -> Any | None:
     if existing is None:
         return pipeline
     mesh = getattr(pipeline, "mesh_pipeline", None)
-    if mesh is not None:
-        mesh.import_materials = False if hasattr(mesh, "import_materials") else None
     skel = getattr(pipeline, "common_skeletal_meshes_and_animations_properties", None)
     if isinstance(existing, unreal.SkeletalMesh):
         if skel is not None and hasattr(skel, "skeleton"):
@@ -103,6 +103,16 @@ def build_task(args: dict[str, Any], existing: Any | None) -> Any:
     return task
 
 
+def links_of(asset: Any) -> dict[str, str | None]:
+    """The two links a reimport must keep."""
+    skeleton = getattr(asset, "skeleton", None)
+    physics = getattr(asset, "physics_asset", None)
+    return {
+        "skeleton": skeleton.get_path_name() if skeleton is not None else None,
+        "physics_asset": physics.get_path_name() if physics is not None else None,
+    }
+
+
 def refresh(asset_path: str) -> None:
     """Content Browser sees the new bytes and the package is marked dirty."""
     registry = unreal.AssetRegistryHelpers.get_asset_registry()
@@ -121,6 +131,7 @@ def main(argv: list[str]) -> None:
         return
     asset_path = f"{args['destination_path']}/{args['asset_name']}"
     existing = find_existing(asset_path)
+    before = links_of(existing) if existing is not None else None
     task = build_task(args, existing)
     unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
     imported = list(task.imported_object_paths or [])
@@ -128,6 +139,10 @@ def main(argv: list[str]) -> None:
         emit(False, "import produced no asset. See the Output Log for the importer error.", asset_path=asset_path, first_import=existing is None)
         return
     refresh(asset_path)
+    after = links_of(unreal.EditorAssetLibrary.load_asset(imported[0]))
+    if before is not None and before != after:
+        emit(False, f"reimport changed the links: {before} to {after}", asset_path=imported[0], first_import=False, before=before, after=after)
+        return
     emit(
         True,
         "",
@@ -136,6 +151,7 @@ def main(argv: list[str]) -> None:
         ms=int((time.monotonic() - started) * 1000),
         part_id=args.get("part_id"),
         version_id=args.get("version_id"),
+        **after,
     )
 
 

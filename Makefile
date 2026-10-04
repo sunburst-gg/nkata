@@ -1,4 +1,4 @@
-.PHONY: hooks dev dev-down test addon-vendor addon ue e2e
+.PHONY: hooks dev dev-down test addon-vendor addon ue e2e quality fixtures
 
 # One-time: route git hooks to the repo's .githooks folder.
 hooks:
@@ -34,6 +34,15 @@ ue:
 	mkdir -p "$(UE_PROJECT)/Plugins"
 	ln -sfn "$(CURDIR)/ue5-plugin" "$(UE_PROJECT)/Plugins/Nkata"
 
-# The step 1 gate. Needs Blender and UE5; see e2e/README.md.
+# Rebuild the fixture corpus from its recipe. Deterministic; see fixtures/README.md.
+fixtures:
+	python3 fixtures/build.py
+
+# The step 1a gate. Needs Blender and UE5; see e2e/README.md.
 e2e:
 	python3 e2e/mirror.py --blend "$(BLEND)" --object "$(OBJECT)" --asset "$(ASSET)"
+
+# The quality bar. Needs Blender and UE5 and a project folder set up from fixtures/. Set PROJECT.
+quality:
+	@test -n "$(PROJECT)" || { echo "set PROJECT to the project folder"; exit 1; }
+	python3 e2e/quality.py --project "$(PROJECT)"

@@ -39,7 +39,7 @@ class FakeAgent(BaseHTTPRequestHandler):
         if self.headers.get("Authorization") != "Bearer tok":
             return self._json(401, {"v": 1, "error": {"code": "unauthorized", "message": "no"}})
         if self.path == "/me":
-            return self._json(200, {"v": 1, "user": {"id": ID, "name": "Ada", "avatar_url": None}, "project": {"id": ID, "name": "P", "folder_name": "p"}, "package_version": "0.1.0", "online": True, "spool_dir": self.spool_dir})
+            return self._json(200, {"v": 1, "user": {"id": ID, "name": "Ada", "avatar_url": None}, "project": {"id": ID, "name": "P", "folder_name": "p"}, "package_version": "0.1.0", "online": True, "spool_dir": self.spool_dir, "mode": "sync"})
         if self.path.startswith("/parts?"):
             return self._json(200, {"v": 1, "parts": self.parts})
         if self.path == "/events":
@@ -69,11 +69,11 @@ class SaveHookTest(unittest.TestCase):
         self.blend.write_bytes(b"")
         FakeAgent.spool_dir = str(root / ".nkata-agent" / "spool")
         FakeAgent.saved = []
-        FakeAgent.parts = [{"id": ID, "asset_id": ID2, "asset_name": "Ojukwu", "name": "face", "state": "draft", "owner": None, "lock": None, "gate": {"after": []}, "mapping": {"kind": "blend_collection", "file": "Ojukwu/face.blend", "collection": "face"}}]
+        FakeAgent.parts = [{"id": ID, "asset_id": ID2, "asset_name": "Ojukwu", "name": "face", "state": "draft", "owner": None, "lock": None, "gate": {"after": []}, "mapping": {"kind": "blend_collection", "file": "Ojukwu/face.blend", "collection": "face"}, "kind": "character"}]
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), FakeAgent)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
         self.face = bpy_stub.FakeObject("Face", coords=[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0], materials=["M_Skin"])
-        self.collection = bpy_stub.FakeCollection("face", [self.face, bpy_stub.FakeObject("Armature", kind="ARMATURE")], [bpy_stub.FakeExporter()])
+        self.collection = bpy_stub.FakeCollection("face", [self.face, bpy_stub.FakeObject("Armature", kind="ARMATURE", bones=42)], [bpy_stub.FakeExporter()])
         self.bpy = bpy_stub.install({"face": self.collection}, str(self.blend))
         from nkata import save_hook, state
 
@@ -106,6 +106,10 @@ class SaveHookTest(unittest.TestCase):
         self.assertEqual(req["manifest"]["objects"][0]["triangles"], 1)
         self.assertEqual(req["manifest"]["objects"][0]["materials"], ["M_Skin"])
         self.assertEqual(req["manifest"]["armature"], "Armature")
+        self.assertEqual(req["manifest"]["kind"], "character")
+        self.assertEqual(req["manifest"]["bone_count"], 42)
+        self.assertEqual(req["manifest"]["objects"][0]["origin"], [0.0, 0.0, 0.0])
+        self.assertEqual(req["manifest"]["objects"][0]["scale"], [1.0, 1.0, 1.0])
         self.assertEqual(req["source_file"], "Ojukwu/face.blend")
         self.assertEqual(self.bpy._ops.calls[0][0], "collection.exporter_export")
         self.assertTrue(any(p.name.endswith(".manifest.json") for p in Path(req["spool_path"]).parent.iterdir()))
@@ -127,6 +131,52 @@ class SaveHookTest(unittest.TestCase):
         self.save_hook.handle_save(str(self.blend))
         self.assertEqual(self.bpy._ops.calls[0][0], "export_scene.gltf")
         self.assertTrue(self.bpy._ops.calls[0][1]["use_active_collection"])
+        self.assertTrue(self.bpy._ops.calls[0][1]["export_skins"], "a character exports with its armature")
+
+    def _as_prop(self, obj: bpy_stub.FakeObject) -> None:
+        FakeAgent.parts = [{**FakeAgent.parts[0], "kind": "prop", "asset_name": "Kettle", "name": "model", "mapping": {"kind": "blend_collection", "file": "Ojukwu/face.blend", "collection": "face"}}]
+        self.collection.objects = [obj]
+        self.collection.all_objects = [obj]
+        self.collection.exporters = []
+
+    def test_a_prop_exports_without_skins_and_records_its_origin(self) -> None:
+        kettle = bpy_stub.FakeObject("Kettle", coords=[-0.5, -0.5, 0.0, 0.5, -0.5, 0.0, 0.0, 0.5, 0.3], location=(2.0, 3.0, 0.0))
+        self._as_prop(kettle)
+        out = self.save_hook.handle_save(str(self.blend))
+        self.assertTrue(out["changed"])
+        self.assertEqual(out["refused"], [])
+        self.assertFalse(self.bpy._ops.calls[0][1]["export_skins"])
+        req = FakeAgent.saved[0]
+        self.assertEqual(req["manifest"]["kind"], "prop")
+        self.assertIsNone(req["manifest"]["bone_count"])
+        self.assertEqual(req["manifest"]["objects"][0]["origin"], [2.0, 3.0, 0.0])
+        self.assertEqual(req["manifest"]["objects"][0]["bounds_min"], [1.5, 2.5, 0.0])
+
+    def test_a_prop_off_its_base_or_scaled_is_refused_and_still_versions(self) -> None:
+        floating = bpy_stub.FakeObject("Kettle", coords=[-0.5, -0.5, 0.2, 0.5, -0.5, 0.2, 0.0, 0.5, 0.5], scale=(2.0, 2.0, 2.0))
+        self._as_prop(floating)
+        out = self.save_hook.handle_save(str(self.blend))
+        self.assertFalse(out["changed"])
+        self.assertEqual(len(out["refused"]), 2)
+        self.assertEqual(self.bpy._ops.calls, [])
+        self.assertEqual(FakeAgent.saved[0]["changed"], False)
+        self.assertIn("Export refused", self.state.error)
+        self.assertIn("apply scale", self.state.error)
+        self.assertIn("set origin to the bottom", self.state.error)
+        self.assertEqual(self.state.last_hashes, {}, "a refused export is tried again on the next save")
+
+    def test_gather_facts_reads_the_scene_for_the_checks(self) -> None:
+        from nkata import checks
+
+        facts = self.save_hook.gather_facts(self.collection, {"SK_Human": ("bone_0", "bone_1")})
+        self.assertEqual(facts.unit_scale, 1.0)
+        self.assertEqual([o.name for o in facts.objects], ["Face"])
+        self.assertEqual(facts.objects[0].uv_layers, ("UVMap",))
+        self.assertEqual(facts.objects[0].triangles, 1)
+        self.assertEqual(len(facts.bone_names), 42)
+        self.assertEqual(facts.textures[0].name, "T_Face_D")
+        results, _ = checks.run_checks(["unit_scale", "uv_set_present", "texture_size", "rig_bone_count"], {"rig_bone_count": {"max": 50}}, {}, facts)
+        self.assertTrue(all(r["passed"] for r in results), results)
 
     def test_file_outside_a_project_is_skipped(self) -> None:
         with tempfile.TemporaryDirectory() as d:

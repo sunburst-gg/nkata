@@ -4,6 +4,7 @@
 import { z } from "zod";
 import { CheckResult, CommentPin, Gate, LockInfo, MirrorStatus, PartMapping, PartState, ReviewDecision, Timestamp, Ulid, UserRef, Vec3 } from "./common.js";
 import { CommentCreated, LockGranted, LockReleased, LockRequested, MirrorResult, PartStateChanged, PresenceChanged, PresenceEntry } from "./events.js";
+import { TemplateKind } from "./template.js";
 
 export const ProjectRef = z.strictObject({
   "id": Ulid,
@@ -11,6 +12,10 @@ export const ProjectRef = z.strictObject({
   "folder_name": z.string().min(1),
 });
 export type ProjectRef = z.infer<typeof ProjectRef>;
+
+/** sync: a project folder with index, watcher, and upload. stream: a viewer, files fetched on demand into a capped cache. See docs/engineering.md, Stream mode. */
+export const AgentMode = z.enum(["sync", "stream"]);
+export type AgentMode = z.infer<typeof AgentMode>;
 
 /** GET /me */
 export const MeResponse = z.strictObject({
@@ -20,6 +25,7 @@ export const MeResponse = z.strictObject({
   "package_version": z.string().min(1),
   "online": z.boolean(),
   "spool_dir": z.string().min(1),
+  "mode": AgentMode,
 });
 export type MeResponse = z.infer<typeof MeResponse>;
 
@@ -33,6 +39,7 @@ export const PartSummary = z.strictObject({
   "lock": LockInfo.nullable(),
   "gate": Gate,
   "mapping": PartMapping,
+  "kind": TemplateKind,
 });
 export type PartSummary = z.infer<typeof PartSummary>;
 
@@ -65,13 +72,17 @@ export const ManifestObject = z.strictObject({
   "bounds_min": Vec3,
   "bounds_max": Vec3,
   "hash": z.string(),
+  "origin": Vec3,
+  "scale": Vec3,
 });
 export type ManifestObject = z.infer<typeof ManifestObject>;
 
 /** Written next to the export in the spool. See docs/engineering.md, The mirror, step 2. */
 export const ObjectManifest = z.strictObject({
   "v": z.literal(1),
+  "kind": TemplateKind,
   "objects": z.array(ManifestObject),
+  "bone_count": z.number().int().min(0).nullable(),
   "armature": z.string().nullable(),
   "mirror_target": z.string().nullable(),
 });
@@ -138,7 +149,6 @@ export const CommentCreateRequest = z.strictObject({
   "point": Vec3,
   "normal": Vec3,
   "body": z.string().min(1),
-  "linear_issue": z.string().nullable(),
 });
 export type CommentCreateRequest = z.infer<typeof CommentCreateRequest>;
 

@@ -1,8 +1,8 @@
 // Every role check in the app goes through can(). Components never read the role directly.
 // A viewer sees everything and comments. What a viewer cannot do is not in the DOM.
-// Roles follow shared/schemas/common.schema.json plus viewer (docs/product.md, Roles).
+// Roles follow shared/schemas/common.schema.json (docs/product.md, Roles and permissions).
 
-export type Role = "artist" | "art_director" | "engineer" | "writer" | "producer" | "viewer";
+export type Role = "artist" | "art_director" | "producer" | "viewer";
 
 export type Action =
   | "publish"
@@ -47,8 +47,6 @@ export function can(action: Action, role: Role): boolean {
 export const ROLE_WORDS: Record<Role, string> = {
   artist: "Artist",
   art_director: "Art director",
-  engineer: "Engineer",
-  writer: "Writer",
   producer: "Producer",
   viewer: "Viewer",
 };
@@ -57,8 +55,6 @@ export const ROLE_WORDS: Record<Role, string> = {
 export const ROLE_LINES: { role: Role; line: string }[] = [
   { role: "artist", line: "Opens parts in Blender and Unreal. Publishes and marks Ready." },
   { role: "art_director", line: "Everything an artist does, plus review, approve, and gates." },
-  { role: "engineer", line: "Publishes builds and Blueprints. Approves engine changes." },
-  { role: "writer", line: "Scripts and dialogue. Publishes and approves canon." },
   { role: "producer", line: "Admin. Invites people, sets owners, rolls back anything." },
   { role: "viewer", line: "Sees everything, comments, changes nothing." },
 ];

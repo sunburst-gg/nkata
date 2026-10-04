@@ -4,7 +4,8 @@ import { hasInfra, startHarness, type Harness } from "./helpers.js";
 const ARTIST = "artist@sunburst.gg";
 const AD = "director@sunburst.gg";
 const PRODUCER = "producer@sunburst.gg";
-const ENGINEER = "engineer@sunburst.gg";
+const ENV = "env@sunburst.gg";
+const VIEWER = "viewer@sunburst.gg";
 
 describe.skipIf(!hasInfra)("server api", () => {
   let h: Harness;
@@ -36,12 +37,30 @@ describe.skipIf(!hasInfra)("server api", () => {
 
   it("seeds the Ojukwu asset with gated parts locked", async () => {
     const res = await h.app.inject({ method: "GET", url: `/assets/${h.seeded.asset_id}`, ...h.as(ARTIST) });
-    const body = res.json() as { asset: { state: string }; parts: { name: string; state: string; mapping: { kind: string } }[] };
-    expect(body.parts.map((p) => p.name)).toEqual(["concept", "face", "cloth", "hair", "textures", "rig", "lookdev", "animation", "sound"]);
+    const body = res.json() as { asset: { state: string }; parts: { name: string; state: string; kind: string; mapping: { kind: string } }[] };
+    expect(body.parts.map((p) => p.name)).toEqual(["concept", "face", "cloth", "hair", "textures", "rig", "lookdev"]);
     expect(body.parts.find((p) => p.name === "textures")?.state).toBe("locked");
     expect(body.parts.find((p) => p.name === "face")?.state).toBe("draft");
     expect(body.parts.find((p) => p.name === "lookdev")?.mapping).toEqual({ kind: "ue_asset", path: "/Game/Characters/Ojukwu/lookdev" });
+    expect(new Set(body.parts.map((p) => p.kind))).toEqual(new Set(["character"]));
     expect(body.asset.state).toBe("draft");
+  });
+
+  it("seeds three props and one level area for the environment artist", async () => {
+    const res = await h.app.inject({ method: "GET", url: `/assets?project_id=${h.seeded.project_id}`, ...h.as(ARTIST) });
+    const names = (res.json() as { assets: { name: string }[] }).assets.map((a) => a.name).sort();
+    expect(names).toEqual(["Enugu Market / square", "Kettle", "Market stall", "Ojukwu", "Wooden stool"]);
+    const kettle = await h.app.inject({ method: "GET", url: `/assets/${h.seeded.assets["Kettle"]}`, ...h.as(ARTIST) });
+    const kettleParts = (kettle.json() as { parts: { name: string; kind: string; mapping: unknown }[] }).parts;
+    expect(kettleParts.map((p) => p.name)).toEqual(["concept", "model", "uvs", "textures", "lods", "collision"]);
+    expect(kettleParts.find((p) => p.name === "lods")?.mapping).toEqual({ kind: "ue_asset", path: "/Game/Props/Kettle" });
+    const square = await h.app.inject({ method: "GET", url: `/assets/${h.seeded.assets["Enugu Market / square"]}`, ...h.as(ARTIST) });
+    const squareParts = (square.json() as { parts: { name: string; state: string; kind: string; mapping: unknown }[] }).parts;
+    expect(squareParts.map((p) => p.name)).toEqual(["blockout", "layout", "set_dressing", "lighting"]);
+    expect(squareParts[0]?.kind).toBe("level_area");
+    expect(kettleParts[0]?.kind).toBe("prop");
+    expect(squareParts[0]?.mapping).toEqual({ kind: "ue_area", level: "Enugu Market", area: "square" });
+    expect(squareParts.map((p) => p.state)).toEqual(["draft", "locked", "locked", "locked"]);
   });
 
   it("finds parts by open file", async () => {
@@ -63,7 +82,7 @@ describe.skipIf(!hasInfra)("server api", () => {
     });
     expect(res.statusCode).toBe(201);
     const body = res.json() as { parts: { name: string; owner_id: string | null; state: string }[] };
-    expect(body.parts).toHaveLength(9);
+    expect(body.parts).toHaveLength(7);
     expect(body.parts.find((p) => p.name === "face")?.owner_id).toBe(h.seeded.users[ARTIST]);
     expect(body.parts.find((p) => p.name === "rig")?.state).toBe("locked");
     const bad = await h.app.inject({ method: "POST", url: "/assets", ...h.as(AD), payload: { project_id: h.seeded.project_id, template_name: "Character", name: "Bad", owners: { nope: h.seeded.users[ARTIST] } } });
@@ -97,7 +116,7 @@ describe.skipIf(!hasInfra)("server api", () => {
     });
 
     it("refuses a non owner artist and a gated part", async () => {
-      expect((await h.app.inject({ method: "POST", url: `/parts/${parts["face"]}/lock`, ...h.as(ENGINEER) })).statusCode).toBe(403);
+      expect((await h.app.inject({ method: "POST", url: `/parts/${parts["face"]}/lock`, ...h.as(ENV) })).statusCode).toBe(403);
       const gated = await h.app.inject({ method: "POST", url: `/parts/${parts["textures"]}/lock`, ...h.as(ARTIST) });
       expect(gated.statusCode).toBe(409);
       expect((gated.json() as { error: { code: string } }).error.code).toBe("gate_closed");
@@ -120,7 +139,12 @@ describe.skipIf(!hasInfra)("server api", () => {
       expect(res.statusCode).toBe(201);
       faceVersion = (res.json() as { version: { id: string } }).version.id;
       const mirror = await h.app.inject({ method: "PUT", url: `/parts/${face}/versions/${faceVersion}/mirror`, ...h.as(ARTIST), payload: { mirror_status: "synced", mirror_ms: 4200 } });
-      expect((mirror.json() as { version: { mirror_status: string; mirror_ms: number } }).version).toMatchObject({ mirror_status: "synced", mirror_ms: 4200 });
+      expect((mirror.json() as { version: { mirror_status: string; mirror_ms: number; refs: unknown } }).version).toMatchObject({ mirror_status: "synced", mirror_ms: 4200, refs: null });
+      const placed = await h.app.inject({ method: "PUT", url: `/parts/${face}/versions/${faceVersion}/mirror`, ...h.as(ARTIST), payload: { mirror_status: "synced", mirror_ms: 4300, refs: [{ level: "/Game/Levels/L_EnuguMarket", actors: 2 }] } });
+      expect((placed.json() as { version: { refs: unknown } }).version.refs).toEqual([{ level: "/Game/Levels/L_EnuguMarket", actors: 2 }]);
+      const listed = await h.app.inject({ method: "GET", url: `/parts/${face}/versions`, ...h.as(ARTIST) });
+      expect((listed.json() as { versions: { id: string; refs: unknown }[] }).versions.find((v) => v.id === faceVersion)?.refs).toEqual([{ level: "/Game/Levels/L_EnuguMarket", actors: 2 }]);
+      expect((await h.app.inject({ method: "PUT", url: `/parts/${face}/versions/${faceVersion}/mirror`, ...h.as(ARTIST), payload: { mirror_status: "synced", refs: [{ level: "", actors: -1 }] } })).statusCode).toBe(400);
       const replay = await h.app.inject({ method: "POST", url: `/parts/${face}/versions`, ...h.as(ARTIST), payload: { id: faceVersion, mirror_status: "pending" } });
       expect(replay.statusCode).toBe(200);
       expect((replay.json() as { version: { note: string } }).version.note).toBe("first save");
@@ -141,7 +165,7 @@ describe.skipIf(!hasInfra)("server api", () => {
     });
 
     it("only reviewers approve, and approving opens gates down the chain", async () => {
-      const denied = await h.app.inject({ method: "POST", url: "/reviews", ...h.as(ENGINEER), payload: { part_id: parts["face"], version_id: faceVersion, score: 5, decision: "approve" } });
+      const denied = await h.app.inject({ method: "POST", url: "/reviews", ...h.as(ENV), payload: { part_id: parts["face"], version_id: faceVersion, score: 5, decision: "approve" } });
       expect(denied.statusCode).toBe(403);
       const approved = await h.app.inject({ method: "POST", url: "/reviews", ...h.as(AD), payload: { part_id: parts["face"], version_id: faceVersion, score: 4, decision: "approve", note: "Good" } });
       expect(approved.statusCode).toBe(201);
@@ -171,9 +195,9 @@ describe.skipIf(!hasInfra)("server api", () => {
     });
 
     it("removing a gate opens the part at once", async () => {
-      expect((await h.app.inject({ method: "POST", url: `/parts/${parts["sound"]}/gate/remove`, ...h.as(ARTIST) })).statusCode).toBe(403);
-      const res = await h.app.inject({ method: "POST", url: `/parts/${parts["sound"]}/gate/remove`, ...h.as(AD) });
-      expect(res.json()).toMatchObject({ opened: [parts["sound"]] });
+      expect((await h.app.inject({ method: "POST", url: `/parts/${parts["lookdev"]}/gate/remove`, ...h.as(ARTIST) })).statusCode).toBe(403);
+      const res = await h.app.inject({ method: "POST", url: `/parts/${parts["lookdev"]}/gate/remove`, ...h.as(AD) });
+      expect(res.json()).toMatchObject({ opened: [parts["lookdev"]] });
     });
 
     it("rollback creates a new version and keeps history", async () => {
@@ -205,6 +229,50 @@ describe.skipIf(!hasInfra)("server api", () => {
       expect(kinds).toContain("review.decided");
       expect(kinds).toContain("gate.opened");
       expect(kinds).not.toContain("audit.gate_removed");
+    });
+  });
+  // docs/product.md, Roles and permissions: the server refuses a viewer on every write.
+  describe("viewer", () => {
+    const refused: [string, string, unknown][] = [
+      ["POST", "/parts/{face}/lock", undefined],
+      ["PUT", "/parts/{face}/lock", undefined],
+      ["DELETE", "/parts/{face}/lock", undefined],
+      ["POST", "/parts/{face}/lock/request", undefined],
+      ["POST", "/parts/{face}/lock/break", undefined],
+      ["POST", "/parts/{face}/versions", {}],
+      ["PUT", "/parts/{face}/versions/01ARZ3NDEKTSV4RRFFQ69G5FAV/mirror", { mirror_status: "synced", mirror_ms: 1 }],
+      ["POST", "/parts/{face}/publish", { version_id: "01ARZ3NDEKTSV4RRFFQ69G5FAV", check_results: [], ready: false }],
+      ["POST", "/parts/{face}/rollback", { version_id: "01ARZ3NDEKTSV4RRFFQ69G5FAV" }],
+      ["POST", "/parts/{face}/state", { action: "mark_ready" }],
+      ["POST", "/parts/{face}/gate/remove", undefined],
+      ["PATCH", "/parts/{face}", { owner_id: "01ARZ3NDEKTSV4RRFFQ69G5FAV" }],
+      ["POST", "/reviews", { part_id: "{face}", version_id: "01ARZ3NDEKTSV4RRFFQ69G5FAV", score: 5, decision: "approve" }],
+      ["PUT", "/projects/{project}/templates/Character", { file_path: "x", schema: {} }],
+      ["POST", "/assets", { project_id: "{project}", template_name: "Character", name: "Nobody" }],
+      ["POST", "/projects", { name: "Side", folder_name: "side", blender_version: "4.2", ue_version: "5.4", package_version: "0.1.0" }],
+      ["POST", "/files/upload-urls", { project_id: "{project}", chunks: [] }],
+      ["POST", "/files/uploaded", { project_id: "{project}", chunks: [] }],
+      ["POST", "/projects/{project}/file-versions", {}],
+    ];
+    const fill = (s: string) => s.replaceAll("{face}", parts["face"]!).replaceAll("{project}", h.seeded.project_id);
+
+    it.each(refused)("gets 403 on %s %s", async (method, url, payload) => {
+      const body = payload === undefined ? undefined : JSON.parse(fill(JSON.stringify(payload))) as Record<string, unknown>;
+      const res = await h.app.inject({ method: method as "POST", url: fill(url), ...h.as(VIEWER), ...(body === undefined ? {} : { payload: body }) });
+      expect(res.statusCode).toBe(403);
+      expect((res.json() as { error: { code: string } }).error.code).toBe("forbidden");
+    });
+
+    it("reads, comments, resolves, downloads, and exports one asset", async () => {
+      const face = parts["face"]!;
+      expect((await h.app.inject({ method: "GET", url: `/assets?project_id=${h.seeded.project_id}`, ...h.as(VIEWER) })).statusCode).toBe(200);
+      const versions = (await h.app.inject({ method: "GET", url: `/parts/${face}/versions`, ...h.as(VIEWER) })).json() as { versions: { id: string }[] };
+      const created = await h.app.inject({ method: "POST", url: "/comments", ...h.as(VIEWER), payload: { part_id: face, version_id: versions.versions[0]!.id, point: [0, 0, 0], normal: [0, 0, 1], body: "Reads well from the gate." } });
+      expect(created.statusCode).toBe(201);
+      const id = (created.json() as { comment: { id: string } }).comment.id;
+      expect((await h.app.inject({ method: "POST", url: `/comments/${id}/resolve`, ...h.as(VIEWER) })).statusCode).toBe(200);
+      expect((await h.app.inject({ method: "POST", url: "/files/download-urls", ...h.as(VIEWER), payload: { project_id: h.seeded.project_id, hashes: [] } })).statusCode).toBe(200);
+      expect((await h.app.inject({ method: "GET", url: `/export/${h.seeded.asset_id}`, ...h.as(VIEWER) })).statusCode).toBe(200);
     });
   });
 });

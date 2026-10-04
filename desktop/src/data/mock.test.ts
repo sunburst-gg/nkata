@@ -4,9 +4,12 @@ import { createMockSource } from "./mock";
 describe("mock data source", () => {
   it("holds the Rising Sun content", () => {
     const db = createMockSource().snapshot();
-    expect(db.assets.map((a) => a.name)).toEqual(expect.arrayContaining(["Ojukwu", "Enugu Market", "Compound", "Act1_Scene3"]));
-    expect(db.people.map((p) => p.name.split(" ")[0])).toEqual(expect.arrayContaining(["Ada", "Chidi", "Ngozi", "Emeka", "Tobe", "Ify", "Funmi"]));
+    expect(db.assets.map((a) => a.name)).toEqual(expect.arrayContaining(["Ojukwu", "Enugu Market", "Compound", "Kettle"]));
+    expect(new Set(db.assets.map((a) => a.kind))).toEqual(new Set(["Characters", "Props", "Levels"]));
+    expect(db.templates.map((t) => t.name)).toEqual(["Character", "Environment prop", "Level area"]);
+    expect(db.people.map((p) => p.name.split(" ")[0])).toEqual(expect.arrayContaining(["Ada", "Chidi", "Ngozi", "Emeka", "Tobe", "Funmi"]));
     expect(db.people.find((p) => p.name === "Funmi Adebayo")?.role).toBe("viewer");
+    expect(new Set(db.people.map((p) => p.role))).toEqual(new Set(["artist", "art_director", "producer", "viewer"]));
     for (const a of db.assets) for (const p of a.parts) expect(db.people.some((x) => x.id === p.ownerId), `${a.name}/${p.name} owner`).toBe(true);
   });
 

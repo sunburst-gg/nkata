@@ -1,5 +1,7 @@
 # Step 2: Core
 
+Done Oct 1, 2026. Numbers in docs/decisions.md. Kept as the record of the gate.
+
 Work on main. Push after every green `make test`. Open a PR only if you are blocked or the gate fails.
 
 Read CLAUDE.md, docs/product.md, docs/engineering.md first. This is the first code in the repo, so you also create the monorepo layout.
@@ -18,7 +20,7 @@ A 2 GB folder syncs from one agent to a second agent through the server and stor
 
 ## Not in this step
 
-No UI. No Blender. No UE5. No Discord or Linear. No mirror. Those are steps 1, 3, 4, 5.
+No UI. No Blender. No UE5. No Discord. No mirror. Those are steps 1a, 1b, 3, 4, 5.
 
 ## Done means
 

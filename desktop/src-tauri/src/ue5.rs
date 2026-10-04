@@ -25,6 +25,16 @@ pub struct ScriptResult {
     pub asset_path: Option<String>,
     #[serde(default)]
     pub first_import: bool,
+    /// From scan_refs.py: the levels that place a static mesh and the actor count per level.
+    #[serde(default)]
+    pub levels: Option<Vec<LevelRef>>,
+}
+
+/// One level that places a mesh. Stored on the version as `refs`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LevelRef {
+    pub level: String,
+    pub actors: u64,
 }
 
 #[derive(Debug)]
@@ -123,6 +133,7 @@ impl Ue5Client {
                 message: format!("Remote Control answered {status}: {}", first_line(&text)),
                 asset_path: None,
                 first_import: false,
+                levels: None,
             }));
         }
         let parsed: CallResponse = serde_json::from_str(&text).map_err(|e| {
@@ -167,6 +178,7 @@ pub fn parse_log(return_value: bool, lines: &[(&str, &str)]) -> ScriptResult {
         }),
         asset_path: None,
         first_import: false,
+        levels: None,
     }
 }
 
@@ -187,7 +199,8 @@ mod tests {
                 ok: true,
                 message: String::new(),
                 asset_path: Some("/Game/X".into()),
-                first_import: true
+                first_import: true,
+                levels: None
             }
         );
     }

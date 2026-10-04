@@ -11,7 +11,7 @@ export interface EmptyPreviewProps {
   className?: string;
 }
 
-const PRONOUN: Record<string, string> = { ify: "she", ada: "she", ngozi: "she", funmi: "she" };
+const PRONOUN: Record<string, string> = { ada: "she", ngozi: "she", funmi: "she", tobe: "he" };
 
 export function EmptyPreview({ owner, assetName, aspect = "16/9", className }: EmptyPreviewProps) {
   return (

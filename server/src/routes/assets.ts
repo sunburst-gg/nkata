@@ -6,21 +6,32 @@ import { Template, Ulid, type Gate, type PartMapping, type PartState, type Templ
 import { asset, part, template } from "../db/schema.js";
 import { AppError, notFound } from "../domain/errors.js";
 import { newId } from "../domain/ids.js";
-import { assetState, currentLock, IdParam, loadAsset, loadProject, partWire, requireRole, userRefs, type TypedApp } from "./_shared.js";
+import { assetState, currentLock, IdParam, loadAsset, loadProject, partWire, requireRole, templateKind, userRefs, type TypedApp } from "./_shared.js";
 
 const AssetBody = z.object({
   id: Ulid.optional(),
   project_id: Ulid,
   template_name: z.string().min(1),
-  name: z.string().min(1).regex(/^[A-Za-z0-9][A-Za-z0-9 _-]*$/),
+  name: z.string().min(1).regex(/^[A-Za-z0-9][A-Za-z0-9 _/-]*$/),
   owners: z.record(z.string(), Ulid).default({}),
   reference_files: z.array(z.string()).default([]),
 });
+
+/** A level area asset is named "<level> / <area>". Without the slash the level is the asset and the area is the part. */
+export function levelAndArea(assetName: string, partName: string): { level: string; area: string } {
+  const slash = assetName.indexOf(" / ");
+  if (slash < 0) return { level: assetName, area: partName };
+  return { level: assetName.slice(0, slash).trim(), area: assetName.slice(slash + 3).trim() };
+}
 
 /** Where a part lives on disk and in the engine, from the template rules. See docs/decisions.md. */
 export function mappingFor(tpl: Template, tp: TemplatePart, assetName: string): PartMapping {
   const fill = (s: string) => s.replaceAll("{asset}", assetName).replaceAll("{part}", tp.name);
   switch (tp.mapping) {
+    case "ue_area": {
+      const { level, area } = levelAndArea(assetName, tp.name);
+      return { kind: "ue_area", level, area };
+    }
     case "blend_collection":
       return { kind: "blend_collection", file: tpl.blend_layout === "one_file_per_part" ? `${assetName}/${tp.name}.blend` : `${assetName}/${assetName}.blend`, collection: tp.name };
     case "ue_asset":
@@ -75,7 +86,7 @@ export async function assetRoutes(app: TypedApp): Promise<void> {
       kind: "audit.asset_created", target_kind: "asset", target_id: id, payload: { name: req.body.name, template: tpl.name },
     });
     req.log.info({ project_id: proj.id, asset_id: id }, "asset created");
-    return reply.status(201).send({ v: 1, asset: created.asset, parts: created.parts.map((p) => partWire(p, created.asset!.name, null, null)) });
+    return reply.status(201).send({ v: 1, asset: created.asset, parts: created.parts.map((p) => partWire(p, created.asset!.name, tpl.kind, null, null)) });
   });
 
   app.get("/assets", { schema: { querystring: z.object({ project_id: Ulid }) } }, async (req) => {
@@ -93,8 +104,9 @@ export async function assetRoutes(app: TypedApp): Promise<void> {
     const parts = await app.db.select().from(part).where(eq(part.asset_id, a.id)).orderBy(part.position);
     const owners = await userRefs(app.db, parts.map((p) => p.owner_id).filter((x): x is string => x !== null));
     const now = app.now();
+    const kind = await templateKind(app.db, a.template_id);
     const wired = [];
-    for (const p of parts) wired.push(partWire(p, a.name, p.owner_id ? owners.get(p.owner_id) ?? null : null, await currentLock(app.db, p.id, now)));
+    for (const p of parts) wired.push(partWire(p, a.name, kind, p.owner_id ? owners.get(p.owner_id) ?? null : null, await currentLock(app.db, p.id, now)));
     return { v: 1, asset: { ...a, state: assetState(parts.map((p) => p.state)) }, parts: wired };
   });
 }

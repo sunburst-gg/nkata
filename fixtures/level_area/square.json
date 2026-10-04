@@ -1,0 +1,192 @@
+{
+  "actors": [
+    {
+      "class": "StaticMeshActor",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mesh": "/Game/Props/Kettle",
+      "name": "SM_Square_00",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tags": [
+        "nkata.area=square"
+      ]
+    },
+    {
+      "class": "StaticMeshActor",
+      "location": [
+        2.5,
+        0.0,
+        0.0
+      ],
+      "mesh": "/Game/Props/WoodenStool",
+      "name": "SM_Square_01",
+      "rotation": [
+        0.0,
+        0.0,
+        45.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tags": [
+        "nkata.area=square"
+      ]
+    },
+    {
+      "class": "StaticMeshActor",
+      "location": [
+        5.0,
+        0.0,
+        0.0
+      ],
+      "mesh": "/Game/Props/MarketStall",
+      "name": "SM_Square_02",
+      "rotation": [
+        0.0,
+        0.0,
+        90.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tags": [
+        "nkata.area=square"
+      ]
+    },
+    {
+      "class": "StaticMeshActor",
+      "location": [
+        7.5,
+        0.0,
+        0.0
+      ],
+      "mesh": "/Game/Props/MarketStall",
+      "name": "SM_Square_03",
+      "rotation": [
+        0.0,
+        0.0,
+        135.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tags": [
+        "nkata.area=square"
+      ]
+    },
+    {
+      "class": "StaticMeshActor",
+      "location": [
+        0.0,
+        3.0,
+        0.0
+      ],
+      "mesh": "/Game/Props/Kettle",
+      "name": "SM_Square_04",
+      "rotation": [
+        0.0,
+        0.0,
+        180.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tags": [
+        "nkata.area=square"
+      ]
+    },
+    {
+      "class": "StaticMeshActor",
+      "location": [
+        2.5,
+        3.0,
+        0.0
+      ],
+      "mesh": "/Game/Props/WoodenStool",
+      "name": "SM_Square_05",
+      "rotation": [
+        0.0,
+        0.0,
+        225.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tags": [
+        "nkata.area=square"
+      ]
+    },
+    {
+      "class": "StaticMeshActor",
+      "location": [
+        5.0,
+        3.0,
+        0.0
+      ],
+      "mesh": "/Game/Props/MarketStall",
+      "name": "SM_Square_06",
+      "rotation": [
+        0.0,
+        0.0,
+        270.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tags": [
+        "nkata.area=square"
+      ]
+    },
+    {
+      "class": "StaticMeshActor",
+      "location": [
+        7.5,
+        3.0,
+        0.0
+      ],
+      "mesh": "/Game/Props/MarketStall",
+      "name": "SM_Square_07",
+      "rotation": [
+        0.0,
+        0.0,
+        315.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "tags": [
+        "nkata.area=square"
+      ]
+    }
+  ],
+  "area": "square",
+  "level": "Enugu Market",
+  "tag": "nkata.area=square",
+  "v": 1
+}

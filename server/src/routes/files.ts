@@ -6,7 +6,7 @@ import { and, asc, eq, gt, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { Ulid } from "@nkata/shared";
 import { chunk, file_version } from "../db/schema.js";
-import { AppError } from "../domain/errors.js";
+import { AppError, notFound } from "../domain/errors.js";
 import { newId } from "../domain/ids.js";
 import { URL_TTL_SECONDS } from "../store/s3.js";
 import { IdParam, loadProject, type TypedApp } from "./_shared.js";
@@ -111,6 +111,14 @@ export async function fileRoutes(app: TypedApp): Promise<void> {
       .returning();
     req.log.info({ project_id: proj.id, path: req.body.path, size: req.body.size, chunks: req.body.chunk_hashes.length }, "file version recorded");
     return reply.status(201).send({ v: 1, file_version: saved });
+  });
+
+  // One file version by id, for a viewer in stream mode fetching a file on demand.
+  app.get("/projects/:id/file-versions/:fvid", { schema: { params: z.object({ id: Ulid, fvid: Ulid }) } }, async (req) => {
+    const proj = await loadProject(app.db, req.principal, req.params.id);
+    const row = (await app.db.select().from(file_version).where(and(eq(file_version.id, req.params.fvid), eq(file_version.project_id, proj.id))).limit(1))[0];
+    if (!row) throw notFound("file_version", req.params.fvid);
+    return { v: 1, file_version: row };
   });
 
   // Ordered by id (ULID, time sorted). The agent folds the stream to the newest version per path.

@@ -41,7 +41,7 @@ export function Part() {
 
   const markReady = () => {
     const r = source.markReady(asset.slug, part.name);
-    if (r.ok) toast(`${part.name} is Ready. Emeka was told on Discord.`, "ready");
+    if (r.ok) toast(`${part.name} is Ready. Emeka has it in the review queue.`, "ready");
     else toast(r.reason, "failed");
   };
   const fix = () => {

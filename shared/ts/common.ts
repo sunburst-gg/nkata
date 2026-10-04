@@ -15,7 +15,8 @@ export type Timestamp = z.infer<typeof Timestamp>;
 export const PartState = z.enum(["locked", "draft", "ready", "approved"]);
 export type PartState = z.infer<typeof PartState>;
 
-export const Role = z.enum(["artist", "art_director", "engineer", "writer", "producer", "viewer"]);
+/** Four roles in v1. The enum stays open for later roles. See docs/product.md, Roles and permissions. */
+export const Role = z.enum(["artist", "art_director", "producer", "viewer"]);
 export type Role = z.infer<typeof Role>;
 
 /** Result of the Blender to UE5 mirror for one version. */
@@ -46,7 +47,7 @@ export const Gate = z.strictObject({
 });
 export type Gate = z.infer<typeof Gate>;
 
-/** What real thing a part maps to. See docs/engineering.md, Data model, part.mapping. */
+/** What real thing a part maps to. See docs/engineering.md, Data model, part.mapping. ue_area is the set of actors tagged nkata.area=<area> in one level. */
 export const PartMapping = z.discriminatedUnion("kind", [z.strictObject({
   "kind": z.literal("blend_collection"),
   "file": z.string().min(1),
@@ -55,6 +56,10 @@ export const PartMapping = z.discriminatedUnion("kind", [z.strictObject({
   "kind": z.literal("ue_actor"),
   "level": z.string().min(1),
   "actor": z.string().min(1),
+}), z.strictObject({
+  "kind": z.literal("ue_area"),
+  "level": z.string().min(1),
+  "area": z.string().min(1),
 }), z.strictObject({
   "kind": z.literal("ue_asset"),
   "path": z.string().min(1),
@@ -93,7 +98,6 @@ export const CommentPin = z.strictObject({
   "point": Vec3,
   "normal": Vec3,
   "body": z.string().min(1),
-  "linear_issue": z.string().nullable(),
   "resolved_at": Timestamp.nullable(),
   "created_at": Timestamp,
 });

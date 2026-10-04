@@ -1,12 +1,12 @@
 // Parts: list, detail, assign owner, state actions, remove gate.
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import { Ulid } from "@nkata/shared";
+import { Ulid, type TemplateKind } from "@nkata/shared";
 import { asset, part } from "../db/schema.js";
 import { AppError } from "../domain/errors.js";
 import { evaluateGates } from "../domain/gates.js";
 import { transition, type StateAction } from "../domain/state.js";
-import { assetState, currentLock, IdParam, loadAsset, loadPart, loadProject, partWire, requireRole, userRefs, type TypedApp } from "./_shared.js";
+import { assetState, currentLock, IdParam, loadAsset, loadPart, loadProject, partWire, requireRole, templateKind, userRefs, type TypedApp } from "./_shared.js";
 import { releaseLock } from "./locks.js";
 
 const PartsQuery = z.object({ asset_id: Ulid.optional(), project_id: Ulid.optional(), file: z.string().optional() });
@@ -31,7 +31,7 @@ export async function partRoutes(app: TypedApp): Promise<void> {
     let rows;
     if (req.query.asset_id) {
       const a = await loadAsset(app.db, p, req.query.asset_id);
-      rows = await app.db.select({ part, asset_name: asset.name }).from(part).innerJoin(asset, eq(asset.id, part.asset_id)).where(eq(part.asset_id, a.id)).orderBy(part.position);
+      rows = await app.db.select({ part, asset_name: asset.name, template_id: asset.template_id }).from(part).innerJoin(asset, eq(asset.id, part.asset_id)).where(eq(part.asset_id, a.id)).orderBy(part.position);
     } else if (req.query.project_id) {
       const proj = await loadProject(app.db, p, req.query.project_id);
       const conditions = [eq(asset.project_id, proj.id)];
@@ -39,14 +39,16 @@ export async function partRoutes(app: TypedApp): Promise<void> {
       if (req.query.file !== undefined) {
         conditions.push(sql`(${part.mapping}->>'file' = ${req.query.file} or ${part.mapping}->>'path' = ${req.query.file})`);
       }
-      rows = await app.db.select({ part, asset_name: asset.name }).from(part).innerJoin(asset, eq(asset.id, part.asset_id)).where(and(...conditions)).orderBy(asset.name, part.position);
+      rows = await app.db.select({ part, asset_name: asset.name, template_id: asset.template_id }).from(part).innerJoin(asset, eq(asset.id, part.asset_id)).where(and(...conditions)).orderBy(asset.name, part.position);
     } else {
       throw new AppError("bad_request", "asset_id or project_id is required");
     }
     const owners = await userRefs(app.db, rows.map((r) => r.part.owner_id).filter((x): x is string => x !== null));
     const now = app.now();
+    const kinds = new Map<string, TemplateKind>();
+    for (const id of new Set(rows.map((r) => r.template_id))) kinds.set(id, await templateKind(app.db, id));
     const parts = [];
-    for (const r of rows) parts.push(partWire(r.part, r.asset_name, r.part.owner_id ? owners.get(r.part.owner_id) ?? null : null, await currentLock(app.db, r.part.id, now)));
+    for (const r of rows) parts.push(partWire(r.part, r.asset_name, kinds.get(r.template_id)!, r.part.owner_id ? owners.get(r.part.owner_id) ?? null : null, await currentLock(app.db, r.part.id, now)));
     return { v: 1, parts };
   });
 
@@ -57,7 +59,7 @@ export async function partRoutes(app: TypedApp): Promise<void> {
     const waiting = row.gate.after.filter((name) => siblings.find((s) => s.name === name)?.state !== "approved");
     return {
       v: 1,
-      part: { ...partWire(row, a.name, row.owner_id ? owners.get(row.owner_id) ?? null : null, await currentLock(app.db, row.id, app.now())), waiting_on: waiting },
+      part: { ...partWire(row, a.name, await templateKind(app.db, a.template_id), row.owner_id ? owners.get(row.owner_id) ?? null : null, await currentLock(app.db, row.id, app.now())), waiting_on: waiting },
       asset_state: assetState(siblings.map((s) => s.state)),
     };
   });
@@ -71,7 +73,7 @@ export async function partRoutes(app: TypedApp): Promise<void> {
       studio_id: a.studio_id, project_id: a.project_id, actor_id: req.principal.user_id,
       kind: "audit.owner_assigned", target_kind: "part", target_id: row.id, payload: { owner_id: req.body.owner_id },
     });
-    return { v: 1, part: partWire(updated!, a.name, null, await currentLock(app.db, row.id, now)) };
+    return { v: 1, part: partWire(updated!, a.name, await templateKind(app.db, a.template_id), null, await currentLock(app.db, row.id, now)) };
   });
 
   // Mark Ready, Send back, Reopen. Approve goes through POST /reviews.

@@ -4,17 +4,18 @@ import { describe, expect, it } from "vitest";
 import { CheckContract } from "../ts/index.js";
 import { CHECKS_DIR } from "../src/schema.js";
 
-// docs/engineering.md, Checks: shipped v1 checks.
-const SHIPPED = [
-  "unit_scale", "name_pattern", "triangle_budget", "lod_count", "collision_present",
-  "uv_set_present", "texture_size", "rig_bone_names", "rig_bone_count", "metahuman_dna_present",
-];
+// docs/engineering.md, Checks: shipped v1 checks, by template.
+const CHARACTER = ["unit_scale", "name_pattern", "triangle_budget", "uv_set_present", "texture_size", "rig_bone_names", "rig_bone_count", "metahuman_dna_present"];
+const ENVIRONMENT = ["unit_scale", "name_pattern", "triangle_budget", "lod_count", "collision_present", "uv_set_present", "texture_size", "pivot_at_base"];
+const SHIPPED = [...new Set([...CHARACTER, ...ENVIRONMENT])];
 
 describe("shipped checks", () => {
   const files = readdirSync(CHECKS_DIR).filter((f) => f.endsWith(".json")).sort();
 
-  it("ship exactly the v1 list", () => {
+  it("ship exactly the two template lists, nothing else", () => {
     expect(files.map((f) => basename(f, ".json")).sort()).toEqual([...SHIPPED].sort());
+    expect(CHARACTER).toHaveLength(8);
+    expect(ENVIRONMENT).toHaveLength(8);
   });
 
   it("each validates against CheckContract and its id matches the file name", () => {

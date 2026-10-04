@@ -63,6 +63,11 @@ pub struct FileVersion {
 }
 
 #[derive(Debug, Deserialize)]
+struct FileVersionEnvelope {
+    file_version: FileVersion,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct FileVersionsPage {
     pub file_versions: Vec<FileVersion>,
     pub next: Option<String>,
@@ -125,6 +130,8 @@ pub struct MirrorUpdate<'a> {
     pub mirror_status: MirrorStatus,
     pub mirror_ms: Option<u64>,
     pub message: &'a str,
+    /// Where a static mesh is placed, from scan_refs.py. None leaves the stored value alone.
+    pub refs: Option<Vec<crate::ue5::LevelRef>>,
 }
 
 #[derive(Clone)]
@@ -340,6 +347,13 @@ impl ServerClient {
             )
             .await?;
         Ok(w.file_version)
+    }
+
+    pub async fn get_file_version(&self, id: &str) -> Result<FileVersion> {
+        let res: FileVersionEnvelope = self
+            .get(&format!("/projects/{}/file-versions/{id}", self.project_id))
+            .await?;
+        Ok(res.file_version)
     }
 
     pub async fn list_file_versions(

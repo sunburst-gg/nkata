@@ -13,21 +13,21 @@ const lock = { holder: user, granted_at: at, heartbeat_at: at, expires_at: at, s
 const checkResult = { check_id: "unit_scale", severity: "block", passed: true, auto_fixed: false, message: "" };
 const comment = {
   id, part_id: id, version_id: id2, author: user, point: [0, 1, 2], normal: [0, 0, 1],
-  body: "Shorter here", linear_issue: null, resolved_at: null, created_at: at,
+  body: "Shorter here", resolved_at: null, created_at: at,
 };
 const head = { v: 1, project_id: id, actor_id: id2, at };
 const presenceEntry = { user, part_id: null, since: at, last_seen: at };
 const templatePart = { name: "face", mapping: "blend_collection", gate: [], checks: ["unit_scale"], params: { triangle_budget: 60000 } };
 const template = {
-  v: 1, name: "Character", parts: [templatePart, { name: "rig", mapping: "blend_collection", gate: ["face"], checks: [] }],
+  v: 1, name: "Character", kind: "character", parts: [templatePart, { name: "rig", mapping: "blend_collection", gate: ["face"], checks: [] }],
   reference_slots: ["concept_sheet"], export: { ue_path: "/Game/Characters/{asset}/{part}", name: "SK_{asset}_{part}" },
   blend_layout: "one_file_per_part",
 };
-const manifestObject = { name: "Face", triangles: 12000, materials: ["M_Skin"], bounds_min: [-1, -1, 0], bounds_max: [1, 1, 2], hash: "abc" };
-const manifest = { v: 1, objects: [manifestObject], armature: null, mirror_target: "/Game/Characters/Ojukwu/face" };
+const manifestObject = { name: "Face", triangles: 12000, materials: ["M_Skin"], bounds_min: [-1, -1, 0], bounds_max: [1, 1, 2], hash: "abc", origin: [0, 0, 0], scale: [1, 1, 1] };
+const manifest = { v: 1, kind: "character", objects: [manifestObject], bone_count: 42, armature: "Armature", mirror_target: "/Game/Characters/Ojukwu/face" };
 const mapping = { kind: "blend_collection", file: "face.blend", collection: "face" };
 const mirrorState = { part_id: id, status: "synced", version_id: id2, at, mirror_ms: 4200, message: "", failures: 0, halted: false };
-const partSummary = { id, asset_id: id2, asset_name: "Ojukwu", name: "face", state: "draft", owner: user, lock, gate: { after: [] }, mapping };
+const partSummary = { id, asset_id: id2, asset_name: "Ojukwu", name: "face", state: "draft", owner: user, lock, gate: { after: [] }, mapping, kind: "character" };
 
 const events = {
   PresenceChanged: { ...head, kind: "presence.changed", online: [presenceEntry] },
@@ -47,7 +47,7 @@ export const fixtures: Fixtures = {
     Ulid: { valid: [id], invalid: ["not-a-ulid", 12] },
     Timestamp: { valid: [at, "2026-10-01T12:00:00+09:00"], invalid: ["yesterday"] },
     PartState: { valid: ["locked", "draft", "ready", "approved"], invalid: ["Draft"] },
-    Role: { valid: ["artist", "producer", "viewer"], invalid: ["admin", "guest"] },
+    Role: { valid: ["artist", "art_director", "producer", "viewer"], invalid: ["admin", "guest", "engineer", "writer"] },
     MirrorStatus: { valid: ["synced", "failed"], invalid: ["done"] },
     CheckSeverity: { valid: ["block", "warn"], invalid: ["error"] },
     ReviewDecision: { valid: ["approve", "send_back"], invalid: ["reject"] },
@@ -55,20 +55,21 @@ export const fixtures: Fixtures = {
     UserRef: { valid: [user, user2], invalid: [{ id, name: "" , avatar_url: null }, { id, name: "x" }] },
     Gate: { valid: [{ after: [] }, { after: ["face", "cloth"] }], invalid: [{}, { after: [""] }] },
     PartMapping: {
-      valid: [mapping, { kind: "ue_actor", level: "L_Main", actor: "BP_Door" }, { kind: "ue_asset", path: "/Game/X" }, { kind: "file", path: "script.md" }],
-      invalid: [{ kind: "blend_collection", path: "x" }, { kind: "other" }],
+      valid: [mapping, { kind: "ue_actor", level: "L_Main", actor: "BP_Door" }, { kind: "ue_area", level: "L_EnuguMarket", area: "square" }, { kind: "ue_asset", path: "/Game/X" }, { kind: "file", path: "concept.png" }],
+      invalid: [{ kind: "blend_collection", path: "x" }, { kind: "ue_area", level: "L" }, { kind: "other" }],
     },
     LockInfo: { valid: [lock], invalid: [{ ...lock, stale: "no" }] },
     CheckResult: { valid: [checkResult], invalid: [{ ...checkResult, severity: "fatal" }] },
-    CommentPin: { valid: [comment, { ...comment, linear_issue: "SUN-12", resolved_at: at }], invalid: [{ ...comment, point: [1] }] },
+    CommentPin: { valid: [comment, { ...comment, resolved_at: at }], invalid: [{ ...comment, point: [1] }, { ...comment, linear_issue: "SUN-12" }] },
     ErrorBody: { valid: [{ v: 1, error: { code: "not_found", message: "No part" } }], invalid: [{ v: 1, error: { code: "" , message: "x" } }] },
   },
   template: {
-    TemplateMappingKind: { valid: ["file", "ue_asset"], invalid: ["blend"] },
-    TemplatePart: { valid: [templatePart, { name: "sound", mapping: "file", checks: [] }], invalid: [{ name: "Face", mapping: "file", checks: [] }] },
+    TemplateKind: { valid: ["character", "prop", "level_area"], invalid: ["script", "sound"] },
+    TemplateMappingKind: { valid: ["file", "ue_asset", "ue_area"], invalid: ["blend"] },
+    TemplatePart: { valid: [templatePart, { name: "concept", mapping: "file", checks: [] }, { name: "layout", mapping: "ue_area", gate: ["blockout"], checks: [] }], invalid: [{ name: "Face", mapping: "file", checks: [] }] },
     TemplateExport: { valid: [template.export], invalid: [{ ue_path: "/Game" }] },
     BlendLayout: { valid: ["one_file_per_part"], invalid: ["one_file"] },
-    Template: { valid: [template], invalid: [{ ...template, v: 2 }, { ...template, parts: [] }] },
+    Template: { valid: [template], invalid: [{ ...template, v: 2 }, { ...template, parts: [] }, { ...template, kind: "script" }] },
   },
   check: {
     CheckTarget: { valid: ["blender", "ue5", "file"], invalid: ["maya"] },
@@ -92,7 +93,8 @@ export const fixtures: Fixtures = {
   },
   agent: {
     ProjectRef: { valid: [{ id, name: "Rising Sun", folder_name: "rising-sun" }], invalid: [{ id, name: "Rising Sun" }] },
-    MeResponse: { valid: [{ v: 1, user, project: { id, name: "Rising Sun", folder_name: "rising-sun" }, package_version: "0.1.0", online: true, spool_dir: "/home/ada/rising-sun/.nkata-agent/spool" }], invalid: [{ v: 1, user }] },
+    MeResponse: { valid: [{ v: 1, user, project: { id, name: "Rising Sun", folder_name: "rising-sun" }, package_version: "0.1.0", online: true, spool_dir: "/home/ada/rising-sun/.nkata-agent/spool", mode: "sync" }], invalid: [{ v: 1, user }] },
+    AgentMode: { valid: ["sync", "stream"], invalid: ["viewer"] },
     PartSummary: { valid: [partSummary, { ...partSummary, owner: null, lock: null }], invalid: [{ ...partSummary, state: "open" }] },
     PartsResponse: { valid: [{ v: 1, parts: [partSummary] }], invalid: [{ v: 1 }] },
     PartOpenResponse: { valid: [{ v: 1, granted: true, lock }, { v: 1, granted: false, lock }], invalid: [{ v: 1, granted: true }] },
@@ -109,7 +111,7 @@ export const fixtures: Fixtures = {
     ChecksRequest: { valid: [{ v: 1, results: [] }], invalid: [{ v: 1, results: [{}] }] },
     ChecksResponse: { valid: [{ v: 1, version_id: id, recorded: 3 }], invalid: [{ v: 1, version_id: id, recorded: -1 }] },
     CommentsResponse: { valid: [{ v: 1, comments: [comment] }], invalid: [{ v: 1, comments: comment }] },
-    CommentCreateRequest: { valid: [{ v: 1, point: [0, 0, 0], normal: [0, 0, 1], body: "Hi", linear_issue: null }], invalid: [{ v: 1, point: [0, 0, 0], normal: [0, 0, 1], body: "", linear_issue: null }] },
+    CommentCreateRequest: { valid: [{ v: 1, point: [0, 0, 0], normal: [0, 0, 1], body: "Hi" }], invalid: [{ v: 1, point: [0, 0, 0], normal: [0, 0, 1], body: "" }] },
     CommentCreateResponse: { valid: [{ v: 1, comment }], invalid: [{ v: 1 }] },
     ReviewRequest: { valid: [{ v: 1, score: 5, decision: "approve", note: "" }], invalid: [{ v: 1, score: 6, decision: "approve", note: "" }] },
     ReviewResponse: { valid: [{ v: 1, review_id: id, state: "approved" }], invalid: [{ v: 1, state: "approved" }] },

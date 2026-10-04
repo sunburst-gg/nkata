@@ -23,9 +23,11 @@ pnpm --filter @nkata/desktop build
 
 # Python: the add-on core with bpy stubbed, the UE5 scripts, and the e2e marker. ruff clean.
 python3 -m ruff --version >/dev/null 2>&1 || python3 -m pip install -q ruff
-python3 -m ruff check blender-addon ue5-plugin shared/py e2e
+python3 -m ruff check blender-addon ue5-plugin shared/py e2e fixtures
 (cd blender-addon && python3 -m unittest discover -s tests -t . -q)
 python3 e2e/needs_editor.py
+# The quality bar skips itself without editors and still has to import and parse cleanly.
+python3 e2e/quality.py --project "$ROOT/fixtures"
 
 # The gate test needs a live server over the same Postgres and MinIO, seeded from a clean schema.
 # The server tests leave their last fixtures behind and the seed finds rows by name.

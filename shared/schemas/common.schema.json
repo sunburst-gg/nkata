@@ -21,7 +21,8 @@
     },
     "Role": {
       "type": "string",
-      "enum": ["artist", "art_director", "engineer", "writer", "producer", "viewer"]
+      "description": "Four roles in v1. The enum stays open for later roles. See docs/product.md, Roles and permissions.",
+      "enum": ["artist", "art_director", "producer", "viewer"]
     },
     "MirrorStatus": {
       "type": "string",
@@ -64,7 +65,7 @@
       "additionalProperties": false
     },
     "PartMapping": {
-      "description": "What real thing a part maps to. See docs/engineering.md, Data model, part.mapping.",
+      "description": "What real thing a part maps to. See docs/engineering.md, Data model, part.mapping. ue_area is the set of actors tagged nkata.area=<area> in one level.",
       "oneOf": [
         {
           "type": "object",
@@ -84,6 +85,16 @@
             "actor": { "type": "string", "minLength": 1 }
           },
           "required": ["kind", "level", "actor"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "ue_area" },
+            "level": { "type": "string", "minLength": 1 },
+            "area": { "type": "string", "minLength": 1 }
+          },
+          "required": ["kind", "level", "area"],
           "additionalProperties": false
         },
         {
@@ -143,11 +154,10 @@
         "point": { "$ref": "#/$defs/Vec3" },
         "normal": { "$ref": "#/$defs/Vec3" },
         "body": { "type": "string", "minLength": 1 },
-        "linear_issue": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
         "resolved_at": { "anyOf": [{ "$ref": "#/$defs/Timestamp" }, { "type": "null" }] },
         "created_at": { "$ref": "#/$defs/Timestamp" }
       },
-      "required": ["id", "part_id", "version_id", "author", "point", "normal", "body", "linear_issue", "resolved_at", "created_at"],
+      "required": ["id", "part_id", "version_id", "author", "point", "normal", "body", "resolved_at", "created_at"],
       "additionalProperties": false
     },
     "ErrorBody": {

@@ -133,6 +133,8 @@ export const version = pgTable(
     manifest: jsonb("manifest"),
     mirror_status: text("mirror_status").notNull(),
     mirror_ms: integer("mirror_ms"),
+    // Where a static mesh is placed after this mirror: [{level, actors}]. Null for other kinds.
+    refs: jsonb("refs"),
     published: boolean("published").notNull().default(false),
     note: text("note").notNull().default(""),
   },
@@ -189,7 +191,6 @@ export const comment = pgTable("comment", {
   point: real("point").array().notNull(),
   normal: real("normal").array().notNull(),
   body: text("body").notNull(),
-  linear_issue: text("linear_issue"),
   resolved_at: ts("resolved_at"),
 });
 

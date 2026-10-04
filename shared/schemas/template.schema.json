@@ -4,9 +4,14 @@
   "title": "Nkata template",
   "description": "One file per template at <project>/.nkata/templates/<name>.json. See docs/engineering.md, Templates.",
   "$defs": {
+    "TemplateKind": {
+      "type": "string",
+      "description": "Picks the import script and the panel layout. See docs/engineering.md, Templates.",
+      "enum": ["character", "prop", "level_area"]
+    },
     "TemplateMappingKind": {
       "type": "string",
-      "enum": ["file", "blend_collection", "ue_asset", "ue_actor"]
+      "enum": ["file", "blend_collection", "ue_asset", "ue_actor", "ue_area"]
     },
     "TemplatePart": {
       "type": "object",
@@ -46,12 +51,13 @@
       "properties": {
         "v": { "const": 1 },
         "name": { "type": "string", "minLength": 1 },
+        "kind": { "$ref": "#/$defs/TemplateKind" },
         "parts": { "type": "array", "items": { "$ref": "#/$defs/TemplatePart" }, "minItems": 1 },
         "reference_slots": { "type": "array", "items": { "type": "string", "minLength": 1 } },
         "export": { "$ref": "#/$defs/TemplateExport" },
         "blend_layout": { "$ref": "#/$defs/BlendLayout" }
       },
-      "required": ["v", "name", "parts", "reference_slots", "export", "blend_layout"],
+      "required": ["v", "name", "kind", "parts", "reference_slots", "export", "blend_layout"],
       "additionalProperties": false
     }
   }

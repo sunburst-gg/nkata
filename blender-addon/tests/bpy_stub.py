@@ -40,7 +40,8 @@ class FakePolygon:
 
 
 class FakeMesh:
-    def __init__(self, coords: list[float], loop_indices: list[int], polygon_sizes: list[int]) -> None:
+    def __init__(self, coords: list[float], loop_indices: list[int], polygon_sizes: list[int], uv_layers: tuple[str, ...] = ("UVMap",)) -> None:
+        self.uv_layers = [types.SimpleNamespace(name=n) for n in uv_layers]
         self.vertices = FakeAttr(coords, 3)
         self.loops = FakeAttr(loop_indices, 1)
         self.polygons = [FakePolygon(n) for n in polygon_sizes]
@@ -52,13 +53,23 @@ class FakeSlot:
 
 
 class FakeObject:
-    def __init__(self, name: str, kind: str = "MESH", coords: list[float] | None = None, materials: list[str] | None = None) -> None:
+    def __init__(
+        self,
+        name: str,
+        kind: str = "MESH",
+        coords: list[float] | None = None,
+        materials: list[str] | None = None,
+        bones: int = 0,
+        location: tuple[float, float, float] = (0.0, 0.0, 0.0),
+        scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+    ) -> None:
         self.name = name
         self.type = kind
         coords = coords if coords is not None else [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0]
-        self.data = FakeMesh(coords, [0, 1, 2], [3]) if kind == "MESH" else None
+        self.data = FakeMesh(coords, [0, 1, 2], [3]) if kind == "MESH" else types.SimpleNamespace(bones=[types.SimpleNamespace(name=f"bone_{i}") for i in range(bones)])
         self.material_slots = [FakeSlot(m) for m in (materials or [])]
-        self.matrix_world = [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
+        self.scale = scale
+        self.matrix_world = [[scale[0], 0.0, 0.0, location[0]], [0.0, scale[1], 0.0, location[1]], [0.0, 0.0, scale[2], location[2]], [0.0, 0.0, 0.0, 1.0]]
         n = len(coords) // 3
         pts = [(coords[i * 3], coords[i * 3 + 1], coords[i * 3 + 2]) for i in range(n)]
         self.bound_box = [FakeVec(*p) for p in pts] if pts else []
@@ -122,6 +133,7 @@ def install(collections: dict[str, FakeCollection], filepath: str) -> types.Modu
 
     class Context:
         _override: dict[str, Any] = {}
+        scene = types.SimpleNamespace(unit_settings=types.SimpleNamespace(scale_length=1.0))
 
         class view_layer:  # noqa: N801
             active_layer_collection = None
@@ -143,7 +155,7 @@ def install(collections: dict[str, FakeCollection], filepath: str) -> types.Modu
 
     bpy.ops = types.SimpleNamespace(collection=CollectionOps, export_scene=ExportSceneOps)
     bpy.context = Context
-    bpy.data = types.SimpleNamespace(collections=collections, filepath=filepath)
+    bpy.data = types.SimpleNamespace(collections=collections, filepath=filepath, images=[types.SimpleNamespace(name="T_Face_D", size=(2048, 2048))])
     bpy.app = types.SimpleNamespace(handlers=types.SimpleNamespace(save_post=[]), timers=types.SimpleNamespace(is_registered=lambda _f: False, register=lambda *_a, **_k: None, unregister=lambda _f: None))
     bpy.types = types.SimpleNamespace(Operator=object, Panel=object, Context=object)
     bpy.utils = types.SimpleNamespace(register_class=lambda _c: None, unregister_class=lambda _c: None)

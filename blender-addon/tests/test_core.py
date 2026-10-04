@@ -50,6 +50,17 @@ class ManifestTest(unittest.TestCase):
         with self.assertRaises(shared.ValidationError):
             manifest.build_manifest([info], None, None)
 
+    def test_static_problems(self) -> None:
+        good = manifest.ObjectInfo("Stool", 10, [], (-1.0, -1.0, 0.0), (1.0, 1.0, 0.5), "h", (0.0, 0.0, 0.0), (1.0, 1.0, 1.0))
+        self.assertEqual(manifest.static_problems([good]), [])
+        within = manifest.ObjectInfo("Stool", 10, [], (-1.0, -1.0, 0.0005), (1.0, 1.0, 0.5), "h", (0.0, 0.0, 0.0), (1.0, 1.0, 1.0))
+        self.assertEqual(manifest.static_problems([within]), [])
+        high = manifest.ObjectInfo("Stool", 10, [], (-1.0, -1.0, 0.0), (1.0, 1.0, 0.5), "h", (0.0, 0.0, 0.2), (1.0, 1.0, 1.0))
+        self.assertEqual(len(manifest.static_problems([high])), 1)
+        self.assertIn("0.2 m above the base", manifest.static_problems([high])[0])
+        scaled = manifest.ObjectInfo("Stool", 10, [], (-1.0, -1.0, 0.0), (1.0, 1.0, 0.5), "h", (0.0, 0.0, 0.0), (1.0, 1.0, 0.5))
+        self.assertIn("apply scale", manifest.static_problems([scaled])[0])
+
     def test_bounds(self) -> None:
         self.assertEqual(manifest.bounds_of([(1, 2, 3), (-1, 5, 0)]), ((-1, 2, 0), (1, 5, 3)))
         self.assertEqual(manifest.bounds_of([]), ((0.0, 0.0, 0.0), (0.0, 0.0, 0.0)))

@@ -3,10 +3,10 @@ import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { Ulid, type LockInfo, type PartState, type Role, type UserRef } from "@nkata/shared";
+import { Template, Ulid, type LockInfo, type PartState, type Role, type TemplateKind, type UserRef } from "@nkata/shared";
 import type { Principal } from "../auth/tokens.js";
 import type { Db } from "../db/client.js";
-import { asset, lock, part, project, user } from "../db/schema.js";
+import { asset, lock, part, project, template, user } from "../db/schema.js";
 import { AppError, notFound } from "../domain/errors.js";
 import { isStale } from "../domain/locks.js";
 
@@ -92,11 +92,20 @@ export async function currentLock(db: Db, partId: string, now: Date): Promise<Lo
   return toLockInfo(row, await userRef(db, row.holder_id), now);
 }
 
-export function partWire(row: PartRow, assetName: string, owner: UserRef | null, lockInfo: LockInfo | null) {
+/** The template kind of an asset, from the cached template row. Picks the import script. */
+export async function templateKind(db: Db, templateId: string): Promise<TemplateKind> {
+  const rows = await db.select({ schema: template.schema }).from(template).where(eq(template.id, templateId)).limit(1);
+  const row = rows[0];
+  if (!row) throw notFound("template", templateId);
+  return Template.parse(row.schema).kind;
+}
+
+export function partWire(row: PartRow, assetName: string, kind: TemplateKind, owner: UserRef | null, lockInfo: LockInfo | null) {
   return {
     id: row.id,
     asset_id: row.asset_id,
     asset_name: assetName,
+    kind,
     name: row.name,
     position: row.position,
     state: row.state,

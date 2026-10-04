@@ -3,7 +3,11 @@
 
 import { z } from "zod";
 
-export const TemplateMappingKind = z.enum(["file", "blend_collection", "ue_asset", "ue_actor"]);
+/** Picks the import script and the panel layout. See docs/engineering.md, Templates. */
+export const TemplateKind = z.enum(["character", "prop", "level_area"]);
+export type TemplateKind = z.infer<typeof TemplateKind>;
+
+export const TemplateMappingKind = z.enum(["file", "blend_collection", "ue_asset", "ue_actor", "ue_area"]);
 export type TemplateMappingKind = z.infer<typeof TemplateMappingKind>;
 
 export const TemplatePart = z.strictObject({
@@ -27,6 +31,7 @@ export type BlendLayout = z.infer<typeof BlendLayout>;
 export const Template = z.strictObject({
   "v": z.literal(1),
   "name": z.string().min(1),
+  "kind": TemplateKind,
   "parts": z.array(TemplatePart).min(1),
   "reference_slots": z.array(z.string().min(1)),
   "export": TemplateExport,

@@ -27,10 +27,21 @@ pub enum PartMapping {
     BlendCollection { file: String, collection: String },
     #[serde(rename = "ue_actor")]
     UeActor { level: String, actor: String },
+    #[serde(rename = "ue_area")]
+    UeArea { level: String, area: String },
     #[serde(rename = "ue_asset")]
     UeAsset { path: String },
     #[serde(rename = "file")]
     File { path: String },
+}
+
+/// The template kind. Picks the import script and the panel layout.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TemplateKind {
+    Character,
+    Prop,
+    LevelArea,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -68,6 +79,7 @@ pub struct PartSummary {
     pub lock: Option<LockInfo>,
     pub gate: Gate,
     pub mapping: PartMapping,
+    pub kind: TemplateKind,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -75,6 +87,13 @@ pub struct ProjectRef {
     pub id: String,
     pub name: String,
     pub folder_name: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AgentMode {
+    Sync,
+    Stream,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -85,6 +104,7 @@ pub struct MeResponse {
     pub package_version: String,
     pub online: bool,
     pub spool_dir: String,
+    pub mode: AgentMode,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -114,12 +134,16 @@ pub struct ManifestObject {
     pub bounds_min: [f64; 3],
     pub bounds_max: [f64; 3],
     pub hash: String,
+    pub origin: [f64; 3],
+    pub scale: [f64; 3],
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ObjectManifest {
     pub v: u8,
+    pub kind: TemplateKind,
     pub objects: Vec<ManifestObject>,
+    pub bone_count: Option<u64>,
     pub armature: Option<String>,
     pub mirror_target: Option<String>,
 }
@@ -288,6 +312,16 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&m).unwrap(),
             r#"{"kind":"ue_asset","path":"/Game/X"}"#
+        );
+        let area: PartMapping =
+            serde_json::from_str(r#"{"kind":"ue_area","level":"Enugu Market","area":"square"}"#)
+                .unwrap();
+        assert_eq!(
+            area,
+            PartMapping::UeArea {
+                level: "Enugu Market".into(),
+                area: "square".into()
+            }
         );
     }
 }

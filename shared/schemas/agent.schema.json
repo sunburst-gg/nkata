@@ -26,6 +26,11 @@
       ],
       "additionalProperties": false
     },
+    "AgentMode": {
+      "type": "string",
+      "description": "sync: a project folder with index, watcher, and upload. stream: a viewer, files fetched on demand into a capped cache. See docs/engineering.md, Stream mode.",
+      "enum": ["sync", "stream"]
+    },
     "MeResponse": {
       "description": "GET /me",
       "type": "object",
@@ -50,6 +55,9 @@
           "type": "string",
           "minLength": 1,
           "description": "Folder where Blender writes exports for the mirror: <spool_dir>/<part_id>/<version_id>.glb"
+        },
+        "mode": {
+          "$ref": "#/$defs/AgentMode"
         }
       },
       "required": [
@@ -58,7 +66,8 @@
         "project",
         "package_version",
         "online",
-        "spool_dir"
+        "spool_dir",
+        "mode"
       ],
       "additionalProperties": false
     },
@@ -107,6 +116,10 @@
         },
         "mapping": {
           "$ref": "common.schema.json#/$defs/PartMapping"
+        },
+        "kind": {
+          "$ref": "template.schema.json#/$defs/TemplateKind",
+          "description": "The template kind. Picks the import script and the panel layout."
         }
       },
       "required": [
@@ -118,7 +131,8 @@
         "owner",
         "lock",
         "gate",
-        "mapping"
+        "mapping",
+        "kind"
       ],
       "additionalProperties": false
     },
@@ -206,6 +220,14 @@
         "hash": {
           "type": "string",
           "description": "Hash of mesh data, material slots, and transform."
+        },
+        "origin": {
+          "$ref": "common.schema.json#/$defs/Vec3",
+          "description": "World position of the object origin. A prop's origin sits at the base of its bounds."
+        },
+        "scale": {
+          "$ref": "common.schema.json#/$defs/Vec3",
+          "description": "Object scale. A prop exports at 1, 1, 1."
         }
       },
       "required": [
@@ -214,7 +236,9 @@
         "materials",
         "bounds_min",
         "bounds_max",
-        "hash"
+        "hash",
+        "origin",
+        "scale"
       ],
       "additionalProperties": false
     },
@@ -225,11 +249,26 @@
         "v": {
           "const": 1
         },
+        "kind": {
+          "$ref": "template.schema.json#/$defs/TemplateKind"
+        },
         "objects": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/ManifestObject"
           }
+        },
+        "bone_count": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Bones in the armature for a character part, null otherwise."
         },
         "armature": {
           "anyOf": [
@@ -255,7 +294,9 @@
       },
       "required": [
         "v",
+        "kind",
         "objects",
+        "bone_count",
         "armature",
         "mirror_target"
       ],
@@ -458,24 +499,13 @@
         "body": {
           "type": "string",
           "minLength": 1
-        },
-        "linear_issue": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
         }
       },
       "required": [
         "v",
         "point",
         "normal",
-        "body",
-        "linear_issue"
+        "body"
       ],
       "additionalProperties": false
     },

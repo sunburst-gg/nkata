@@ -102,7 +102,7 @@ export function Join() {
           <div className="flex flex-col"><span className="font-medium">{project.name}</span><span className="text-13 text-secondary">Sunburst · {project.assetCount} assets</span></div>
         </div>
         <Title>Emmanuel invited you to {project.name}.</Title>
-        <span className="leading-[1.5] text-body">You can see every asset, rotate models, read scripts, and leave notes. You do not need Blender or Unreal.</span>
+        <span className="leading-[1.5] text-body">You can see every asset, rotate models, follow what changed, and leave notes. You do not need Blender or Unreal.</span>
       </div>
       <div className="flex flex-col gap-3">
         <Big variant="primary" onClick={next}>Continue as funmi@lagosinteractive.com</Big>
