@@ -1,5 +1,7 @@
 # Step 4: Review
 
+Code complete Oct 5, 2026. The state and gate chain, the Discord message, and the pin round trip through the agent are green in make test. The pin drawn at the same point in both editors needs the editors.
+
 Work on main. Push after every green `make test`. Open a PR only if you are blocked or the gate fails.
 
 Read CLAUDE.md, docs/product.md (Reviewer, R7, R8), docs/engineering.md (Locks presence gates state, Comment pins, Protocols: Discord), and docs/decisions.md first. Steps 1a, 1b, 2, and 3 are in.

@@ -115,7 +115,9 @@ All JSON. All versioned with a `v` field. Defined once in `shared/` and generate
 
 **Agent to UE5, Remote Control API on `localhost:30010`**
 
-One call: `PUT /remote/object/call` on the Python command subsystem with a snippet from `ue5-plugin/scripts/`. The snippets are files, not strings in Rust: `import_character.py`, `import_static.py`, `scan_refs.py`, `refresh.py`, `draw_pins.py`. The agent sends arguments as a JSON file path. Results come back as one `NKATA_RESULT` JSON line in the Python log output.
+One call: `PUT /remote/object/call` on the Python command subsystem with a snippet from `ue5-plugin/scripts/`. The snippets are files, not strings in Rust: `import_character.py`, `import_static.py`, `scan_refs.py`, `refresh.py`, `draw_pins.py`, `checks.py`. The UE5 panel is `panel.py`, imported by the Editor Utility Widget, not run by the agent.
+
+**Agent to server events.** The agent polls `GET /events?since=` every 2 s and relays each event to the editors over its SSE stream, dropping the echoes of its own lock, mirror, and comment actions. It heartbeats presence every 15 s with the part an editor last reported. The agent sends arguments as a JSON file path. Results come back as one `NKATA_RESULT` JSON line in the Python log output.
 
 **Server REST, `https://api.<domain>`**
 
@@ -239,9 +241,9 @@ No dates. Order is fixed. Nothing starts until the gate before it passes.
 | 1a. Character mirror | Blender save hook, object hashing, collection export with armature, spool. Agent local API with `/parts/:id/saved` and `import_character.py` over Remote Control. Both panels show mirror status | One character artist saves 20 times and sees UE5 update each time, p95 under 10 s, skeleton, physics, and materials kept |
 | 1b. Environment mirror | Static export with origin and scale checked, `import_static.py` with referencer count, `scan_refs.py` stored on the version, level areas tagged `nkata.area` | A prop placed in two levels updates in both, p95 under 5 s over 20 saves; two artists edit two areas of one level with no overwrite |
 | 2. Core | Done Oct 1, 2026. `shared` schemas. Server: auth, projects, assets, parts, versions, events, WebSocket. Postgres. Store with signed URLs. Agent: index, FastCDC chunking, upload, download, queue | Green in `make test`: 2,202,009,602 bytes in 106 files synced to a second agent in 41.6 s push and 52.5 s pull; a 4 KB edit moved 1 chunk of 927 |
-| 3. Parts and locks | Templates with kinds, asset creation, part mapping, locks, presence, Publish, checks in both editors, viewer refusals on the server | Second artist installs and opens the project in under 5 minutes. Two parts on one asset, no overwrite |
-| 4. Review | Ready queue, pins in UE5 widget and Blender overlay and app preview, score, approve, send back, gates, one Discord message | Ojukwu goes from template to Approved |
-| 5. Project view and viewer mode | Project, asset, part, review queue, person, settings, setup screens. Stream mode with the 5 GB cache. Export | A viewer answers who, what, and what is stuck from one screen with no folder on disk |
+| 3. Parts and locks | Templates with kinds, asset creation, part mapping, locks, presence, Publish, checks in both editors, viewer refusals on the server. Code complete Oct 5, 2026 | Second artist installs and opens the project in under 5 minutes. Two parts on one asset, no overwrite: green in make test |
+| 4. Review | Ready queue, pins in UE5 widget and Blender overlay and app preview, score, approve, send back, gates, one Discord message. Code complete Oct 5, 2026 | Ojukwu goes from template to Approved: the chain is green in make test, the pins need the editors |
+| 5. Project view and viewer mode | Project, asset, part, review queue, person, settings, setup screens. Stream mode with the 5 GB cache. Export. Code complete Oct 5, 2026 | A viewer answers who, what, and what is stuck from one screen with no folder on disk: stream mode and the viewer DOM test are green, the window flow needs a built app |
 
 Later, in no order: Asset Pipeline merge on Approve, C++ pin module, and the items under Later in docs/product.md.
 

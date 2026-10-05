@@ -16,9 +16,9 @@ Nkata is a desktop app plus a Blender add-on and a UE5 plugin. Game teams work o
 | --- | --- |
 | `shared/` | JSON Schemas for every protocol type. Generated Zod in `ts/`, Python dataclasses in `py/`. |
 | `server/` | Fastify 5, Drizzle, Postgres 16. REST, WebSocket, auth, locks, signed store URLs. |
-| `desktop/` | Tauri 2 app. The agent core is a Rust crate in `src-tauri/` with a CLI for tests. A viewer runs it in stream mode: no folder, a 5 GB cache. |
-| `blender-addon/` | Blender 4.2+ extension. Save hook, collection export, N-panel. |
-| `ue5-plugin/` | UE 5.4+ Python scripts the agent runs over Remote Control. Import per kind, placement scan. |
+| `desktop/` | Tauri 2 app. The agent core is a Rust crate in `src-tauri/` with a CLI for tests; the window runs it in process. A viewer runs it in stream mode: no folder, a 5 GB cache. |
+| `blender-addon/` | Blender 4.2+ extension. Save hook, collection export, the N-panel with checks, pins, Publish, and presence. |
+| `ue5-plugin/` | UE 5.4+ Python scripts the agent runs over Remote Control, and the panel model the Editor Utility Widget draws. |
 | `fixtures/` | Test corpus: one rigged character, three props, one level area. Built by `fixtures/build.py`. |
 | `e2e/` | Editor gates and the quality bar, marked `@needs_editor`. |
 | `infra/` | Docker Compose with Postgres and MinIO. |
@@ -35,3 +35,19 @@ make hooks      # git hooks: make test before every push
 ```
 
 `make test` brings up Postgres and MinIO with Docker, or with local binaries when Docker is absent, starts a seeded server, and runs the sync gate between two agent instances. Copy `.env.example` to `.env` to run the server by hand with `pnpm --filter @nkata/server dev`.
+
+## Run the app against a local server
+
+```
+make dev                                   # Postgres, MinIO
+pnpm --filter @nkata/server db:reset && pnpm --filter @nkata/server seed
+NKATA_DEV=1 pnpm --filter @nkata/server dev # magic links come back in the response
+cd desktop && pnpm tauri dev               # sign in as artist@sunburst.gg, pick Rising Sun, choose a folder
+```
+
+The window starts the agent for the folder, Blender finds it on `localhost:7420` after `make addon`, and UE5 needs the Remote Control API plugin on. A viewer (viewer@sunburst.gg) signs in the same way and gets stream mode with no folder step. `DISCORD_SECRET` in the server environment turns on the one Discord message; set the webhook under Settings.
+
+## Status
+
+Steps 2 to 5 are code complete and green in `make test` without an editor. What still needs a machine with Blender 4.2 and UE 5.4: the mirror gates (`e2e/mirror.py`, `e2e/environment.py`), the quality bar (`e2e/quality.py`), the Editor Utility Widget asset (`ue5-plugin/README.md`), and the install time. See docs/decisions.md, open questions.
+

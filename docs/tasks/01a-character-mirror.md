@@ -1,5 +1,7 @@
 # Step 1a: Character mirror
 
+Code complete Oct 5, 2026. The gate (20 saves, p95 under 10 s, links kept) needs Blender and UE5: run e2e/mirror.py and write the numbers to docs/decisions.md.
+
 Work on main. Push after every green `make test`. Open a PR only if you are blocked or the gate fails.
 
 Read CLAUDE.md, docs/product.md (Four people, Character artist), docs/engineering.md (The mirror, Protocols, Checks pins templates), and docs/decisions.md first. Step 2 (core) is in: shared schemas, server, agent sync core. The agent local API, mirror runner, Blender save hook, and a single import script landed under the old step 1; this step splits the character path out and finishes it.

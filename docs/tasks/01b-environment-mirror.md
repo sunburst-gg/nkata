@@ -1,5 +1,7 @@
 # Step 1b: Environment mirror
 
+Code complete Oct 5, 2026. The gate (prop in two levels, p95 under 5 s) needs UE5: run e2e/environment.py and write the numbers to docs/decisions.md. The two-artist half is the lock test in desktop/src-tauri/tests/agent_api.rs.
+
 Work on main. Push after every green `make test`. Open a PR only if you are blocked or the gate fails.
 
 Read CLAUDE.md, docs/product.md (Four people, Environment artist), docs/engineering.md (The mirror: Static and Level areas, Protocols, Templates), and docs/decisions.md first. Step 1a (character mirror) is in.
