@@ -134,8 +134,8 @@ async fn a_push_killed_mid_upload_drains_on_the_next_run() {
         ],
     );
 
-    // Six files of 32 MiB: enough chunks that a kill lands mid upload.
-    let names: Vec<String> = (0..6).map(|i| format!("Ojukwu/part{i}.blend")).collect();
+    // Sixteen files of 32 MiB: enough that the kill lands mid upload on a fast disk too.
+    let names: Vec<String> = (0..16).map(|i| format!("Ojukwu/part{i}.blend")).collect();
     for (i, name) in names.iter().enumerate() {
         write_pattern(&folder.join(name), 32 * MIB, i as u8 + 3);
     }
@@ -160,7 +160,7 @@ async fn a_push_killed_mid_upload_drains_on_the_next_run() {
         )
         .await;
         let done = versions["file_versions"].as_array().map_or(0, Vec::len);
-        if done >= 1 || started.elapsed() > Duration::from_millis(1500) {
+        if done >= 1 || started.elapsed() > Duration::from_millis(800) {
             break;
         }
         if child.try_wait().unwrap().is_some() {
