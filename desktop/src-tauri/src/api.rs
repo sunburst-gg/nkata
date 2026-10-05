@@ -22,9 +22,11 @@ use crate::ids::new_id;
 use crate::ignore::AGENT_DIR;
 use crate::mirror::{MirrorJob, MirrorRunner};
 use crate::protocol::{
-    iso_now, AgentEvent, AgentMode, ErrorBody, ErrorDetail, LockReleaseReason, MeResponse,
+    iso_now, AgentEvent, AgentMode, ChecksRequest, ChecksResponse, CommentCreateRequest,
+    CommentCreateResponse, CommentsResponse, ErrorBody, ErrorDetail, LockReleaseReason, MeResponse,
     MirrorRetryResponse, MirrorStateResponse, MirrorStatus, PartCloseResponse, PartOpenResponse,
-    PartSavedRequest, PartSavedResponse, PartsResponse, ProjectRef, UserRef,
+    PartSavedRequest, PartSavedResponse, PartsResponse, PresenceRequest, PresenceResponse,
+    ProjectRef, PublishRequest, PublishResponse, ReviewRequest, ReviewResponse, UserRef,
 };
 
 pub const DEFAULT_PORT: u16 = 7420;
@@ -35,7 +37,8 @@ pub struct ApiState {
     pub token: String,
     pub server: ServerClient,
     pub mirror: Arc<MirrorRunner>,
-    pub events: broadcast::Sender<AgentEvent>,
+    pub events: broadcast::Sender<serde_json::Value>,
+    pub relay: Arc<crate::relay::Relay>,
     pub user: UserRef,
     pub project: ProjectRef,
     pub package_version: String,
@@ -121,6 +124,13 @@ impl From<AgentError> for ApiError {
     }
 }
 
+/// Agent-originated events join the same stream the relay feeds.
+fn emit(state: &ApiState, event: &AgentEvent) {
+    if let Ok(v) = serde_json::to_value(event) {
+        let _ = state.events.send(v);
+    }
+}
+
 fn check_token(state: &ApiState, headers: &HeaderMap) -> Result<(), ApiError> {
     let header = headers
         .get("authorization")
@@ -145,6 +155,11 @@ pub fn router(state: Shared) -> Router {
         .route("/parts/{id}/saved", post(saved))
         .route("/parts/{id}/mirror", get(mirror_state))
         .route("/parts/{id}/mirror/retry", post(mirror_retry))
+        .route("/parts/{id}/publish", post(publish))
+        .route("/parts/{id}/checks", post(checks))
+        .route("/parts/{id}/comments", get(comments).post(create_comment))
+        .route("/parts/{id}/review", post(review))
+        .route("/presence", post(presence))
         .route("/events", get(events))
         .with_state(state)
 }
@@ -186,14 +201,17 @@ async fn open_part(
     check_token(&s, &headers)?;
     let out = s.server.acquire_lock(&id).await?;
     if out.granted {
-        let _ = s.events.send(AgentEvent::LockGranted {
-            v: 1,
-            project_id: s.project.id.clone(),
-            actor_id: s.user.id.clone(),
-            at: iso_now(),
-            part_id: id.clone(),
-            lock: out.lock.clone(),
-        });
+        emit(
+            &s,
+            &AgentEvent::LockGranted {
+                v: 1,
+                project_id: s.project.id.clone(),
+                actor_id: s.user.id.clone(),
+                at: iso_now(),
+                part_id: id.clone(),
+                lock: out.lock.clone(),
+            },
+        );
     }
     let status = if out.granted {
         StatusCode::OK
@@ -219,14 +237,17 @@ async fn close_part(
     check_token(&s, &headers)?;
     let released = s.server.release_lock(&id).await?;
     if released {
-        let _ = s.events.send(AgentEvent::LockReleased {
-            v: 1,
-            project_id: s.project.id.clone(),
-            actor_id: s.user.id.clone(),
-            at: iso_now(),
-            part_id: id.clone(),
-            reason: LockReleaseReason::Closed,
-        });
+        emit(
+            &s,
+            &AgentEvent::LockReleased {
+                v: 1,
+                project_id: s.project.id.clone(),
+                actor_id: s.user.id.clone(),
+                at: iso_now(),
+                part_id: id.clone(),
+                reason: LockReleaseReason::Closed,
+            },
+        );
     }
     Ok(Json(PartCloseResponse { v: 1, released }))
 }
@@ -333,6 +354,99 @@ async fn mirror_retry(
     }))
 }
 
+async fn publish(
+    State(s): State<Shared>,
+    headers: HeaderMap,
+    UrlPath(id): UrlPath<String>,
+    Json(body): Json<PublishRequest>,
+) -> Result<Json<PublishResponse>, ApiError> {
+    check_token(&s, &headers)?;
+    let version_id = s.server.current_version(&id).await?;
+    let out = s
+        .server
+        .publish(&id, &version_id, &body.check_results, body.ready)
+        .await?;
+    tracing::info!(
+        project_id = s.project.id,
+        part_id = id,
+        version_id,
+        published = out.published,
+        blocked = out.blocked_by.len(),
+        "publish"
+    );
+    Ok(Json(out))
+}
+
+async fn checks(
+    State(s): State<Shared>,
+    headers: HeaderMap,
+    UrlPath(id): UrlPath<String>,
+    Json(body): Json<ChecksRequest>,
+) -> Result<Json<ChecksResponse>, ApiError> {
+    check_token(&s, &headers)?;
+    let version_id = s.server.current_version(&id).await?;
+    let recorded = s
+        .server
+        .record_checks(&id, &version_id, &body.results)
+        .await?;
+    Ok(Json(ChecksResponse {
+        v: 1,
+        version_id,
+        recorded,
+    }))
+}
+
+async fn comments(
+    State(s): State<Shared>,
+    headers: HeaderMap,
+    UrlPath(id): UrlPath<String>,
+) -> Result<Json<CommentsResponse>, ApiError> {
+    check_token(&s, &headers)?;
+    Ok(Json(CommentsResponse {
+        v: 1,
+        comments: s.server.comments(&id).await?,
+    }))
+}
+
+async fn create_comment(
+    State(s): State<Shared>,
+    headers: HeaderMap,
+    UrlPath(id): UrlPath<String>,
+    Json(body): Json<CommentCreateRequest>,
+) -> Result<(StatusCode, Json<CommentCreateResponse>), ApiError> {
+    check_token(&s, &headers)?;
+    let version_id = s.server.current_version(&id).await?;
+    let comment = s.server.create_comment(&id, &version_id, &body).await?;
+    Ok((
+        StatusCode::CREATED,
+        Json(CommentCreateResponse { v: 1, comment }),
+    ))
+}
+
+async fn review(
+    State(s): State<Shared>,
+    headers: HeaderMap,
+    UrlPath(id): UrlPath<String>,
+    Json(body): Json<ReviewRequest>,
+) -> Result<(StatusCode, Json<ReviewResponse>), ApiError> {
+    check_token(&s, &headers)?;
+    let version_id = s.server.current_version(&id).await?;
+    let out = s.server.review(&id, &version_id, &body).await?;
+    tracing::info!(project_id = s.project.id, part_id = id, decision = ?body.decision, "review");
+    Ok((StatusCode::CREATED, Json(out)))
+}
+
+async fn presence(
+    State(s): State<Shared>,
+    headers: HeaderMap,
+    Json(body): Json<PresenceRequest>,
+) -> Result<Json<PresenceResponse>, ApiError> {
+    check_token(&s, &headers)?;
+    s.relay.set_presence(body.part_id.clone()).await;
+    let online = s.server.presence(body.part_id.as_deref()).await?;
+    Ok(Json(PresenceResponse { v: 1, online }))
+}
+
 #[derive(Deserialize)]
 struct EventsQuery {
     token: Option<String>,
@@ -353,9 +467,7 @@ async fn events(
         ));
     }
     let stream = BroadcastStream::new(s.events.subscribe()).filter_map(|item| match item {
-        Ok(ev) => serde_json::to_string(&ev)
-            .ok()
-            .map(|json| Ok(Event::default().event("nkata").data(json))),
+        Ok(ev) => Some(Ok(Event::default().event("nkata").data(ev.to_string()))),
         Err(_) => None,
     });
     Ok(Sse::new(stream).keep_alive(
@@ -390,6 +502,7 @@ pub async fn serve(
         let mirror = Arc::clone(&state.mirror);
         tokio::spawn(mirror.run());
     }
+    tokio::spawn(Arc::clone(&state.relay).run(stop.clone()));
     axum::serve(listener, router(state))
         .with_graceful_shutdown(async move {
             let _ = stop.wait_for(|v| *v).await;
@@ -410,7 +523,8 @@ pub async fn bind(
     let token = load_or_create_token(&token_file)?;
     let spool_dir = spool_path(&opts.folder);
     std::fs::create_dir_all(&spool_dir).map_err(|e| AgentError::io(&spool_dir, e))?;
-    let (events, _) = broadcast::channel::<AgentEvent>(256);
+    let (events, _) = broadcast::channel::<serde_json::Value>(256);
+    let relay = crate::relay::Relay::new(server.clone(), events.clone(), me.user.id.clone());
     let ue5 = crate::ue5::Ue5Client::new(&opts.ue5_url)?;
     let mirror = MirrorRunner::new(
         ue5,
@@ -424,6 +538,7 @@ pub async fn bind(
         server,
         mirror,
         events,
+        relay,
         user: me.user,
         project: ProjectRef {
             id: project.id,

@@ -19,6 +19,10 @@ use crate::protocol::{
 use crate::ue5::{CallOutcome, LevelRef, ScriptResult, Ue5Client};
 
 pub const MAX_FAILURES: u32 = 3;
+
+fn event_value(event: &AgentEvent) -> serde_json::Value {
+    serde_json::to_value(event).unwrap_or(serde_json::Value::Null)
+}
 pub const POLL_WHEN_UNREACHABLE: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone)]
@@ -92,7 +96,7 @@ pub struct MirrorRunner {
     wake: Notify,
     ue5: Ue5Client,
     server: ServerClient,
-    events: broadcast::Sender<AgentEvent>,
+    events: broadcast::Sender<serde_json::Value>,
     scripts_dir: PathBuf,
     actor_id: String,
 }
@@ -114,7 +118,7 @@ impl MirrorRunner {
     pub fn new(
         ue5: Ue5Client,
         server: ServerClient,
-        events: broadcast::Sender<AgentEvent>,
+        events: broadcast::Sender<serde_json::Value>,
         scripts_dir: PathBuf,
         actor_id: String,
     ) -> Arc<Self> {
@@ -327,7 +331,7 @@ impl MirrorRunner {
         {
             tracing::warn!(part_id = job.part_id, error = %e, "mirror: could not record result on the server");
         }
-        let _ = self.events.send(AgentEvent::MirrorResult {
+        let _ = self.events.send(event_value(&AgentEvent::MirrorResult {
             v: 1,
             project_id: self.server.project_id().to_string(),
             actor_id: self.actor_id.clone(),
@@ -337,7 +341,7 @@ impl MirrorRunner {
             status,
             mirror_ms: Some(mirror_ms),
             message,
-        });
+        }));
     }
 
     async fn import(&self, job: &MirrorJob) -> Result<CallOutcome> {

@@ -266,6 +266,119 @@ pub enum AgentEvent {
     },
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CheckResult {
+    pub check_id: String,
+    pub severity: CheckSeverity,
+    pub passed: bool,
+    pub auto_fixed: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PublishRequest {
+    pub v: u8,
+    pub check_results: Vec<CheckResult>,
+    pub ready: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PublishResponse {
+    pub v: u8,
+    pub published: bool,
+    pub version_id: String,
+    pub state: PartState,
+    pub blocked_by: Vec<CheckResult>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ChecksRequest {
+    pub v: u8,
+    pub results: Vec<CheckResult>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ChecksResponse {
+    pub v: u8,
+    pub version_id: String,
+    pub recorded: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CommentPin {
+    pub id: String,
+    pub part_id: String,
+    pub version_id: String,
+    pub author: UserRef,
+    pub point: [f64; 3],
+    pub normal: [f64; 3],
+    pub body: String,
+    pub resolved_at: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CommentsResponse {
+    pub v: u8,
+    pub comments: Vec<CommentPin>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CommentCreateRequest {
+    pub v: u8,
+    pub point: [f64; 3],
+    pub normal: [f64; 3],
+    pub body: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CommentCreateResponse {
+    pub v: u8,
+    pub comment: CommentPin,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReviewDecision {
+    Approve,
+    SendBack,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ReviewRequest {
+    pub v: u8,
+    pub score: u8,
+    pub decision: ReviewDecision,
+    pub note: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ReviewResponse {
+    pub v: u8,
+    pub review_id: String,
+    pub state: PartState,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PresenceEntry {
+    pub user: UserRef,
+    pub part_id: Option<String>,
+    pub since: String,
+    pub last_seen: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PresenceRequest {
+    pub v: u8,
+    pub part_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PresenceResponse {
+    pub v: u8,
+    pub online: Vec<PresenceEntry>,
+}
+
 /// ISO 8601 UTC with milliseconds, the wire form for every timestamp.
 pub fn iso_now() -> String {
     iso_from_unix_ms(

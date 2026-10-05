@@ -7,7 +7,10 @@ use reqwest::{Client, StatusCode};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::error::{AgentError, Result};
-use crate::protocol::{LockInfo, MirrorStatus, ObjectManifest, PartSummary, UserRef};
+use crate::protocol::{
+    CheckResult, CommentCreateRequest, CommentPin, LockInfo, MirrorStatus, ObjectManifest,
+    PartState, PartSummary, PresenceEntry, PublishResponse, ReviewRequest, ReviewResponse, UserRef,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ChunkSpec {
@@ -65,6 +68,12 @@ pub struct FileVersion {
 #[derive(Debug, Deserialize)]
 struct FileVersionEnvelope {
     file_version: FileVersion,
+}
+
+#[derive(Debug)]
+pub struct EventsPage {
+    /// (event id, event) pairs, oldest first.
+    pub events: Vec<(String, serde_json::Value)>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -289,6 +298,161 @@ impl ServerClient {
             .post(&format!("/parts/{part_id}/versions"), body)
             .await?;
         Ok(w.version)
+    }
+
+    /// Versions newest first. The first is the current version a comment or a check lands on.
+    pub async fn versions(&self, part_id: &str) -> Result<Vec<VersionRow>> {
+        #[derive(Deserialize)]
+        struct Wrap {
+            versions: Vec<VersionRow>,
+        }
+        let w: Wrap = self.get(&format!("/parts/{part_id}/versions")).await?;
+        Ok(w.versions)
+    }
+
+    /// The current version id, or an error when the part was never saved.
+    pub async fn current_version(&self, part_id: &str) -> Result<String> {
+        self.versions(part_id)
+            .await?
+            .into_iter()
+            .next()
+            .map(|v| v.id)
+            .ok_or_else(|| AgentError::Server {
+                status: 409,
+                code: "no_version".into(),
+                message: "save the part once before this".into(),
+            })
+    }
+
+    pub async fn publish(
+        &self,
+        part_id: &str,
+        version_id: &str,
+        check_results: &[CheckResult],
+        ready: bool,
+    ) -> Result<PublishResponse> {
+        self.post(
+            &format!("/parts/{part_id}/publish"),
+            &serde_json::json!({ "version_id": version_id, "check_results": check_results, "ready": ready }),
+        )
+        .await
+    }
+
+    pub async fn record_checks(
+        &self,
+        part_id: &str,
+        version_id: &str,
+        results: &[CheckResult],
+    ) -> Result<u64> {
+        #[derive(Deserialize)]
+        struct Wrap {
+            recorded: u64,
+        }
+        let w: Wrap = self
+            .post(
+                &format!("/parts/{part_id}/versions/{version_id}/checks"),
+                &serde_json::json!({ "results": results }),
+            )
+            .await?;
+        Ok(w.recorded)
+    }
+
+    pub async fn comments(&self, part_id: &str) -> Result<Vec<CommentPin>> {
+        #[derive(Deserialize)]
+        struct Wrap {
+            comments: Vec<CommentPin>,
+        }
+        let w: Wrap = self.get(&format!("/parts/{part_id}/comments")).await?;
+        Ok(w.comments)
+    }
+
+    pub async fn create_comment(
+        &self,
+        part_id: &str,
+        version_id: &str,
+        body: &CommentCreateRequest,
+    ) -> Result<CommentPin> {
+        #[derive(Deserialize)]
+        struct Wrap {
+            comment: CommentPin,
+        }
+        let w: Wrap = self
+            .post(
+                "/comments",
+                &serde_json::json!({
+                    "part_id": part_id, "version_id": version_id,
+                    "point": body.point, "normal": body.normal, "body": body.body,
+                }),
+            )
+            .await?;
+        Ok(w.comment)
+    }
+
+    pub async fn review(
+        &self,
+        part_id: &str,
+        version_id: &str,
+        body: &ReviewRequest,
+    ) -> Result<ReviewResponse> {
+        #[derive(Deserialize)]
+        struct Wrap {
+            review: ReviewRow,
+            state: PartState,
+        }
+        #[derive(Deserialize)]
+        struct ReviewRow {
+            id: String,
+        }
+        let w: Wrap = self
+            .post(
+                "/reviews",
+                &serde_json::json!({
+                    "part_id": part_id, "version_id": version_id,
+                    "score": body.score, "decision": body.decision, "note": body.note,
+                }),
+            )
+            .await?;
+        Ok(ReviewResponse {
+            v: 1,
+            review_id: w.review.id,
+            state: w.state,
+        })
+    }
+
+    pub async fn presence(&self, part_id: Option<&str>) -> Result<Vec<PresenceEntry>> {
+        #[derive(Deserialize)]
+        struct Wrap {
+            online: Vec<PresenceEntry>,
+        }
+        let w: Wrap = self
+            .post(
+                "/presence",
+                &serde_json::json!({ "v": 1, "project_id": self.project_id, "part_id": part_id }),
+            )
+            .await?;
+        Ok(w.online)
+    }
+
+    /// Server events after an id cursor, oldest first, as raw JSON for the relay.
+    pub async fn events_since(&self, since: &str) -> Result<EventsPage> {
+        #[derive(Deserialize)]
+        struct Row {
+            id: String,
+            event: serde_json::Value,
+        }
+        #[derive(Deserialize)]
+        struct Wrap {
+            events: Vec<Row>,
+        }
+        let w: Wrap = self
+            .get(&format!(
+                "/events?project_id={}&since={since}&limit=500",
+                self.project_id
+            ))
+            .await?;
+        Ok(EventsPage {
+            events: w.events.into_iter().map(|r| (r.id, r.event)).collect(),
+        })
     }
 
     pub async fn put_mirror(

@@ -95,6 +95,32 @@ export async function versionRoutes(app: TypedApp): Promise<void> {
     return { v: 1, version: versionWire(saved) };
   });
 
+  // Live check results before Publish, so the app shows them on the part as the artist works.
+  app.post("/parts/:id/versions/:vid/checks", { schema: { params: z.object({ id: Ulid, vid: Ulid }), body: z.object({ results: z.array(CheckResult) }) } }, async (req) => {
+    const { part: row, asset: a } = await loadPart(app.db, req.principal, req.params.id);
+    requireCanEdit(req.principal, row);
+    const ver = (await app.db.select().from(version).where(and(eq(version.id, req.params.vid), eq(version.part_id, row.id))).limit(1))[0];
+    if (!ver) throw notFound("version", req.params.vid);
+    const now = app.now();
+    if (req.body.results.length > 0) {
+      await app.db.insert(check_run).values(
+        req.body.results.map((c) => ({ id: newId(), studio_id: a.studio_id, version_id: ver.id, check_id: c.check_id, severity: c.severity, passed: c.passed, auto_fixed: c.auto_fixed, message: c.message, created_at: now, updated_at: now })),
+      );
+    }
+    return { v: 1, version_id: ver.id, recorded: req.body.results.length };
+  });
+
+  app.get("/parts/:id/versions/:vid/checks", { schema: { params: z.object({ id: Ulid, vid: Ulid }) } }, async (req) => {
+    const { part: row } = await loadPart(app.db, req.principal, req.params.id);
+    const ver = (await app.db.select({ id: version.id }).from(version).where(and(eq(version.id, req.params.vid), eq(version.part_id, row.id))).limit(1))[0];
+    if (!ver) throw notFound("version", req.params.vid);
+    const rows = await app.db.select().from(check_run).where(eq(check_run.version_id, ver.id)).orderBy(check_run.created_at);
+    // The newest run per check wins.
+    const latest = new Map<string, (typeof rows)[number]>();
+    for (const r of rows) latest.set(r.check_id, r);
+    return { v: 1, version_id: ver.id, results: [...latest.values()].map((r) => ({ check_id: r.check_id, severity: r.severity, passed: r.passed, auto_fixed: r.auto_fixed, message: r.message })) };
+  });
+
   // Publish: record check results, block on a failed blocking check, mark published, release the lock, set Ready if asked.
   app.post("/parts/:id/publish", { schema: { params: IdParam, body: PublishBody } }, async (req) => {
     const { part: row, asset: a } = await loadPart(app.db, req.principal, req.params.id);

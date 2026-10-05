@@ -15,6 +15,7 @@ pub mod index;
 pub mod mirror;
 pub mod protocol;
 pub mod queue;
+pub mod relay;
 pub mod scan;
 pub mod stream;
 pub mod sync;
