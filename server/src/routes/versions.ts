@@ -8,7 +8,7 @@ import { AppError, notFound } from "../domain/errors.js";
 import { newId } from "../domain/ids.js";
 import { transition } from "../domain/state.js";
 import { part } from "../db/schema.js";
-import { IdParam, isReviewer, loadPart, requireCanEdit, type TypedApp } from "./_shared.js";
+import { IdParam, isReviewer, loadPart, requireCanEdit, requireNotHeldByOther, type TypedApp } from "./_shared.js";
 import { releaseLock } from "./locks.js";
 
 const VersionBody = z.object({
@@ -52,6 +52,7 @@ export async function versionRoutes(app: TypedApp): Promise<void> {
   app.post("/parts/:id/versions", { schema: { params: IdParam, body: VersionBody } }, async (req, reply) => {
     const { part: row, asset: a } = await loadPart(app.db, req.principal, req.params.id);
     requireCanEdit(req.principal, row);
+    await requireNotHeldByOther(app.db, req.principal, row.id, app.now());
     if (row.state === "locked") throw new AppError("gate_closed", "this part waits on its gate", { part_id: row.id });
     if (row.state === "approved" && !isReviewer(req.principal)) throw new AppError("forbidden", "an approved part is read-only", { part_id: row.id });
     const id = req.body.id ?? newId();
@@ -125,6 +126,7 @@ export async function versionRoutes(app: TypedApp): Promise<void> {
   app.post("/parts/:id/publish", { schema: { params: IdParam, body: PublishBody } }, async (req) => {
     const { part: row, asset: a } = await loadPart(app.db, req.principal, req.params.id);
     requireCanEdit(req.principal, row);
+    await requireNotHeldByOther(app.db, req.principal, row.id, app.now());
     const ver = (await app.db.select().from(version).where(and(eq(version.id, req.body.version_id), eq(version.part_id, row.id))).limit(1))[0];
     if (!ver) throw notFound("version", req.body.version_id);
     const now = app.now();
@@ -159,6 +161,7 @@ export async function versionRoutes(app: TypedApp): Promise<void> {
   app.post("/parts/:id/rollback", { schema: { params: IdParam, body: RollbackBody } }, async (req, reply) => {
     const { part: row, asset: a } = await loadPart(app.db, req.principal, req.params.id);
     requireCanEdit(req.principal, row);
+    await requireNotHeldByOther(app.db, req.principal, row.id, app.now());
     const target = (await app.db.select().from(version).where(and(eq(version.id, req.body.version_id), eq(version.part_id, row.id))).limit(1))[0];
     if (!target) throw notFound("version", req.body.version_id);
     const id = req.body.id ?? newId();

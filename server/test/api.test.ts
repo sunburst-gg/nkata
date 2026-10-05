@@ -133,6 +133,17 @@ describe.skipIf(!hasInfra)("server api", () => {
       expect((gated.json() as { error: { code: string } }).error.code).toBe("gate_closed");
     });
 
+    it("a held part takes no version from anyone else", async () => {
+      const cloth = parts["cloth"]!;
+      expect((await h.app.inject({ method: "POST", url: `/parts/${cloth}/lock`, ...h.as(ARTIST) })).statusCode).toBe(200);
+      const byDirector = await h.app.inject({ method: "POST", url: `/parts/${cloth}/versions`, ...h.as(AD), payload: {} });
+      expect(byDirector.statusCode).toBe(409);
+      expect((byDirector.json() as { error: { code: string; message: string } }).error).toMatchObject({ code: "lock_held", message: "Rising Sun artist has this part" });
+      expect((await h.app.inject({ method: "POST", url: `/parts/${cloth}/versions`, ...h.as(ARTIST), payload: {} })).statusCode).toBe(201);
+      await h.app.inject({ method: "DELETE", url: `/parts/${cloth}/lock`, ...h.as(ARTIST) });
+      expect((await h.app.inject({ method: "POST", url: `/parts/${cloth}/versions`, ...h.as(AD), payload: {} })).statusCode).toBe(201);
+    });
+
     it("a producer can break a lock and it is logged", async () => {
       const hair = parts["hair"]!;
       await h.app.inject({ method: "POST", url: `/parts/${hair}/lock`, ...h.as(ARTIST) });
@@ -253,6 +264,11 @@ describe.skipIf(!hasInfra)("server api", () => {
       expect((await h.app.inject({ method: "POST", url: "/presence", ...h.as(VIEWER), payload: { v: 1, project_id: h.seeded.project_id, part_id: null } })).statusCode).toBe(200);
       const list = await h.app.inject({ method: "GET", url: `/presence?project_id=${h.seeded.project_id}`, ...h.as(VIEWER) });
       expect((list.json() as { online: unknown[] }).online).toHaveLength(2);
+    });
+
+    it("names the studio and counts its members", async () => {
+      const res = await h.app.inject({ method: "GET", url: "/studio", ...h.as(VIEWER) });
+      expect(res.json()).toEqual({ v: 1, studio: { id: h.seeded.studio_id, name: "Sunburst Interactive", member_count: 5 } });
     });
 
     it("lists members and lets a producer invite and set roles", async () => {

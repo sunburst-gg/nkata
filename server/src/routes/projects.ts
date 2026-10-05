@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { Role, Template, Ulid } from "@nkata/shared";
-import { membership, project, template, user } from "../db/schema.js";
+import { membership, project, studio, template, user } from "../db/schema.js";
 import { AppError } from "../domain/errors.js";
 import { encryptWebhook, isWebhookUrl } from "../domain/discord.js";
 import { newId } from "../domain/ids.js";
@@ -23,6 +23,14 @@ export function projectWire(row: typeof project.$inferSelect) {
 }
 
 export async function projectRoutes(app: TypedApp): Promise<void> {
+  app.get("/studio", async (req) => {
+    const rows = await app.db.select().from(studio).where(eq(studio.id, req.principal.studio_id)).limit(1);
+    const row = rows[0];
+    if (!row) throw new AppError("not_found", "studio not found");
+    const members = await app.db.select({ id: membership.id }).from(membership).where(eq(membership.studio_id, row.id));
+    return { v: 1, studio: { id: row.id, name: row.name, member_count: members.length } };
+  });
+
   app.get("/projects", async (req) => {
     const rows = await app.db.select().from(project).where(eq(project.studio_id, req.principal.studio_id));
     return { v: 1, projects: rows.map(projectWire) };

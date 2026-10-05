@@ -200,6 +200,12 @@ async fn open_part(
 ) -> Result<Response, ApiError> {
     check_token(&s, &headers)?;
     let out = s.server.acquire_lock(&id).await?;
+    if !out.granted {
+        // Someone else has it: ask them. Their panel shows the name and a one-click release.
+        if let Err(e) = s.server.request_lock(&id).await {
+            tracing::warn!(part_id = id, error = %e, "lock request not sent");
+        }
+    }
     if out.granted {
         emit(
             &s,

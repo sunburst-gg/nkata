@@ -270,6 +270,21 @@ impl ServerClient {
         Self::decode(res).await
     }
 
+    /// Asks the holder to release. The holder's panel shows the name and a one-click release.
+    pub async fn request_lock(&self, part_id: &str) -> Result<bool> {
+        #[derive(Deserialize)]
+        struct Wrap {
+            requested: bool,
+        }
+        let w: Wrap = self
+            .post(
+                &format!("/parts/{part_id}/lock/request"),
+                &serde_json::json!({}),
+            )
+            .await?;
+        Ok(w.requested)
+    }
+
     pub async fn release_lock(&self, part_id: &str) -> Result<bool> {
         #[derive(Deserialize)]
         struct Wrap {

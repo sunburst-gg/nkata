@@ -535,6 +535,66 @@ async fn editors_publish_comment_review_and_hear_each_other() {
     assert_eq!(after["parts"][0]["state"], "approved");
 }
 
+/// Step 3 gate, the lock half: two artists on one asset, no overwrite. The second to open a held
+/// part sees the holder and cannot write; the holder hears the request; a release lets the
+/// second in. docs/product.md, R4.
+#[tokio::test]
+async fn two_artists_on_one_part_never_overwrite() {
+    let Ok(server_url) = std::env::var("NKATA_TEST_SERVER_URL") else {
+        eprintln!("agent_api: NKATA_TEST_SERVER_URL not set, skipped (make test sets it)");
+        return;
+    };
+    let fake = || FakeUe5 {
+        script: Arc::new(Mutex::new(vec![])),
+        calls: Arc::new(AtomicUsize::new(0)),
+        last_command: Arc::new(Mutex::new(String::new())),
+    };
+    // Both are artists. The director holds the artist role too and owns nothing on Ojukwu.
+    let ada = start_as(&server_url, fake(), ARTIST).await;
+    let second = start_as(&server_url, fake(), DIRECTOR).await;
+    let (_, parts) = ada.get("/parts?file=Ojukwu%2Fhair.blend").await;
+    let hair = parts["parts"][0]["id"].as_str().unwrap().to_string();
+    let ada_seen = subscribe(&ada).await;
+    let second_seen = subscribe(&second).await;
+
+    // Ada opens and holds the part.
+    let (st, open) = ada.post(&format!("/parts/{hair}/open"), None).await;
+    assert_eq!(st, 200, "{open}");
+    assert_eq!(open["lock"]["holder"]["name"], "Rising Sun artist");
+
+    // The second artist sees the holder, cannot write, and the holder hears the request.
+    let (st, held) = second.post(&format!("/parts/{hair}/open"), None).await;
+    assert_eq!(st, 409, "{held}");
+    assert_eq!(held["granted"], false);
+    assert_eq!(held["lock"]["holder"]["name"], "Rising Sun artist");
+    let asked = wait_for_kind(&ada_seen, "lock.requested").await;
+    assert_eq!(asked["requester"]["name"], "Art director");
+    let (st, body) = second
+        .post(
+            &format!("/parts/{hair}/saved"),
+            Some(json!({"v": 1, "changed": false, "spool_path": null, "manifest": null, "source_file": "Ojukwu/hair.blend"})),
+        )
+        .await;
+    assert_eq!(st, 409, "a save while someone else holds the part: {body}");
+    assert_eq!(body["error"]["code"], "lock_held");
+
+    // Ada closes. The second artist hears the release and gets in.
+    let (st, closed) = ada.post(&format!("/parts/{hair}/close"), None).await;
+    assert_eq!(st, 200, "{closed}");
+    assert_eq!(closed["released"], true);
+    let released = wait_for_event(&second_seen, |e| {
+        e["kind"] == "lock.released" && e["part_id"] == hair
+    })
+    .await;
+    assert_eq!(released["reason"], "closed");
+    let (st, open2) = second.post(&format!("/parts/{hair}/open"), None).await;
+    assert_eq!(st, 200, "{open2}");
+    assert_eq!(open2["lock"]["holder"]["name"], "Art director");
+    let (_, now) = ada.get("/parts?file=Ojukwu%2Fhair.blend").await;
+    assert_eq!(now["parts"][0]["lock"]["holder"]["name"], "Art director");
+    second.post(&format!("/parts/{hair}/close"), None).await;
+}
+
 #[tokio::test]
 async fn a_prop_save_runs_the_static_import_and_stores_where_it_is_placed() {
     let Ok(server_url) = std::env::var("NKATA_TEST_SERVER_URL") else {

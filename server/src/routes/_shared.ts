@@ -158,3 +158,12 @@ export function requireCanEdit(p: Principal, row: PartRow): void {
   if (row.owner_id === p.user_id || isReviewer(p)) return;
   throw new AppError("forbidden", "only the owner, an art director, or a producer can edit this part", { part_id: row.id });
 }
+
+/** No overwrite: while someone else holds the editor lock, nobody else writes a version. */
+export async function requireNotHeldByOther(db: Db, p: Principal, partId: string, now: Date): Promise<void> {
+  const rows = await db.select().from(lock).where(eq(lock.part_id, partId)).limit(1);
+  const row = rows[0];
+  if (!row || row.expires_at.getTime() <= now.getTime() || row.holder_id === p.user_id) return;
+  const holder = await userRef(db, row.holder_id);
+  throw new AppError("lock_held", `${holder.name} has this part`, { part_id: partId, holder: holder.id });
+}
