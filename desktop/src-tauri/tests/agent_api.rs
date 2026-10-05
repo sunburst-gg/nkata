@@ -531,9 +531,7 @@ async fn editors_publish_comment_review_and_hear_each_other() {
     })
     .await;
     assert_eq!(state["from"], "ready");
-    let (_, after) = artist
-        .get("/parts?file=Market%20stall%2Fmodel.blend")
-        .await;
+    let (_, after) = artist.get("/parts?file=Market%20stall%2Fmodel.blend").await;
     assert_eq!(after["parts"][0]["state"], "approved");
 }
 
