@@ -98,6 +98,24 @@ def gather_facts(collection: Any, skeletons: dict[str, tuple[str, ...]] | None =
     return checks.SceneFacts(unit_scale=unit_scale, objects=tuple(objects), textures=textures, bone_names=bone_names, skeletons=dict(skeletons or {}))
 
 
+def run_part_checks(part: dict[str, Any], collection: Any) -> list[dict[str, Any]]:
+    """The part's Blender checks on the scene as saved, kept in STATE for the panel. No fixes."""
+    specs = part.get("checks") or []
+    if not specs:
+        return []
+    facts = gather_facts(collection)
+    results, _ = checks.run_checks(
+        [c["id"] for c in specs],
+        {c["id"]: dict(c.get("params") or {}) for c in specs},
+        {c["id"]: c["severity"] for c in specs},
+        facts,
+        fix=False,
+    )
+    with STATE.lock:
+        STATE.checks[part["id"]] = results
+    return results
+
+
 def _ensure_listener(client: AgentClient) -> None:
     global _listener
     if _listener is None or not _listener.is_alive():
@@ -151,6 +169,12 @@ def handle_save(filepath: str) -> dict[str, Any]:
         spool_path = str(spool)
         log("export.done", part_id=part["id"], kind=kind, how=how, export_ms=export_ms, objects=len(infos))
     res = client.saved(part["id"], changed, spool_path, manifest_data, rel)
+    results = run_part_checks(part, collection)
+    if results:
+        try:
+            client.record_checks(part["id"], results)
+        except AgentError as e:
+            log("checks.record_failed", part_id=part["id"], error=str(e))
     with STATE.lock:
         if not refused:
             STATE.last_hashes[part["id"]] = hashes
@@ -164,6 +188,89 @@ def handle_save(filepath: str) -> dict[str, Any]:
     total_ms = int((time.monotonic() - started) * 1000)
     log("save.posted", part_id=part["id"], version_id=res.version_id, changed=changed, export_ms=export_ms, total_ms=total_ms)
     return {"part_id": part["id"], "version_id": res.version_id, "changed": changed, "export_ms": export_ms, "total_ms": total_ms, "refused": refused}
+
+
+def handle_open(filepath: str) -> dict[str, Any]:
+    """On file load: find the part, ask for the lock, say where the user is. The panel shows the
+    holder when someone else has it. docs/product.md, R4."""
+    path = Path(filepath)
+    root = mapping.find_project_root(path)
+    if root is None:
+        return {"skipped": "not inside a Nkata project"}
+    client = AgentClient(mapping.read_token(root))
+    _ensure_listener(client)
+    rel = mapping.relative_file(root, path)
+    me = client.me()
+    part = mapping.part_for_file(client.parts(rel), rel)
+    with STATE.lock:
+        STATE.me = me.user.to_dict()
+        STATE.part = part
+        STATE.rel_file = rel
+        STATE.error = ""
+        STATE.publish_line = ""
+    if part is None:
+        return {"skipped": f"no part maps to {rel}"}
+    granted = False
+    holder = None
+    if True:
+        try:
+            res = client.open_part(part["id"])
+            granted = bool(res.granted)
+            holder = res.lock.to_dict() if res.lock is not None else None
+        except AgentError as e:
+            if e.code not in ("lock_held", "gate_closed", "forbidden"):
+                raise
+            holder = None
+            with STATE.lock:
+                STATE.error = e.message
+    with STATE.lock:
+        if STATE.part is not None:
+            STATE.part = {**STATE.part, "lock": holder}
+        if holder and not granted:
+            STATE.error = f"{holder['holder']['name']} has this part. Opened {holder['granted_at'][11:16]} UTC."
+        STATE.dirty = True
+    try:
+        res = client.presence(part["id"])
+        with STATE.lock:
+            STATE.online = [e.to_dict() for e in res.online]
+    except AgentError as e:
+        log("presence.failed", part_id=part["id"], error=str(e))
+    try:
+        res = client.comments(part["id"])
+        with STATE.lock:
+            STATE.comments[part["id"]] = [c.to_dict() for c in res.comments]
+    except AgentError as e:
+        log("comments.failed", part_id=part["id"], error=str(e))
+    log("part.opened", part_id=part["id"], granted=granted)
+    return {"part_id": part["id"], "granted": granted}
+
+
+def handle_close() -> None:
+    """On unregister or a new file: release the lock and leave the part."""
+    part = STATE.part
+    root = mapping.find_project_root(Path(bpy.data.filepath)) if bpy.data.filepath else None
+    if part is None or root is None:
+        return
+    try:
+        client = AgentClient(mapping.read_token(root))
+        client.close_part(part["id"])
+        client.presence(None)
+    except AgentError as e:
+        log("close.failed", part_id=part["id"], error=str(e))
+
+
+@persistent
+def on_load_post(*_args: Any) -> None:
+    filepath = bpy.data.filepath
+    if not filepath:
+        return
+    try:
+        handle_open(filepath)
+    except (AgentError, RuntimeError, OSError, ValueError) as e:
+        log("open.failed", error=str(e), file=filepath)
+        with STATE.lock:
+            STATE.error = str(e)
+            STATE.dirty = True
 
 
 @persistent
@@ -194,13 +301,18 @@ def _redraw_tick() -> float:
 def register() -> None:
     if on_save_post not in bpy.app.handlers.save_post:
         bpy.app.handlers.save_post.append(on_save_post)
+    if on_load_post not in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.append(on_load_post)
     if not bpy.app.timers.is_registered(_redraw_tick):
         bpy.app.timers.register(_redraw_tick, persistent=True)
 
 
 def unregister() -> None:
+    handle_close()
     if on_save_post in bpy.app.handlers.save_post:
         bpy.app.handlers.save_post.remove(on_save_post)
+    if on_load_post in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.remove(on_load_post)
     if bpy.app.timers.is_registered(_redraw_tick):
         bpy.app.timers.unregister(_redraw_tick)
     if _listener is not None:

@@ -1,18 +1,90 @@
-"""N-panel: part header and mirror status. Same seven elements as the UE5 panel, same words.
-See docs/product.md, Surfaces, Blender panel. Only the first two elements ship in step 1."""
+"""N-panel: the seven elements, in the order and the words of docs/product.md, Surfaces.
+
+1. Part header: asset, part, owner, state, lock.
+2. Mirror status with Retry.
+3. Reference strip: the asset's reference files, one button each that opens the file.
+4. Checks: the last run, pass or fail per check, Fix for what Nkata can fix, Run checks.
+5. Comments: pins in the viewport (pins.py), the list here, reply inline.
+6. Publish, and a smaller Mark Ready.
+7. Presence: who else is in this asset.
+
+Everything drawn here comes from STATE, filled by the save hook and the SSE listener. The draw
+function never calls the agent, so the panel opens in under a second (docs/product.md, Quality
+bar). Operators call the agent and update STATE."""
 
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
 from pathlib import Path
+from typing import Any
 
 import bpy
 
-from . import mapping
+from . import checks, mapping, pins, save_hook
 from .agent_client import AgentClient, AgentError
 from .log import log
 from .state import STATE
 
 STATE_WORDS = {"locked": "Locked", "draft": "Draft", "ready": "Ready", "approved": "Approved"}
+CHECK_WORDS = {
+    "unit_scale": "Scale",
+    "name_pattern": "Naming",
+    "triangle_budget": "Triangle budget",
+    "uv_set_present": "UV set",
+    "texture_size": "Texture size",
+    "rig_bone_names": "Rig names",
+    "rig_bone_count": "Rig bone count",
+    "metahuman_dna_present": "MetaHuman data",
+    "lod_count": "LODs",
+    "collision_present": "Collision",
+    "pivot_at_base": "Pivot at base",
+}
+
+
+def _client_and_part() -> tuple[AgentClient, dict[str, Any]]:
+    part = STATE.part
+    root = mapping.find_project_root(Path(bpy.data.filepath)) if bpy.data.filepath else None
+    if part is None or root is None:
+        raise AgentError("no_part", "No part is open")
+    return AgentClient(mapping.read_token(root)), part
+
+
+def _collection(part: dict[str, Any]) -> Any:
+    name = (part.get("mapping") or {}).get("collection")
+    col = bpy.data.collections.get(name) if name else None
+    if col is None:
+        raise AgentError("no_collection", f"collection {name!r} is not in this file")
+    return col
+
+
+def run_checks(part: dict[str, Any], fix: bool) -> list[dict[str, Any]]:
+    """Runs the part's Blender checks on the open scene and keeps the results in STATE.
+    With fix, applies unit scale and renames to the scene before reporting."""
+    col = _collection(part)
+    specs = part.get("checks") or []
+    ids = [c["id"] for c in specs]
+    params = {c["id"]: dict(c.get("params") or {}) for c in specs}
+    severities = {c["id"]: c["severity"] for c in specs}
+    facts = save_hook.gather_facts(col)
+    results, after = checks.run_checks(ids, params, severities, facts, fix=fix)
+    if fix:
+        apply_fixes(col, facts, after)
+    with STATE.lock:
+        STATE.checks[part["id"]] = results
+        STATE.dirty = True
+    return results
+
+
+def apply_fixes(collection: Any, before: checks.SceneFacts, after: checks.SceneFacts) -> None:
+    """Writes the fixers' results back into the scene: unit scale and object names."""
+    if before.unit_scale != after.unit_scale:
+        bpy.context.scene.unit_settings.scale_length = after.unit_scale
+    renames = {b.name: a.name for b, a in zip(before.objects, after.objects, strict=True) if b.name != a.name}
+    for obj in collection.all_objects:
+        if obj.name in renames:
+            obj.name = renames[obj.name]
 
 
 class NKATA_OT_retry_mirror(bpy.types.Operator):
@@ -21,15 +93,10 @@ class NKATA_OT_retry_mirror(bpy.types.Operator):
     bl_description = "Run the last mirror into UE5 again"
 
     def execute(self, _context: bpy.types.Context) -> set[str]:
-        part = STATE.part
-        root = mapping.find_project_root(Path(bpy.data.filepath)) if bpy.data.filepath else None
-        if part is None or root is None:
-            self.report({"WARNING"}, "No part is open")
-            return {"CANCELLED"}
         try:
-            res = AgentClient(mapping.read_token(root)).retry_mirror(part["id"])
+            client, part = _client_and_part()
+            res = client.retry_mirror(part["id"])
         except AgentError as e:
-            log("retry.failed", part_id=part["id"], error=str(e))
             self.report({"ERROR"}, e.message)
             return {"CANCELLED"}
         with STATE.lock:
@@ -38,6 +105,248 @@ class NKATA_OT_retry_mirror(bpy.types.Operator):
             view.status = "pending" if res.queued else view.status
             view.message = "Waiting for UE5" if res.queued else "Nothing to retry"
         return {"FINISHED"}
+
+
+class NKATA_OT_open_reference(bpy.types.Operator):
+    bl_idname = "nkata.open_reference"
+    bl_label = "Open"
+    bl_description = "Open this reference file"
+    path: bpy.props.StringProperty()  # type: ignore[valid-type]
+
+    def execute(self, _context: bpy.types.Context) -> set[str]:
+        root = mapping.find_project_root(Path(bpy.data.filepath)) if bpy.data.filepath else None
+        if root is None:
+            self.report({"WARNING"}, "Save this file inside the project first")
+            return {"CANCELLED"}
+        target = root / self.path
+        if not target.exists():
+            self.report({"WARNING"}, f"{self.path} is not on this machine yet")
+            return {"CANCELLED"}
+        open_with_os(target)
+        return {"FINISHED"}
+
+
+def open_with_os(path: Path) -> None:
+    if sys.platform == "darwin":
+        subprocess.Popen(["open", str(path)])
+    elif os.name == "nt":
+        os.startfile(str(path))  # type: ignore[attr-defined]
+    else:
+        subprocess.Popen(["xdg-open", str(path)])
+
+
+class NKATA_OT_run_checks(bpy.types.Operator):
+    bl_idname = "nkata.run_checks"
+    bl_label = "Run checks"
+    bl_description = "Run this part's checks on the scene"
+
+    def execute(self, _context: bpy.types.Context) -> set[str]:
+        try:
+            _client, part = _client_and_part()
+            run_checks(part, fix=False)
+        except AgentError as e:
+            self.report({"ERROR"}, e.message)
+            return {"CANCELLED"}
+        return {"FINISHED"}
+
+
+class NKATA_OT_fix_checks(bpy.types.Operator):
+    bl_idname = "nkata.fix_checks"
+    bl_label = "Fix"
+    bl_description = "Fix unit scale and names, then run the checks again"
+
+    def execute(self, _context: bpy.types.Context) -> set[str]:
+        try:
+            _client, part = _client_and_part()
+            results = run_checks(part, fix=True)
+        except AgentError as e:
+            self.report({"ERROR"}, e.message)
+            return {"CANCELLED"}
+        fixed = [r["check_id"] for r in results if r["auto_fixed"]]
+        self.report({"INFO"}, f"Fixed {', '.join(CHECK_WORDS.get(c, c) for c in fixed)}" if fixed else "Nothing to fix")
+        return {"FINISHED"}
+
+
+class NKATA_OT_publish(bpy.types.Operator):
+    bl_idname = "nkata.publish"
+    bl_label = "Publish"
+    bl_description = "Run the checks, fix what Nkata can, and publish this version"
+    ready: bpy.props.BoolProperty(default=False)  # type: ignore[valid-type]
+
+    def execute(self, _context: bpy.types.Context) -> set[str]:
+        try:
+            client, part = _client_and_part()
+            results = run_checks(part, fix=True)
+            res = client.publish(part["id"], results, self.ready)
+        except AgentError as e:
+            self.report({"ERROR"}, e.message)
+            return {"CANCELLED"}
+        with STATE.lock:
+            if res.published:
+                STATE.part = {**part, "state": res.state}
+                STATE.publish_line = "Published" + (" and marked Ready" if res.state == "ready" else "")
+            else:
+                names = ", ".join(CHECK_WORDS.get(b.check_id, b.check_id) for b in res.blocked_by)
+                STATE.publish_line = f"{len(res.blocked_by)} checks block: {names}"
+            STATE.dirty = True
+        if not res.published:
+            self.report({"WARNING"}, STATE.publish_line)
+            return {"CANCELLED"}
+        log("publish.done", part_id=part["id"], version_id=res.version_id, state=res.state)
+        return {"FINISHED"}
+
+
+class NKATA_OT_reply(bpy.types.Operator):
+    bl_idname = "nkata.reply"
+    bl_label = "Reply"
+    bl_description = "Add a comment on this part at the 3D cursor"
+    body: bpy.props.StringProperty(name="Comment")  # type: ignore[valid-type]
+
+    def invoke(self, context: bpy.types.Context, _event: Any) -> set[str]:
+        return context.window_manager.invoke_props_dialog(self)
+
+    def execute(self, context: bpy.types.Context) -> set[str]:
+        if not self.body.strip():
+            return {"CANCELLED"}
+        cursor = tuple(float(v) for v in context.scene.cursor.location)
+        try:
+            client, part = _client_and_part()
+            pin = client.create_comment(part["id"], cursor, (0.0, 0.0, 1.0), self.body.strip())
+        except AgentError as e:
+            self.report({"ERROR"}, e.message)
+            return {"CANCELLED"}
+        with STATE.lock:
+            STATE.comments.setdefault(part["id"], []).append(pin.to_dict())
+            STATE.dirty = True
+        return {"FINISHED"}
+
+
+class NKATA_OT_load_comments(bpy.types.Operator):
+    bl_idname = "nkata.load_comments"
+    bl_label = "Refresh comments"
+
+    def execute(self, _context: bpy.types.Context) -> set[str]:
+        try:
+            client, part = _client_and_part()
+            res = client.comments(part["id"])
+        except AgentError as e:
+            self.report({"ERROR"}, e.message)
+            return {"CANCELLED"}
+        with STATE.lock:
+            STATE.comments[part["id"]] = [c.to_dict() for c in res.comments]
+            STATE.dirty = True
+        return {"FINISHED"}
+
+
+class NKATA_OT_frame_pin(bpy.types.Operator):
+    bl_idname = "nkata.frame_pin"
+    bl_label = "Go to pin"
+    index: bpy.props.IntProperty()  # type: ignore[valid-type]
+
+    def execute(self, context: bpy.types.Context) -> set[str]:
+        part = STATE.part
+        if part is None:
+            return {"CANCELLED"}
+        comments = STATE.comments.get(part["id"], [])
+        if not 0 <= self.index < len(comments):
+            return {"CANCELLED"}
+        pins.frame(context, comments[self.index]["point"])
+        return {"FINISHED"}
+
+
+def draw_header(layout: Any, part: dict[str, Any]) -> None:
+    owner = (part.get("owner") or {}).get("name") or "No owner"
+    state_word = STATE_WORDS.get(str(part.get("state")), str(part.get("state")))
+    lock = part.get("lock")
+    lock_word = f"Open by {lock['holder']['name']}" if lock else "Not open"
+    layout.label(text=f"{part.get('asset_name')} / {part.get('name')} · {state_word} · {owner} · {lock_word}")
+    waiting = part.get("waiting_on") or []
+    if waiting:
+        layout.label(text=f"Waits on {', '.join(waiting)}", icon="LOCKED")
+
+
+def draw_mirror(layout: Any, part: dict[str, Any]) -> None:
+    view = STATE.mirror_for(part["id"])
+    row = layout.row()
+    row.label(text=view.line(), icon="ERROR" if view.status == "failed" else "CHECKMARK" if view.status == "synced" else "TIME")
+    if view.status == "failed" or view.halted:
+        row.operator(NKATA_OT_retry_mirror.bl_idname, text="Retry")
+
+
+def draw_reference(layout: Any, part: dict[str, Any]) -> None:
+    box = layout.box()
+    box.label(text="Reference")
+    files = part.get("reference_files") or []
+    if not files:
+        box.label(text="No reference pinned")
+        return
+    for rel in files:
+        op = box.operator(NKATA_OT_open_reference.bl_idname, text=Path(rel).name, icon="IMAGE_DATA")
+        op.path = rel
+
+
+def draw_checks(layout: Any, part: dict[str, Any]) -> None:
+    box = layout.box()
+    row = box.row()
+    row.label(text="Checks")
+    row.operator(NKATA_OT_run_checks.bl_idname, text="Run checks")
+    results = STATE.checks.get(part["id"])
+    if results is None:
+        box.label(text="Checks run on save and on Publish")
+        return
+    fixable = False
+    for r in results:
+        word = CHECK_WORDS.get(r["check_id"], r["check_id"])
+        if r["passed"]:
+            box.label(text=f"{word}: pass" + (" (fixed)" if r["auto_fixed"] else ""), icon="CHECKMARK")
+        else:
+            icon = "ERROR" if r["severity"] == "block" else "INFO"
+            box.label(text=f"{word}: {r['message']}", icon=icon)
+            fixable |= r["check_id"] in checks.FIXERS
+    if fixable:
+        box.operator(NKATA_OT_fix_checks.bl_idname, text="Fix")
+
+
+def draw_comments(layout: Any, part: dict[str, Any]) -> None:
+    box = layout.box()
+    row = box.row()
+    row.label(text="Comments")
+    row.operator(NKATA_OT_load_comments.bl_idname, text="", icon="FILE_REFRESH")
+    comments = STATE.comments.get(part["id"])
+    if not comments:
+        box.label(text="No comments yet")
+    for i, c in enumerate(comments or []):
+        line = box.row()
+        resolved = c.get("resolved_at") is not None
+        op = line.operator(NKATA_OT_frame_pin.bl_idname, text=f"{i + 1}", icon="CHECKMARK" if resolved else "PINNED")
+        op.index = i
+        line.label(text=f"{(c.get('author') or {}).get('name', '')}: {c.get('body', '')}")
+    box.operator(NKATA_OT_reply.bl_idname, text="Reply")
+
+
+def draw_publish(layout: Any, part: dict[str, Any]) -> None:
+    row = layout.row()
+    row.scale_y = 1.4
+    op = row.operator(NKATA_OT_publish.bl_idname, text="Publish")
+    op.ready = False
+    small = layout.row()
+    op2 = small.operator(NKATA_OT_publish.bl_idname, text="Mark Ready")
+    op2.ready = True
+    small.enabled = part.get("state") == "draft"
+    if STATE.publish_line:
+        layout.label(text=STATE.publish_line)
+
+
+def draw_presence(layout: Any, part: dict[str, Any]) -> None:
+    here = [e for e in STATE.online if e.get("user", {}).get("id") != (STATE.me or {}).get("id")]
+    if not here:
+        layout.label(text="Only you here")
+        return
+    names = []
+    for e in here:
+        where = " in this part" if e.get("part_id") == part["id"] else ""
+        names.append(f"{e['user']['name']}{where}")
+    layout.label(text="Here: " + ", ".join(names))
 
 
 class NKATA_PT_panel(bpy.types.Panel):
@@ -53,28 +362,37 @@ class NKATA_PT_panel(bpy.types.Panel):
         if part is None:
             layout.label(text="Save this file to find its part" if not STATE.error else STATE.error, icon="INFO")
             return
-        owner = (part.get("owner") or {}).get("name") or "No owner"
-        state_word = STATE_WORDS.get(str(part.get("state")), str(part.get("state")))
-        lock = part.get("lock")
-        lock_word = f"Open by {lock['holder']['name']}" if lock else "Not open"
-        layout.label(text=f"{part.get('asset_name')} / {part.get('name')} · {state_word} · {owner} · {lock_word}")
-        view = STATE.mirror_for(part["id"])
         if STATE.error:
             layout.label(text=STATE.error, icon="ERROR")
-        row = layout.row()
-        row.label(text=view.line(), icon="ERROR" if view.status == "failed" else "CHECKMARK" if view.status == "synced" else "TIME")
-        if view.status == "failed" or view.halted:
-            row.operator(NKATA_OT_retry_mirror.bl_idname, text="Retry")
+        draw_header(layout, part)
+        draw_mirror(layout, part)
+        draw_reference(layout, part)
+        draw_checks(layout, part)
+        draw_comments(layout, part)
+        draw_publish(layout, part)
+        draw_presence(layout, part)
 
 
-CLASSES = (NKATA_OT_retry_mirror, NKATA_PT_panel)
+CLASSES = (
+    NKATA_OT_retry_mirror,
+    NKATA_OT_open_reference,
+    NKATA_OT_run_checks,
+    NKATA_OT_fix_checks,
+    NKATA_OT_publish,
+    NKATA_OT_reply,
+    NKATA_OT_load_comments,
+    NKATA_OT_frame_pin,
+    NKATA_PT_panel,
+)
 
 
 def register() -> None:
     for cls in CLASSES:
         bpy.utils.register_class(cls)
+    pins.register()
 
 
 def unregister() -> None:
+    pins.unregister()
     for cls in reversed(CLASSES):
         bpy.utils.unregister_class(cls)

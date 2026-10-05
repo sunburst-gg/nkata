@@ -44,10 +44,17 @@ class AgentClient:
         except urllib.error.HTTPError as e:
             text = e.read().decode("utf-8", "replace")
             try:
-                err = shared.validate_ErrorBody(json.loads(text))
-                raise AgentError(err.error.code, err.error.message, e.code) from e
-            except (ValueError, shared.ValidationError):
+                parsed = json.loads(text)
+            except ValueError:
                 raise AgentError("http", f"{e.code}: {text[:200]}", e.code) from e
+            # A held lock answers 409 with the holder, not an error. The caller reads granted.
+            if e.code == 409 and isinstance(parsed, dict) and "granted" in parsed:
+                return parsed
+            try:
+                err = shared.validate_ErrorBody(parsed)
+            except shared.ValidationError:
+                raise AgentError("http", f"{e.code}: {text[:200]}", e.code) from e
+            raise AgentError(err.error.code, err.error.message, e.code) from e
         except urllib.error.URLError as e:
             raise AgentError("offline", f"agent not reachable at {self.base}: {e.reason}") from e
 
@@ -67,6 +74,29 @@ class AgentClient:
     def saved(self, part_id: str, changed: bool, spool_path: str | None, manifest: dict[str, Any] | None, source_file: str) -> Any:
         body = shared.validate_PartSavedRequest({"v": 1, "changed": changed, "spool_path": spool_path, "manifest": manifest, "source_file": source_file}).to_dict()
         return shared.validate_PartSavedResponse(self._call("POST", f"/parts/{part_id}/saved", body))
+
+    def publish(self, part_id: str, check_results: list[dict[str, Any]], ready: bool) -> Any:
+        body = shared.validate_PublishRequest({"v": 1, "check_results": check_results, "ready": ready}).to_dict()
+        return shared.validate_PublishResponse(self._call("POST", f"/parts/{part_id}/publish", body))
+
+    def record_checks(self, part_id: str, results: list[dict[str, Any]]) -> Any:
+        body = shared.validate_ChecksRequest({"v": 1, "results": results}).to_dict()
+        return shared.validate_ChecksResponse(self._call("POST", f"/parts/{part_id}/checks", body))
+
+    def comments(self, part_id: str) -> Any:
+        return shared.validate_CommentsResponse(self._call("GET", f"/parts/{part_id}/comments"))
+
+    def create_comment(self, part_id: str, point: tuple[float, ...], normal: tuple[float, ...], body_text: str) -> Any:
+        body = shared.validate_CommentCreateRequest({"v": 1, "point": list(point), "normal": list(normal), "body": body_text}).to_dict()
+        return shared.validate_CommentCreateResponse(self._call("POST", f"/parts/{part_id}/comments", body)).comment
+
+    def review(self, part_id: str, score: int, decision: str, note: str) -> Any:
+        body = shared.validate_ReviewRequest({"v": 1, "score": score, "decision": decision, "note": note}).to_dict()
+        return shared.validate_ReviewResponse(self._call("POST", f"/parts/{part_id}/review", body))
+
+    def presence(self, part_id: str | None) -> Any:
+        body = shared.validate_PresenceRequest({"v": 1, "part_id": part_id}).to_dict()
+        return shared.validate_PresenceResponse(self._call("POST", "/presence", body))
 
     def mirror_state(self, part_id: str) -> Any:
         return shared.validate_MirrorStateResponse(self._call("GET", f"/parts/{part_id}/mirror")).mirror

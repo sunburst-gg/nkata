@@ -38,8 +38,13 @@ class AddonState:
     lock: threading.Lock = field(default_factory=threading.Lock)
     part: dict[str, Any] | None = None
     rel_file: str | None = None
+    me: dict[str, Any] | None = None
     last_hashes: dict[str, dict[str, str]] = field(default_factory=dict)
     mirror: dict[str, MirrorView] = field(default_factory=dict)
+    checks: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    comments: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    online: list[dict[str, Any]] = field(default_factory=list)
+    publish_line: str = ""
     error: str = ""
     dirty: bool = False
 
@@ -47,16 +52,34 @@ class AddonState:
         return self.mirror.setdefault(part_id, MirrorView())
 
     def apply_event(self, event: dict[str, Any]) -> None:
-        """mirror.result from SSE updates the part's line."""
-        if event.get("kind") != "mirror.result":
-            return
+        """Events from the agent's SSE stream update what the panel shows."""
+        kind = event.get("kind")
         with self.lock:
-            view = self.mirror_for(str(event.get("part_id")))
-            view.status = str(event.get("status"))
-            view.message = str(event.get("message") or "")
-            view.mirror_ms = event.get("mirror_ms")
-            view.version_id = event.get("version_id")
-            view.at = time.time()
+            if kind == "mirror.result":
+                view = self.mirror_for(str(event.get("part_id")))
+                view.status = str(event.get("status"))
+                view.message = str(event.get("message") or "")
+                view.mirror_ms = event.get("mirror_ms")
+                view.version_id = event.get("version_id")
+                view.at = time.time()
+            elif kind == "presence.changed":
+                self.online = list(event.get("online") or [])
+            elif kind == "comment.created":
+                comment = event.get("comment") or {}
+                pins = self.comments.setdefault(str(comment.get("part_id")), [])
+                if not any(c.get("id") == comment.get("id") for c in pins):
+                    pins.append(comment)
+            elif kind == "part.state" and self.part and event.get("part_id") == self.part["id"]:
+                self.part = {**self.part, "state": event.get("to")}
+            elif kind == "lock.granted" and self.part and event.get("part_id") == self.part["id"]:
+                self.part = {**self.part, "lock": event.get("lock")}
+            elif kind == "lock.released" and self.part and event.get("part_id") == self.part["id"]:
+                self.part = {**self.part, "lock": None}
+            elif kind == "lock.requested" and self.part and event.get("part_id") == self.part["id"]:
+                who = (event.get("requester") or {}).get("name", "Someone")
+                self.publish_line = f"{who} asked to open this part. Close the file to hand it over."
+            else:
+                return
             self.dirty = True
 
 
