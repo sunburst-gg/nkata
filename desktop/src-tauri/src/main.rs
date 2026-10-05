@@ -1,4 +1,4 @@
-//! CLI binary for tests and headless use. The desktop window comes in a later step.
+//! CLI binary for tests and headless use. The desktop window is desktop.rs on the same crate.
 //! Every command prints one JSON report to stdout. Logs go to stderr as JSON lines.
 
 use std::path::PathBuf;
