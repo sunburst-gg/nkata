@@ -37,12 +37,23 @@ describe.skipIf(!hasInfra)("server api", () => {
 
   it("seeds the Ojukwu asset with gated parts locked", async () => {
     const res = await h.app.inject({ method: "GET", url: `/assets/${h.seeded.asset_id}`, ...h.as(ARTIST) });
-    const body = res.json() as { asset: { state: string }; parts: { name: string; state: string; kind: string; mapping: { kind: string } }[] };
+    const body = res.json() as { asset: { state: string }; parts: { name: string; state: string; kind: string; mapping: { kind: string }; checks: unknown; waiting_on: string[]; reference_files: string[] }[] };
     expect(body.parts.map((p) => p.name)).toEqual(["concept", "face", "cloth", "hair", "textures", "rig", "lookdev"]);
     expect(body.parts.find((p) => p.name === "textures")?.state).toBe("locked");
     expect(body.parts.find((p) => p.name === "face")?.state).toBe("draft");
     expect(body.parts.find((p) => p.name === "lookdev")?.mapping).toEqual({ kind: "ue_asset", path: "/Game/Characters/Ojukwu/lookdev" });
     expect(new Set(body.parts.map((p) => p.kind))).toEqual(new Set(["character"]));
+    const face = body.parts.find((p) => p.name === "face")!;
+    expect(face.checks).toEqual([
+      { id: "unit_scale", severity: "block", params: {} },
+      { id: "name_pattern", severity: "block", params: {} },
+      { id: "triangle_budget", severity: "block", params: { max: 60000 } },
+      { id: "uv_set_present", severity: "block", params: {} },
+    ]);
+    expect(face.waiting_on).toEqual([]);
+    expect(face.reference_files).toEqual([]);
+    expect(body.parts.find((p) => p.name === "textures")?.waiting_on).toEqual(["face", "cloth", "hair"]);
+    expect(body.parts.find((p) => p.name === "concept")?.checks).toEqual([{ id: "texture_size", severity: "warn", params: {} }]);
     expect(body.asset.state).toBe("draft");
   });
 
@@ -231,6 +242,48 @@ describe.skipIf(!hasInfra)("server api", () => {
       expect(kinds).not.toContain("audit.gate_removed");
     });
   });
+  describe("presence, members, discord", () => {
+    it("heartbeats through REST and lists who is online", async () => {
+      const face = parts["face"]!;
+      const r = await h.app.inject({ method: "POST", url: "/presence", ...h.as(ARTIST), payload: { v: 1, project_id: h.seeded.project_id, part_id: face } });
+      expect(r.statusCode).toBe(200);
+      const online = (r.json() as { online: { user: { name: string }; part_id: string | null }[] }).online;
+      expect(online).toEqual([{ user: expect.objectContaining({ name: "Rising Sun artist" }), part_id: face, since: expect.any(String), last_seen: expect.any(String) }]);
+      // A viewer may be present. It is not a write to the project.
+      expect((await h.app.inject({ method: "POST", url: "/presence", ...h.as(VIEWER), payload: { v: 1, project_id: h.seeded.project_id, part_id: null } })).statusCode).toBe(200);
+      const list = await h.app.inject({ method: "GET", url: `/presence?project_id=${h.seeded.project_id}`, ...h.as(VIEWER) });
+      expect((list.json() as { online: unknown[] }).online).toHaveLength(2);
+    });
+
+    it("lists members and lets a producer invite and set roles", async () => {
+      const members = await h.app.inject({ method: "GET", url: `/projects/${h.seeded.project_id}/members`, ...h.as(VIEWER) });
+      const emails = (members.json() as { members: { email: string; roles: string[] }[] }).members.map((m) => m.email).sort();
+      expect(emails).toEqual(["artist@sunburst.gg", "director@sunburst.gg", "env@sunburst.gg", "producer@sunburst.gg", "viewer@sunburst.gg"]);
+      const denied = await h.app.inject({ method: "POST", url: `/projects/${h.seeded.project_id}/members`, ...h.as(AD), payload: { email: "new@sunburst.gg", name: "New artist", roles: ["artist"] } });
+      expect(denied.statusCode).toBe(403);
+      const invited = await h.app.inject({ method: "POST", url: `/projects/${h.seeded.project_id}/members`, ...h.as(PRODUCER), payload: { email: "new@sunburst.gg", name: "New artist", roles: ["artist"] } });
+      expect(invited.statusCode).toBe(201);
+      const again = await h.app.inject({ method: "POST", url: `/projects/${h.seeded.project_id}/members`, ...h.as(PRODUCER), payload: { email: "new@sunburst.gg", name: "New artist", roles: ["artist", "art_director"] } });
+      expect(again.statusCode).toBe(200);
+      expect((again.json() as { member: { roles: string[] } }).member.roles).toEqual(["artist", "art_director"]);
+      const link = await h.app.inject({ method: "POST", url: "/auth/magic-link", payload: { email: "new@sunburst.gg" } });
+      expect((link.json() as { link?: string }).link).toBeDefined();
+    });
+
+    it("stores the Discord webhook encrypted and never returns it", async () => {
+      const pid = h.seeded.project_id;
+      expect((await h.app.inject({ method: "PUT", url: `/projects/${pid}/discord`, ...h.as(AD), payload: { webhook_url: "https://discord.com/api/webhooks/1/x" } })).statusCode).toBe(403);
+      expect((await h.app.inject({ method: "PUT", url: `/projects/${pid}/discord`, ...h.as(PRODUCER), payload: { webhook_url: "not a url" } })).statusCode).toBe(400);
+      const set = await h.app.inject({ method: "PUT", url: `/projects/${pid}/discord`, ...h.as(PRODUCER), payload: { webhook_url: "https://discord.com/api/webhooks/1/x" } });
+      expect(set.json()).toEqual({ v: 1, configured: true });
+      const proj = (await h.app.inject({ method: "GET", url: `/projects/${pid}`, ...h.as(ARTIST) })).json() as { project: Record<string, unknown> };
+      expect(proj.project["discord_configured"]).toBe(true);
+      expect(proj.project["discord_webhook"]).toBeUndefined();
+      expect(JSON.stringify((await h.app.inject({ method: "GET", url: "/projects", ...h.as(ARTIST) })).json())).not.toContain("webhooks/1/x");
+      expect((await h.app.inject({ method: "PUT", url: `/projects/${pid}/discord`, ...h.as(PRODUCER), payload: { webhook_url: null } })).json()).toEqual({ v: 1, configured: false });
+    });
+  });
+
   // docs/product.md, Roles and permissions: the server refuses a viewer on every write.
   describe("viewer", () => {
     const refused: [string, string, unknown][] = [
@@ -253,6 +306,8 @@ describe.skipIf(!hasInfra)("server api", () => {
       ["POST", "/files/upload-urls", { project_id: "{project}", chunks: [] }],
       ["POST", "/files/uploaded", { project_id: "{project}", chunks: [] }],
       ["POST", "/projects/{project}/file-versions", {}],
+      ["POST", "/projects/{project}/members", { email: "x@sunburst.gg", name: "X", roles: ["artist"] }],
+      ["PUT", "/projects/{project}/discord", { webhook_url: null }],
     ];
     const fill = (s: string) => s.replaceAll("{face}", parts["face"]!).replaceAll("{project}", h.seeded.project_id);
 

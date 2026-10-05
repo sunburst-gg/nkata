@@ -71,6 +71,29 @@
       ],
       "additionalProperties": false
     },
+    "CheckSpec": {
+      "type": "object",
+      "description": "One check a template runs on a part: the contract id, its severity, and the params.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "severity": {
+          "$ref": "common.schema.json#/$defs/CheckSeverity"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "id",
+        "severity",
+        "params"
+      ],
+      "additionalProperties": false
+    },
     "PartSummary": {
       "type": "object",
       "properties": {
@@ -120,6 +143,27 @@
         "kind": {
           "$ref": "template.schema.json#/$defs/TemplateKind",
           "description": "The template kind. Picks the import script and the panel layout."
+        },
+        "checks": {
+          "type": "array",
+          "description": "The checks the template runs on this part, in order, with severity and params.",
+          "items": {
+            "$ref": "#/$defs/CheckSpec"
+          }
+        },
+        "reference_files": {
+          "type": "array",
+          "description": "The asset's reference files, project relative. The panel's reference strip.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "waiting_on": {
+          "type": "array",
+          "description": "Gate parts not yet Approved. Empty when the part is open.",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "required": [
@@ -132,7 +176,10 @@
         "lock",
         "gate",
         "mapping",
-        "kind"
+        "kind",
+        "checks",
+        "reference_files",
+        "waiting_on"
       ],
       "additionalProperties": false
     },

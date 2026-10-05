@@ -44,6 +44,13 @@ pub enum TemplateKind {
     LevelArea,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CheckSeverity {
+    Block,
+    Warn,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Gate {
     pub after: Vec<String>,
@@ -80,6 +87,17 @@ pub struct PartSummary {
     pub gate: Gate,
     pub mapping: PartMapping,
     pub kind: TemplateKind,
+    pub checks: Vec<CheckSpec>,
+    pub reference_files: Vec<String>,
+    pub waiting_on: Vec<String>,
+}
+
+/// One check a template runs on a part: the contract id, its severity, and the params.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CheckSpec {
+    pub id: String,
+    pub severity: CheckSeverity,
+    pub params: serde_json::Map<String, serde_json::Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

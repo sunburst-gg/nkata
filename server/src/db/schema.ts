@@ -63,6 +63,8 @@ export const project = pgTable("project", {
   blender_version: text("blender_version").notNull(),
   ue_version: text("ue_version").notNull(),
   package_version: text("package_version").notNull(),
+  // The Discord webhook for the one review message, encrypted with DISCORD_SECRET. Null when unset.
+  discord_webhook: text("discord_webhook"),
 });
 
 export const template = pgTable(

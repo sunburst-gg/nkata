@@ -6,7 +6,7 @@ import { Template, Ulid, type Gate, type PartMapping, type PartState, type Templ
 import { asset, part, template } from "../db/schema.js";
 import { AppError, notFound } from "../domain/errors.js";
 import { newId } from "../domain/ids.js";
-import { assetState, currentLock, IdParam, loadAsset, loadProject, partWire, requireRole, templateKind, userRefs, type TypedApp } from "./_shared.js";
+import { assetState, currentLock, IdParam, loadAsset, loadProject, partContext, partWire, requireRole, userRefs, type TypedApp } from "./_shared.js";
 
 const AssetBody = z.object({
   id: Ulid.optional(),
@@ -86,7 +86,8 @@ export async function assetRoutes(app: TypedApp): Promise<void> {
       kind: "audit.asset_created", target_kind: "asset", target_id: id, payload: { name: req.body.name, template: tpl.name },
     });
     req.log.info({ project_id: proj.id, asset_id: id }, "asset created");
-    return reply.status(201).send({ v: 1, asset: created.asset, parts: created.parts.map((p) => partWire(p, created.asset!.name, tpl.kind, null, null)) });
+    const ctx = { asset_name: created.asset!.name, template: tpl, reference_files: created.asset!.reference_files, siblings: created.parts.map((p) => ({ name: p.name, state: p.state })) };
+    return reply.status(201).send({ v: 1, asset: created.asset, parts: created.parts.map((p) => partWire(p, ctx, null, null)) });
   });
 
   app.get("/assets", { schema: { querystring: z.object({ project_id: Ulid }) } }, async (req) => {
@@ -104,9 +105,9 @@ export async function assetRoutes(app: TypedApp): Promise<void> {
     const parts = await app.db.select().from(part).where(eq(part.asset_id, a.id)).orderBy(part.position);
     const owners = await userRefs(app.db, parts.map((p) => p.owner_id).filter((x): x is string => x !== null));
     const now = app.now();
-    const kind = await templateKind(app.db, a.template_id);
+    const ctx = await partContext(app.db, a);
     const wired = [];
-    for (const p of parts) wired.push(partWire(p, a.name, kind, p.owner_id ? owners.get(p.owner_id) ?? null : null, await currentLock(app.db, p.id, now)));
+    for (const p of parts) wired.push(partWire(p, ctx, p.owner_id ? owners.get(p.owner_id) ?? null : null, await currentLock(app.db, p.id, now)));
     return { v: 1, asset: { ...a, state: assetState(parts.map((p) => p.state)) }, parts: wired };
   });
 }
