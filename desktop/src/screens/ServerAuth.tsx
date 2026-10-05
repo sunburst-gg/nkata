@@ -7,9 +7,9 @@ import { useStore } from "@/store";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { Wordmark } from "@/components/Mark";
-import { connect, createProject, DEFAULT_SERVER_URL, listProjects, primaryRoleOf, redeem, requestLink, tokenFromLink, writeSession } from "@/data/boot";
+import { connect, createProject, DEFAULT_SERVER_URL, listProjects, primaryRoleOf, readSession, redeem, requestLink, tokenFromLink, writeSession } from "@/data/boot";
 import { useGo } from "@/lib/hooks";
-import { Centered, Title } from "./Shell";
+import { Centered, Header, Title } from "./Shell";
 
 function Big({ children, ...rest }: React.ComponentProps<typeof Button>) {
   return <Button {...rest} className="h-11 rounded-lg text-15">{children}</Button>;
@@ -121,5 +121,48 @@ export function ServerSignIn() {
       ) : null}
       {step.kind === "connecting" ? <Title>{t("setup.title", { project: "the project" })}</Title> : null}
     </Centered>
+  );
+}
+
+/** New project in server mode: name, folder, create, open. The signed-in producer's session is reused. */
+export function ServerCreate() {
+  const go = useGo();
+  const useSource = useStore((s) => s.useSource);
+  const theme = useStore((s) => s.theme);
+  const toast = useStore((s) => s.toast);
+  const studio = useStore((s) => s.db.session.studio);
+  const [name, setName] = useState("");
+  const [folder, setFolder] = useState("");
+  const [busy, setBusy] = useState(false);
+  const saved = readSession();
+  if (!saved) return <Centered width={420}><Title>Sign in first.</Title></Centered>;
+  const submit = async () => {
+    setBusy(true);
+    try {
+      const made = await createProject(saved.serverUrl, saved.token, { name: name.trim(), folder_name: name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-"), blender_version: "4.2", ue_version: "5.4" });
+      const session = { ...saved, projectId: made.id, folder: folder.trim() || `~/Projects/${name.trim()}`, mode: "sync" as const };
+      const source = await connect(session, theme);
+      writeSession(session);
+      useSource(source);
+      go.project(source.snapshot().session.studio.projects[0]?.slug);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Could not create the project.", "failed");
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <Header crumbs={[{ label: studio.name, onClick: go.home }, { label: "New project", current: true }]} />
+      <Centered>
+        <form className="flex flex-col gap-8" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+          <Title>{t("create.name")}</Title>
+          <input value={name} onChange={(e) => setName(e.target.value)} autoFocus aria-label="Project name" className="h-13 border-b border-border bg-transparent text-24 text-heading outline-none" />
+          <Title>{t("create.folder")}</Title>
+          <Input large value={folder} onChange={(e) => setFolder(e.target.value)} aria-label="Project folder" placeholder={`~/Projects/${name.trim() || "Project"}`} />
+          <span className="text-secondary">{t("create.folder.note")}</span>
+          <Big type="submit" variant="primary" disabled={busy || !name.trim()}>Create project</Big>
+        </form>
+      </Centered>
+    </>
   );
 }

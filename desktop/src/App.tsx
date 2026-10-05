@@ -15,7 +15,7 @@ import { Profile } from "@/screens/Profile";
 import { Project } from "@/screens/Project";
 import { ProjectLayout } from "@/screens/ProjectLayout";
 import { Settings } from "@/screens/Settings";
-import { ServerSignIn } from "@/screens/ServerAuth";
+import { ServerCreate, ServerSignIn } from "@/screens/ServerAuth";
 import { States } from "@/screens/States";
 import { useMock } from "@/data/boot";
 import { Templates } from "@/screens/Templates";
@@ -37,7 +37,7 @@ export function AppRoutes() {
       <Route path="/join/start" element={<JoinStart />} />
       <Route path="/home" element={<Home />} />
       <Route path="/profile" element={<Profile />} />
-      <Route path="/new/:step" element={<Create />} />
+      <Route path="/new/:step" element={useMock() ? <Create /> : <ServerCreate />} />
       <Route path="/p/:project" element={<ProjectLayout />}>
         <Route index element={<Project />} />
         <Route path="changes" element={<Changes />} />
