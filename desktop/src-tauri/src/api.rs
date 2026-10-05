@@ -497,12 +497,25 @@ pub struct ServeOptions {
 pub async fn serve(
     server: ServerClient,
     opts: ServeOptions,
+    stop: tokio::sync::watch::Receiver<bool>,
+) -> Result<std::net::SocketAddr, AgentError> {
+    let (tx, _rx) = tokio::sync::oneshot::channel();
+    serve_with_addr(server, opts, stop, tx).await
+}
+
+/// Like `serve`, and sends the bound address as soon as the port is open, for a caller that
+/// starts the API in the background and needs the port before the first request.
+pub async fn serve_with_addr(
+    server: ServerClient,
+    opts: ServeOptions,
     mut stop: tokio::sync::watch::Receiver<bool>,
+    ready: tokio::sync::oneshot::Sender<std::net::SocketAddr>,
 ) -> Result<std::net::SocketAddr, AgentError> {
     let (listener, state) = bind(server, opts).await?;
     let addr = listener
         .local_addr()
         .map_err(|e| AgentError::io("listener", e))?;
+    let _ = ready.send(addr);
     // Stream mode has no spool and nothing to mirror.
     if state.mode == AgentMode::Sync {
         let mirror = Arc::clone(&state.mirror);

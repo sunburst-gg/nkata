@@ -34,7 +34,7 @@ export function Changes() {
           <span className="text-20 font-semibold tracking-[-0.01em]">Moved</span>
           {d.moves.map((m) => (
             <button type="button" key={m.name} onClick={() => go.asset(m.assetSlug, project.slug)} className="flex items-center gap-4 text-left outline-none focus-visible:shadow-focus rounded-md">
-              <div className="w-18 shrink-0 rounded-md" style={{ aspectRatio: "4/3", ...renderStyle(m.render, "tile") }} />
+              <div className="w-18 shrink-0 rounded-md bg-panel" style={{ aspectRatio: "4/3", ...(m.render ? renderStyle(m.render, "tile") : {}) }} />
               <div className="flex min-w-0 flex-1 flex-col gap-1"><span className="font-medium">{m.name}</span><span className="inline-flex items-center gap-2 text-13 text-secondary"><StateDot state={m.from} />{STATE_WORD[m.from]}<span className="text-disabled">to</span><StateDot state={m.to} />{STATE_WORD[m.to]}</span></div>
               <span className="role-mono whitespace-nowrap text-muted">{m.when}</span>
             </button>

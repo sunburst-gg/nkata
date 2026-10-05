@@ -15,7 +15,9 @@ import { Profile } from "@/screens/Profile";
 import { Project } from "@/screens/Project";
 import { ProjectLayout } from "@/screens/ProjectLayout";
 import { Settings } from "@/screens/Settings";
+import { ServerSignIn } from "@/screens/ServerAuth";
 import { States } from "@/screens/States";
+import { useMock } from "@/data/boot";
 import { Templates } from "@/screens/Templates";
 
 function ScrollReset() {
@@ -28,10 +30,10 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/home" replace />} />
-      <Route path="/signin" element={<SignIn />} />
+      <Route path="/signin" element={useMock() ? <SignIn /> : <ServerSignIn />} />
       <Route path="/signup" element={<SignUp />} />
       <Route path="/new-studio" element={<CreateStudio />} />
-      <Route path="/join" element={<Join />} />
+      <Route path="/join" element={useMock() ? <Join /> : <ServerSignIn />} />
       <Route path="/join/start" element={<JoinStart />} />
       <Route path="/home" element={<Home />} />
       <Route path="/profile" element={<Profile />} />

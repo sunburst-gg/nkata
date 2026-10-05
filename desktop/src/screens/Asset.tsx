@@ -10,6 +10,7 @@ import { EmptyPreview } from "@/components/EmptyPreview";
 import { PartThumb } from "@/components/PartThumb";
 import { RotatablePreview } from "@/components/RotatablePreview";
 import { useAsset, useGo, usePeople, useProject } from "@/lib/hooks";
+import { agent } from "@/lib/tauri";
 import { ScreenHead } from "./Shell";
 
 export function Asset() {
@@ -38,7 +39,7 @@ export function Asset() {
         line={line}
         actions={
           <>
-            {can("exportProject") ? <Button>Export</Button> : can("exportAsset") ? null : null}
+            {can("exportProject") ? <Button onClick={() => { if (!source.exportAsset) { toast(`Exporting ${asset.name} to plain folders.`, "synced"); return; } void source.exportAsset(asset.slug).then((json) => agent.writeExport(project.folder || ".", asset.slug, json)).then((path) => toast(`Exported ${asset.name} to ${path}.`, "synced")).catch((err: unknown) => toast(err instanceof Error ? err.message : "Export failed.", "failed")); }}>Export</Button> : null}
             {can("removeGate") && gated ? <Button onClick={() => setGateFor(gated.name)}>Remove gate</Button> : null}
             {can("assign") ? <Button>Assign</Button> : null}
             {can("downloadImages") && !can("exportProject") ? <Button onClick={() => toast(`Downloading ${asset.parts.length * 3} images of ${asset.name}.`, "synced")}>Download images</Button> : null}

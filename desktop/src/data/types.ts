@@ -39,7 +39,8 @@ export interface Version {
   id: string;
   n: number;
   note: string;
-  render: Render;
+  /** The published render, or null before a render exists. */
+  render: Render | null;
   authorId: string;
   when: string;
   mirror: "synced" | "failed";
@@ -83,6 +84,8 @@ export interface Part {
   checks: Check[];
   comments: Comment[];
   mirror: { state: MirrorState; seconds: number };
+  /** Where a prop is placed after its last mirror: levels and actor counts. */
+  refs: { level: string; actors: number }[];
 }
 
 export interface Asset {
@@ -170,7 +173,7 @@ export interface DigestMove {
   from: AssetState;
   to: AssetState;
   when: string;
-  render: Render;
+  render: Render | null;
 }
 
 export interface Digest {
@@ -212,7 +215,7 @@ export interface DataSource {
   signIn(as: "artist" | "viewer"): void;
   signOut(): void;
   markReady(assetSlug: string, partName: string): { ok: true } | { ok: false; reason: string };
-  fixChecks(assetSlug: string, partName: string): void;
+  fixChecks(assetSlug: string, partName: string): { ok: true } | { ok: false; reason: string };
   rollBack(assetSlug: string, partName: string, toVersion: number): Version;
   removeGate(assetSlug: string, partName: string): void;
   addComment(assetSlug: string, partName: string, text: string): Comment;
@@ -220,4 +223,8 @@ export interface DataSource {
   setDigestIndex(i: number): void;
   setDigestHome(on: boolean): void;
   setTheme(theme: "dark" | "light"): void;
+  /** Server only: the project's Discord webhook. Absent on the mock. */
+  setDiscordWebhook?(url: string | null): Promise<void>;
+  /** Server only: the export manifest of one asset as JSON text. */
+  exportAsset?(assetSlug: string): Promise<string>;
 }
