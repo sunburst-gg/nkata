@@ -11,6 +11,7 @@ export function Header({ crumbs, middle, right }: { crumbs: Crumb[]; middle?: Re
   const setTheme = useStore((s) => s.setTheme);
   const signOut = useStore((s) => s.signOut);
   const switchRole = useStore((s) => s.switchRole);
+  const serverMode = useStore((s) => s.serverMode);
   const viewer = user.role === "viewer";
   const go = useGo();
   return (
@@ -19,7 +20,7 @@ export function Header({ crumbs, middle, right }: { crumbs: Crumb[]; middle?: Re
       {middle}
       <div className="ml-auto flex items-center gap-6">
         {right}
-        <AccountMenu user={user} theme={theme} viewer={viewer} onProfile={go.profile} onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")} onSignOut={() => { signOut(); go.signin(); }} onSwitchRole={() => switchRole(viewer ? "artist" : "viewer")} />
+        <AccountMenu user={user} theme={theme} viewer={viewer} onProfile={go.profile} onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")} onSignOut={() => { signOut(); go.signin(); }} onSwitchRole={serverMode ? undefined : () => switchRole(viewer ? "artist" : "viewer")} />
       </div>
     </header>
   );

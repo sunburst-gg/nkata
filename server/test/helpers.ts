@@ -22,7 +22,7 @@ export type Harness = {
 };
 
 export async function startHarness(): Promise<Harness> {
-  const config = loadConfig({ ...process.env, NKATA_DEV: "1", LOG_LEVEL: "warn", S3_BUCKET: process.env["S3_BUCKET"] ?? "nkata-test" });
+  const config = loadConfig({ ...process.env, NKATA_DEV: "1", LOG_LEVEL: "warn", S3_BUCKET: process.env["S3_BUCKET"] ?? "nkata-test", DISCORD_SECRET: "test-secret-sixteen-chars" });
   const { db, pool } = createDb(config.DATABASE_URL);
   await resetSchema(db);
   const store = createStore(config);

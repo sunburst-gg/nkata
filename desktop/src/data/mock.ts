@@ -50,6 +50,7 @@ const part = (name: string, state: Part["state"], ownerId: string, render: Part[
   checks: [],
   comments: [],
   mirror: { state: "synced", seconds: 4 },
+  refs: [],
   ...extra,
 });
 
@@ -198,6 +199,7 @@ export function createMockSource(initialRole: "artist" | "viewer" = "artist"): D
       p.mirror = { state: "syncing", seconds: 2 };
       setTimeout(() => { p.mirror = { state: "synced", seconds: 4 }; touch(); }, 1800);
       touch();
+      return { ok: true };
     },
     rollBack: (assetSlug, partName, toVersion) => {
       const { p } = findPart(assetSlug, partName);

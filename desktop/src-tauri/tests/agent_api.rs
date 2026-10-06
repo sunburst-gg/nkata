@@ -133,6 +133,9 @@ async fn start_as(server_url: &str, fake: FakeUe5, email: &str) -> Harness {
     let addr = listener.local_addr().unwrap();
     let mirror = Arc::clone(&state.mirror);
     tokio::spawn(mirror.run());
+    let (_stop_tx, stop_rx) = tokio::sync::watch::channel(false);
+    tokio::spawn(Arc::clone(&state.relay).run(stop_rx));
+    std::mem::forget(_stop_tx);
     tokio::spawn(async move { axum::serve(listener, router(state)).await.unwrap() });
     let agent_token = std::fs::read_to_string(folder.join(".nkata-agent/token")).unwrap();
     Harness {
@@ -360,6 +363,238 @@ async fn local_api_serves_me_parts_locks_saves_and_mirrors() {
     std::fs::remove_dir_all(&h.folder).unwrap();
 }
 
+/// Subscribes to an agent's SSE stream and collects every event.
+async fn subscribe(h: &Harness) -> Arc<Mutex<Vec<Value>>> {
+    let resp = reqwest::Client::new()
+        .get(format!("{}/events?token={}", h.base, h.token))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status().as_u16(), 200);
+    let seen: Arc<Mutex<Vec<Value>>> = Arc::new(Mutex::new(vec![]));
+    let seen2 = Arc::clone(&seen);
+    tokio::spawn(async move {
+        let mut stream = resp.bytes_stream();
+        let mut buf = String::new();
+        while let Some(Ok(chunk)) = stream.next().await {
+            buf.push_str(&String::from_utf8_lossy(&chunk));
+            while let Some(pos) = buf.find("\n\n") {
+                let frame = buf[..pos].to_string();
+                buf = buf[pos + 2..].to_string();
+                for line in frame.lines() {
+                    if let Some(data) = line.strip_prefix("data:") {
+                        if let Ok(v) = serde_json::from_str::<Value>(data.trim()) {
+                            seen2.lock().await.push(v);
+                        }
+                    }
+                }
+            }
+        }
+    });
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    seen
+}
+
+async fn wait_for_kind(seen: &Arc<Mutex<Vec<Value>>>, kind: &str) -> Value {
+    wait_for_event(seen, |e| e["kind"] == kind).await
+}
+
+async fn wait_for_event(seen: &Arc<Mutex<Vec<Value>>>, pick: impl Fn(&Value) -> bool) -> Value {
+    for _ in 0..100 {
+        if let Some(v) = seen.lock().await.iter().find(|e| pick(e)) {
+            return v.clone();
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    panic!("no matching event arrived: {:?}", seen.lock().await);
+}
+
+/// Publish, checks, comments, review, and presence through the agent, with the director's
+/// decision reaching the artist's panel through the relay.
+#[tokio::test]
+async fn editors_publish_comment_review_and_hear_each_other() {
+    let Ok(server_url) = std::env::var("NKATA_TEST_SERVER_URL") else {
+        eprintln!("agent_api: NKATA_TEST_SERVER_URL not set, skipped (make test sets it)");
+        return;
+    };
+    let fake = || FakeUe5 {
+        script: Arc::new(Mutex::new(vec![])),
+        calls: Arc::new(AtomicUsize::new(0)),
+        last_command: Arc::new(Mutex::new(String::new())),
+    };
+    let artist = start_as(&server_url, fake(), ENV_ARTIST).await;
+    let director = start_as(&server_url, fake(), DIRECTOR).await;
+    let (_, parts) = artist.get("/parts?file=Market%20stall%2Fmodel.blend").await;
+    let model = parts["parts"][0]["id"].as_str().unwrap().to_string();
+    assert_eq!(parts["parts"][0]["checks"][0]["id"], "unit_scale");
+    assert_eq!(parts["parts"][0]["waiting_on"], json!([]));
+
+    let artist_seen = subscribe(&artist).await;
+    let director_seen = subscribe(&director).await;
+
+    // Nothing to publish before a save.
+    let (st, body) = artist
+        .post(
+            &format!("/parts/{model}/publish"),
+            Some(json!({"v": 1, "check_results": [], "ready": false})),
+        )
+        .await;
+    assert_eq!(st, 409, "{body}");
+
+    // A save with no change still records a version.
+    let (st, saved) = artist.post(&format!("/parts/{model}/saved"), Some(json!({"v": 1, "changed": false, "spool_path": null, "manifest": null, "source_file": "Market stall/model.blend"}))).await;
+    assert_eq!(st, 201, "{saved}");
+
+    // Live checks are recorded on the current version.
+    let failing = json!({"check_id": "triangle_budget", "severity": "block", "passed": false, "auto_fixed": false, "message": "18,000 of 15,000"});
+    let (st, rec) = artist
+        .post(
+            &format!("/parts/{model}/checks"),
+            Some(json!({"v": 1, "results": [failing]})),
+        )
+        .await;
+    assert_eq!(st, 200, "{rec}");
+    assert_eq!(rec["recorded"], 1);
+
+    // A blocking failure stops Publish; a clean run publishes and marks Ready.
+    let (st, blocked) = artist
+        .post(
+            &format!("/parts/{model}/publish"),
+            Some(json!({"v": 1, "check_results": [failing], "ready": true})),
+        )
+        .await;
+    assert_eq!(st, 200, "{blocked}");
+    assert_eq!(blocked["published"], false);
+    assert_eq!(blocked["blocked_by"][0]["check_id"], "triangle_budget");
+    let passing = json!({"check_id": "triangle_budget", "severity": "block", "passed": true, "auto_fixed": false, "message": ""});
+    let (_, published) = artist
+        .post(
+            &format!("/parts/{model}/publish"),
+            Some(json!({"v": 1, "check_results": [passing], "ready": true})),
+        )
+        .await;
+    assert_eq!(published["published"], true);
+    assert_eq!(published["state"], "ready");
+
+    // The director pins a comment; the artist's panel hears it through the relay.
+    let (st, pinned) = director.post(&format!("/parts/{model}/comments"), Some(json!({"v": 1, "point": [0.1, 0.2, 0.3], "normal": [0, 0, 1], "body": "Roof too thin."}))).await;
+    assert_eq!(st, 201, "{pinned}");
+    let heard = wait_for_kind(&artist_seen, "comment.created").await;
+    assert_eq!(heard["comment"]["body"], "Roof too thin.");
+    let (_, listed) = artist.get(&format!("/parts/{model}/comments")).await;
+    assert_eq!(listed["comments"].as_array().unwrap().len(), 1);
+    // The director's own stream does not echo it: the POST already answered.
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(!director_seen
+        .lock()
+        .await
+        .iter()
+        .any(|e| e["kind"] == "comment.created"));
+
+    // Presence: the artist is in the part; the director sees it.
+    let (st, online) = artist
+        .post("/presence", Some(json!({"v": 1, "part_id": model})))
+        .await;
+    assert_eq!(st, 200, "{online}");
+    assert!(online["online"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e["part_id"] == model));
+    let presence = wait_for_kind(&director_seen, "presence.changed").await;
+    assert!(presence["online"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e["user"]["name"] == "Environment artist"));
+
+    // The artist cannot review; the director approves and the artist hears the decision.
+    let (st, _) = artist
+        .post(
+            &format!("/parts/{model}/review"),
+            Some(json!({"v": 1, "score": 5, "decision": "approve", "note": ""})),
+        )
+        .await;
+    assert_eq!(st, 403);
+    let (st, reviewed) = director
+        .post(
+            &format!("/parts/{model}/review"),
+            Some(json!({"v": 1, "score": 4, "decision": "approve", "note": "Good."})),
+        )
+        .await;
+    assert_eq!(st, 201, "{reviewed}");
+    assert_eq!(reviewed["state"], "approved");
+    let decided = wait_for_kind(&artist_seen, "review.decided").await;
+    assert_eq!(decided["decision"], "approve");
+    let state = wait_for_event(&artist_seen, |e| {
+        e["kind"] == "part.state" && e["to"] == "approved"
+    })
+    .await;
+    assert_eq!(state["from"], "ready");
+    let (_, after) = artist.get("/parts?file=Market%20stall%2Fmodel.blend").await;
+    assert_eq!(after["parts"][0]["state"], "approved");
+}
+
+/// Step 3 gate, the lock half: two artists on one asset, no overwrite. The second to open a held
+/// part sees the holder and cannot write; the holder hears the request; a release lets the
+/// second in. docs/product.md, R4.
+#[tokio::test]
+async fn two_artists_on_one_part_never_overwrite() {
+    let Ok(server_url) = std::env::var("NKATA_TEST_SERVER_URL") else {
+        eprintln!("agent_api: NKATA_TEST_SERVER_URL not set, skipped (make test sets it)");
+        return;
+    };
+    let fake = || FakeUe5 {
+        script: Arc::new(Mutex::new(vec![])),
+        calls: Arc::new(AtomicUsize::new(0)),
+        last_command: Arc::new(Mutex::new(String::new())),
+    };
+    // Both are artists. The director holds the artist role too and owns nothing on Ojukwu.
+    let ada = start_as(&server_url, fake(), ARTIST).await;
+    let second = start_as(&server_url, fake(), DIRECTOR).await;
+    let (_, parts) = ada.get("/parts?file=Ojukwu%2Fhair.blend").await;
+    let hair = parts["parts"][0]["id"].as_str().unwrap().to_string();
+    let ada_seen = subscribe(&ada).await;
+    let second_seen = subscribe(&second).await;
+
+    // Ada opens and holds the part.
+    let (st, open) = ada.post(&format!("/parts/{hair}/open"), None).await;
+    assert_eq!(st, 200, "{open}");
+    assert_eq!(open["lock"]["holder"]["name"], "Rising Sun artist");
+
+    // The second artist sees the holder, cannot write, and the holder hears the request.
+    let (st, held) = second.post(&format!("/parts/{hair}/open"), None).await;
+    assert_eq!(st, 409, "{held}");
+    assert_eq!(held["granted"], false);
+    assert_eq!(held["lock"]["holder"]["name"], "Rising Sun artist");
+    let asked = wait_for_kind(&ada_seen, "lock.requested").await;
+    assert_eq!(asked["requester"]["name"], "Art director");
+    let (st, body) = second
+        .post(
+            &format!("/parts/{hair}/saved"),
+            Some(json!({"v": 1, "changed": false, "spool_path": null, "manifest": null, "source_file": "Ojukwu/hair.blend"})),
+        )
+        .await;
+    assert_eq!(st, 409, "a save while someone else holds the part: {body}");
+    assert_eq!(body["error"]["code"], "lock_held");
+
+    // Ada closes. The second artist hears the release and gets in.
+    let (st, closed) = ada.post(&format!("/parts/{hair}/close"), None).await;
+    assert_eq!(st, 200, "{closed}");
+    assert_eq!(closed["released"], true);
+    let released = wait_for_event(&second_seen, |e| {
+        e["kind"] == "lock.released" && e["part_id"] == hair
+    })
+    .await;
+    assert_eq!(released["reason"], "closed");
+    let (st, open2) = second.post(&format!("/parts/{hair}/open"), None).await;
+    assert_eq!(st, 200, "{open2}");
+    assert_eq!(open2["lock"]["holder"]["name"], "Art director");
+    let (_, now) = ada.get("/parts?file=Ojukwu%2Fhair.blend").await;
+    assert_eq!(now["parts"][0]["lock"]["holder"]["name"], "Art director");
+    second.post(&format!("/parts/{hair}/close"), None).await;
+}
+
 #[tokio::test]
 async fn a_prop_save_runs_the_static_import_and_stores_where_it_is_placed() {
     let Ok(server_url) = std::env::var("NKATA_TEST_SERVER_URL") else {
@@ -462,6 +697,9 @@ async fn unreachable_ue5_keeps_the_job_pending() {
     let addr = listener.local_addr().unwrap();
     let mirror = Arc::clone(&state.mirror);
     tokio::spawn(mirror.run());
+    let (_stop_tx, stop_rx) = tokio::sync::watch::channel(false);
+    tokio::spawn(Arc::clone(&state.relay).run(stop_rx));
+    std::mem::forget(_stop_tx);
     tokio::spawn(async move { axum::serve(listener, router(state)).await.unwrap() });
     let agent_token = std::fs::read_to_string(folder.join(".nkata-agent/token")).unwrap();
     let h = Harness {

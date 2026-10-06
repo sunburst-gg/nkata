@@ -69,7 +69,7 @@ class SaveHookTest(unittest.TestCase):
         self.blend.write_bytes(b"")
         FakeAgent.spool_dir = str(root / ".nkata-agent" / "spool")
         FakeAgent.saved = []
-        FakeAgent.parts = [{"id": ID, "asset_id": ID2, "asset_name": "Ojukwu", "name": "face", "state": "draft", "owner": None, "lock": None, "gate": {"after": []}, "mapping": {"kind": "blend_collection", "file": "Ojukwu/face.blend", "collection": "face"}, "kind": "character"}]
+        FakeAgent.parts = [{"id": ID, "asset_id": ID2, "asset_name": "Ojukwu", "name": "face", "state": "draft", "owner": None, "lock": None, "gate": {"after": []}, "mapping": {"kind": "blend_collection", "file": "Ojukwu/face.blend", "collection": "face"}, "kind": "character", "checks": [{"id": "unit_scale", "severity": "block", "params": {}}, {"id": "triangle_budget", "severity": "block", "params": {"max": 60000}}], "reference_files": ["Ojukwu/ref/concept.png"], "waiting_on": []}]
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), FakeAgent)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
         self.face = bpy_stub.FakeObject("Face", coords=[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0], materials=["M_Skin"])

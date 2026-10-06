@@ -25,6 +25,7 @@ pnpm --filter @nkata/desktop build
 python3 -m ruff --version >/dev/null 2>&1 || python3 -m pip install -q ruff
 python3 -m ruff check blender-addon ue5-plugin shared/py e2e fixtures
 (cd blender-addon && python3 -m unittest discover -s tests -t . -q)
+(cd ue5-plugin && python3 -m unittest discover -s tests -t . -q)
 python3 e2e/needs_editor.py
 # The quality bar skips itself without editors and still has to import and parse cleanly.
 python3 e2e/quality.py --project "$ROOT/fixtures"

@@ -1,7 +1,7 @@
 //! Nkata agent core.
 //!
-//! Index, chunking, sync, and the offline queue. The Tauri window (later step)
-//! and the CLI binary both call into this crate. See docs/engineering.md,
+//! Index, chunking, sync, the offline queue, the local API, the mirror, the relay, and stream
+//! mode. The Tauri window (runtime.rs) and the CLI binary both call into this crate. See docs/engineering.md,
 //! Storage and sync.
 
 pub mod agent;
@@ -15,6 +15,8 @@ pub mod index;
 pub mod mirror;
 pub mod protocol;
 pub mod queue;
+pub mod relay;
+pub mod runtime;
 pub mod scan;
 pub mod stream;
 pub mod sync;

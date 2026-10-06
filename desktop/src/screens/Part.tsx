@@ -45,8 +45,9 @@ export function Part() {
     else toast(r.reason, "failed");
   };
   const fix = () => {
-    source.fixChecks(asset.slug, part.name);
-    toast("Decimated to 28,410. Textures resized to 2048. In Unreal.", "synced");
+    const r = source.fixChecks(asset.slug, part.name);
+    if (r.ok) toast("Decimated to 28,410. Textures resized to 2048. In Unreal.", "synced");
+    else toast(r.reason, "failed");
   };
   const rollBack = () => {
     if (picked === null) return;
@@ -79,7 +80,7 @@ export function Part() {
           {part.versions.length === 0 ? <span className="text-13 text-secondary">No versions yet.</span> : null}
         </div>
         <div className="flex flex-col gap-4">
-          {previewVersion ? (
+          {previewVersion?.render ? (
             <RotatablePreview frames={[previewVersion.render]} aspect="16/10" label={`v${previewVersion.n} · in Unreal · Lit`}>
               {part.comments.filter((c) => c.pin && !c.resolved).map((c) => <CommentPin key={c.id} n={c.n} tone={activePin === c.n ? "active" : "default"} at={c.pin!} onClick={() => setActivePin(c.n)} />)}
             </RotatablePreview>

@@ -96,6 +96,7 @@ class FakeCollection:
 
 
 class FakeOps:
+    reports: list[str] = []
     """Records operator calls and writes a file where the exporter would."""
 
     def __init__(self) -> None:
@@ -156,8 +157,15 @@ def install(collections: dict[str, FakeCollection], filepath: str) -> types.Modu
     bpy.ops = types.SimpleNamespace(collection=CollectionOps, export_scene=ExportSceneOps)
     bpy.context = Context
     bpy.data = types.SimpleNamespace(collections=collections, filepath=filepath, images=[types.SimpleNamespace(name="T_Face_D", size=(2048, 2048))])
-    bpy.app = types.SimpleNamespace(handlers=types.SimpleNamespace(save_post=[]), timers=types.SimpleNamespace(is_registered=lambda _f: False, register=lambda *_a, **_k: None, unregister=lambda _f: None))
-    bpy.types = types.SimpleNamespace(Operator=object, Panel=object, Context=object)
+    bpy.app = types.SimpleNamespace(handlers=types.SimpleNamespace(save_post=[], load_post=[]), timers=types.SimpleNamespace(is_registered=lambda _f: False, register=lambda *_a, **_k: None, unregister=lambda _f: None))
+    Context.scene.cursor = types.SimpleNamespace(location=(0.5, 0.25, 0.0))
+
+    class Operator:
+        def report(self, _kind: set[str], message: str) -> None:
+            FakeOps.reports.append(message)
+
+    bpy.types = types.SimpleNamespace(Operator=Operator, Panel=object, Context=object, SpaceView3D=None)
+    bpy.props = types.SimpleNamespace(StringProperty=lambda **_k: "", BoolProperty=lambda **_k: False, IntProperty=lambda **_k: 0)
     bpy.utils = types.SimpleNamespace(register_class=lambda _c: None, unregister_class=lambda _c: None)
     bpy._ops = ops
     sys.modules["bpy"] = bpy

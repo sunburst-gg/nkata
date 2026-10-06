@@ -5,11 +5,11 @@ import type { WebSocket } from "ws";
 import { ClientMessage, type ServerEvent } from "@nkata/shared";
 import { and, eq } from "drizzle-orm";
 import { resolveSession, type Principal } from "./auth/tokens.js";
-import { presence as presenceTable, project } from "./db/schema.js";
+import { project } from "./db/schema.js";
 import { AppError } from "./domain/errors.js";
-import { newId } from "./domain/ids.js";
 import { loadPart, type TypedApp } from "./routes/_shared.js";
 import { releaseLock } from "./routes/locks.js";
+import { emitPresence as emitPresenceRoute, heartbeat } from "./routes/presence.js";
 
 export const PRESENCE_SWEEP_MS = 15 * 1000;
 
@@ -26,12 +26,7 @@ export async function wsRoutes(app: TypedApp): Promise<void> {
   };
   app.bus.subscribe(broadcast);
 
-  const emitPresence = async (studioId: string, projectId: string, actorId: string): Promise<void> => {
-    await app.bus.emit({
-      studio_id: studioId, target_kind: "project", target_id: projectId,
-      message: { v: 1, kind: "presence.changed", project_id: projectId, actor_id: actorId, at: app.now().toISOString(), online: app.presence.list(projectId) },
-    });
-  };
+  const emitPresence = (studioId: string, projectId: string, actorId: string): Promise<void> => emitPresenceRoute(app, studioId, projectId, actorId);
 
   // Drop silent users every 15 s. Timer is unref'd so it never keeps a test process alive.
   const studioOf = new Map<string, { studio_id: string; last_actor: string }>();
@@ -74,12 +69,7 @@ export async function wsRoutes(app: TypedApp): Promise<void> {
         const msg = parsed.data;
         const now = app.now();
         if (msg.kind === "presence.heartbeat") {
-          const changed = app.presence.heartbeat(projectId, userRef, msg.part_id, now);
-          await app.db
-            .insert(presenceTable)
-            .values({ id: newId(), studio_id: principal.studio_id, user_id: principal.user_id, project_id: projectId, part_id: msg.part_id, since: now, last_seen: now })
-            .onConflictDoUpdate({ target: [presenceTable.user_id, presenceTable.project_id], set: { part_id: msg.part_id, last_seen: now, updated_at: now } });
-          if (changed) await emitPresence(principal.studio_id, projectId, principal.user_id);
+          await heartbeat(app, principal, projectId, msg.part_id);
         } else if (msg.kind === "lock.release") {
           const { part: row, asset: a } = await loadPart(app.db, principal, msg.part_id);
           await releaseLock(app, { studio_id: a.studio_id, project_id: a.project_id, part_id: row.id, actor_id: principal.user_id, reason: "closed", onlyHolder: principal.user_id });

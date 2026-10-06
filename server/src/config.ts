@@ -17,6 +17,8 @@ const Env = z.object({
   HOST: z.string().default("127.0.0.1"),
   PUBLIC_URL: z.url().default("http://localhost:7400"),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).default("info"),
+  // Encrypts the Discord webhook URL at rest. Without it no webhook can be stored.
+  DISCORD_SECRET: z.string().min(16).optional(),
 });
 
 export type Config = z.infer<typeof Env>;

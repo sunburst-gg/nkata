@@ -5,6 +5,8 @@ import { createStore as createVanilla, type StoreApi } from "zustand/vanilla";
 import type { Role } from "@/auth/permissions";
 import { can, type Action } from "@/auth/permissions";
 import { createMockSource } from "@/data/mock";
+import { writeSession } from "@/data/boot";
+import { agent } from "@/lib/tauri";
 import type { AssetKind, DataSource, Snapshot } from "@/data/types";
 
 export type Theme = "dark" | "light";
@@ -63,6 +65,10 @@ interface Store extends UiState {
   signIn: (as: "artist" | "viewer") => void;
   signOut: () => void;
   switchRole: (as: "artist" | "viewer") => void;
+  /** Replaces the mock with a loaded server source. The screens re-read everything. */
+  useSource: (source: DataSource) => void;
+  /** True once a server source is in; the mock role switch is hidden then. */
+  serverMode: boolean;
 }
 
 let toastSeq = 0;
@@ -79,6 +85,7 @@ export function createStore(source: DataSource = createMockSource()): StoreApi<S
     toasts: [],
     inviteOpen: false,
     signedIn: false,
+    serverMode: false,
     can: (action) => can(action, get().role),
     refresh: () => {
       const db = get().source.snapshot();
@@ -106,14 +113,28 @@ export function createStore(source: DataSource = createMockSource()): StoreApi<S
     },
     signOut: () => {
       get().source.signOut();
+      if (get().serverMode) {
+        writeSession(null);
+        void agent.stop().catch(() => undefined);
+        const mock = createMockSource();
+        unsubscribe();
+        unsubscribe = mock.subscribe(() => store.getState().refresh());
+        set({ source: mock, db: mock.snapshot(), role: mock.snapshot().session.user.role, serverMode: false });
+      }
       set({ signedIn: false, railOpen: false, reviewMode: false, inviteOpen: false });
     },
     switchRole: (as) => {
       get().source.signIn(as);
       get().refresh();
     },
+    useSource: (next) => {
+      unsubscribe();
+      unsubscribe = next.subscribe(() => store.getState().refresh());
+      const db = next.snapshot();
+      set({ source: next, db, role: db.session.user.role, signedIn: true, serverMode: true, railOpen: false, reviewMode: false });
+    },
   }));
-  source.subscribe(() => store.getState().refresh());
+  let unsubscribe = source.subscribe(() => store.getState().refresh());
   return store;
 }
 

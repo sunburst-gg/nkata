@@ -7,7 +7,7 @@ import { part, review, version } from "../db/schema.js";
 import { notFound } from "../domain/errors.js";
 import { newId } from "../domain/ids.js";
 import { transition } from "../domain/state.js";
-import { loadPart, requireRole, type TypedApp } from "./_shared.js";
+import { loadPart, requireRole, userRefs, type TypedApp } from "./_shared.js";
 import { releaseLock } from "./locks.js";
 import { openGates } from "./parts.js";
 
@@ -50,6 +50,14 @@ export async function reviewRoutes(app: TypedApp): Promise<void> {
       opened = await openGates(app, a.studio_id, a.project_id, a.id, req.principal.user_id);
     }
     req.log.info({ project_id: a.project_id, part_id: row.id, decision: req.body.decision, opened }, "review decided");
+    // The one Discord message. A failed post is logged and never fails the review.
+    try {
+      const owner = row.owner_id ? (await userRefs(app.db, [row.owner_id])).get(row.owner_id)?.name ?? null : null;
+      const posted = await app.discord(a.project_id, { reviewer: req.principal.name, owner, asset: a.name, part: row.name, decision: req.body.decision, score: req.body.score, note: req.body.note });
+      if (posted) req.log.info({ project_id: a.project_id, part_id: row.id }, "discord posted");
+    } catch (err) {
+      req.log.warn({ err, project_id: a.project_id, part_id: row.id }, "discord post failed");
+    }
     return reply.status(201).send({ v: 1, review: saved, state: to, opened });
   });
 

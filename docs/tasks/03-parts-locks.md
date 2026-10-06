@@ -1,5 +1,7 @@
 # Step 3: Parts and locks
 
+Code complete Oct 5, 2026. The lock half of the gate is green in make test (two_artists_on_one_part_never_overwrite). The install time under 5 minutes is measured by hand on a real machine.
+
 Work on main. Push after every green `make test`. Open a PR only if you are blocked or the gate fails.
 
 Read CLAUDE.md, docs/product.md (Roles and permissions, R3 to R6), docs/engineering.md (Locks presence gates state, Checks pins templates, Fixture corpus), and docs/decisions.md first. Steps 1a, 1b, and 2 are in.

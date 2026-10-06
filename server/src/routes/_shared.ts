@@ -3,7 +3,8 @@ import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { Template, Ulid, type LockInfo, type PartState, type Role, type TemplateKind, type UserRef } from "@nkata/shared";
+import { Template, Ulid, type CheckSpec, type LockInfo, type PartState, type Role, type TemplateKind, type UserRef } from "@nkata/shared";
+import { checkSeverity } from "../domain/checks.js";
 import type { Principal } from "../auth/tokens.js";
 import type { Db } from "../db/client.js";
 import { asset, lock, part, project, template, user } from "../db/schema.js";
@@ -94,18 +95,41 @@ export async function currentLock(db: Db, partId: string, now: Date): Promise<Lo
 
 /** The template kind of an asset, from the cached template row. Picks the import script. */
 export async function templateKind(db: Db, templateId: string): Promise<TemplateKind> {
+  return (await templateOf(db, templateId)).kind;
+}
+
+export async function templateOf(db: Db, templateId: string): Promise<Template> {
   const rows = await db.select({ schema: template.schema }).from(template).where(eq(template.id, templateId)).limit(1);
   const row = rows[0];
   if (!row) throw notFound("template", templateId);
-  return Template.parse(row.schema).kind;
+  return Template.parse(row.schema);
 }
 
-export function partWire(row: PartRow, assetName: string, kind: TemplateKind, owner: UserRef | null, lockInfo: LockInfo | null) {
+/** What every part of one asset shares on the wire: the template, the reference, and the siblings for gates. */
+export type PartContext = { asset_name: string; template: Template; reference_files: string[]; siblings: { name: string; state: PartState }[] };
+
+export async function partContext(db: Db, a: AssetRow): Promise<PartContext> {
+  const tpl = await templateOf(db, a.template_id);
+  const siblings = await db.select({ name: part.name, state: part.state }).from(part).where(eq(part.asset_id, a.id));
+  return { asset_name: a.name, template: tpl, reference_files: a.reference_files, siblings };
+}
+
+/** The checks a template runs on a part, with severity from the contract and params from the template. */
+export function checkSpecs(tpl: Template, partName: string): CheckSpec[] {
+  const tp = tpl.parts.find((x) => x.name === partName);
+  if (!tp) return [];
+  return tp.checks.map((id) => ({ id, severity: checkSeverity(id), params: (tp.params?.[id] as Record<string, unknown> | undefined) ?? {} }));
+}
+
+export function partWire(row: PartRow, ctx: PartContext, owner: UserRef | null, lockInfo: LockInfo | null) {
   return {
     id: row.id,
     asset_id: row.asset_id,
-    asset_name: assetName,
-    kind,
+    asset_name: ctx.asset_name,
+    kind: ctx.template.kind,
+    checks: checkSpecs(ctx.template, row.name),
+    reference_files: ctx.reference_files,
+    waiting_on: row.gate.after.filter((name) => ctx.siblings.find((s) => s.name === name)?.state !== "approved"),
     name: row.name,
     position: row.position,
     state: row.state,
@@ -133,4 +157,13 @@ export function assetState(states: PartState[]): "locked" | "draft" | "ready" | 
 export function requireCanEdit(p: Principal, row: PartRow): void {
   if (row.owner_id === p.user_id || isReviewer(p)) return;
   throw new AppError("forbidden", "only the owner, an art director, or a producer can edit this part", { part_id: row.id });
+}
+
+/** No overwrite: while someone else holds the editor lock, nobody else writes a version. */
+export async function requireNotHeldByOther(db: Db, p: Principal, partId: string, now: Date): Promise<void> {
+  const rows = await db.select().from(lock).where(eq(lock.part_id, partId)).limit(1);
+  const row = rows[0];
+  if (!row || row.expires_at.getTime() <= now.getTime() || row.holder_id === p.user_id) return;
+  const holder = await userRef(db, row.holder_id);
+  throw new AppError("lock_held", `${holder.name} has this part`, { part_id: partId, holder: holder.id });
 }

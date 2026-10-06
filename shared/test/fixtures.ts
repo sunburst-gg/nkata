@@ -27,7 +27,8 @@ const manifestObject = { name: "Face", triangles: 12000, materials: ["M_Skin"], 
 const manifest = { v: 1, kind: "character", objects: [manifestObject], bone_count: 42, armature: "Armature", mirror_target: "/Game/Characters/Ojukwu/face" };
 const mapping = { kind: "blend_collection", file: "face.blend", collection: "face" };
 const mirrorState = { part_id: id, status: "synced", version_id: id2, at, mirror_ms: 4200, message: "", failures: 0, halted: false };
-const partSummary = { id, asset_id: id2, asset_name: "Ojukwu", name: "face", state: "draft", owner: user, lock, gate: { after: [] }, mapping, kind: "character" };
+const checkSpec = { id: "triangle_budget", severity: "block", params: { max: 60000 } };
+const partSummary = { id, asset_id: id2, asset_name: "Ojukwu", name: "face", state: "draft", owner: user, lock, gate: { after: [] }, mapping, kind: "character", checks: [checkSpec], reference_files: ["Ojukwu/ref/concept.png"], waiting_on: [] };
 
 const events = {
   PresenceChanged: { ...head, kind: "presence.changed", online: [presenceEntry] },
@@ -95,6 +96,7 @@ export const fixtures: Fixtures = {
     ProjectRef: { valid: [{ id, name: "Rising Sun", folder_name: "rising-sun" }], invalid: [{ id, name: "Rising Sun" }] },
     MeResponse: { valid: [{ v: 1, user, project: { id, name: "Rising Sun", folder_name: "rising-sun" }, package_version: "0.1.0", online: true, spool_dir: "/home/ada/rising-sun/.nkata-agent/spool", mode: "sync" }], invalid: [{ v: 1, user }] },
     AgentMode: { valid: ["sync", "stream"], invalid: ["viewer"] },
+    CheckSpec: { valid: [checkSpec, { id: "unit_scale", severity: "warn", params: {} }], invalid: [{ id: "Unit", severity: "block", params: {} }] },
     PartSummary: { valid: [partSummary, { ...partSummary, owner: null, lock: null }], invalid: [{ ...partSummary, state: "open" }] },
     PartsResponse: { valid: [{ v: 1, parts: [partSummary] }], invalid: [{ v: 1 }] },
     PartOpenResponse: { valid: [{ v: 1, granted: true, lock }, { v: 1, granted: false, lock }], invalid: [{ v: 1, granted: true }] },

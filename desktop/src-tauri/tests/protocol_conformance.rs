@@ -54,6 +54,13 @@ fn samples() -> Vec<(&'static str, Value)> {
             collection: "face".into(),
         },
         kind: TemplateKind::Character,
+        checks: vec![CheckSpec {
+            id: "triangle_budget".into(),
+            severity: CheckSeverity::Block,
+            params: serde_json::from_str(r#"{"max": 60000}"#).unwrap(),
+        }],
+        reference_files: vec!["Ojukwu/ref/concept.png".into()],
+        waiting_on: vec![],
     };
     let state = MirrorState {
         part_id: id.into(),

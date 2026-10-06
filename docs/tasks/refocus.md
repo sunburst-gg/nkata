@@ -114,7 +114,7 @@ Docs first, then code in this order. One concern per commit. `make test` green b
 
 ## Changes made
 
-Appended as each lands, with the commit subject. Every item of the plan above has landed; the Blender N-panel and UE5 panel elements beyond the header and the mirror line wait on the step 3 routes (docs/tasks/03-parts-locks.md).
+Appended as each lands, with the commit subject. Every item of the plan above has landed. Steps 3 to 5 followed on Oct 5, 2026 (see the task files): the agent routes and relay, both panels in full, the lock gate, the Discord message, and the desktop app on the server.
 
 - Add the refocus audit and plan (this file).
 - Refocus the docs on four people: product.md, engineering.md, task files 01a, 01b, 03, 04, 05; 01-mirror.md deleted; 02-core.md marked done; README layout rows.

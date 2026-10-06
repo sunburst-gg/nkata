@@ -1,5 +1,7 @@
 # Step 5: Project view and viewer mode
 
+Code complete Oct 5, 2026. Stream mode and the viewer DOM test are green in make test. The screens read the server through src/data/server.ts; the viewer flow end to end in the window needs a built app.
+
 Work on main. Push after every green `make test`. Open a PR only if you are blocked or the gate fails.
 
 Read CLAUDE.md, docs/product.md (Viewer, R9 to R11, Surfaces), docs/engineering.md (Storage and sync: Stream mode, Export), desktop/README.md, and docs/decisions.md first. Steps 1a to 4 are in. The desktop screens exist against an in-memory mock behind `DataSource`; this step wires them to the server and the agent.

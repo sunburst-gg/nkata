@@ -1,4 +1,4 @@
-//! CLI binary for tests and headless use. The desktop window comes in a later step.
+//! CLI binary for tests and headless use. The desktop window is desktop.rs on the same crate.
 //! Every command prints one JSON report to stdout. Logs go to stderr as JSON lines.
 
 use std::path::PathBuf;
@@ -36,7 +36,8 @@ enum Command {
         server: String,
         #[arg(long)]
         project: String,
-        #[arg(long)]
+        /// Session token. It is base64url, so it can start with a hyphen.
+        #[arg(long, allow_hyphen_values = true)]
         token: String,
         #[arg(long, default_value_t = false)]
         stream: bool,
@@ -275,6 +276,30 @@ async fn main() {
         Err(e) => {
             eprintln!("{}", serde_json::json!({ "error": e.to_string() }));
             std::process::exit(1);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_token_that_starts_with_a_hyphen_parses() {
+        let cli = Cli::try_parse_from([
+            "nkata-agent",
+            "init",
+            "--server",
+            "http://127.0.0.1:7401",
+            "--project",
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "--token",
+            "-0W69NpM2Ua",
+        ])
+        .expect("parses");
+        match cli.command {
+            Command::Init { token, .. } => assert_eq!(token, "-0W69NpM2Ua"),
+            _ => panic!("not init"),
         }
     }
 }

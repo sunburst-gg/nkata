@@ -9,6 +9,8 @@ import type { Db } from "./db/client.js";
 import { AppError } from "./domain/errors.js";
 import { createEventBus, type EventBus } from "./events.js";
 import { createPresence, type PresenceMap } from "./presence.js";
+import { createDiscordPoster, type DiscordPoster } from "./domain/discord.js";
+import { presenceRoutes } from "./routes/presence.js";
 import type { Store } from "./store/s3.js";
 import type { Principal } from "./auth/tokens.js";
 import { resolveSession } from "./auth/tokens.js";
@@ -32,6 +34,7 @@ declare module "fastify" {
     config: Config;
     bus: EventBus;
     presence: PresenceMap;
+    discord: DiscordPoster;
     now: () => Date;
   }
   interface FastifyRequest {
@@ -45,13 +48,15 @@ export type AppDeps = {
   config: Config;
   /** Clock. Tests inject a fake one. */
   now?: () => Date;
+  /** The Discord poster. Tests inject one that records. */
+  discord?: DiscordPoster;
 };
 
 export type App = FastifyInstance;
 
 // Routes that run without a session token.
 /** The only non GET routes a viewer may call. */
-const VIEWER_WRITES: ReadonlySet<string> = new Set(["/comments", "/comments/:id/resolve", "/files/download-urls"]);
+const VIEWER_WRITES: ReadonlySet<string> = new Set(["/comments", "/comments/:id/resolve", "/files/download-urls", "/presence"]);
 
 function isViewerOnly(p: Principal): boolean {
   return p.roles.length > 0 && p.roles.every((r) => r === "viewer");
@@ -76,6 +81,7 @@ export async function buildApp(deps: AppDeps): Promise<App> {
   app.decorate("config", deps.config);
   app.decorate("bus", createEventBus(deps.db));
   app.decorate("presence", createPresence());
+  app.decorate("discord", deps.discord ?? createDiscordPoster(deps.db, deps.config.DISCORD_SECRET));
   app.decorate("now", deps.now ?? (() => new Date()));
   // Reference values are set per request in the onRequest hook. See https://fastify.dev/docs/latest/Reference/Decorators/
   app.decorateRequest("principal", null as unknown as Principal);
@@ -125,6 +131,7 @@ export async function buildApp(deps: AppDeps): Promise<App> {
   await typed.register(commentRoutes);
   await typed.register(reviewRoutes);
   await typed.register(eventRoutes);
+  await typed.register(presenceRoutes);
   await typed.register(fileRoutes);
   await typed.register(exportRoutes);
   await typed.register(wsRoutes);

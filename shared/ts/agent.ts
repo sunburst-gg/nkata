@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @nkata/shared generate
 
 import { z } from "zod";
-import { CheckResult, CommentPin, Gate, LockInfo, MirrorStatus, PartMapping, PartState, ReviewDecision, Timestamp, Ulid, UserRef, Vec3 } from "./common.js";
+import { CheckResult, CheckSeverity, CommentPin, Gate, LockInfo, MirrorStatus, PartMapping, PartState, ReviewDecision, Timestamp, Ulid, UserRef, Vec3 } from "./common.js";
 import { CommentCreated, LockGranted, LockReleased, LockRequested, MirrorResult, PartStateChanged, PresenceChanged, PresenceEntry } from "./events.js";
 import { TemplateKind } from "./template.js";
 
@@ -29,6 +29,14 @@ export const MeResponse = z.strictObject({
 });
 export type MeResponse = z.infer<typeof MeResponse>;
 
+/** One check a template runs on a part: the contract id, its severity, and the params. */
+export const CheckSpec = z.strictObject({
+  "id": z.string().regex(new RegExp("^[a-z][a-z0-9_]*$")),
+  "severity": CheckSeverity,
+  "params": z.record(z.string(), z.unknown()),
+});
+export type CheckSpec = z.infer<typeof CheckSpec>;
+
 export const PartSummary = z.strictObject({
   "id": Ulid,
   "asset_id": Ulid,
@@ -40,6 +48,9 @@ export const PartSummary = z.strictObject({
   "gate": Gate,
   "mapping": PartMapping,
   "kind": TemplateKind,
+  "checks": z.array(CheckSpec),
+  "reference_files": z.array(z.string()),
+  "waiting_on": z.array(z.string()),
 });
 export type PartSummary = z.infer<typeof PartSummary>;
 
