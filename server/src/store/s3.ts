@@ -29,7 +29,7 @@ export function createStore(config: Pick<Config, "S3_ENDPOINT" | "S3_REGION" | "
     endpoint: config.S3_ENDPOINT,
     region: config.S3_REGION,
     credentials: { accessKeyId: config.S3_ACCESS_KEY, secretAccessKey: config.S3_SECRET_KEY },
-    // MinIO and R2 both serve bucket-in-path URLs.
+    // RustFS, MinIO, and R2 all serve bucket-in-path URLs.
     forcePathStyle: true,
   });
   const Bucket = config.S3_BUCKET;

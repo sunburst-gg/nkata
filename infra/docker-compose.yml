@@ -1,5 +1,8 @@
 # Local dev stack. `make dev` starts it, `make dev-down` removes it.
-# Ports: Postgres 5432, MinIO S3 9000, MinIO console 9001.
+# Ports: Postgres 5432, S3 API 9000, store console 9001.
+# The store is RustFS, an S3 server with the MinIO command line and env names.
+# MinIO withdrew its images from Docker Hub and quay.io in September 2026 (docs/decisions.md).
+# Image and env: https://docs.rustfs.com/installation/docker.html
 services:
   postgres:
     image: postgres:16
@@ -17,23 +20,25 @@ services:
       timeout: 2s
       retries: 30
 
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
+  store:
+    image: rustfs/rustfs:1.0.1
     environment:
-      MINIO_ROOT_USER: nkata
-      MINIO_ROOT_PASSWORD: nkata-dev-secret
+      RUSTFS_ACCESS_KEY: nkata
+      RUSTFS_SECRET_KEY: nkata-dev-secret
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
     ports:
       - "9000:9000"
       - "9001:9001"
     volumes:
-      - miniodata:/data
+      - storedata:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/health || exit 1"]
       interval: 2s
       timeout: 2s
       retries: 30
 
 volumes:
   pgdata:
-  miniodata:
+  storedata:

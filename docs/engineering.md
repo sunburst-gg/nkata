@@ -26,7 +26,7 @@ One monorepo, `nkata/`. One version number across all packages. A project pins t
 | --- | --- | --- | --- |
 | `shared/` | TypeScript, JSON Schema | Published to the other packages | Types, the agent protocol, the template schema, check definitions, event names, copy strings |
 | `server/` | TypeScript (Node 22), Fastify, Drizzle | One VPS, Docker | REST, WebSocket, auth, lock grants, signed store URLs, one Discord hook |
-| `store/` | S3-compatible (Cloudflare R2 or MinIO) | Managed | Content-addressed chunks, previews, renders |
+| `store/` | S3-compatible (Cloudflare R2 in prod, RustFS in dev) | Managed | Content-addressed chunks, previews, renders |
 | `db/` | Postgres 16 | Managed or on the VPS | All metadata |
 | `desktop/` | Tauri 2: Rust core, TypeScript UI (React, Tailwind, the brand tokens) | macOS, Windows | The app and the local agent in one process |
 | `blender-addon/` | Python 3.11, bpy | Blender 4.2+ | N-panel, save hook, collection export, checks, pins, presence |
@@ -251,7 +251,7 @@ If step 0 fails on the physics or materials, the fallback is Interchange with a 
 
 ## Dev environment
 
-- `make dev` starts Postgres, MinIO, and the server in Docker, seeds one studio, one project, the Character and Environment templates, the Ojukwu asset, three props (Kettle, Wooden stool, Market stall), and one level area (Enugu Market / square).
+- `make dev` starts Postgres and RustFS in Docker. The server runs from the shell. The seed loads one studio, one project, the Character and Environment templates, the Ojukwu asset, three props (Kettle, Wooden stool, Market stall), and one level area (Enugu Market / square).
 - `make desktop` runs the Tauri app against the local server.
 - `make addon` symlinks `blender-addon/` into the Blender extensions folder; reload with F3 "Reload Scripts".
 - `make ue` symlinks `ue5-plugin/` into a test project's `Plugins/`; the Python side needs no build. The C++ module builds with Live Coding.
@@ -262,7 +262,7 @@ If step 0 fails on the physics or materials, the fallback is Interchange with a 
 ## Testing
 
 - `shared`: schema tests, protocol round-trips Python to TypeScript, the shipped check list.
-- `server`: unit tests on lock grant, gate evaluation, state transitions, chunk dedupe. Integration tests against Docker Postgres and MinIO. One test per mutating route signs in with a viewer token and asserts 403, plus 201 on comments.
+- `server`: unit tests on lock grant, gate evaluation, state transitions, chunk dedupe. Integration tests against Docker Postgres and RustFS. One test per mutating route signs in with a viewer token and asserts 403, plus 201 on comments.
 - `desktop`: Rust unit tests for FastCDC, index rescan, queue drain, script choice by kind, cache eviction. Fixture folder of 40k small files for the rescan budget.
 - `blender-addon`: tests run against `fixtures/` with `bpy` stubbed, and in `blender --background --python` on a real machine. Hashing, changed-object detection, exporter trigger, origin and scale refusal, check results.
 - `ue5-plugin`: tests run with `UnrealEditor-Cmd -run=pythonscript` against a fixture project. Import, reimport, materials kept, referencer count, placement scan.

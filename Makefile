@@ -4,7 +4,7 @@
 hooks:
 	git config core.hooksPath .githooks
 
-# Local stack: Postgres 16 and MinIO in Docker.
+# Local stack: Postgres 16 and RustFS (S3) in Docker.
 dev:
 	docker compose -f infra/docker-compose.yml up -d --wait
 
@@ -12,7 +12,7 @@ dev-down:
 	docker compose -f infra/docker-compose.yml down -v
 
 # Runs every package test plus the step gate with no editor installed.
-# scripts/test.sh brings up Postgres and MinIO (Docker, or local binaries
+# scripts/test.sh brings up Postgres and the S3 store (Docker, or local binaries
 # when Docker is absent), starts the server, and tears it all down.
 test:
 	./scripts/test.sh

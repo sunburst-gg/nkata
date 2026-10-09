@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # `make test`. Runs every package test plus the step gate with no editor installed.
-# 1. Postgres and MinIO (scripts/testenv.sh).
+# 1. Postgres and the S3 store (scripts/testenv.sh).
 # 2. pnpm -r test: shared schema round-trips, server unit and integration tests.
 # 3. cargo test --workspace: agent unit tests and the sync gate against a live server.
 set -euo pipefail
@@ -30,7 +30,7 @@ python3 e2e/needs_editor.py
 # The quality bar skips itself without editors and still has to import and parse cleanly.
 python3 e2e/quality.py --project "$ROOT/fixtures"
 
-# The gate test needs a live server over the same Postgres and MinIO, seeded from a clean schema.
+# The gate test needs a live server over the same Postgres and store, seeded from a clean schema.
 # The server tests leave their last fixtures behind and the seed finds rows by name.
 export NKATA_DEV=1
 export PORT="${TEST_SERVER_PORT:-7401}"

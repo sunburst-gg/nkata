@@ -21,25 +21,25 @@ Nkata is a desktop app plus a Blender add-on and a UE5 plugin. Game teams work o
 | `ue5-plugin/` | UE 5.4+ Python scripts the agent runs over Remote Control, and the panel model the Editor Utility Widget draws. |
 | `fixtures/` | Test corpus: one rigged character, three props, one level area. Built by `fixtures/build.py`. |
 | `e2e/` | Editor gates and the quality bar, marked `@needs_editor`. |
-| `infra/` | Docker Compose with Postgres and MinIO. |
+| `infra/` | Docker Compose with Postgres and RustFS, the S3 store. |
 
 ## Run
 
-Needs Node 22, pnpm 10, Rust stable, Python 3.11, and Docker or local Postgres 16 and MinIO binaries.
+Needs Node 22, pnpm 10, Rust stable, Python 3.11, and Docker or local Postgres 16 and RustFS binaries (https://docs.rustfs.com/installation/linux.html, or a MinIO binary you already have).
 
 ```
 pnpm install
-make dev        # Postgres and MinIO in Docker
+make dev        # Postgres and RustFS in Docker
 make test       # every package test plus the step gate, no editor needed
 make hooks      # git hooks: make test before every push
 ```
 
-`make test` brings up Postgres and MinIO with Docker, or with local binaries when Docker is absent, starts a seeded server, and runs the sync gate between two agent instances. Copy `.env.example` to `.env` to run the server by hand with `pnpm --filter @nkata/server dev`.
+`make test` brings up Postgres and the S3 store with Docker, or with local binaries when Docker is absent, starts a seeded server, and runs the sync gate between two agent instances. Copy `.env.example` to `.env` to run the server by hand with `pnpm --filter @nkata/server dev`.
 
 ## Run the app against a local server
 
 ```
-make dev                                   # Postgres, MinIO
+make dev                                   # Postgres, RustFS
 pnpm --filter @nkata/server db:reset && pnpm --filter @nkata/server seed
 NKATA_DEV=1 pnpm --filter @nkata/server dev # magic links come back in the response
 cd desktop && pnpm tauri dev               # sign in as artist@sunburst.gg, pick Rising Sun, choose a folder
