@@ -46,7 +46,7 @@ describe.skipIf(!hasInfra)("server api", () => {
     const face = body.parts.find((p) => p.name === "face")!;
     expect(face.checks).toEqual([
       { id: "unit_scale", severity: "block", params: {} },
-      { id: "name_pattern", severity: "block", params: {} },
+      { id: "name_pattern", severity: "block", params: { pattern: "SK_.*" } },
       { id: "triangle_budget", severity: "block", params: { max: 60000 } },
       { id: "uv_set_present", severity: "block", params: {} },
     ]);
