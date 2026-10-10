@@ -7,8 +7,6 @@ export const en = {
   "auth.signup.title": "Create an account.",
   "auth.discord": "Continue with Discord",
   "auth.link": "Send a sign-in link",
-  "auth.google": "Continue with Google",
-  "auth.google.note": "Google sign-in sends the same link to your email for now.",
   "home.empty": "No projects yet. Start one in under five minutes.",
   "create.name": "Name the project.",
   "create.folder": "Choose a folder.",

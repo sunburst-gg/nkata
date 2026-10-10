@@ -85,8 +85,6 @@ export function ServerSignIn() {
             <Input value={serverUrl} onChange={(e) => setServerUrl(e.target.value)} aria-label="Server" placeholder="Server" />
           </div>
           <Big type="submit" variant="primary">{t("auth.link")}</Big>
-          <Big type="button" onClick={() => void sendLink()} disabled={!email.trim()}>{t("auth.google")}</Big>
-          <span className="text-13 text-secondary">{t("auth.google.note")}</span>
         </form>
       ) : null}
       {step.kind === "link" ? (
