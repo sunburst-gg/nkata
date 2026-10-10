@@ -253,8 +253,9 @@ If step 0 fails on the physics or materials, the fallback is Interchange with a 
 
 - `make dev` starts Postgres and RustFS in Docker. The server runs from the shell. The seed loads one studio, one project, the Character and Environment templates, the Ojukwu asset, three props (Kettle, Wooden stool, Market stall), and one level area (Enugu Market / square).
 - `make desktop` runs the Tauri app against the local server.
-- `make addon` symlinks `blender-addon/` into the Blender extensions folder; reload with F3 "Reload Scripts".
-- `make ue` symlinks `ue5-plugin/` into a test project's `Plugins/`; the Python side needs no build. The C++ module builds with Live Coding.
+- The app installs the editor tools (desktop/src-tauri/src/tools.rs, the Tools step after the folder step, and Settings, Tools). Blender: the add-on is zipped and installed with `blender --command extension install-file -r user_default -e`, which enables it. Unreal: the plugin is copied to `<project>/Plugins/Nkata`, the .uproject gets Nkata, PythonScriptPlugin, and RemoteControl enabled, and DefaultEngine.ini gets `WebControl.EnableServerOnStartup=1` under `[SystemSettings]`. The Unreal project lives inside the Nkata project folder so the plugin finds the agent token above it.
+- The agent writes `~/.nkata/agent.json` (folder, port, token file) when it starts in sync mode, so a panel with no file open can list the parts to start.
+- `make addon` and `make ue` are developer shortcuts that symlink the same folders; reload Blender with F3 "Reload Scripts". The C++ module builds with Live Coding.
 - `make fixtures` rebuilds `fixtures/` from `fixtures/build.py`.
 - One prebuilt UE 5.4 editor from the Epic launcher. No engine source build.
 - Secrets in `.env`, never in the repo. The Discord webhook per project in the `project` row, encrypted.

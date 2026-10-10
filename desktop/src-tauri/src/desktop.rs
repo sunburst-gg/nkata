@@ -4,7 +4,7 @@
 //! same code the CLI runs (nkata_agent::runtime).
 //! https://v2.tauri.app/develop/calling-rust/
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use nkata_agent::runtime::{Runtime, StartStream, StartSync, Status};
 use tauri::State;
@@ -20,29 +20,108 @@ async fn agent_status(rt: State<'_, Runtime>) -> Result<Status, String> {
     Ok(rt.status().await)
 }
 
-/// Where the UE5 scripts live when the app runs from the repo or from a bundle.
-fn scripts_dir() -> PathBuf {
-    if let Ok(dir) = std::env::var("NKATA_UE5_SCRIPTS") {
-        return PathBuf::from(dir);
+/// A folder shipped with the app: next to the executable in a bundle (tauri.conf.json,
+/// bundle.resources), or up the tree when the app runs from the repo. `marker` is one file
+/// that proves the folder is the right one.
+fn shipped_dir(env_var: &str, rel: &str, marker: &str) -> Option<PathBuf> {
+    if let Ok(dir) = std::env::var(env_var) {
+        return Some(PathBuf::from(dir));
     }
     let here = std::env::current_exe()
         .ok()
         .and_then(|p| p.parent().map(|d| d.to_path_buf()));
     for base in here.into_iter().chain(std::env::current_dir().ok()) {
-        for rel in [
-            "ue5-plugin/scripts",
-            "../ue5-plugin/scripts",
-            "../../ue5-plugin/scripts",
-            "../../../ue5-plugin/scripts",
-            "../Resources/ue5-plugin/scripts",
+        for up in [
+            "",
+            "../",
+            "../../",
+            "../../../",
+            "../Resources/",
+            "../Resources/_up_/_up_/",
         ] {
-            let candidate = base.join(rel);
-            if candidate.join("import_character.py").is_file() {
-                return candidate;
+            let candidate = base.join(format!("{up}{rel}"));
+            if candidate.join(marker).is_file() {
+                return Some(candidate);
             }
         }
     }
-    PathBuf::from("ue5-plugin/scripts")
+    None
+}
+
+/// Where the UE5 scripts live when the app runs from the repo or from a bundle.
+fn scripts_dir() -> PathBuf {
+    shipped_dir(
+        "NKATA_UE5_SCRIPTS",
+        "ue5-plugin/scripts",
+        "import_character.py",
+    )
+    .unwrap_or_else(|| PathBuf::from("ue5-plugin/scripts"))
+}
+
+fn addon_dir() -> Option<PathBuf> {
+    shipped_dir(
+        "NKATA_BLENDER_ADDON",
+        "blender-addon",
+        "blender_manifest.toml",
+    )
+}
+
+fn plugin_dir() -> Option<PathBuf> {
+    shipped_dir("NKATA_UE5_PLUGIN", "ue5-plugin", "Nkata.uplugin")
+}
+
+/// What the Tools step shows: Blender on this machine, the Unreal projects inside the folder,
+/// and whether the add-on and plugin folders shipped with this build.
+#[derive(serde::Serialize)]
+struct ToolsReport {
+    blender: Option<nkata_agent::tools::BlenderInstall>,
+    uprojects: Vec<String>,
+    addon_shipped: bool,
+    plugin_shipped: bool,
+}
+
+#[tauri::command]
+async fn tools_detect(folder: String) -> Result<ToolsReport, String> {
+    tauri::async_runtime::spawn_blocking(move || ToolsReport {
+        blender: nkata_agent::tools::find_blender(),
+        uprojects: nkata_agent::tools::find_uprojects(&nkata_agent::runtime::expand_home(
+            Path::new(&folder),
+        ))
+        .into_iter()
+        .map(|p| p.display().to_string())
+        .collect(),
+        addon_shipped: addon_dir().is_some(),
+        plugin_shipped: plugin_dir().is_some(),
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+/// Installs and enables the add-on through Blender's command line. Returns Blender's last line.
+#[tauri::command]
+async fn tools_install_blender() -> Result<String, String> {
+    let addon = addon_dir().ok_or("the add-on did not ship with this build")?;
+    let blender = nkata_agent::tools::find_blender().ok_or("Blender was not found")?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let work = std::env::temp_dir().join("nkata-tools");
+        nkata_agent::tools::install_blender_addon(&blender.exe, &addon, &work)
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Copies the plugin into the Unreal project and turns it on with Python and Remote Control.
+#[tauri::command]
+async fn tools_install_ue(uproject: String) -> Result<String, String> {
+    let plugin = plugin_dir().ok_or("the plugin did not ship with this build")?;
+    tauri::async_runtime::spawn_blocking(move || {
+        nkata_agent::tools::install_ue_plugin(Path::new(&uproject), &plugin)
+            .map(|p| p.display().to_string())
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -119,7 +198,10 @@ fn main() {
             agent_start_sync,
             agent_start_stream,
             agent_stop,
-            write_export
+            write_export,
+            tools_detect,
+            tools_install_blender,
+            tools_install_ue
         ])
         .run(tauri::generate_context!())
         .expect("the Nkata window failed to start");

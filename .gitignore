@@ -11,3 +11,7 @@ coverage/
 .testenv/
 blender-addon/nkata/nkata_shared/
 shots/
+
+# Python build output
+__pycache__/
+*.pyc

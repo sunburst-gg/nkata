@@ -61,8 +61,10 @@ class AgentClient:
     def me(self) -> Any:
         return shared.validate_MeResponse(self._call("GET", "/me"))
 
-    def parts(self, rel_file: str) -> list[dict[str, Any]]:
-        res = shared.validate_PartsResponse(self._call("GET", "/parts?" + urllib.parse.urlencode({"file": rel_file})))
+    def parts(self, rel_file: str | None = None) -> list[dict[str, Any]]:
+        """The project's parts, or only those that map to one file."""
+        query = "?" + urllib.parse.urlencode({"file": rel_file}) if rel_file is not None else ""
+        res = shared.validate_PartsResponse(self._call("GET", "/parts" + query))
         return [p.to_dict() for p in res.parts]
 
     def open_part(self, part_id: str) -> Any:

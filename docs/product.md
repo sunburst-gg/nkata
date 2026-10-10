@@ -267,7 +267,7 @@ Three surfaces. Same data, same words, same state colors everywhere.
 | Person | Their parts, locks, recent activity | Assign |
 | Templates | The project's templates | Edit in the app (P1); open the file (v1) |
 | Project settings | Members, roles, pinned tool versions, Discord channel | Invite, set roles, pin versions |
-| Setup | Sign in, pick project, folder location, first sync with progress | Done in under 5 minutes |
+| Setup | Sign in, pick project, folder location, tools: the app installs the Blender add-on and the Unreal plugin itself, first sync with progress | Done in under 5 minutes. No command line, no file to find |
 
 For a viewer the desktop app hides every write action: no lock, Publish, Mark Ready, Approve, Send back, Roll back, Remove gate, or project export. No empty buttons. Export of one asset as images and glTF stays. Setup for a viewer skips the folder step: sign in, pick project, done.
 

@@ -44,6 +44,7 @@ class AddonState:
     checks: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     comments: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     online: list[dict[str, Any]] = field(default_factory=list)
+    startable: list[dict[str, Any]] = field(default_factory=list)
     publish_line: str = ""
     error: str = ""
     dirty: bool = False

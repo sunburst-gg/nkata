@@ -12,6 +12,7 @@ export const en = {
   "create.folder": "Choose a folder.",
   "create.folder.note": "The project lives here as normal files. If Nkata goes away, the project stays.",
   "create.tools": "Pin the tools.",
+  "create.tools.note": "Nkata installs the add-on and the plugin for you. Find this again under Settings, Tools.",
   "setup.title": "Setting up {project}.",
   "setup.done": "Ready.",
   "invite.title": "Invite your team.",

@@ -57,6 +57,34 @@ pub fn spool_path(folder: &Path) -> PathBuf {
     folder.join(AGENT_DIR).join(SPOOL_DIR)
 }
 
+/// Where the editors look for the running agent when no file is open: `~/.nkata/agent.json`.
+/// The Blender panel reads it to list parts to start (blender-addon/nkata/mapping.py).
+pub fn pointer_path() -> Option<PathBuf> {
+    crate::tools::home_dir().map(|h| h.join(".nkata").join("agent.json"))
+}
+
+/// Writes the pointer. A failure is logged, never fatal: the editors still work from an open file.
+fn write_pointer(folder: &Path, port: u16, token_file: &Path, project_id: &str) {
+    let Some(path) = pointer_path() else {
+        return;
+    };
+    let body = serde_json::json!({
+        "v": 1,
+        "folder": folder,
+        "port": port,
+        "token_file": token_file,
+        "project_id": project_id,
+    });
+    let written = path
+        .parent()
+        .map(std::fs::create_dir_all)
+        .unwrap_or(Ok(()))
+        .and_then(|_| std::fs::write(&path, format!("{body}\n")));
+    if let Err(e) = written {
+        tracing::warn!(path = %path.display(), error = %e, "agent pointer not written");
+    }
+}
+
 /// Reads the token or creates a new one. The file is owner-readable only.
 pub fn load_or_create_token(path: &Path) -> Result<String, AgentError> {
     if let Ok(t) = std::fs::read_to_string(path) {
@@ -571,6 +599,10 @@ pub async fn bind(
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", opts.port))
         .await
         .map_err(|e| AgentError::io(format!("127.0.0.1:{}", opts.port), e))?;
+    if state.mode == AgentMode::Sync {
+        let port = listener.local_addr().map(|a| a.port()).unwrap_or(opts.port);
+        write_pointer(&opts.folder, port, &token_file, &state.project.id);
+    }
     tracing::info!(project_id = state.project.id, addr = %listener.local_addr().map(|a| a.to_string()).unwrap_or_default(), token_file = %token_file.display(), "agent api listening");
     Ok((listener, state))
 }

@@ -82,6 +82,14 @@ class ChecksTest(unittest.TestCase):
         self.assertIn("SM_Big", by_id["pivot_at_base"]["message"])
         self.assertEqual(checks.blocked_by(results), ["triangle_budget", "uv_set_present", "rig_bone_names", "rig_bone_count", "pivot_at_base"])
 
+    def test_a_check_with_a_missing_param_fails_and_does_not_raise(self) -> None:
+        results, _ = checks.run_checks(["name_pattern", "triangle_budget"], {}, SEV, facts())
+        by_id = {r["check_id"]: r for r in results}
+        self.assertFalse(by_id["name_pattern"]["passed"])
+        self.assertFalse(by_id["name_pattern"]["auto_fixed"])
+        self.assertIn("no pattern", by_id["name_pattern"]["message"])
+        self.assertIn("no max", by_id["triangle_budget"]["message"])
+
     def test_checks_blender_does_not_own_are_skipped(self) -> None:
         results, _ = checks.run_checks(["lod_count", "collision_present", "unit_scale"], {}, SEV, facts())
         self.assertEqual([r["check_id"] for r in results], ["unit_scale"])

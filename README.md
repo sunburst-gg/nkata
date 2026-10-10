@@ -45,7 +45,7 @@ NKATA_DEV=1 pnpm --filter @nkata/server dev # magic links come back in the respo
 cd desktop && pnpm tauri dev               # sign in as artist@sunburst.gg, pick Rising Sun, choose a folder
 ```
 
-The window starts the agent for the folder, Blender finds it on `localhost:7420` after `make addon`, and UE5 needs the Remote Control API plugin on. A viewer (viewer@sunburst.gg) signs in the same way and gets stream mode with no folder step. `DISCORD_SECRET` in the server environment turns on the one Discord message; set the webhook under Settings.
+The window starts the agent for the folder, then installs the Blender add-on and, for every Unreal project inside the folder, the plugin with Python and Remote Control on. Blender finds the agent on `localhost:7420`; with no file open, the N-panel lists your parts to start and saves the file in the right place. A viewer (viewer@sunburst.gg) signs in the same way and gets stream mode with no folder step. `make addon` and `make ue` are the developer shortcuts for the same install. `DISCORD_SECRET` in the server environment turns on the one Discord message; set the webhook under Settings.
 
 ## Status
 

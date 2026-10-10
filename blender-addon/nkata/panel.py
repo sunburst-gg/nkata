@@ -8,6 +8,10 @@
 6. Publish, and a smaller Mark Ready.
 7. Presence: who else is in this asset.
 
+With no part open the panel offers Start a part: my parts with no file yet. One click names the
+collection after the part and saves the file where the part maps to, inside the project folder
+the running agent serves (mapping.current_project).
+
 Everything drawn here comes from STATE, filled by the save hook and the SSE listener. The draw
 function never calls the agent, so the panel opens in under a second (docs/product.md, Quality
 bar). Operators call the agent and update STATE."""
@@ -135,6 +139,78 @@ def open_with_os(path: Path) -> None:
         subprocess.Popen(["xdg-open", str(path)])
 
 
+class NKATA_OT_find_parts(bpy.types.Operator):
+    bl_idname = "nkata.find_parts"
+    bl_label = "Find my parts"
+    bl_description = "List the parts of mine that have no file yet"
+
+    def execute(self, _context: bpy.types.Context) -> set[str]:
+        root = mapping.project_root_for_panel()
+        if root is None:
+            self.report({"WARNING"}, "Open the project in the Nkata app first")
+            return {"CANCELLED"}
+        try:
+            client = AgentClient(mapping.read_token(root))
+            me = client.me()
+            parts = client.parts()
+        except AgentError as e:
+            self.report({"ERROR"}, e.message)
+            return {"CANCELLED"}
+        with STATE.lock:
+            STATE.me = me.user.to_dict()
+            STATE.startable = mapping.startable_parts(parts, root, me.user.id)
+            STATE.error = "" if STATE.startable else "Every part of yours has a file. Open one."
+            STATE.dirty = True
+        return {"FINISHED"}
+
+
+class NKATA_OT_start_part(bpy.types.Operator):
+    bl_idname = "nkata.start_part"
+    bl_label = "Start"
+    bl_description = "Name the collection after this part and save this file where the part lives"
+    part_id: bpy.props.StringProperty()  # type: ignore[valid-type]
+
+    def execute(self, _context: bpy.types.Context) -> set[str]:
+        part = next((p for p in STATE.startable if p["id"] == self.part_id), None)
+        root = mapping.project_root_for_panel()
+        if part is None or root is None:
+            self.report({"WARNING"}, "Press Find my parts first")
+            return {"CANCELLED"}
+        name = str(part["mapping"]["collection"])
+        ensure_collection(name)
+        target = root / str(part["mapping"]["file"])
+        target.parent.mkdir(parents=True, exist_ok=True)
+        result = bpy.ops.wm.save_as_mainfile(filepath=str(target))
+        if "FINISHED" not in result:
+            self.report({"ERROR"}, f"Blender did not save: {result}")
+            return {"CANCELLED"}
+        # save_post has run handle_save by now. Take the lock as an open would.
+        try:
+            save_hook.handle_open(str(target))
+        except AgentError as e:
+            self.report({"WARNING"}, e.message)
+        with STATE.lock:
+            STATE.startable = []
+            STATE.dirty = True
+        log("part.started", part_id=part["id"], file=str(part["mapping"]["file"]))
+        return {"FINISHED"}
+
+
+def ensure_collection(name: str) -> Any:
+    """The part's collection: the existing one, else the file's only collection renamed, else a
+    new one linked to the scene. A fresh file has one collection, so its objects join the part."""
+    col = bpy.data.collections.get(name)
+    if col is not None:
+        return col
+    if len(bpy.data.collections) == 1:
+        col = next(iter(bpy.data.collections.values()))
+        col.name = name
+        return col
+    col = bpy.data.collections.new(name)
+    bpy.context.scene.collection.children.link(col)
+    return col
+
+
 class NKATA_OT_run_checks(bpy.types.Operator):
     bl_idname = "nkata.run_checks"
     bl_label = "Run checks"
@@ -254,6 +330,15 @@ class NKATA_OT_frame_pin(bpy.types.Operator):
         return {"FINISHED"}
 
 
+def draw_start(layout: Any) -> None:
+    """No part open: the parts of mine to start, or how to find them."""
+    layout.label(text=STATE.error or "Save this file as a part, or start one", icon="INFO")
+    for part in STATE.startable:
+        op = layout.operator(NKATA_OT_start_part.bl_idname, text=f"{part.get('asset_name')} / {part.get('name')}", icon="FILE_NEW")
+        op.part_id = part["id"]
+    layout.operator(NKATA_OT_find_parts.bl_idname, text="Find my parts")
+
+
 def draw_header(layout: Any, part: dict[str, Any]) -> None:
     owner = (part.get("owner") or {}).get("name") or "No owner"
     state_word = STATE_WORDS.get(str(part.get("state")), str(part.get("state")))
@@ -360,7 +445,7 @@ class NKATA_PT_panel(bpy.types.Panel):
         layout = self.layout
         part = STATE.part
         if part is None:
-            layout.label(text="Save this file to find its part" if not STATE.error else STATE.error, icon="INFO")
+            draw_start(layout)
             return
         if STATE.error:
             layout.label(text=STATE.error, icon="ERROR")
@@ -374,6 +459,8 @@ class NKATA_PT_panel(bpy.types.Panel):
 
 
 CLASSES = (
+    NKATA_OT_find_parts,
+    NKATA_OT_start_part,
     NKATA_OT_retry_mirror,
     NKATA_OT_open_reference,
     NKATA_OT_run_checks,
