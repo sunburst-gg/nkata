@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateGates, waitingOn } from "../src/domain/gates.js";
+import { evaluateGates, initialState, waitingOn } from "../src/domain/gates.js";
 import { decideGrant, EXPIRES_AFTER_MS, expiryFrom, isStale, STALE_AFTER_MS } from "../src/domain/locks.js";
 import { transition } from "../src/domain/state.js";
 import { AppError } from "../src/domain/errors.js";
@@ -28,9 +28,13 @@ describe("gate evaluation", () => {
     expect(evaluateGates(removed).map((o) => o.part_id).sort()).toEqual(["e", "f"]);
   });
 
-  it("keeps a gate closed when it names an unknown part", () => {
-    const bad = [{ id: "x", name: "x", state: "locked" as const, gate: { after: ["nope"] } }];
-    expect(evaluateGates(bad)).toEqual([]);
+  it("treats a gate that names a part this asset does not have as met", () => {
+    const one = [{ id: "x", name: "uvs", state: "locked" as const, gate: { after: ["model"] } }];
+    expect(evaluateGates(one)).toEqual([{ part_id: "x", opened_by: [] }]);
+    expect(waitingOn(one[0]!, one)).toEqual([]);
+    expect(initialState({ after: ["model"] }, ["uvs"])).toBe("draft");
+    expect(initialState({ after: ["model"] }, ["model", "uvs"])).toBe("locked");
+    expect(initialState({ after: [] }, ["model"])).toBe("draft");
   });
 
   it("lists what a part still waits on", () => {

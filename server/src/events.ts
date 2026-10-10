@@ -6,7 +6,8 @@ import type { Db } from "./db/client.js";
 import { event } from "./db/schema.js";
 import { newId } from "./domain/ids.js";
 
-export type Subscriber = (projectId: string, message: ServerEvent) => void;
+/** A studio-level event (studio.training) has no project: every client of the studio gets it. */
+export type Subscriber = (projectId: string | null, message: ServerEvent) => void;
 
 export type EventBus = {
   /** Validates against the shared schema, writes the row, fans out. Returns the event id. */

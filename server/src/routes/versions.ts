@@ -1,14 +1,17 @@
 // One version row per save. Publish marks it and sets Ready if the owner says so.
-// Rollback creates a new version pointing at an old file_version. History is never deleted.
+// Rollback creates a new version pointing at an old file_version. History is never deleted:
+// there is no delete route and no delete statement in this file. capture_eligible is stamped
+// from studio.training at insert and never updated. The render is the viewport capture taken
+// on Mark Ready, kept in the store under the version (docs/decisions.md, 2026-10-10).
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { CheckResult, MirrorStatus, ObjectManifest, Ulid } from "@nkata/shared";
+import { CheckResult, MirrorStatus, ObjectManifest, Timestamp, Ulid } from "@nkata/shared";
 import { check_run, file_version, version } from "../db/schema.js";
 import { AppError, notFound } from "../domain/errors.js";
 import { newId } from "../domain/ids.js";
 import { transition } from "../domain/state.js";
 import { part } from "../db/schema.js";
-import { IdParam, isReviewer, loadPart, requireCanEdit, requireNotHeldByOther, type TypedApp } from "./_shared.js";
+import { IdParam, isReviewer, loadPart, requireCanEdit, requireNotHeldByOther, trainingOn, type TypedApp } from "./_shared.js";
 import { releaseLock } from "./locks.js";
 
 const VersionBody = z.object({
@@ -18,7 +21,14 @@ const VersionBody = z.object({
   mirror_status: MirrorStatus.default("pending"),
   mirror_ms: z.number().int().min(0).nullable().default(null),
   note: z.string().default(""),
+  /** From the editor's clock: when the file was opened and when this save happened. */
+  opened_at: Timestamp.nullable().default(null),
+  saved_at: Timestamp.nullable().default(null),
 });
+
+const VersionParams = z.object({ id: Ulid, vid: Ulid });
+const RenderUrlBody = z.object({ size: z.number().int().min(1).max(50 * 1024 * 1024) });
+const RenderDoneBody = z.object({ key: z.string().min(1) });
 
 /** One level that places the mesh, from scan_refs.py. See docs/engineering.md, The mirror, Static. */
 const LevelRef = z.object({ level: z.string().min(1), actors: z.number().int().min(0) });
@@ -65,7 +75,11 @@ export async function versionRoutes(app: TypedApp): Promise<void> {
     const now = app.now();
     const [saved] = await app.db
       .insert(version)
-      .values({ id, studio_id: a.studio_id, part_id: row.id, author_id: req.principal.user_id, file_version_id: req.body.file_version_id, manifest: req.body.manifest, mirror_status: req.body.mirror_status, mirror_ms: req.body.mirror_ms, note: req.body.note, created_at: now, updated_at: now })
+      .values({
+        id, studio_id: a.studio_id, part_id: row.id, author_id: req.principal.user_id, file_version_id: req.body.file_version_id, manifest: req.body.manifest, mirror_status: req.body.mirror_status, mirror_ms: req.body.mirror_ms, note: req.body.note,
+        capture_eligible: await trainingOn(app.db, a.studio_id), opened_at: req.body.opened_at ? new Date(req.body.opened_at) : null, saved_at: req.body.saved_at ? new Date(req.body.saved_at) : now,
+        created_at: now, updated_at: now,
+      })
       .returning();
     await app.bus.emit({
       studio_id: a.studio_id, target_kind: "version", target_id: id,
@@ -104,8 +118,9 @@ export async function versionRoutes(app: TypedApp): Promise<void> {
     if (!ver) throw notFound("version", req.params.vid);
     const now = app.now();
     if (req.body.results.length > 0) {
+      const capture_eligible = await trainingOn(app.db, a.studio_id);
       await app.db.insert(check_run).values(
-        req.body.results.map((c) => ({ id: newId(), studio_id: a.studio_id, version_id: ver.id, check_id: c.check_id, severity: c.severity, passed: c.passed, auto_fixed: c.auto_fixed, message: c.message, created_at: now, updated_at: now })),
+        req.body.results.map((c) => ({ id: newId(), studio_id: a.studio_id, version_id: ver.id, check_id: c.check_id, severity: c.severity, passed: c.passed, auto_fixed: c.auto_fixed, message: c.message, capture_eligible, created_at: now, updated_at: now })),
       );
     }
     return { v: 1, version_id: ver.id, recorded: req.body.results.length };
@@ -130,14 +145,19 @@ export async function versionRoutes(app: TypedApp): Promise<void> {
     const ver = (await app.db.select().from(version).where(and(eq(version.id, req.body.version_id), eq(version.part_id, row.id))).limit(1))[0];
     if (!ver) throw notFound("version", req.body.version_id);
     const now = app.now();
+    const training = await trainingOn(app.db, a.studio_id);
     if (req.body.check_results.length > 0) {
       await app.db.insert(check_run).values(
-        req.body.check_results.map((c) => ({ id: newId(), studio_id: a.studio_id, version_id: ver.id, check_id: c.check_id, severity: c.severity, passed: c.passed, auto_fixed: c.auto_fixed, message: c.message, created_at: now, updated_at: now })),
+        req.body.check_results.map((c) => ({ id: newId(), studio_id: a.studio_id, version_id: ver.id, check_id: c.check_id, severity: c.severity, passed: c.passed, auto_fixed: c.auto_fixed, message: c.message, capture_eligible: training, created_at: now, updated_at: now })),
       );
     }
     const blocked_by = req.body.check_results.filter((c) => !c.passed && c.severity === "block");
     if (blocked_by.length > 0) {
       return { v: 1, published: false, version_id: ver.id, state: row.state, blocked_by };
+    }
+    // While the studio trains, nothing publishes until a reviewer has confirmed who holds the rights.
+    if (training && !a.rights) {
+      throw new AppError("rights_required", "confirm who holds the rights to this asset before Publish", { asset_id: a.id });
     }
     await app.db.update(version).set({ published: true, updated_at: now }).where(eq(version.id, ver.id));
     await app.bus.emit({
@@ -155,6 +175,39 @@ export async function versionRoutes(app: TypedApp): Promise<void> {
     }
     await releaseLock(app, { studio_id: a.studio_id, project_id: a.project_id, part_id: row.id, actor_id: req.principal.user_id, reason: "published", onlyHolder: req.principal.user_id });
     return { v: 1, published: true, version_id: ver.id, state, blocked_by: [] };
+  });
+
+  // The render: a PNG the agent captures in UE5 on Mark Ready, or Blender's viewport as the
+  // fallback. Three steps: a signed PUT URL, the upload by the agent, then done with the key.
+  app.post("/parts/:id/versions/:vid/render-url", { schema: { params: VersionParams, body: RenderUrlBody } }, async (req) => {
+    const { part: row, asset: a } = await loadPart(app.db, req.principal, req.params.id);
+    requireCanEdit(req.principal, row);
+    const ver = (await app.db.select({ id: version.id }).from(version).where(and(eq(version.id, req.params.vid), eq(version.part_id, row.id))).limit(1))[0];
+    if (!ver) throw notFound("version", req.params.vid);
+    const key = `studios/${a.studio_id}/renders/${row.id}/${ver.id}.png`;
+    return { v: 1, key, url: await app.store.signPut(key, req.body.size) };
+  });
+
+  app.put("/parts/:id/versions/:vid/render", { schema: { params: VersionParams, body: RenderDoneBody } }, async (req) => {
+    const { part: row, asset: a } = await loadPart(app.db, req.principal, req.params.id);
+    requireCanEdit(req.principal, row);
+    const ver = (await app.db.select().from(version).where(and(eq(version.id, req.params.vid), eq(version.part_id, row.id))).limit(1))[0];
+    if (!ver) throw notFound("version", req.params.vid);
+    const expected = `studios/${a.studio_id}/renders/${row.id}/${ver.id}.png`;
+    if (req.body.key !== expected) throw new AppError("bad_request", "the render key does not belong to this version", { key: req.body.key });
+    if ((await app.store.head(expected)) === null) throw new AppError("chunks_missing", "the render was not uploaded", { key: expected });
+    const now = app.now();
+    const [saved] = await app.db.update(version).set({ render_key: expected, updated_at: now }).where(eq(version.id, ver.id)).returning();
+    req.log.info({ project_id: a.project_id, part_id: row.id, version_id: ver.id }, "render stored");
+    return { v: 1, version: versionWire(saved!) };
+  });
+
+  app.get("/parts/:id/versions/:vid/render", { schema: { params: VersionParams } }, async (req) => {
+    const { part: row } = await loadPart(app.db, req.principal, req.params.id);
+    const ver = (await app.db.select({ id: version.id, render_key: version.render_key }).from(version).where(and(eq(version.id, req.params.vid), eq(version.part_id, row.id))).limit(1))[0];
+    if (!ver) throw notFound("version", req.params.vid);
+    if (!ver.render_key) throw notFound("render", ver.id);
+    return { v: 1, version_id: ver.id, url: await app.store.signGet(ver.render_key) };
   });
 
   // Roll back: a new version that points at an older file_version. One click, nothing deleted.

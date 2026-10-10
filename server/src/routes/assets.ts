@@ -1,10 +1,13 @@
 // Create an asset from a template: name, owners per part, reference files. One screen.
-// Parts are created in template order. A part with a gate starts Locked, the rest Draft.
+// Parts are created in template order, all of them or the ones named. A part whose gate names
+// a created part starts Locked, the rest Draft. Rights are set by a reviewer and are required
+// to Publish while the studio trains (docs/decisions.md, 2026-10-10).
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { Template, Ulid, type Gate, type PartMapping, type PartState, type TemplatePart } from "@nkata/shared";
+import { AssetRights, Template, Ulid, type Gate, type PartMapping, type TemplatePart } from "@nkata/shared";
 import { asset, part, template } from "../db/schema.js";
 import { AppError, notFound } from "../domain/errors.js";
+import { initialState } from "../domain/gates.js";
 import { newId } from "../domain/ids.js";
 import { assetState, currentLock, IdParam, loadAsset, loadProject, partContext, partWire, requireRole, userRefs, type TypedApp } from "./_shared.js";
 
@@ -15,7 +18,11 @@ const AssetBody = z.object({
   name: z.string().min(1).regex(/^[A-Za-z0-9][A-Za-z0-9 _/-]*$/),
   owners: z.record(z.string(), Ulid).default({}),
   reference_files: z.array(z.string()).default([]),
+  /** Template part names to create. Absent: every part. */
+  parts: z.array(z.string().min(1)).min(1).optional(),
 });
+
+const RightsBody = z.object({ statement: z.string().min(1) });
 
 /** A level area asset is named "<level> / <area>". Without the slash the level is the asset and the area is the part. */
 export function levelAndArea(assetName: string, partName: string): { level: string; area: string } {
@@ -63,6 +70,11 @@ export async function assetRoutes(app: TypedApp): Promise<void> {
     for (const owner of Object.keys(req.body.owners)) {
       if (!partNames.has(owner)) throw new AppError("bad_request", `owner given for unknown part "${owner}"`, { template: tpl.name });
     }
+    for (const name of req.body.parts ?? []) {
+      if (!partNames.has(name)) throw new AppError("bad_request", `the template has no part "${name}"`, { template: tpl.name });
+    }
+    const chosen = req.body.parts ? tpl.parts.filter((tp) => req.body.parts!.includes(tp.name)) : tpl.parts;
+    const chosenNames = chosen.map((tp) => tp.name);
 
     const now = app.now();
     const created = await app.db.transaction(async (tx) => {
@@ -70,9 +82,9 @@ export async function assetRoutes(app: TypedApp): Promise<void> {
         .insert(asset)
         .values({ id, studio_id: proj.studio_id, project_id: proj.id, template_id: tplRow.id, name: req.body.name, reference_files: req.body.reference_files, created_at: now, updated_at: now })
         .returning();
-      const partRows = tpl.parts.map((tp, position) => {
+      const partRows = chosen.map((tp, position) => {
         const gate: Gate = { after: tp.gate ?? [] };
-        const state: PartState = gate.after.length > 0 ? "locked" : "draft";
+        const state = initialState(gate, chosenNames);
         return {
           id: newId(), studio_id: proj.studio_id, asset_id: id, name: tp.name, position,
           owner_id: req.body.owners[tp.name] ?? null, state, gate, mapping: mappingFor(tpl, tp, req.body.name), created_at: now, updated_at: now,
@@ -88,6 +100,17 @@ export async function assetRoutes(app: TypedApp): Promise<void> {
     req.log.info({ project_id: proj.id, asset_id: id }, "asset created");
     const ctx = { asset_name: created.asset!.name, template: tpl, reference_files: created.asset!.reference_files, siblings: created.parts.map((p) => ({ name: p.name, state: p.state })) };
     return reply.status(201).send({ v: 1, asset: created.asset, parts: created.parts.map((p) => partWire(p, ctx, null, null)) });
+  });
+
+  // Who holds the rights. An art director or producer confirms it in one line.
+  app.put("/assets/:id/rights", { schema: { params: IdParam, body: RightsBody } }, async (req) => {
+    requireRole(req.principal, ["art_director", "producer"], "confirming rights");
+    const a = await loadAsset(app.db, req.principal, req.params.id);
+    const now = app.now();
+    const rights = AssetRights.parse({ statement: req.body.statement, confirmed_by: req.principal.user_id, confirmed_at: now.toISOString() });
+    const [saved] = await app.db.update(asset).set({ rights, updated_at: now }).where(eq(asset.id, a.id)).returning();
+    await app.bus.audit({ studio_id: a.studio_id, project_id: a.project_id, actor_id: req.principal.user_id, kind: "audit.rights_confirmed", target_kind: "asset", target_id: a.id, payload: rights });
+    return { v: 1, asset: saved };
   });
 
   app.get("/assets", { schema: { querystring: z.object({ project_id: Ulid }) } }, async (req) => {

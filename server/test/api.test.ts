@@ -62,7 +62,7 @@ describe.skipIf(!hasInfra)("server api", () => {
     const names = (res.json() as { assets: { name: string }[] }).assets.map((a) => a.name).sort();
     expect(names).toEqual(["Enugu Market / square", "Kettle", "Market stall", "Ojukwu", "Wooden stool"]);
     const kettle = await h.app.inject({ method: "GET", url: `/assets/${h.seeded.assets["Kettle"]}`, ...h.as(ARTIST) });
-    const kettleParts = (kettle.json() as { parts: { name: string; kind: string; mapping: unknown }[] }).parts;
+    const kettleParts = (kettle.json() as { parts: { name: string; kind: string; state: string; mapping: unknown }[] }).parts;
     expect(kettleParts.map((p) => p.name)).toEqual(["concept", "model", "uvs", "textures", "lods", "collision"]);
     expect(kettleParts.find((p) => p.name === "lods")?.mapping).toEqual({ kind: "ue_asset", path: "/Game/Props/Kettle" });
     const square = await h.app.inject({ method: "GET", url: `/assets/${h.seeded.assets["Enugu Market / square"]}`, ...h.as(ARTIST) });
@@ -71,7 +71,8 @@ describe.skipIf(!hasInfra)("server api", () => {
     expect(squareParts[0]?.kind).toBe("level_area");
     expect(kettleParts[0]?.kind).toBe("prop");
     expect(squareParts[0]?.mapping).toEqual({ kind: "ue_area", level: "Enugu Market", area: "square" });
-    expect(squareParts.map((p) => p.state)).toEqual(["draft", "locked", "locked", "locked"]);
+    expect(squareParts.map((p) => p.state)).toEqual(["draft", "draft", "draft", "draft"]);
+    expect(kettleParts.every((p) => p.state === "draft")).toBe(true);
   });
 
   it("finds parts by open file", async () => {
@@ -98,6 +99,18 @@ describe.skipIf(!hasInfra)("server api", () => {
     expect(body.parts.find((p) => p.name === "rig")?.state).toBe("locked");
     const bad = await h.app.inject({ method: "POST", url: "/assets", ...h.as(AD), payload: { project_id: h.seeded.project_id, template_name: "Character", name: "Bad", owners: { nope: h.seeded.users[ARTIST] } } });
     expect(bad.statusCode).toBe(400);
+  });
+
+  it("creates an asset with one part, and a gate naming an absent part is met", async () => {
+    const one = await h.app.inject({ method: "POST", url: "/assets", ...h.as(AD), payload: { project_id: h.seeded.project_id, template_name: "Character", name: "Hat", parts: ["rig"] } });
+    expect(one.statusCode).toBe(201);
+    const body = one.json() as { parts: { name: string; state: string; waiting_on: string[] }[] };
+    expect(body.parts.map((p) => p.name)).toEqual(["rig"]);
+    expect(body.parts[0]).toMatchObject({ state: "draft", waiting_on: [] });
+    const two = await h.app.inject({ method: "POST", url: "/assets", ...h.as(AD), payload: { project_id: h.seeded.project_id, template_name: "Character", name: "Belt", parts: ["textures", "rig"] } });
+    expect((two.json() as { parts: { name: string; state: string; waiting_on: string[] }[] }).parts.map((p) => [p.name, p.state, p.waiting_on])).toEqual([["textures", "draft", []], ["rig", "locked", ["textures"]]]);
+    const unknown = await h.app.inject({ method: "POST", url: "/assets", ...h.as(AD), payload: { project_id: h.seeded.project_id, template_name: "Character", name: "Nope", parts: ["wings"] } });
+    expect(unknown.statusCode).toBe(400);
   });
 
   describe("locks", () => {
@@ -234,11 +247,75 @@ describe.skipIf(!hasInfra)("server api", () => {
       const res = await h.app.inject({ method: "POST", url: "/comments", ...h.as(AD), payload: { part_id: parts["face"], version_id: faceVersion, point: [0.1, 0.2, 0.3], normal: [0, 0, 1], body: "Shorter here" } });
       expect(res.statusCode).toBe(201);
       const list = await h.app.inject({ method: "GET", url: `/parts/${parts["face"]}/comments`, ...h.as(ARTIST) });
-      expect((list.json() as { comments: { body: string; point: number[] }[] }).comments[0]).toMatchObject({ body: "Shorter here" });
+      expect((list.json() as { comments: { body: string; point: number[]; kind: string }[] }).comments[0]).toMatchObject({ body: "Shorter here", kind: "pin" });
+      // Take a look: the art director is asked, nothing moves.
+      const before = (await h.app.inject({ method: "GET", url: `/assets/${h.seeded.asset_id}`, ...h.as(ARTIST) })).json() as { parts: { name: string; state: string }[] };
+      const look = await h.app.inject({ method: "POST", url: "/comments", ...h.as(ARTIST), payload: { part_id: parts["face"], version_id: faceVersion, point: [0, 0, 0], normal: [0, 0, 1], body: "Look at the ears", kind: "take_a_look" } });
+      expect((look.json() as { comment: { kind: string } }).comment.kind).toBe("take_a_look");
+      const afterLook = (await h.app.inject({ method: "GET", url: `/assets/${h.seeded.asset_id}`, ...h.as(ARTIST) })).json() as { parts: { name: string; state: string }[] };
+      expect(afterLook.parts.map((p) => p.state)).toEqual(before.parts.map((p) => p.state));
+      const kinds = (await h.app.inject({ method: "GET", url: `/parts/${parts["face"]}/comments`, ...h.as(ARTIST) })).json() as { comments: { kind: string }[] };
+      expect(kinds.comments.map((c) => c.kind)).toEqual(["pin", "take_a_look"]);
       const exp = await h.app.inject({ method: "GET", url: `/export/${h.seeded.asset_id}`, ...h.as(PRODUCER) });
       const body = exp.json() as { parts: { name: string; comments: unknown[]; versions: unknown[] }[] };
-      expect(body.parts.find((p) => p.name === "face")?.comments).toHaveLength(1);
+      expect(body.parts.find((p) => p.name === "face")?.comments).toHaveLength(2);
       expect(body.parts.find((p) => p.name === "face")?.versions).toHaveLength(2);
+    });
+
+    it("a producer turns training on, which pays nothing, stamps new rows, and requires rights to Publish", async () => {
+      expect((await h.app.inject({ method: "PUT", url: "/studio/training", ...h.as(ARTIST), payload: { training: "on" } })).statusCode).toBe(403);
+      const on = await h.app.inject({ method: "PUT", url: "/studio/training", ...h.as(PRODUCER), payload: { training: "on" } });
+      expect(on.json()).toMatchObject({ studio: { training: "on", billing: { line: "Nothing to pay", seats: 5 } } });
+      const events = await h.app.inject({ method: "GET", url: `/events?project_id=${h.seeded.project_id}`, ...h.as(PRODUCER) });
+      expect((events.json() as { events: { event: { kind: string } }[] }).events.some((e) => e.event.kind === "studio.training")).toBe(false);
+      // A new version is eligible; the old one stays as it was.
+      const hair = parts["face"]!;
+      const made = await h.app.inject({ method: "POST", url: `/parts/${hair}/versions`, ...h.as(ARTIST), payload: { mirror_status: "pending", opened_at: "2026-10-10T09:00:00.000Z", saved_at: "2026-10-10T09:05:00.000Z" } });
+      expect(made.statusCode).toBe(201);
+      const ver = (made.json() as { version: { id: string; capture_eligible: boolean; opened_at: string; saved_at: string } }).version;
+      expect(ver).toMatchObject({ capture_eligible: true, opened_at: "2026-10-10T09:00:00.000Z", saved_at: "2026-10-10T09:05:00.000Z" });
+      const old = await h.app.inject({ method: "GET", url: `/parts/${parts["face"]}/versions`, ...h.as(ARTIST) });
+      expect((old.json() as { versions: { id: string; capture_eligible: boolean }[] }).versions.find((v) => v.id === faceVersion)?.capture_eligible).toBe(false);
+      // No rights yet: Publish refuses. A reviewer confirms them, then it goes through.
+      const refused = await h.app.inject({ method: "POST", url: `/parts/${hair}/publish`, ...h.as(ARTIST), payload: { version_id: ver.id, ready: false } });
+      expect(refused.statusCode).toBe(409);
+      expect((refused.json() as { error: { code: string } }).error.code).toBe("rights_required");
+      const rights = await h.app.inject({ method: "PUT", url: `/assets/${h.seeded.assets["Ojukwu"]}/rights`, ...h.as(AD), payload: { statement: "Sunburst Interactive owns Ojukwu outright." } });
+      expect((rights.json() as { asset: { rights: { statement: string; confirmed_by: string } } }).asset.rights).toMatchObject({ statement: "Sunburst Interactive owns Ojukwu outright.", confirmed_by: h.seeded.users[AD] });
+      expect((await h.app.inject({ method: "PUT", url: `/assets/${h.seeded.assets["Ojukwu"]}/rights`, ...h.as(ARTIST), payload: { statement: "x" } })).statusCode).toBe(403);
+      const published = await h.app.inject({ method: "POST", url: `/parts/${hair}/publish`, ...h.as(ARTIST), payload: { version_id: ver.id, ready: false } });
+      expect(published.json()).toMatchObject({ published: true });
+      // Off again: the stamped rows keep their value.
+      await h.app.inject({ method: "PUT", url: "/studio/training", ...h.as(PRODUCER), payload: { training: "off" } });
+      const after = await h.app.inject({ method: "GET", url: `/parts/${hair}/versions`, ...h.as(ARTIST) });
+      expect((after.json() as { versions: { id: string; capture_eligible: boolean }[] }).versions.find((v) => v.id === ver.id)?.capture_eligible).toBe(true);
+    });
+
+    it("a member acknowledges capture once and gets a pseudonymous training id", async () => {
+      const first = await h.app.inject({ method: "POST", url: "/me/capture-ack", ...h.as(ENV) });
+      expect(first.statusCode).toBe(200);
+      const a = first.json() as { capture_ack_at: string; training_id: string };
+      expect(a.training_id).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/);
+      const second = await h.app.inject({ method: "POST", url: "/me/capture-ack", ...h.as(ENV) });
+      expect(second.json()).toEqual({ v: 1, capture_ack_at: a.capture_ack_at, training_id: a.training_id });
+    });
+
+    it("stores a Mark Ready render under the version and serves a signed link", async () => {
+      const face = parts["face"]!;
+      const url = await h.app.inject({ method: "POST", url: `/parts/${face}/versions/${faceVersion}/render-url`, ...h.as(ARTIST), payload: { size: 4 } });
+      expect(url.statusCode).toBe(200);
+      const { key, url: put } = url.json() as { key: string; url: string };
+      expect(key).toBe(`studios/${h.seeded.studio_id}/renders/${face}/${faceVersion}.png`);
+      const early = await h.app.inject({ method: "PUT", url: `/parts/${face}/versions/${faceVersion}/render`, ...h.as(ARTIST), payload: { key } });
+      expect(early.statusCode).toBe(422);
+      expect((await h.app.inject({ method: "GET", url: `/parts/${face}/versions/${faceVersion}/render`, ...h.as(VIEWER) })).statusCode).toBe(404);
+      const upload = await fetch(put, { method: "PUT", body: Buffer.from("PNG!"), headers: { "content-length": "4" } });
+      expect(upload.ok).toBe(true);
+      const done = await h.app.inject({ method: "PUT", url: `/parts/${face}/versions/${faceVersion}/render`, ...h.as(ARTIST), payload: { key } });
+      expect((done.json() as { version: { render_key: string } }).version.render_key).toBe(key);
+      const got = await h.app.inject({ method: "GET", url: `/parts/${face}/versions/${faceVersion}/render`, ...h.as(VIEWER) });
+      const link = (got.json() as { url: string }).url;
+      expect(await (await fetch(link)).text()).toBe("PNG!");
     });
 
     it("the event log replays in order with a cursor", async () => {
@@ -268,7 +345,7 @@ describe.skipIf(!hasInfra)("server api", () => {
 
     it("names the studio and counts its members", async () => {
       const res = await h.app.inject({ method: "GET", url: "/studio", ...h.as(VIEWER) });
-      expect(res.json()).toEqual({ v: 1, studio: { id: h.seeded.studio_id, name: "Sunburst Interactive", member_count: 5 } });
+      expect(res.json()).toEqual({ v: 1, studio: { id: h.seeded.studio_id, name: "Sunburst Interactive", member_count: 5, training: "off", billing: { line: "Billed per seat", seats: 5 } } });
     });
 
     it("lists members and lets a producer invite and set roles", async () => {
