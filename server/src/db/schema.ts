@@ -15,7 +15,7 @@ import {
   uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
-import type { Gate, PartMapping, PartState, Role } from "@nkata/shared";
+import type { AssetRights, CommentKind, Gate, PartMapping, PartState, Role, Training } from "@nkata/shared";
 
 const ulid = (name: string) => varchar(name, { length: 26 });
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
@@ -30,6 +30,8 @@ const base = {
 export const studio = pgTable("studio", {
   ...base,
   name: text("name").notNull(),
+  // On: the studio contributes to model training and pays nothing. Off: billed per seat.
+  training: text("training").$type<Training>().notNull().default("off"),
 });
 
 export const user = pgTable(
@@ -40,6 +42,8 @@ export const user = pgTable(
     email: text("email").notNull(),
     name: text("name").notNull(),
     avatar_url: text("avatar_url"),
+    // Pseudonymous id for training data, set when the member acknowledges capture. Never the email.
+    training_id: ulid("training_id"),
   },
   (t) => [uniqueIndex("user_email_idx").on(t.email)],
 );
@@ -51,6 +55,8 @@ export const membership = pgTable(
     studio_id: ulid("studio_id").notNull().references(() => studio.id),
     user_id: ulid("user_id").notNull().references(() => user.id),
     roles: jsonb("roles").$type<Role[]>().notNull(),
+    // When this member acknowledged that their work may be captured for training.
+    capture_ack_at: ts("capture_ack_at"),
   },
   (t) => [uniqueIndex("membership_user_studio_idx").on(t.user_id, t.studio_id)],
 );
@@ -90,6 +96,8 @@ export const asset = pgTable(
     template_id: ulid("template_id").notNull().references(() => template.id),
     name: text("name").notNull(),
     reference_files: jsonb("reference_files").$type<string[]>().notNull(),
+    // Who holds the rights. Required to Publish while studio.training is on.
+    rights: jsonb("rights").$type<AssetRights>(),
   },
   (t) => [uniqueIndex("asset_project_name_idx").on(t.project_id, t.name)],
 );
@@ -139,6 +147,13 @@ export const version = pgTable(
     refs: jsonb("refs"),
     published: boolean("published").notNull().default(false),
     note: text("note").notNull().default(""),
+    // Stamped from studio.training at insert and never updated. Rows are never deleted.
+    capture_eligible: boolean("capture_eligible").notNull().default(false),
+    // When the editor opened the file and when it saved, from the editor's clock.
+    opened_at: ts("opened_at"),
+    saved_at: ts("saved_at"),
+    // Store key of the viewport capture taken on Mark Ready. Null until one exists.
+    render_key: text("render_key"),
   },
   (t) => [index("version_part_created_idx").on(t.part_id, sql`${t.created_at} desc`)],
 );
@@ -193,7 +208,9 @@ export const comment = pgTable("comment", {
   point: real("point").array().notNull(),
   normal: real("normal").array().notNull(),
   body: text("body").notNull(),
+  kind: text("kind").$type<CommentKind>().notNull().default("pin"),
   resolved_at: ts("resolved_at"),
+  capture_eligible: boolean("capture_eligible").notNull().default(false),
 });
 
 export const review = pgTable("review", {
@@ -205,6 +222,7 @@ export const review = pgTable("review", {
   score: integer("score").notNull(),
   decision: text("decision").notNull(),
   note: text("note").notNull().default(""),
+  capture_eligible: boolean("capture_eligible").notNull().default(false),
 });
 
 export const check_run = pgTable("check_run", {
@@ -216,6 +234,7 @@ export const check_run = pgTable("check_run", {
   passed: boolean("passed").notNull(),
   auto_fixed: boolean("auto_fixed").notNull(),
   message: text("message").notNull().default(""),
+  capture_eligible: boolean("capture_eligible").notNull().default(false),
 });
 
 export const event = pgTable(

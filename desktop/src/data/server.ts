@@ -31,7 +31,7 @@ type PartWire = {
 };
 type AssetWire = { id: string; name: string; template_id: string; state: string; updated_at: string };
 type VersionWire = { id: string; part_id: string; author_id: string; mirror_status: string; mirror_ms: number | null; refs: { level: string; actors: number }[] | null; published: boolean; note: string; created_at: string };
-type CommentWire = { id: string; part_id: string; author: UserRef; body: string; resolved_at: string | null; created_at: string };
+type CommentWire = { id: string; part_id: string; author: UserRef; body: string; kind: "pin" | "take_a_look"; resolved_at: string | null; created_at: string };
 type CheckWire = { check_id: string; severity: "block" | "warn"; passed: boolean; auto_fixed: boolean; message: string };
 type EventWire = { id: string; event: Wire & { kind: string; actor_id: string; at: string; part_id?: string } };
 
@@ -179,7 +179,7 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
     const t = now();
     const me = await call<{ user: UserRef; email: string; studio_id: string; roles: string[] }>("GET", "/auth/me");
     const [studio, projects, members, online, assetsWire, templatesWire, eventsWire] = await Promise.all([
-      call<{ studio: { id: string; name: string; member_count: number } }>("GET", "/studio"),
+      call<{ studio: { id: string; name: string; member_count: number; training: "on" | "off"; billing: { line: string; seats: number } } }>("GET", "/studio"),
       call<{ projects: Wire[] }>("GET", "/projects"),
       call<{ members: { user: UserRef; email: string; roles: string[] }[] }>("GET", `/projects/${config.projectId}/members`),
       call<{ online: { user: UserRef; part_id: string | null; last_seen: string }[] }>("GET", `/presence?project_id=${config.projectId}`),
@@ -209,7 +209,7 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
         const versions = versionsRes.versions.map((v, idx, all) => versionOf(v, all.length - idx, t));
         const current = versionsRes.versions[0];
         const checks: Check[] = current ? (await call<{ results: CheckWire[] }>("GET", `/parts/${pw.id}/versions/${current.id}/checks`)).results.map(checkOf) : [];
-        const comments: Comment[] = commentsRes.comments.map((c, n) => ({ id: c.id, n: n + 1, authorId: c.author.id, partName: pw.name, when: ago(c.created_at, t), text: c.body, resolved: c.resolved_at !== null, source: "Nkata" }));
+        const comments: Comment[] = commentsRes.comments.map((c, n) => ({ id: c.id, n: n + 1, authorId: c.author.id, partName: pw.name, when: ago(c.created_at, t), text: c.body, resolved: c.resolved_at !== null, kind: c.kind, source: "Nkata" }));
         const mirror = !current ? { state: "offline" as const, seconds: 0 } : current.mirror_status === "failed" ? { state: "failed" as const, seconds: 0 } : current.mirror_status === "synced" || current.mirror_status === "skipped" ? { state: "synced" as const, seconds: Math.round((current.mirror_ms ?? 0) / 1000) } : { state: "syncing" as const, seconds: 0 };
         return { id: pw.id, name: pw.name, state: partState(pw), ownerId: pw.owner_id ?? "", render: null, lock: pw.lock ? { holderId: pw.lock.holder.id, since: ago(pw.lock.granted_at, t) } : null, gate: pw.waiting_on, versions, checks, comments, mirror, refs: current?.refs ?? [] };
       }));
@@ -234,7 +234,7 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
       id: String(p["id"]), slug: slugOf(String(p["name"])), name: String(p["name"]), assetCount: p["id"] === config.projectId ? assets.length : 0, changed: "", renders: [], present: online.online.map((o) => o.user.id),
       folder: config.folder ?? "", blender: String(p["blender_version"] ?? ""), unreal: String(p["ue_version"] ?? ""), inviteLink: `nkata://join/${String(p["id"])}`, sizeLabel: "",
     }));
-    const studioOut: Studio = { id: studio.studio.id, name: studio.studio.name, initial: studio.studio.name.charAt(0).toUpperCase(), peopleCount: people.length, projects: projectList.sort((a, b) => (a.id === config.projectId ? -1 : b.id === config.projectId ? 1 : 0)) };
+    const studioOut: Studio = { id: studio.studio.id, name: studio.studio.name, initial: studio.studio.name.charAt(0).toUpperCase(), peopleCount: people.length, training: studio.studio.training, billing: studio.studio.billing, projects: projectList.sort((a, b) => (a.id === config.projectId ? -1 : b.id === config.projectId ? 1 : 0)) };
     const role = primaryRole(me.roles);
     const user: Person = peopleById.get(me.user.id) ?? { id: me.user.id, name: me.user.name, initial: me.user.name.charAt(0), tone: toneOf(me.user.id), title: ROLE_WORDS[role], role, email: me.email, presence: "online", where: "", seen: "now" };
     const session: Session = { user: { ...user, role }, studio: studioOut, theme: snapshot.session.theme, digestHome };
@@ -314,7 +314,7 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
     addComment: (assetSlug, partName, text) => {
       const { p } = findPart(assetSlug, partName);
       const n = Math.max(0, ...p.comments.map((c) => c.n)) + 1;
-      const c: Comment = { id: `pending-${n}`, n, authorId: snapshot.session.user.id, partName, when: "now", text, resolved: false, source: "Nkata" };
+      const c: Comment = { id: `pending-${n}`, n, authorId: snapshot.session.user.id, partName, when: "now", text, resolved: false, kind: "pin", source: "Nkata" };
       p.comments = [...p.comments, c];
       emit();
       void currentVersion(p.id).then((vid) => call("POST", "/comments", { part_id: p.id, version_id: vid, point: [0, 0, 0], normal: [0, 0, 1], body: text })).then(scheduleReload).catch(scheduleReload);
@@ -324,6 +324,7 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
       void call("POST", `/projects/${config.projectId}/members`, { email, name: email.split("@")[0] ?? email, roles: [role] }).then(scheduleReload).catch(scheduleReload);
     },
     setDiscordWebhook: async (url) => { await call("PUT", `/projects/${config.projectId}/discord`, { webhook_url: url }); },
+    setTraining: async (training) => { await call("PUT", "/studio/training", { training }); await load(); },
     exportAsset: async (assetSlug) => {
       const a = snapshot.assets.find((x) => x.slug === assetSlug);
       if (!a) throw new Error(`no asset ${assetSlug}`);
@@ -336,7 +337,7 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
 }
 
 function emptySnapshot(theme: "dark" | "light"): Snapshot {
-  const studio: Studio = { id: "", name: "", initial: "", peopleCount: 0, projects: [] };
+  const studio: Studio = { id: "", name: "", initial: "", peopleCount: 0, projects: [], training: "off", billing: { line: "", seats: 0 } };
   const user: Person = { id: "", name: "", initial: "", tone: 1, title: "", role: "viewer", email: "", presence: "offline", where: "", seen: "" };
   return { session: { user, studio, theme, digestHome: true }, people: [], assets: [], activity: [], templates: [], digests: [], digestIndex: 0, online: 0, changedToday: 0, changedThisWeek: 0 };
 }

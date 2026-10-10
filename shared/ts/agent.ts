@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @nkata/shared generate
 
 import { z } from "zod";
-import { CheckResult, CheckSeverity, CommentPin, Gate, LockInfo, MirrorStatus, PartMapping, PartState, ReviewDecision, Timestamp, Ulid, UserRef, Vec3 } from "./common.js";
+import { CheckResult, CheckSeverity, CommentKind, CommentPin, Gate, LockInfo, MirrorStatus, PartMapping, PartState, ReviewDecision, Timestamp, Ulid, UserRef, Vec3 } from "./common.js";
 import { CommentCreated, LockGranted, LockReleased, LockRequested, MirrorResult, PartStateChanged, PresenceChanged, PresenceEntry } from "./events.js";
 import { TemplateKind } from "./template.js";
 
@@ -26,6 +26,7 @@ export const MeResponse = z.strictObject({
   "online": z.boolean(),
   "spool_dir": z.string().min(1),
   "mode": AgentMode,
+  "mirror_paused": z.boolean(),
 });
 export type MeResponse = z.infer<typeof MeResponse>;
 
@@ -106,6 +107,7 @@ export const PartSavedRequest = z.strictObject({
   "spool_path": z.string().min(1).nullable(),
   "manifest": ObjectManifest.nullable(),
   "source_file": z.string().min(1),
+  "opened_at": Timestamp.nullable().optional(),
 });
 export type PartSavedRequest = z.infer<typeof PartSavedRequest>;
 
@@ -130,6 +132,7 @@ export const PublishResponse = z.strictObject({
   "version_id": Ulid,
   "state": PartState,
   "blocked_by": z.array(CheckResult),
+  "render_needed": z.boolean(),
 });
 export type PublishResponse = z.infer<typeof PublishResponse>;
 
@@ -160,6 +163,7 @@ export const CommentCreateRequest = z.strictObject({
   "point": Vec3,
   "normal": Vec3,
   "body": z.string().min(1),
+  "kind": CommentKind.optional(),
 });
 export type CommentCreateRequest = z.infer<typeof CommentCreateRequest>;
 
@@ -220,6 +224,7 @@ export const MirrorState = z.strictObject({
   "message": z.string(),
   "failures": z.number().int().min(0),
   "halted": z.boolean(),
+  "on_save": z.boolean(),
 });
 export type MirrorState = z.infer<typeof MirrorState>;
 
@@ -229,3 +234,37 @@ export const MirrorStateResponse = z.strictObject({
   "mirror": MirrorState,
 });
 export type MirrorStateResponse = z.infer<typeof MirrorStateResponse>;
+
+/** POST /parts/:id/mirror/on-save */
+export const MirrorOnSaveRequest = z.strictObject({
+  "v": z.literal(1),
+  "on_save": z.boolean(),
+});
+export type MirrorOnSaveRequest = z.infer<typeof MirrorOnSaveRequest>;
+
+/** POST /mirror/pause. Pauses every mirror; saves still version. */
+export const MirrorPauseRequest = z.strictObject({
+  "v": z.literal(1),
+  "paused": z.boolean(),
+});
+export type MirrorPauseRequest = z.infer<typeof MirrorPauseRequest>;
+
+export const MirrorPauseResponse = z.strictObject({
+  "v": z.literal(1),
+  "paused": z.boolean(),
+});
+export type MirrorPauseResponse = z.infer<typeof MirrorPauseResponse>;
+
+/** POST /parts/:id/render. A PNG on disk the agent stores as the current version's render. */
+export const RenderRequest = z.strictObject({
+  "v": z.literal(1),
+  "path": z.string().min(1),
+});
+export type RenderRequest = z.infer<typeof RenderRequest>;
+
+export const RenderResponse = z.strictObject({
+  "v": z.literal(1),
+  "version_id": Ulid,
+  "stored": z.boolean(),
+});
+export type RenderResponse = z.infer<typeof RenderResponse>;

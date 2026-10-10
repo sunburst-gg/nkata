@@ -1,10 +1,13 @@
 //! Mirror runner. On a save with changes, the newest pending mirror per part runs in UE5 through
 //! Remote Control. UE5 closed: the job waits and runs when the port answers. Import error: the
 //! result carries the UE5 log line and the version still exists. Three failures in a row on one
-//! part: the runner stops that part and the panel shows Retry. See docs/engineering.md, The mirror.
+//! part: the runner stops that part and the panel shows Retry. Pause holds every mirror and
+//! Mirror on save holds one part; saves still version either way (docs/decisions.md, 2026-10-10).
+//! See docs/engineering.md, The mirror.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -19,6 +22,10 @@ use crate::protocol::{
 use crate::ue5::{CallOutcome, LevelRef, ScriptResult, Ue5Client};
 
 pub const MAX_FAILURES: u32 = 3;
+/// How long the agent waits for the editor to write a Mark Ready screenshot.
+pub const CAPTURE_WAIT: Duration = Duration::from_secs(10);
+pub const PAUSED_MESSAGE: &str = "Mirror paused";
+pub const OFF_MESSAGE: &str = "Mirror on save is off";
 
 fn event_value(event: &AgentEvent) -> serde_json::Value {
     serde_json::to_value(event).unwrap_or(serde_json::Value::Null)
@@ -86,6 +93,7 @@ impl PartEntry {
                 message: String::new(),
                 failures: 0,
                 halted: false,
+                on_save: true,
             },
         }
     }
@@ -93,6 +101,7 @@ impl PartEntry {
 
 pub struct MirrorRunner {
     parts: Mutex<HashMap<String, PartEntry>>,
+    paused: AtomicBool,
     wake: Notify,
     ue5: Ue5Client,
     server: ServerClient,
@@ -124,6 +133,7 @@ impl MirrorRunner {
     ) -> Arc<Self> {
         Arc::new(Self {
             parts: Mutex::new(HashMap::new()),
+            paused: AtomicBool::new(false),
             wake: Notify::new(),
             ue5,
             server,
@@ -141,9 +151,110 @@ impl MirrorRunner {
             .or_insert_with(|| PartEntry::new(&job.part_id));
         entry.state.status = MirrorStatus::Pending;
         entry.state.version_id = Some(job.version_id.clone());
+        entry.state.message = if self.is_paused() {
+            PAUSED_MESSAGE.to_string()
+        } else if !entry.state.on_save {
+            OFF_MESSAGE.to_string()
+        } else {
+            String::new()
+        };
         entry.pending = Some(job);
         drop(parts);
         self.wake.notify_one();
+    }
+
+    pub fn is_paused(&self) -> bool {
+        self.paused.load(Ordering::SeqCst)
+    }
+
+    /// Holds every mirror, or lets them run again. Pending jobs stay and run on resume.
+    pub async fn set_paused(&self, paused: bool) {
+        self.paused.store(paused, Ordering::SeqCst);
+        let mut parts = self.parts.lock().await;
+        for e in parts.values_mut() {
+            if e.pending.is_some() && !e.running {
+                e.state.message = if paused {
+                    PAUSED_MESSAGE.to_string()
+                } else if !e.state.on_save {
+                    OFF_MESSAGE.to_string()
+                } else {
+                    String::new()
+                };
+            }
+        }
+        drop(parts);
+        self.wake.notify_one();
+    }
+
+    /// Mirror on save for one part. Off: saves version and the newest waits. On: it runs.
+    pub async fn set_on_save(&self, part_id: &str, on_save: bool) -> MirrorState {
+        let mut parts = self.parts.lock().await;
+        let entry = parts
+            .entry(part_id.to_string())
+            .or_insert_with(|| PartEntry::new(part_id));
+        entry.state.on_save = on_save;
+        if entry.pending.is_some() && !entry.running {
+            entry.state.message = if self.is_paused() {
+                PAUSED_MESSAGE.to_string()
+            } else if on_save {
+                String::new()
+            } else {
+                OFF_MESSAGE.to_string()
+            };
+        }
+        let state = entry.state.clone();
+        drop(parts);
+        self.wake.notify_one();
+        state
+    }
+
+    /// Mark Ready: asks the editor for a viewport capture and waits for the file. None when
+    /// the editor is closed, refuses, or never writes it; the caller falls back to Blender.
+    pub async fn capture(
+        &self,
+        part_id: &str,
+        version_id: &str,
+        spool_dir: &Path,
+    ) -> Option<PathBuf> {
+        let script = self.scripts_dir.join("capture_viewport.py");
+        let dir = spool_dir.join(part_id);
+        if let Err(e) = std::fs::create_dir_all(&dir) {
+            tracing::warn!(part_id, error = %e, "capture: spool dir");
+            return None;
+        }
+        let args_path = dir.join(format!("{version_id}.capture.args.json"));
+        let args = serde_json::json!({ "v": 1, "part_id": part_id, "version_id": version_id, "width": 1280, "height": 720 });
+        if let Err(e) = std::fs::write(&args_path, serde_json::to_vec_pretty(&args).ok()?) {
+            tracing::warn!(part_id, error = %e, "capture: args not written");
+            return None;
+        }
+        let path = match self.ue5.run_script(&script, &args_path).await {
+            Ok(CallOutcome::Done(r)) if r.ok => r.path.map(PathBuf::from)?,
+            Ok(CallOutcome::Done(r)) => {
+                tracing::info!(part_id, message = r.message, "capture: refused");
+                return None;
+            }
+            Ok(CallOutcome::Unreachable(why)) => {
+                tracing::info!(part_id, why, "capture: UE5 not reachable");
+                return None;
+            }
+            Err(e) => {
+                tracing::warn!(part_id, error = %e, "capture: error");
+                return None;
+            }
+        };
+        let started = Instant::now();
+        while started.elapsed() < CAPTURE_WAIT {
+            if std::fs::metadata(&path)
+                .map(|m| m.len() > 0)
+                .unwrap_or(false)
+            {
+                return Some(path);
+            }
+            tokio::time::sleep(Duration::from_millis(250)).await;
+        }
+        tracing::info!(part_id, path = %path.display(), "capture: file never appeared");
+        None
     }
 
     pub async fn state(&self, part_id: &str) -> MirrorState {
@@ -177,9 +288,16 @@ impl MirrorRunner {
         loop {
             let next = {
                 let mut parts = self.parts.lock().await;
+                let paused = self.is_paused();
                 let picked = parts
                     .iter_mut()
-                    .find(|(_, e)| e.pending.is_some() && !e.running && !e.state.halted)
+                    .find(|(_, e)| {
+                        !paused
+                            && e.state.on_save
+                            && e.pending.is_some()
+                            && !e.running
+                            && !e.state.halted
+                    })
                     .map(|(id, e)| {
                         e.running = true;
                         e.state.status = MirrorStatus::Syncing;
@@ -352,6 +470,7 @@ impl MirrorRunner {
                 asset_path: None,
                 first_import: false,
                 levels: None,
+                path: None,
             }));
         }
         let Some(script_name) = script_for(job.kind) else {
@@ -361,6 +480,7 @@ impl MirrorRunner {
                 asset_path: None,
                 first_import: false,
                 levels: None,
+                path: None,
             }));
         };
         let destination = destination_for(&job.mapping, &job.asset_name, &job.part_name);

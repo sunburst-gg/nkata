@@ -58,6 +58,10 @@
         },
         "mode": {
           "$ref": "#/$defs/AgentMode"
+        },
+        "mirror_paused": {
+          "type": "boolean",
+          "description": "True while every mirror waits. Saves still version."
         }
       },
       "required": [
@@ -67,7 +71,8 @@
         "package_version",
         "online",
         "spool_dir",
-        "mode"
+        "mode",
+        "mirror_paused"
       ],
       "additionalProperties": false
     },
@@ -383,6 +388,10 @@
         "source_file": {
           "type": "string",
           "minLength": 1
+        },
+        "opened_at": {
+          "anyOf": [{ "$ref": "common.schema.json#/$defs/Timestamp" }, { "type": "null" }],
+          "description": "When the editor opened the file, for the version's opened_at."
         }
       },
       "required": [
@@ -458,6 +467,10 @@
           "items": {
             "$ref": "common.schema.json#/$defs/CheckResult"
           }
+        },
+        "render_needed": {
+          "type": "boolean",
+          "description": "True after Mark Ready when UE5 gave no viewport capture: Blender renders and posts it to /parts/:id/render."
         }
       },
       "required": [
@@ -465,7 +478,8 @@
         "published",
         "version_id",
         "state",
-        "blocked_by"
+        "blocked_by",
+        "render_needed"
       ],
       "additionalProperties": false
     },
@@ -546,6 +560,10 @@
         "body": {
           "type": "string",
           "minLength": 1
+        },
+        "kind": {
+          "$ref": "common.schema.json#/$defs/CommentKind",
+          "description": "Defaults to pin."
         }
       },
       "required": [
@@ -760,6 +778,10 @@
         "halted": {
           "type": "boolean",
           "description": "True after three failures in a row. Retry clears it."
+        },
+        "on_save": {
+          "type": "boolean",
+          "description": "False: this part's saves version but do not mirror until turned on again."
         }
       },
       "required": [
@@ -770,7 +792,8 @@
         "mirror_ms",
         "message",
         "failures",
-        "halted"
+        "halted",
+        "on_save"
       ],
       "additionalProperties": false
     },
@@ -789,6 +812,55 @@
         "v",
         "mirror"
       ],
+      "additionalProperties": false
+    },
+    "MirrorOnSaveRequest": {
+      "description": "POST /parts/:id/mirror/on-save",
+      "type": "object",
+      "properties": {
+        "v": { "const": 1 },
+        "on_save": { "type": "boolean" }
+      },
+      "required": ["v", "on_save"],
+      "additionalProperties": false
+    },
+    "MirrorPauseRequest": {
+      "description": "POST /mirror/pause. Pauses every mirror; saves still version.",
+      "type": "object",
+      "properties": {
+        "v": { "const": 1 },
+        "paused": { "type": "boolean" }
+      },
+      "required": ["v", "paused"],
+      "additionalProperties": false
+    },
+    "MirrorPauseResponse": {
+      "type": "object",
+      "properties": {
+        "v": { "const": 1 },
+        "paused": { "type": "boolean" }
+      },
+      "required": ["v", "paused"],
+      "additionalProperties": false
+    },
+    "RenderRequest": {
+      "description": "POST /parts/:id/render. A PNG on disk the agent stores as the current version's render.",
+      "type": "object",
+      "properties": {
+        "v": { "const": 1 },
+        "path": { "type": "string", "minLength": 1 }
+      },
+      "required": ["v", "path"],
+      "additionalProperties": false
+    },
+    "RenderResponse": {
+      "type": "object",
+      "properties": {
+        "v": { "const": 1 },
+        "version_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "stored": { "type": "boolean" }
+      },
+      "required": ["v", "version_id", "stored"],
       "additionalProperties": false
     }
   }

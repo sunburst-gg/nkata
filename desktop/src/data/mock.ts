@@ -34,8 +34,8 @@ const faceChecks: Check[] = [
 const passChecks = (names: [string, string][]): Check[] => names.map(([name, detail], i) => ({ id: `c${i}`, name, detail, status: "pass", blocks: false, fixable: false }));
 
 const faceComments: Comment[] = [
-  { id: "c1", n: 1, authorId: "emeka", partName: "face", when: "14 min", text: "Steam reads too strong in the key light.", resolved: false, source: "UE5", pin: { x: 58, y: 30 } },
-  { id: "c2", n: 2, authorId: "emeka", partName: "face", when: "12 min", text: "Shadow under the table is crushed. Approve after fix.", resolved: false, source: "UE5", pin: { x: 30, y: 58 } },
+  { id: "c1", n: 1, authorId: "emeka", partName: "face", when: "14 min", text: "Steam reads too strong in the key light.", resolved: false, kind: "pin", source: "UE5", pin: { x: 58, y: 30 } },
+  { id: "c2", n: 2, authorId: "emeka", partName: "face", when: "12 min", text: "Shadow under the table is crushed. Approve after fix.", resolved: false, kind: "pin", source: "UE5", pin: { x: 30, y: 58 } },
 ];
 
 const part = (name: string, state: Part["state"], ownerId: string, render: Part["render"], extra: Partial<Part> = {}): Part => ({
@@ -57,7 +57,7 @@ const part = (name: string, state: Part["state"], ownerId: string, render: Part[
 function ojukwuParts(): Part[] {
   return [
     part("face", "draft", "ada", r("interior"), { lock: { holderId: "ada", since: "12 min" }, versions: versions("face", 14, { 14: "current", 12: "published", 11: "not mirrored", 9: "published" }, "interior", "ada"), checks: faceChecks.map((c) => ({ ...c })), comments: faceComments.map((c) => ({ ...c })) }),
-    part("cloth", "locked", "chidi", r("courtyard", "60% 30%"), { lock: { holderId: "chidi", since: "4 min" }, versions: versions("cloth", 8, { 8: "current", 6: "published" }, "courtyard", "chidi"), checks: passChecks([["Scale", "1.0"], ["Naming", "SM_Ojukwu_Cloth"], ["Triangle budget", "18,900 of 20,000"]]), comments: [{ id: "c3", n: 3, authorId: "chidi", partName: "cloth", when: "Mon", text: "Collar matches the sheet now.", resolved: true, source: "Blender" }] }),
+    part("cloth", "locked", "chidi", r("courtyard", "60% 30%"), { lock: { holderId: "chidi", since: "4 min" }, versions: versions("cloth", 8, { 8: "current", 6: "published" }, "courtyard", "chidi"), checks: passChecks([["Scale", "1.0"], ["Naming", "SM_Ojukwu_Cloth"], ["Triangle budget", "18,900 of 20,000"]]), comments: [{ id: "c3", n: 3, authorId: "chidi", partName: "cloth", when: "Mon", text: "Collar matches the sheet now.", resolved: true, kind: "pin", source: "Blender" }] }),
     part("hair", "ready", "ngozi", r("tree", "70% 20%"), { versions: versions("hair", 3, { 3: "current" }, "tree", "ngozi"), checks: passChecks([["Scale", "1.0"], ["Naming", "SM_Ojukwu_Hair"]]) }),
     part("textures", "waiting", "ngozi", null, { gate: ["face", "cloth", "hair"] }),
     part("rig", "waiting", "chidi", null, { gate: ["textures"] }),
@@ -147,7 +147,7 @@ const DIGESTS: Digest[] = [
 ];
 
 const STUDIO: Studio = {
-  id: "sunburst", name: "Sunburst", initial: "S", peopleCount: 7,
+  id: "sunburst", name: "Sunburst", initial: "S", peopleCount: 7, training: "off", billing: { line: "Billed per seat", seats: 7 },
   projects: [
     { id: "rising-sun", slug: "rising-sun", name: "Rising Sun", assetCount: 8, changed: "changed 12 min ago", renders: ["ground", "overview", "interior"], present: ["ada", "chidi", "ngozi", "emeka"], folder: "~/Projects/Rising Sun", blender: "4.2.3 LTS", unreal: "5.4.4", inviteLink: "nkata.app/join/rising-sun-7f3a", sizeLabel: "3.4 GB" },
     { id: "greybox", slug: "greybox-tests", name: "Greybox tests", assetCount: 3, changed: "changed Tuesday", renders: ["courtyard"], present: [], folder: "~/Projects/Greybox", blender: "4.2.3 LTS", unreal: "5.4.4", inviteLink: "nkata.app/join/greybox-2c1d", sizeLabel: "420 MB" },
@@ -224,7 +224,7 @@ export function createMockSource(initialRole: "artist" | "viewer" = "artist"): D
     addComment: (assetSlug, partName, text) => {
       const { a, p } = findPart(assetSlug, partName);
       const n = Math.max(0, ...a.parts.flatMap((x) => x.comments.map((c) => c.n))) + 1;
-      const c: Comment = { id: `c${nextComment++}`, n, authorId: session.user.id, partName, when: "now", text, resolved: false, source: "Nkata" };
+      const c: Comment = { id: `c${nextComment++}`, n, authorId: session.user.id, partName, when: "now", text, resolved: false, kind: "pin", source: "Nkata" };
       p.comments = [...p.comments, c];
       touch();
       return c;

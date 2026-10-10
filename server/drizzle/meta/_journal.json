@@ -29,6 +29,13 @@
       "when": 1791209900046,
       "tag": "0003_project_discord_webhook",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791621964918,
+      "tag": "0004_training_and_capture",
+      "breakpoints": true
     }
   ]
 }

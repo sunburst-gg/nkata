@@ -8,6 +8,7 @@ export type ErrorCode =
   | "gate_closed"
   | "lock_held"
   | "invalid_state"
+  | "rights_required"
   | "chunks_missing";
 
 const STATUS: Record<ErrorCode, number> = {
@@ -19,6 +20,7 @@ const STATUS: Record<ErrorCode, number> = {
   gate_closed: 409,
   lock_held: 409,
   invalid_state: 409,
+  rights_required: 409,
   chunks_missing: 422,
 };
 

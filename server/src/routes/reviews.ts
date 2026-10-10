@@ -7,7 +7,7 @@ import { part, review, version } from "../db/schema.js";
 import { notFound } from "../domain/errors.js";
 import { newId } from "../domain/ids.js";
 import { transition } from "../domain/state.js";
-import { loadPart, requireRole, userRefs, type TypedApp } from "./_shared.js";
+import { loadPart, requireRole, trainingOn, userRefs, type TypedApp } from "./_shared.js";
 import { releaseLock } from "./locks.js";
 import { openGates } from "./parts.js";
 
@@ -35,7 +35,7 @@ export async function reviewRoutes(app: TypedApp): Promise<void> {
     const now = app.now();
     const [saved] = await app.db
       .insert(review)
-      .values({ id, studio_id: a.studio_id, part_id: row.id, version_id: ver.id, reviewer_id: req.principal.user_id, score: req.body.score, decision: req.body.decision, note: req.body.note, created_at: now, updated_at: now })
+      .values({ id, studio_id: a.studio_id, part_id: row.id, version_id: ver.id, reviewer_id: req.principal.user_id, score: req.body.score, decision: req.body.decision, note: req.body.note, capture_eligible: await trainingOn(app.db, a.studio_id), created_at: now, updated_at: now })
       .returning();
     await app.db.update(part).set({ state: to, updated_at: now }).where(eq(part.id, row.id));
     const base = { v: 1 as const, project_id: a.project_id, actor_id: req.principal.user_id, at: now.toISOString() };

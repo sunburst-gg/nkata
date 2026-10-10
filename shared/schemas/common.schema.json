@@ -37,6 +37,27 @@
       "type": "string",
       "enum": ["approve", "send_back"]
     },
+    "Training": {
+      "type": "string",
+      "description": "Studio setting. On: the studio contributes to model training and pays nothing. Off: billed per seat.",
+      "enum": ["on", "off"]
+    },
+    "CommentKind": {
+      "type": "string",
+      "description": "pin: a note at a point. take_a_look: asks the art director to look, no state change.",
+      "enum": ["pin", "take_a_look"]
+    },
+    "AssetRights": {
+      "type": "object",
+      "description": "Who holds the rights to this asset. Required to Publish while training is on.",
+      "properties": {
+        "statement": { "type": "string", "minLength": 1 },
+        "confirmed_by": { "$ref": "#/$defs/Ulid" },
+        "confirmed_at": { "$ref": "#/$defs/Timestamp" }
+      },
+      "required": ["statement", "confirmed_by", "confirmed_at"],
+      "additionalProperties": false
+    },
     "Vec3": {
       "type": "array",
       "description": "Three floats in the part's local space.",
@@ -154,10 +175,11 @@
         "point": { "$ref": "#/$defs/Vec3" },
         "normal": { "$ref": "#/$defs/Vec3" },
         "body": { "type": "string", "minLength": 1 },
+        "kind": { "$ref": "#/$defs/CommentKind" },
         "resolved_at": { "anyOf": [{ "$ref": "#/$defs/Timestamp" }, { "type": "null" }] },
         "created_at": { "$ref": "#/$defs/Timestamp" }
       },
-      "required": ["id", "part_id", "version_id", "author", "point", "normal", "body", "resolved_at", "created_at"],
+      "required": ["id", "part_id", "version_id", "author", "point", "normal", "body", "kind", "resolved_at", "created_at"],
       "additionalProperties": false
     },
     "ErrorBody": {

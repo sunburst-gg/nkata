@@ -67,6 +67,8 @@ export interface Comment {
   when: string;
   text: string;
   resolved: boolean;
+  /** pin: a note at a point. take_a_look: asks the art director to look, no state change. */
+  kind: CommentKind;
   source: "UE5" | "Blender" | "Nkata";
   /** Pin position on the preview in percent. */
   pin?: { x: number; y: number };
@@ -149,13 +151,21 @@ export interface Project {
   sizeLabel: string;
 }
 
+export type Training = "on" | "off";
+
 export interface Studio {
   id: string;
   name: string;
   initial: string;
   peopleCount: number;
   projects: Project[];
+  /** On: the studio contributes to model training and pays nothing. Off: billed per seat. */
+  training: Training;
+  /** The billing line and the seat count. No payment code yet. */
+  billing: { line: string; seats: number };
 }
+
+export type CommentKind = "pin" | "take_a_look";
 
 export interface DigestRenderPair {
   assetSlug: string;
@@ -225,6 +235,8 @@ export interface DataSource {
   setTheme(theme: "dark" | "light"): void;
   /** Server only: the project's Discord webhook. Absent on the mock. */
   setDiscordWebhook?(url: string | null): Promise<void>;
+  /** Server only: the studio's training setting. Producers only. */
+  setTraining?(training: Training): Promise<void>;
   /** Server only: the export manifest of one asset as JSON text. */
   exportAsset?(assetSlug: string): Promise<string>;
 }

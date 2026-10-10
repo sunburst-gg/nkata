@@ -21,8 +21,8 @@ export async function wsRoutes(app: TypedApp): Promise<void> {
   const send = (client: Client, message: ServerEvent): void => {
     if (client.socket.readyState === client.socket.OPEN) client.socket.send(JSON.stringify(message));
   };
-  const broadcast = (projectId: string, message: ServerEvent): void => {
-    for (const c of clients) if (c.projectId === projectId) send(c, message);
+  const broadcast = (projectId: string | null, message: ServerEvent): void => {
+    for (const c of clients) if (projectId === null || c.projectId === projectId) send(c, message);
   };
   app.bus.subscribe(broadcast);
 

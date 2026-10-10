@@ -53,12 +53,12 @@ class FakeAgent(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         FakeAgent.calls.append(("GET", self.path, None))
         if self.path == "/me":
-            return self._json(200, {"v": 1, "user": DIRECTOR, "roles": ["artist", "art_director"], "project": {"id": ID, "name": "P", "folder_name": "p"}, "package_version": "0.1.0", "online": True, "spool_dir": "/tmp/spool", "mode": "sync"})
+            return self._json(200, {"v": 1, "user": DIRECTOR, "roles": ["artist", "art_director"], "project": {"id": ID, "name": "P", "folder_name": "p"}, "package_version": "0.1.0", "online": True, "spool_dir": "/tmp/spool", "mode": "sync", "mirror_paused": False})
         if self.path.startswith("/parts"):
             if "/mirror" in self.path:
-                return self._json(200, {"v": 1, "mirror": {"part_id": ID, "status": "synced", "version_id": ID, "at": AT, "mirror_ms": 4200, "message": "", "failures": 0, "halted": False}})
+                return self._json(200, {"v": 1, "mirror": {"part_id": ID, "status": "synced", "version_id": ID, "at": AT, "mirror_ms": 4200, "message": "", "failures": 0, "halted": False, "on_save": True}})
             if self.path.endswith("/comments"):
-                return self._json(200, {"v": 1, "comments": [{"id": "c1", "part_id": ID, "version_id": ID, "author": ARTIST, "point": [0.1, 0.2, 0.3], "normal": [0, 0, 1], "body": "Steam too strong.", "resolved_at": None, "created_at": AT}]})
+                return self._json(200, {"v": 1, "comments": [{"id": "c1", "part_id": ID, "version_id": ID, "author": ARTIST, "point": [0.1, 0.2, 0.3], "normal": [0, 0, 1], "body": "Steam too strong.", "kind": "pin", "resolved_at": None, "created_at": AT}]})
             return self._json(200, {"v": 1, "parts": PARTS})
         return self._json(404, {"v": 1, "error": {"code": "not_found", "message": self.path}})
 
@@ -75,9 +75,11 @@ class FakeAgent(BaseHTTPRequestHandler):
         if self.path.endswith("/checks"):
             return self._json(200, {"v": 1, "version_id": ID, "recorded": len(body["results"])})
         if self.path.endswith("/publish"):
-            return self._json(200, {"v": 1, "published": True, "version_id": ID, "state": "ready" if body["ready"] else "draft", "blocked_by": []})
+            return self._json(200, {"v": 1, "published": True, "version_id": ID, "state": "ready" if body["ready"] else "draft", "blocked_by": [], "render_needed": False})
         if self.path.endswith("/comments"):
-            return self._json(201, {"v": 1, "comment": {"id": "c2", "part_id": ID, "version_id": ID, "author": DIRECTOR, "point": body["point"], "normal": body["normal"], "body": body["body"], "resolved_at": None, "created_at": AT}})
+            return self._json(201, {"v": 1, "comment": {"id": "c2", "part_id": ID, "version_id": ID, "author": DIRECTOR, "point": body["point"], "normal": body["normal"], "body": body["body"], "kind": body.get("kind", "pin"), "resolved_at": None, "created_at": AT}})
+        if self.path.endswith("/mirror/on-save"):
+            return self._json(200, {"v": 1, "mirror": {"part_id": ID, "status": "pending", "version_id": ID, "at": None, "mirror_ms": None, "message": "Mirror on save is off", "failures": 0, "halted": False, "on_save": body["on_save"]}})
         if self.path.endswith("/close"):
             return self._json(200, {"v": 1, "released": True})
         return self._json(404, {"v": 1, "error": {"code": "not_found", "message": self.path}})
@@ -111,7 +113,7 @@ class UE5PanelTest(unittest.TestCase):
         self.assertEqual(part["lock"]["holder"]["name"], "Emeka")
         view = self.panel.view().to_dict()
         self.assertEqual(view["header"]["text"], "Ojukwu / lookdev · Ready · Ada · Open by Emeka")
-        self.assertEqual(view["mirror"]["text"], f"Synced {AT}")
+        self.assertEqual(view["mirror"]["text"], f"Synced {AT} · Mirror on save: On")
         self.assertEqual(view["reference"][0]["text"], "concept.png")
         self.assertEqual(view["checks"][0]["text"], "Checks run on Publish")
         self.assertEqual(view["comments"][0]["text"], "1 Ada: Steam too strong.")
@@ -160,6 +162,14 @@ class UE5PanelTest(unittest.TestCase):
         view = self.panel.view().to_dict()
         self.assertEqual([e["text"] for e in view["areas"]], ["blockout · Ada · open by Emeka", "layout · No owner · free"])
         self.assertEqual(view["areas"][1]["action"], "open_area")
+
+    def test_mirror_on_save_toggles_from_the_panel(self) -> None:
+        self.panel.open(ID)
+        self.assertTrue(self.panel.view().to_dict()["mirror"]["text"].endswith("Mirror on save: On"))
+        self.assertEqual(self.panel.view().to_dict()["mirror"]["action"], "mirror_on_save")
+        state = self.panel.set_mirror_on_save(False)
+        self.assertEqual(state["on_save"], False)
+        self.assertEqual([c for c in FakeAgent.calls if c[1].endswith("/mirror/on-save")][-1][2], {"v": 1, "on_save": False})
 
     def test_a_gated_part_says_what_it_waits_on(self) -> None:
         self.panel.open("01DX5ZZKBKACTAV9WEVGEMMVRB")

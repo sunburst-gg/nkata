@@ -168,7 +168,7 @@ def handle_save(filepath: str) -> dict[str, Any]:
         manifest.write_manifest(spool.with_name(f"{version_name}.manifest.json"), manifest_data)
         spool_path = str(spool)
         log("export.done", part_id=part["id"], kind=kind, how=how, export_ms=export_ms, objects=len(infos))
-    res = client.saved(part["id"], changed, spool_path, manifest_data, rel)
+    res = client.saved(part["id"], changed, spool_path, manifest_data, rel, STATE.opened_at)
     results = run_part_checks(part, collection)
     if results:
         try:
@@ -208,6 +208,7 @@ def handle_open(filepath: str) -> dict[str, Any]:
         STATE.rel_file = rel
         STATE.error = ""
         STATE.publish_line = ""
+        STATE.opened_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     if part is None:
         return {"skipped": f"no part maps to {rel}"}
     granted = False

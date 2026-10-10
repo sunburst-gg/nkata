@@ -2,9 +2,9 @@
 // Regenerate with: pnpm --filter @nkata/shared generate
 
 import { z } from "zod";
-import { CommentPin, LockInfo, MirrorStatus, PartState, ReviewDecision, Timestamp, Ulid, UserRef } from "./common.js";
+import { CommentPin, LockInfo, MirrorStatus, PartState, ReviewDecision, Timestamp, Training, Ulid, UserRef } from "./common.js";
 
-export const ServerEventKind = z.enum(["presence.changed", "lock.granted", "lock.released", "lock.requested", "version.created", "mirror.result", "part.state", "comment.created", "review.decided", "gate.opened"]);
+export const ServerEventKind = z.enum(["presence.changed", "lock.granted", "lock.released", "lock.requested", "version.created", "mirror.result", "part.state", "comment.created", "review.decided", "gate.opened", "studio.training"]);
 export type ServerEventKind = z.infer<typeof ServerEventKind>;
 
 export const PresenceEntry = z.strictObject({
@@ -134,8 +134,19 @@ export const GateOpened = z.strictObject({
 });
 export type GateOpened = z.infer<typeof GateOpened>;
 
+/** The studio's training setting changed. Not tied to a project. */
+export const StudioTraining = z.strictObject({
+  "v": z.literal(1),
+  "kind": z.literal("studio.training"),
+  "project_id": Ulid.nullable(),
+  "actor_id": Ulid,
+  "at": Timestamp,
+  "training": Training,
+});
+export type StudioTraining = z.infer<typeof StudioTraining>;
+
 /** Server to client. Discriminated on kind. */
-export const ServerEvent = z.discriminatedUnion("kind", [PresenceChanged, LockGranted, LockReleased, LockRequested, VersionCreated, MirrorResult, PartStateChanged, CommentCreated, ReviewDecided, GateOpened]);
+export const ServerEvent = z.discriminatedUnion("kind", [PresenceChanged, LockGranted, LockReleased, LockRequested, VersionCreated, MirrorResult, PartStateChanged, CommentCreated, ReviewDecided, GateOpened, StudioTraining]);
 export type ServerEvent = z.infer<typeof ServerEvent>;
 
 export const PresenceHeartbeat = z.strictObject({

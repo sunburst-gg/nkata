@@ -101,6 +101,10 @@ class Agent:
     def retry_mirror(self, part_id: str) -> dict[str, Any]:
         return self.call("POST", f"/parts/{part_id}/mirror/retry")
 
+    def mirror_on_save(self, part_id: str, on_save: bool) -> dict[str, Any]:
+        """Off: saves still version, the newest mirror waits until it is on again."""
+        return self.call("POST", f"/parts/{part_id}/mirror/on-save", {"v": 1, "on_save": on_save})["mirror"]
+
     def comments(self, part_id: str) -> list[dict[str, Any]]:
         return list(self.call("GET", f"/parts/{part_id}/comments")["comments"])
 
@@ -207,7 +211,8 @@ def build_view(
     presence = Element("Only you here") if not others else Element("Here: " + ", ".join(f"{e['user']['name']}{' in this part' if e.get('part_id') == part['id'] else ''}" for e in others))
     waiting = part.get("waiting_on") or []
     header = Element(header_line(part), "lock" if waiting else "")
-    view = PanelView(header, Element(mirror_line(mirror), str(mirror.get("status") or "")), reference, check_rows, comment_rows, publish, presence)
+    toggle = "Mirror on save: On" if mirror.get("on_save", True) else "Mirror on save: Off"
+    view = PanelView(header, Element(f"{mirror_line(mirror)} · {toggle}", str(mirror.get("status") or ""), action="mirror_on_save"), reference, check_rows, comment_rows, publish, presence)
     if waiting:
         view.error = f"Waits on {', '.join(waiting)}"
     roles = set(me.get("roles") or [])
@@ -288,6 +293,12 @@ class Panel:
         if results:
             self.agent.record_checks(self.part["id"], results)
         return results
+
+    def set_mirror_on_save(self, on_save: bool) -> dict[str, Any]:
+        """The Mirror on save toggle next to the mirror line. Returns the mirror state."""
+        if self.part is None:
+            raise AgentError("no_part", "Open a part first")
+        return self.agent.mirror_on_save(self.part["id"], on_save)
 
     def publish(self, ready: bool) -> dict[str, Any]:
         if self.part is None:

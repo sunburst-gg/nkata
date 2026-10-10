@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { Role, Template, Ulid } from "@nkata/shared";
+import { Role, Template, Training, Ulid } from "@nkata/shared";
 import { membership, project, studio, template, user } from "../db/schema.js";
 import { AppError } from "../domain/errors.js";
 import { encryptWebhook, isWebhookUrl } from "../domain/discord.js";
@@ -16,6 +16,11 @@ const ProjectBody = z.object({
   package_version: z.string().min(1),
 });
 
+/** The billing line. No payment code yet: a stub with the seat count only (docs/decisions.md, 2026-10-10). */
+export function billingFor(training: Training, seats: number): { line: string; seats: number } {
+  return { line: training === "on" ? "Nothing to pay" : "Billed per seat", seats };
+}
+
 /** A project on the wire: the webhook stays in the row. */
 export function projectWire(row: typeof project.$inferSelect) {
   const { discord_webhook, ...rest } = row;
@@ -28,7 +33,43 @@ export async function projectRoutes(app: TypedApp): Promise<void> {
     const row = rows[0];
     if (!row) throw new AppError("not_found", "studio not found");
     const members = await app.db.select({ id: membership.id }).from(membership).where(eq(membership.studio_id, row.id));
-    return { v: 1, studio: { id: row.id, name: row.name, member_count: members.length } };
+    return { v: 1, studio: { id: row.id, name: row.name, member_count: members.length, training: row.training, billing: billingFor(row.training, members.length) } };
+  });
+
+  // Training on: the studio contributes to model training and pays nothing. Off: billed per seat.
+  app.put("/studio/training", { schema: { body: z.object({ training: Training }) } }, async (req) => {
+    requireRole(req.principal, ["producer"], "changing the training setting");
+    const rows = await app.db.select().from(studio).where(eq(studio.id, req.principal.studio_id)).limit(1);
+    const row = rows[0];
+    if (!row) throw new AppError("not_found", "studio not found");
+    const now = app.now();
+    if (row.training !== req.body.training) {
+      await app.db.update(studio).set({ training: req.body.training, updated_at: now }).where(eq(studio.id, row.id));
+      await app.bus.emit({
+        studio_id: row.id, target_kind: "studio", target_id: row.id,
+        message: { v: 1, kind: "studio.training", project_id: null, actor_id: req.principal.user_id, at: now.toISOString(), training: req.body.training },
+      });
+      req.log.info({ studio_id: row.id, training: req.body.training }, "training changed");
+    }
+    const members = await app.db.select({ id: membership.id }).from(membership).where(eq(membership.studio_id, row.id));
+    return { v: 1, studio: { id: row.id, name: row.name, member_count: members.length, training: req.body.training, billing: billingFor(req.body.training, members.length) } };
+  });
+
+  // The member acknowledges that their work may be captured for training. Sets a pseudonymous id once.
+  app.post("/me/capture-ack", async (req) => {
+    const now = app.now();
+    const rows = await app.db.select().from(membership).where(and(eq(membership.user_id, req.principal.user_id), eq(membership.studio_id, req.principal.studio_id))).limit(1);
+    const m = rows[0];
+    if (!m) throw new AppError("not_found", "membership not found");
+    const ack = m.capture_ack_at ?? now;
+    if (!m.capture_ack_at) await app.db.update(membership).set({ capture_ack_at: ack, updated_at: now }).where(eq(membership.id, m.id));
+    const u = (await app.db.select({ training_id: user.training_id }).from(user).where(eq(user.id, req.principal.user_id)).limit(1))[0];
+    let trainingId = u?.training_id ?? null;
+    if (!trainingId) {
+      trainingId = newId();
+      await app.db.update(user).set({ training_id: trainingId, updated_at: now }).where(eq(user.id, req.principal.user_id));
+    }
+    return { v: 1, capture_ack_at: ack.toISOString(), training_id: trainingId };
   });
 
   app.get("/projects", async (req) => {

@@ -71,6 +71,7 @@ fn samples() -> Vec<(&'static str, Value)> {
         message: String::new(),
         failures: 0,
         halted: false,
+        on_save: true,
     };
     vec![
         (
@@ -86,7 +87,8 @@ fn samples() -> Vec<(&'static str, Value)> {
                 package_version: "0.1.0".into(),
                 online: true,
                 spool_dir: "/x".into(),
-                mode: AgentMode::Stream
+                mode: AgentMode::Stream,
+                mirror_paused: false
             }),
         ),
         (
@@ -118,7 +120,8 @@ fn samples() -> Vec<(&'static str, Value)> {
                 changed: true,
                 spool_path: Some("/s.glb".into()),
                 manifest: Some(manifest),
-                source_file: "f.blend".into()
+                source_file: "f.blend".into(),
+                opened_at: None
             }),
         ),
         (

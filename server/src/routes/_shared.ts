@@ -7,7 +7,8 @@ import { Template, Ulid, type CheckSpec, type LockInfo, type PartState, type Rol
 import { checkSeverity } from "../domain/checks.js";
 import type { Principal } from "../auth/tokens.js";
 import type { Db } from "../db/client.js";
-import { asset, lock, part, project, template, user } from "../db/schema.js";
+import { asset, lock, part, project, studio, template, user } from "../db/schema.js";
+import { waitingOn } from "../domain/gates.js";
 import { AppError, notFound } from "../domain/errors.js";
 import { isStale } from "../domain/locks.js";
 
@@ -129,7 +130,7 @@ export function partWire(row: PartRow, ctx: PartContext, owner: UserRef | null, 
     kind: ctx.template.kind,
     checks: checkSpecs(ctx.template, row.name),
     reference_files: ctx.reference_files,
-    waiting_on: row.gate.after.filter((name) => ctx.siblings.find((s) => s.name === name)?.state !== "approved"),
+    waiting_on: waitingOn({ id: row.id, name: row.name, state: row.state, gate: row.gate }, ctx.siblings.map((s) => ({ id: s.name, name: s.name, state: s.state, gate: { after: [] } }))),
     name: row.name,
     position: row.position,
     state: row.state,
@@ -151,6 +152,12 @@ export function assetState(states: PartState[]): "locked" | "draft" | "ready" | 
   if (states.some((s) => s === "ready")) return "ready";
   if (states.some((s) => s === "locked")) return "locked";
   return "approved";
+}
+
+/** True while the studio contributes to training. Rows stamp capture_eligible from this at insert. */
+export async function trainingOn(db: Db, studioId: string): Promise<boolean> {
+  const rows = await db.select({ training: studio.training }).from(studio).where(eq(studio.id, studioId)).limit(1);
+  return rows[0]?.training === "on";
 }
 
 /** Only the part owner, an art director, or a producer may write to a part. */

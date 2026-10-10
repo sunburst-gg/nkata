@@ -28,6 +28,9 @@ pub struct ScriptResult {
     /// From scan_refs.py: the levels that place a static mesh and the actor count per level.
     #[serde(default)]
     pub levels: Option<Vec<LevelRef>>,
+    /// From capture_viewport.py: where the screenshot lands.
+    #[serde(default)]
+    pub path: Option<String>,
 }
 
 /// One level that places a mesh. Stored on the version as `refs`.
@@ -134,6 +137,7 @@ impl Ue5Client {
                 asset_path: None,
                 first_import: false,
                 levels: None,
+                path: None,
             }));
         }
         let parsed: CallResponse = serde_json::from_str(&text).map_err(|e| {
@@ -179,6 +183,7 @@ pub fn parse_log(return_value: bool, lines: &[(&str, &str)]) -> ScriptResult {
         asset_path: None,
         first_import: false,
         levels: None,
+        path: None,
     }
 }
 
@@ -200,7 +205,8 @@ mod tests {
                 message: String::new(),
                 asset_path: Some("/Game/X".into()),
                 first_import: true,
-                levels: None
+                levels: None,
+                path: None
             }
         );
     }

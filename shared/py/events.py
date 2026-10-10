@@ -6,9 +6,9 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from . import _runtime as _rt
-from .common import CommentPin, LockInfo, MirrorStatus, PartState, ReviewDecision, Timestamp, Ulid, UserRef, validate_CommentPin, validate_LockInfo, validate_MirrorStatus, validate_PartState, validate_ReviewDecision, validate_Timestamp, validate_Ulid, validate_UserRef
+from .common import CommentPin, LockInfo, MirrorStatus, PartState, ReviewDecision, Timestamp, Training, Ulid, UserRef, validate_CommentPin, validate_LockInfo, validate_MirrorStatus, validate_PartState, validate_ReviewDecision, validate_Timestamp, validate_Training, validate_Ulid, validate_UserRef
 
-__imported__ = (CommentPin, LockInfo, MirrorStatus, PartState, ReviewDecision, Timestamp, Ulid, UserRef, validate_CommentPin, validate_LockInfo, validate_MirrorStatus, validate_PartState, validate_ReviewDecision, validate_Timestamp, validate_Ulid, validate_UserRef,)
+__imported__ = (CommentPin, LockInfo, MirrorStatus, PartState, ReviewDecision, Timestamp, Training, Ulid, UserRef, validate_CommentPin, validate_LockInfo, validate_MirrorStatus, validate_PartState, validate_ReviewDecision, validate_Timestamp, validate_Training, validate_Ulid, validate_UserRef,)
 
 @dataclass(frozen=True)
 class PresenceEntry:
@@ -160,6 +160,19 @@ class GateOpened:
         return _rt.to_dict(self)
 
 @dataclass(frozen=True)
+class StudioTraining:
+    """The studio's training setting changed. Not tied to a project."""
+    v: Literal[1]
+    kind: Literal["studio.training"]
+    project_id: Ulid | None
+    actor_id: Ulid
+    at: Timestamp
+    training: Training
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
+@dataclass(frozen=True)
 class PresenceHeartbeat:
     v: Literal[1]
     kind: Literal["presence.heartbeat"]
@@ -186,16 +199,16 @@ class LockRelease:
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
 
-ServerEventKind = Literal["presence.changed", "lock.granted", "lock.released", "lock.requested", "version.created", "mirror.result", "part.state", "comment.created", "review.decided", "gate.opened"]
+ServerEventKind = Literal["presence.changed", "lock.granted", "lock.released", "lock.requested", "version.created", "mirror.result", "part.state", "comment.created", "review.decided", "gate.opened", "studio.training"]
 
 # Server to client. Discriminated on kind.
-ServerEvent = PresenceChanged | LockGranted | LockReleased | LockRequested | VersionCreated | MirrorResult | PartStateChanged | CommentCreated | ReviewDecided | GateOpened
+ServerEvent = PresenceChanged | LockGranted | LockReleased | LockRequested | VersionCreated | MirrorResult | PartStateChanged | CommentCreated | ReviewDecided | GateOpened | StudioTraining
 
 # Client to server. Discriminated on kind.
 ClientMessage = PresenceHeartbeat | LockRequest | LockRelease
 
 def _v_ServerEventKind(value: object, path: str) -> Any:
-    return _rt.check_literal(value, path, ("presence.changed", "lock.granted", "lock.released", "lock.requested", "version.created", "mirror.result", "part.state", "comment.created", "review.decided", "gate.opened",))
+    return _rt.check_literal(value, path, ("presence.changed", "lock.granted", "lock.released", "lock.requested", "version.created", "mirror.result", "part.state", "comment.created", "review.decided", "gate.opened", "studio.training",))
 
 def validate_ServerEventKind(value: object, path: str = "$") -> Any:
     return _v_ServerEventKind(value, path)
@@ -431,6 +444,28 @@ def validate_GateOpened(value: object, path: str = "$") -> GateOpened:
         opened_by=_v_GateOpened_opened_by(obj["opened_by"], path + ".opened_by"),
     )
 
+def _v_StudioTraining_v(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, (1,))
+
+def _v_StudioTraining_kind(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, ("studio.training",))
+
+def _v_StudioTraining_project_id(value: object, path: str) -> Any:
+    if value is None:
+        return None
+    return validate_Ulid(value, path)
+
+def validate_StudioTraining(value: object, path: str = "$") -> StudioTraining:
+    obj = _rt.check_object(value, path, required=("v", "kind", "project_id", "actor_id", "at", "training",), allowed=("v", "kind", "project_id", "actor_id", "at", "training",))
+    return StudioTraining(
+        v=_v_StudioTraining_v(obj["v"], path + ".v"),
+        kind=_v_StudioTraining_kind(obj["kind"], path + ".kind"),
+        project_id=_v_StudioTraining_project_id(obj["project_id"], path + ".project_id"),
+        actor_id=validate_Ulid(obj["actor_id"], path + ".actor_id"),
+        at=validate_Timestamp(obj["at"], path + ".at"),
+        training=validate_Training(obj["training"], path + ".training"),
+    )
+
 def _v_ServerEvent(value: object, path: str) -> Any:
     return _rt.check_discriminated(value, path, "kind", {
         "presence.changed": validate_PresenceChanged,
@@ -443,6 +478,7 @@ def _v_ServerEvent(value: object, path: str) -> Any:
         "comment.created": validate_CommentCreated,
         "review.decided": validate_ReviewDecided,
         "gate.opened": validate_GateOpened,
+        "studio.training": validate_StudioTraining,
     })
 
 def validate_ServerEvent(value: object, path: str = "$") -> Any:

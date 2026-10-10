@@ -132,6 +132,8 @@ pub struct VersionCreate<'a> {
     pub manifest: Option<&'a ObjectManifest>,
     pub mirror_status: MirrorStatus,
     pub note: &'a str,
+    /// From the editor's clock. The server stamps saved_at itself when absent.
+    pub opened_at: Option<&'a str>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -396,7 +398,7 @@ impl ServerClient {
                 "/comments",
                 &serde_json::json!({
                     "part_id": part_id, "version_id": version_id,
-                    "point": body.point, "normal": body.normal, "body": body.body,
+                    "point": body.point, "normal": body.normal, "body": body.body, "kind": body.kind,
                 }),
             )
             .await?;
@@ -468,6 +470,54 @@ impl ServerClient {
         Ok(EventsPage {
             events: w.events.into_iter().map(|r| (r.id, r.event)).collect(),
         })
+    }
+
+    /// Stores a PNG as the version's render: a signed URL, the upload, then the key.
+    pub async fn store_render(
+        &self,
+        part_id: &str,
+        version_id: &str,
+        path: &std::path::Path,
+    ) -> Result<()> {
+        #[derive(Deserialize)]
+        struct Signed {
+            key: String,
+            url: String,
+        }
+        let bytes = tokio::fs::read(path)
+            .await
+            .map_err(|e| AgentError::io(path, e))?;
+        let signed: Signed = self
+            .post(
+                &format!("/parts/{part_id}/versions/{version_id}/render-url"),
+                &serde_json::json!({ "size": bytes.len() }),
+            )
+            .await?;
+        let put = self
+            .http
+            .put(&signed.url)
+            .header("content-length", bytes.len())
+            .body(bytes)
+            .send()
+            .await?;
+        if !put.status().is_success() {
+            return Err(AgentError::Store {
+                status: put.status().as_u16(),
+                url: signed.url,
+            });
+        }
+        let res = self
+            .http
+            .put(format!(
+                "{}/parts/{part_id}/versions/{version_id}/render",
+                self.base
+            ))
+            .bearer_auth(&self.token)
+            .json(&serde_json::json!({ "key": signed.key }))
+            .send()
+            .await?;
+        let _: serde_json::Value = Self::decode(res).await?;
+        Ok(())
     }
 
     pub async fn put_mirror(

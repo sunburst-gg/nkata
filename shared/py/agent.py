@@ -6,11 +6,11 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from . import _runtime as _rt
-from .common import CheckResult, CheckSeverity, CommentPin, Gate, LockInfo, MirrorStatus, PartMapping, PartState, ReviewDecision, Timestamp, Ulid, UserRef, Vec3, validate_CheckResult, validate_CheckSeverity, validate_CommentPin, validate_Gate, validate_LockInfo, validate_MirrorStatus, validate_PartMapping, validate_PartState, validate_ReviewDecision, validate_Timestamp, validate_Ulid, validate_UserRef, validate_Vec3
+from .common import CheckResult, CheckSeverity, CommentKind, CommentPin, Gate, LockInfo, MirrorStatus, PartMapping, PartState, ReviewDecision, Timestamp, Ulid, UserRef, Vec3, validate_CheckResult, validate_CheckSeverity, validate_CommentKind, validate_CommentPin, validate_Gate, validate_LockInfo, validate_MirrorStatus, validate_PartMapping, validate_PartState, validate_ReviewDecision, validate_Timestamp, validate_Ulid, validate_UserRef, validate_Vec3
 from .events import CommentCreated, LockGranted, LockReleased, LockRequested, MirrorResult, PartStateChanged, PresenceChanged, PresenceEntry, validate_CommentCreated, validate_LockGranted, validate_LockReleased, validate_LockRequested, validate_MirrorResult, validate_PartStateChanged, validate_PresenceChanged, validate_PresenceEntry
 from .template import TemplateKind, validate_TemplateKind
 
-__imported__ = (CheckResult, CheckSeverity, CommentCreated, CommentPin, Gate, LockGranted, LockInfo, LockReleased, LockRequested, MirrorResult, MirrorStatus, PartMapping, PartState, PartStateChanged, PresenceChanged, PresenceEntry, ReviewDecision, TemplateKind, Timestamp, Ulid, UserRef, Vec3, validate_CheckResult, validate_CheckSeverity, validate_CommentCreated, validate_CommentPin, validate_Gate, validate_LockGranted, validate_LockInfo, validate_LockReleased, validate_LockRequested, validate_MirrorResult, validate_MirrorStatus, validate_PartMapping, validate_PartState, validate_PartStateChanged, validate_PresenceChanged, validate_PresenceEntry, validate_ReviewDecision, validate_TemplateKind, validate_Timestamp, validate_Ulid, validate_UserRef, validate_Vec3,)
+__imported__ = (CheckResult, CheckSeverity, CommentCreated, CommentKind, CommentPin, Gate, LockGranted, LockInfo, LockReleased, LockRequested, MirrorResult, MirrorStatus, PartMapping, PartState, PartStateChanged, PresenceChanged, PresenceEntry, ReviewDecision, TemplateKind, Timestamp, Ulid, UserRef, Vec3, validate_CheckResult, validate_CheckSeverity, validate_CommentCreated, validate_CommentKind, validate_CommentPin, validate_Gate, validate_LockGranted, validate_LockInfo, validate_LockReleased, validate_LockRequested, validate_MirrorResult, validate_MirrorStatus, validate_PartMapping, validate_PartState, validate_PartStateChanged, validate_PresenceChanged, validate_PresenceEntry, validate_ReviewDecision, validate_TemplateKind, validate_Timestamp, validate_Ulid, validate_UserRef, validate_Vec3,)
 
 @dataclass(frozen=True)
 class ProjectRef:
@@ -31,6 +31,7 @@ class MeResponse:
     online: bool
     spool_dir: str
     mode: AgentMode
+    mirror_paused: bool
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -127,6 +128,7 @@ class PartSavedRequest:
     spool_path: str | None
     manifest: ObjectManifest | None
     source_file: str
+    opened_at: Timestamp | None | None = field(default=None, metadata={"optional": True})
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -157,6 +159,7 @@ class PublishResponse:
     version_id: Ulid
     state: PartState
     blocked_by: list[CheckResult]
+    render_needed: bool
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -195,6 +198,7 @@ class CommentCreateRequest:
     point: Vec3
     normal: Vec3
     body: str
+    kind: CommentKind | None = field(default=None, metadata={"optional": True})
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -265,6 +269,7 @@ class MirrorState:
     message: str
     failures: int
     halted: bool
+    on_save: bool
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -274,6 +279,50 @@ class MirrorStateResponse:
     """GET /parts/:id/mirror"""
     v: Literal[1]
     mirror: MirrorState
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
+@dataclass(frozen=True)
+class MirrorOnSaveRequest:
+    """POST /parts/:id/mirror/on-save"""
+    v: Literal[1]
+    on_save: bool
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
+@dataclass(frozen=True)
+class MirrorPauseRequest:
+    """POST /mirror/pause. Pauses every mirror; saves still version."""
+    v: Literal[1]
+    paused: bool
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
+@dataclass(frozen=True)
+class MirrorPauseResponse:
+    v: Literal[1]
+    paused: bool
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
+@dataclass(frozen=True)
+class RenderRequest:
+    """POST /parts/:id/render. A PNG on disk the agent stores as the current version's render."""
+    v: Literal[1]
+    path: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
+@dataclass(frozen=True)
+class RenderResponse:
+    v: Literal[1]
+    version_id: Ulid
+    stored: bool
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -316,8 +365,11 @@ def _v_MeResponse_online(value: object, path: str) -> bool:
 def _v_MeResponse_spool_dir(value: object, path: str) -> str:
     return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
 
+def _v_MeResponse_mirror_paused(value: object, path: str) -> bool:
+    return _rt.check_bool(value, path)
+
 def validate_MeResponse(value: object, path: str = "$") -> MeResponse:
-    obj = _rt.check_object(value, path, required=("v", "user", "project", "package_version", "online", "spool_dir", "mode",), allowed=("v", "user", "project", "package_version", "online", "spool_dir", "mode",))
+    obj = _rt.check_object(value, path, required=("v", "user", "project", "package_version", "online", "spool_dir", "mode", "mirror_paused",), allowed=("v", "user", "project", "package_version", "online", "spool_dir", "mode", "mirror_paused",))
     return MeResponse(
         v=_v_MeResponse_v(obj["v"], path + ".v"),
         user=validate_UserRef(obj["user"], path + ".user"),
@@ -326,6 +378,7 @@ def validate_MeResponse(value: object, path: str = "$") -> MeResponse:
         online=_v_MeResponse_online(obj["online"], path + ".online"),
         spool_dir=_v_MeResponse_spool_dir(obj["spool_dir"], path + ".spool_dir"),
         mode=validate_AgentMode(obj["mode"], path + ".mode"),
+        mirror_paused=_v_MeResponse_mirror_paused(obj["mirror_paused"], path + ".mirror_paused"),
     )
 
 def _v_CheckSpec_id(value: object, path: str) -> str:
@@ -522,14 +575,20 @@ def _v_PartSavedRequest_manifest(value: object, path: str) -> Any:
 def _v_PartSavedRequest_source_file(value: object, path: str) -> str:
     return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
 
+def _v_PartSavedRequest_opened_at(value: object, path: str) -> Any:
+    if value is None:
+        return None
+    return validate_Timestamp(value, path)
+
 def validate_PartSavedRequest(value: object, path: str = "$") -> PartSavedRequest:
-    obj = _rt.check_object(value, path, required=("v", "changed", "spool_path", "manifest", "source_file",), allowed=("v", "changed", "spool_path", "manifest", "source_file",))
+    obj = _rt.check_object(value, path, required=("v", "changed", "spool_path", "manifest", "source_file",), allowed=("v", "changed", "spool_path", "manifest", "source_file", "opened_at",))
     return PartSavedRequest(
         v=_v_PartSavedRequest_v(obj["v"], path + ".v"),
         changed=_v_PartSavedRequest_changed(obj["changed"], path + ".changed"),
         spool_path=_v_PartSavedRequest_spool_path(obj["spool_path"], path + ".spool_path"),
         manifest=_v_PartSavedRequest_manifest(obj["manifest"], path + ".manifest"),
         source_file=_v_PartSavedRequest_source_file(obj["source_file"], path + ".source_file"),
+        opened_at=_v_PartSavedRequest_opened_at(obj["opened_at"], path + ".opened_at") if "opened_at" in obj else None,
     )
 
 def _v_PartSavedResponse_v(value: object, path: str) -> Any:
@@ -569,14 +628,18 @@ def _v_PublishResponse_published(value: object, path: str) -> bool:
 def _v_PublishResponse_blocked_by(value: object, path: str) -> list[Any]:
     return _rt.check_list(value, path, validate_CheckResult, min_items=None, max_items=None)
 
+def _v_PublishResponse_render_needed(value: object, path: str) -> bool:
+    return _rt.check_bool(value, path)
+
 def validate_PublishResponse(value: object, path: str = "$") -> PublishResponse:
-    obj = _rt.check_object(value, path, required=("v", "published", "version_id", "state", "blocked_by",), allowed=("v", "published", "version_id", "state", "blocked_by",))
+    obj = _rt.check_object(value, path, required=("v", "published", "version_id", "state", "blocked_by", "render_needed",), allowed=("v", "published", "version_id", "state", "blocked_by", "render_needed",))
     return PublishResponse(
         v=_v_PublishResponse_v(obj["v"], path + ".v"),
         published=_v_PublishResponse_published(obj["published"], path + ".published"),
         version_id=validate_Ulid(obj["version_id"], path + ".version_id"),
         state=validate_PartState(obj["state"], path + ".state"),
         blocked_by=_v_PublishResponse_blocked_by(obj["blocked_by"], path + ".blocked_by"),
+        render_needed=_v_PublishResponse_render_needed(obj["render_needed"], path + ".render_needed"),
     )
 
 def _v_ChecksRequest_v(value: object, path: str) -> Any:
@@ -626,12 +689,13 @@ def _v_CommentCreateRequest_body(value: object, path: str) -> str:
     return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
 
 def validate_CommentCreateRequest(value: object, path: str = "$") -> CommentCreateRequest:
-    obj = _rt.check_object(value, path, required=("v", "point", "normal", "body",), allowed=("v", "point", "normal", "body",))
+    obj = _rt.check_object(value, path, required=("v", "point", "normal", "body",), allowed=("v", "point", "normal", "body", "kind",))
     return CommentCreateRequest(
         v=_v_CommentCreateRequest_v(obj["v"], path + ".v"),
         point=validate_Vec3(obj["point"], path + ".point"),
         normal=validate_Vec3(obj["normal"], path + ".normal"),
         body=_v_CommentCreateRequest_body(obj["body"], path + ".body"),
+        kind=validate_CommentKind(obj["kind"], path + ".kind") if "kind" in obj else None,
     )
 
 def _v_CommentCreateResponse_v(value: object, path: str) -> Any:
@@ -756,8 +820,11 @@ def _v_MirrorState_failures(value: object, path: str) -> int:
 def _v_MirrorState_halted(value: object, path: str) -> bool:
     return _rt.check_bool(value, path)
 
+def _v_MirrorState_on_save(value: object, path: str) -> bool:
+    return _rt.check_bool(value, path)
+
 def validate_MirrorState(value: object, path: str = "$") -> MirrorState:
-    obj = _rt.check_object(value, path, required=("part_id", "status", "version_id", "at", "mirror_ms", "message", "failures", "halted",), allowed=("part_id", "status", "version_id", "at", "mirror_ms", "message", "failures", "halted",))
+    obj = _rt.check_object(value, path, required=("part_id", "status", "version_id", "at", "mirror_ms", "message", "failures", "halted", "on_save",), allowed=("part_id", "status", "version_id", "at", "mirror_ms", "message", "failures", "halted", "on_save",))
     return MirrorState(
         part_id=validate_Ulid(obj["part_id"], path + ".part_id"),
         status=validate_MirrorStatus(obj["status"], path + ".status"),
@@ -767,6 +834,7 @@ def validate_MirrorState(value: object, path: str = "$") -> MirrorState:
         message=_v_MirrorState_message(obj["message"], path + ".message"),
         failures=_v_MirrorState_failures(obj["failures"], path + ".failures"),
         halted=_v_MirrorState_halted(obj["halted"], path + ".halted"),
+        on_save=_v_MirrorState_on_save(obj["on_save"], path + ".on_save"),
     )
 
 def _v_MirrorStateResponse_v(value: object, path: str) -> Any:
@@ -777,4 +845,70 @@ def validate_MirrorStateResponse(value: object, path: str = "$") -> MirrorStateR
     return MirrorStateResponse(
         v=_v_MirrorStateResponse_v(obj["v"], path + ".v"),
         mirror=validate_MirrorState(obj["mirror"], path + ".mirror"),
+    )
+
+def _v_MirrorOnSaveRequest_v(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, (1,))
+
+def _v_MirrorOnSaveRequest_on_save(value: object, path: str) -> bool:
+    return _rt.check_bool(value, path)
+
+def validate_MirrorOnSaveRequest(value: object, path: str = "$") -> MirrorOnSaveRequest:
+    obj = _rt.check_object(value, path, required=("v", "on_save",), allowed=("v", "on_save",))
+    return MirrorOnSaveRequest(
+        v=_v_MirrorOnSaveRequest_v(obj["v"], path + ".v"),
+        on_save=_v_MirrorOnSaveRequest_on_save(obj["on_save"], path + ".on_save"),
+    )
+
+def _v_MirrorPauseRequest_v(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, (1,))
+
+def _v_MirrorPauseRequest_paused(value: object, path: str) -> bool:
+    return _rt.check_bool(value, path)
+
+def validate_MirrorPauseRequest(value: object, path: str = "$") -> MirrorPauseRequest:
+    obj = _rt.check_object(value, path, required=("v", "paused",), allowed=("v", "paused",))
+    return MirrorPauseRequest(
+        v=_v_MirrorPauseRequest_v(obj["v"], path + ".v"),
+        paused=_v_MirrorPauseRequest_paused(obj["paused"], path + ".paused"),
+    )
+
+def _v_MirrorPauseResponse_v(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, (1,))
+
+def _v_MirrorPauseResponse_paused(value: object, path: str) -> bool:
+    return _rt.check_bool(value, path)
+
+def validate_MirrorPauseResponse(value: object, path: str = "$") -> MirrorPauseResponse:
+    obj = _rt.check_object(value, path, required=("v", "paused",), allowed=("v", "paused",))
+    return MirrorPauseResponse(
+        v=_v_MirrorPauseResponse_v(obj["v"], path + ".v"),
+        paused=_v_MirrorPauseResponse_paused(obj["paused"], path + ".paused"),
+    )
+
+def _v_RenderRequest_v(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, (1,))
+
+def _v_RenderRequest_path(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
+
+def validate_RenderRequest(value: object, path: str = "$") -> RenderRequest:
+    obj = _rt.check_object(value, path, required=("v", "path",), allowed=("v", "path",))
+    return RenderRequest(
+        v=_v_RenderRequest_v(obj["v"], path + ".v"),
+        path=_v_RenderRequest_path(obj["path"], path + ".path"),
+    )
+
+def _v_RenderResponse_v(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, (1,))
+
+def _v_RenderResponse_stored(value: object, path: str) -> bool:
+    return _rt.check_bool(value, path)
+
+def validate_RenderResponse(value: object, path: str = "$") -> RenderResponse:
+    obj = _rt.check_object(value, path, required=("v", "version_id", "stored",), allowed=("v", "version_id", "stored",))
+    return RenderResponse(
+        v=_v_RenderResponse_v(obj["v"], path + ".v"),
+        version_id=validate_Ulid(obj["version_id"], path + ".version_id"),
+        stored=_v_RenderResponse_stored(obj["stored"], path + ".stored"),
     )

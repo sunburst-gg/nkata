@@ -16,6 +16,7 @@ class MirrorView:
     mirror_ms: int | None = None
     version_id: str | None = None
     halted: bool = False
+    on_save: bool = True
 
     def line(self, now: float | None = None) -> str:
         """The one line both panels show. See docs/product.md, Blender panel."""
@@ -46,6 +47,8 @@ class AddonState:
     online: list[dict[str, Any]] = field(default_factory=list)
     startable: list[dict[str, Any]] = field(default_factory=list)
     publish_line: str = ""
+    # When the open file was opened, ISO 8601 UTC, for the version's opened_at.
+    opened_at: str | None = None
     error: str = ""
     dirty: bool = False
 

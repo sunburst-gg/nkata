@@ -24,9 +24,11 @@ use crate::mirror::{MirrorJob, MirrorRunner};
 use crate::protocol::{
     iso_now, AgentEvent, AgentMode, ChecksRequest, ChecksResponse, CommentCreateRequest,
     CommentCreateResponse, CommentsResponse, ErrorBody, ErrorDetail, LockReleaseReason, MeResponse,
-    MirrorRetryResponse, MirrorStateResponse, MirrorStatus, PartCloseResponse, PartOpenResponse,
-    PartSavedRequest, PartSavedResponse, PartsResponse, PresenceRequest, PresenceResponse,
-    ProjectRef, PublishRequest, PublishResponse, ReviewRequest, ReviewResponse, UserRef,
+    MirrorOnSaveRequest, MirrorPauseRequest, MirrorPauseResponse, MirrorRetryResponse,
+    MirrorStateResponse, MirrorStatus, PartCloseResponse, PartOpenResponse, PartSavedRequest,
+    PartSavedResponse, PartsResponse, PresenceRequest, PresenceResponse, ProjectRef,
+    PublishRequest, PublishResponse, RenderRequest, RenderResponse, ReviewRequest, ReviewResponse,
+    UserRef,
 };
 
 pub const DEFAULT_PORT: u16 = 7420;
@@ -183,6 +185,9 @@ pub fn router(state: Shared) -> Router {
         .route("/parts/{id}/saved", post(saved))
         .route("/parts/{id}/mirror", get(mirror_state))
         .route("/parts/{id}/mirror/retry", post(mirror_retry))
+        .route("/parts/{id}/mirror/on-save", post(mirror_on_save))
+        .route("/mirror/pause", post(mirror_pause))
+        .route("/parts/{id}/render", post(render))
         .route("/parts/{id}/publish", post(publish))
         .route("/parts/{id}/checks", post(checks))
         .route("/parts/{id}/comments", get(comments).post(create_comment))
@@ -203,6 +208,7 @@ async fn me(State(s): State<Shared>, headers: HeaderMap) -> Result<Json<MeRespon
         online,
         spool_dir: s.spool_dir.display().to_string(),
         mode: s.mode,
+        mirror_paused: s.mirror.is_paused(),
     }))
 }
 
@@ -324,6 +330,7 @@ async fn saved(
                 manifest: body.manifest.as_ref(),
                 mirror_status: mirror,
                 note: "",
+                opened_at: body.opened_at.as_deref(),
             },
         )
         .await?;
@@ -374,6 +381,73 @@ async fn mirror_state(
     }))
 }
 
+async fn mirror_on_save(
+    State(s): State<Shared>,
+    headers: HeaderMap,
+    UrlPath(id): UrlPath<String>,
+    Json(body): Json<MirrorOnSaveRequest>,
+) -> Result<Json<MirrorStateResponse>, ApiError> {
+    check_token(&s, &headers)?;
+    let mirror = s.mirror.set_on_save(&id, body.on_save).await;
+    tracing::info!(
+        project_id = s.project.id,
+        part_id = id,
+        on_save = body.on_save,
+        "mirror on save"
+    );
+    Ok(Json(MirrorStateResponse { v: 1, mirror }))
+}
+
+async fn mirror_pause(
+    State(s): State<Shared>,
+    headers: HeaderMap,
+    Json(body): Json<MirrorPauseRequest>,
+) -> Result<Json<MirrorPauseResponse>, ApiError> {
+    check_token(&s, &headers)?;
+    s.mirror.set_paused(body.paused).await;
+    tracing::info!(
+        project_id = s.project.id,
+        paused = body.paused,
+        "mirror pause"
+    );
+    Ok(Json(MirrorPauseResponse {
+        v: 1,
+        paused: body.paused,
+    }))
+}
+
+/// Blender's fallback render for the current version, when UE5 gave no capture on Mark Ready.
+async fn render(
+    State(s): State<Shared>,
+    headers: HeaderMap,
+    UrlPath(id): UrlPath<String>,
+    Json(body): Json<RenderRequest>,
+) -> Result<Json<RenderResponse>, ApiError> {
+    check_token(&s, &headers)?;
+    let version_id = s.server.current_version(&id).await?;
+    let path = PathBuf::from(&body.path);
+    if !path.is_file() {
+        return Err(ApiError(
+            StatusCode::BAD_REQUEST,
+            "bad_request",
+            format!("no file at {}", path.display()),
+        ));
+    }
+    s.server.store_render(&id, &version_id, &path).await?;
+    tracing::info!(
+        project_id = s.project.id,
+        part_id = id,
+        version_id,
+        source = "blender",
+        "render stored"
+    );
+    Ok(Json(RenderResponse {
+        v: 1,
+        version_id,
+        stored: true,
+    }))
+}
+
 async fn mirror_retry(
     State(s): State<Shared>,
     headers: HeaderMap,
@@ -396,7 +470,7 @@ async fn publish(
 ) -> Result<Json<PublishResponse>, ApiError> {
     check_token(&s, &headers)?;
     let version_id = s.server.current_version(&id).await?;
-    let out = s
+    let mut out = s
         .server
         .publish(&id, &version_id, &body.check_results, body.ready)
         .await?;
@@ -408,6 +482,29 @@ async fn publish(
         blocked = out.blocked_by.len(),
         "publish"
     );
+    // Mark Ready: the engine's viewport becomes the version's render. No capture: Blender's turn.
+    if out.published && body.ready {
+        let captured = match s.mirror.capture(&id, &version_id, &s.spool_dir).await {
+            Some(path) => match s.server.store_render(&id, &version_id, &path).await {
+                Ok(()) => {
+                    tracing::info!(
+                        project_id = s.project.id,
+                        part_id = id,
+                        version_id,
+                        source = "ue5",
+                        "render stored"
+                    );
+                    true
+                }
+                Err(e) => {
+                    tracing::warn!(project_id = s.project.id, part_id = id, error = %e, "render not stored");
+                    false
+                }
+            },
+            None => false,
+        };
+        out.render_needed = !captured;
+    }
     Ok(Json(out))
 }
 
