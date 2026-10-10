@@ -32,6 +32,7 @@ class FakeAgent(BaseHTTPRequestHandler):
     calls: list[tuple[str, str, Any]] = []
     held_by: dict[str, Any] | None = None
     comments: list[dict[str, Any]] = []
+    on_save: bool = True
 
     def log_message(self, *_a: Any) -> None:
         return
@@ -47,7 +48,7 @@ class FakeAgent(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         FakeAgent.calls.append(("GET", self.path, None))
         if self.path == "/me":
-            return self._json(200, {"v": 1, "user": USER, "project": {"id": ID, "name": "P", "folder_name": "p"}, "package_version": "0.1.0", "online": True, "spool_dir": "/tmp/spool", "mode": "sync"})
+            return self._json(200, {"v": 1, "user": USER, "project": {"id": ID, "name": "P", "folder_name": "p"}, "package_version": "0.1.0", "online": True, "spool_dir": "/tmp/spool", "mode": "sync", "mirror_paused": False})
         if self.path == "/parts" or self.path.startswith("/parts?"):
             return self._json(200, {"v": 1, "parts": [PART]})
         if self.path.endswith("/comments"):
@@ -67,10 +68,10 @@ class FakeAgent(BaseHTTPRequestHandler):
         if self.path.endswith("/publish"):
             blocked = [r for r in body["check_results"] if not r["passed"] and r["severity"] == "block"]
             if blocked:
-                return self._json(200, {"v": 1, "published": False, "version_id": ID, "state": "draft", "blocked_by": blocked})
-            return self._json(200, {"v": 1, "published": True, "version_id": ID, "state": "ready" if body["ready"] else "draft", "blocked_by": []})
+                return self._json(200, {"v": 1, "published": False, "version_id": ID, "state": "draft", "blocked_by": blocked, "render_needed": False})
+            return self._json(200, {"v": 1, "published": True, "version_id": ID, "state": "ready" if body["ready"] else "draft", "blocked_by": [], "render_needed": bool(body["ready"])})
         if self.path.endswith("/comments"):
-            pin = {"id": ID, "part_id": ID, "version_id": ID2, "author": USER, "point": body["point"], "normal": body["normal"], "body": body["body"], "resolved_at": None, "created_at": AT}
+            pin = {"id": ID, "part_id": ID, "version_id": ID2, "author": USER, "point": body["point"], "normal": body["normal"], "body": body["body"], "kind": body.get("kind", "pin"), "resolved_at": None, "created_at": AT}
             FakeAgent.comments.append(pin)
             return self._json(201, {"v": 1, "comment": pin})
         if self.path.endswith("/checks"):
@@ -79,6 +80,11 @@ class FakeAgent(BaseHTTPRequestHandler):
             return self._json(201, {"v": 1, "version_id": ID, "mirror": "skipped"})
         if self.path.endswith("/close"):
             return self._json(200, {"v": 1, "released": True})
+        if self.path.endswith("/mirror/on-save"):
+            FakeAgent.on_save = bool(body["on_save"])
+            return self._json(200, {"v": 1, "mirror": {"part_id": ID, "status": "pending", "version_id": ID, "at": None, "mirror_ms": None, "message": "" if FakeAgent.on_save else "Mirror on save is off", "failures": 0, "halted": False, "on_save": FakeAgent.on_save}})
+        if self.path.endswith("/render"):
+            return self._json(200, {"v": 1, "version_id": ID, "stored": True})
         return self._json(404, {"v": 1, "error": {"code": "not_found", "message": self.path}})
 
 
@@ -119,6 +125,7 @@ class PanelTest(unittest.TestCase):
         FakeAgent.calls = []
         FakeAgent.held_by = None
         FakeAgent.comments = []
+        FakeAgent.on_save = True
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), FakeAgent)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
         self.face = bpy_stub.FakeObject("face body", coords=[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0], materials=["M_Skin"])
@@ -181,6 +188,22 @@ class PanelTest(unittest.TestCase):
         order = [lines.index(x) for x in ("label:Ojukwu / face · Draft · Ada · Open by Ada", "label:Not mirrored yet", "label:Reference", "label:Checks", "label:Comments", "op:nkata.publish:Publish", "label:Here: Chidi")]
         self.assertEqual(order, sorted(order), "the seven elements keep their order")
 
+    def test_mirror_on_save_toggles_from_the_panel_and_the_line_says_why(self) -> None:
+        self.save_hook.handle_open(str(self.blend))
+        self.assertIn("op:nkata.mirror_on_save:Mirror on save: On", self.draw())
+        op = self.panel.NKATA_OT_mirror_on_save()
+        op.on_save = False
+        self.assertEqual(op.execute(None), {"FINISHED"})
+        lines = self.draw()
+        self.assertIn("op:nkata.mirror_on_save:Mirror on save: Off", lines)
+        self.assertIn("label:Mirror on save is off", lines)
+        self.assertEqual([c for c in FakeAgent.calls if c[1].endswith("/mirror/on-save")][-1][2], {"v": 1, "on_save": False})
+        # A save still versions while it is off.
+        self.save_hook.handle_save(str(self.blend))
+        self.assertTrue(any(c[1] == f"/parts/{ID}/saved" for c in FakeAgent.calls))
+        saved = [c for c in FakeAgent.calls if c[1] == f"/parts/{ID}/saved"][-1][2]
+        self.assertRegex(saved["opened_at"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+
     def test_a_held_part_shows_the_holder(self) -> None:
         FakeAgent.held_by = HOLDER
         out = self.save_hook.handle_open(str(self.blend))
@@ -218,6 +241,13 @@ class PanelTest(unittest.TestCase):
         published = [c for c in FakeAgent.calls if c[1] == f"/parts/{ID}/publish"]
         self.assertEqual(published[-1][2]["ready"], True)
         self.assertTrue(all(r["passed"] for r in published[-1][2]["check_results"]))
+        # The fake agent says UE5 gave no capture, so Blender's viewport render is posted.
+        rendered = [c for c in FakeAgent.calls if c[1] == f"/parts/{ID}/render"]
+        self.assertEqual(len(rendered), 1)
+        self.assertTrue(rendered[0][2]["path"].endswith(f"{ID}.render.png"))
+        self.assertTrue(Path(rendered[0][2]["path"]).is_file())
+        self.assertEqual([c[0] for c in self.bpy._ops.calls if c[0] == "render.opengl"], ["render.opengl"])
+        self.assertEqual(self.bpy.context.scene.render.filepath, "")
         # A failure Nkata cannot fix blocks.
         self.state.part = {**PART, "checks": [{"id": "triangle_budget", "severity": "block", "params": {"max": 0}}]}
         op2 = self.panel.NKATA_OT_publish()

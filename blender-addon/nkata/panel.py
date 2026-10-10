@@ -111,6 +111,29 @@ class NKATA_OT_retry_mirror(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class NKATA_OT_mirror_on_save(bpy.types.Operator):
+    bl_idname = "nkata.mirror_on_save"
+    bl_label = "Mirror on save"
+    bl_description = "Off: every save still versions, the newest mirror waits until this is on again"
+    on_save: bpy.props.BoolProperty(default=True)  # type: ignore[valid-type]
+
+    def execute(self, _context: bpy.types.Context) -> set[str]:
+        try:
+            client, part = _client_and_part()
+            mirror = client.mirror_on_save(part["id"], self.on_save)
+        except AgentError as e:
+            self.report({"ERROR"}, e.message)
+            return {"CANCELLED"}
+        with STATE.lock:
+            view = STATE.mirror_for(part["id"])
+            view.on_save = mirror.on_save
+            view.status = str(mirror.status)
+            view.message = mirror.message
+            STATE.dirty = True
+        log("mirror.on_save", part_id=part["id"], on_save=mirror.on_save)
+        return {"FINISHED"}
+
+
 class NKATA_OT_open_reference(bpy.types.Operator):
     bl_idname = "nkata.open_reference"
     bl_label = "Open"
@@ -269,7 +292,35 @@ class NKATA_OT_publish(bpy.types.Operator):
             self.report({"WARNING"}, STATE.publish_line)
             return {"CANCELLED"}
         log("publish.done", part_id=part["id"], version_id=res.version_id, state=res.state)
+        if res.render_needed:
+            # UE5 gave no viewport capture: Blender's viewport is the version's render.
+            try:
+                path = render_viewport(client, part["id"], res.version_id)
+                log("render.posted", part_id=part["id"], version_id=res.version_id, path=path)
+            except (AgentError, RuntimeError, OSError) as e:
+                log("render.failed", part_id=part["id"], error=str(e))
+                self.report({"WARNING"}, f"Marked Ready. The render did not post: {e}")
         return {"FINISHED"}
+
+
+def render_viewport(client: AgentClient, part_id: str, version_id: str) -> str:
+    """Renders the 3D viewport as it is to the spool and posts it as the version's render.
+    bpy.ops.render.opengl: https://docs.blender.org/api/current/bpy.ops.render.html"""
+    me = client.me()
+    path = Path(me.spool_dir) / part_id / f"{version_id}.render.png"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    scene = bpy.context.scene
+    previous = (scene.render.filepath, scene.render.image_settings.file_format)
+    scene.render.filepath = str(path)
+    scene.render.image_settings.file_format = "PNG"
+    try:
+        result = bpy.ops.render.opengl(write_still=True, view_context=True)
+    finally:
+        scene.render.filepath, scene.render.image_settings.file_format = previous
+    if "FINISHED" not in result or not path.is_file():
+        raise RuntimeError(f"viewport render returned {result}")
+    client.render(part_id, str(path))
+    return str(path)
 
 
 class NKATA_OT_reply(bpy.types.Operator):
@@ -356,6 +407,8 @@ def draw_mirror(layout: Any, part: dict[str, Any]) -> None:
     row.label(text=view.line(), icon="ERROR" if view.status == "failed" else "CHECKMARK" if view.status == "synced" else "TIME")
     if view.status == "failed" or view.halted:
         row.operator(NKATA_OT_retry_mirror.bl_idname, text="Retry")
+    op = row.operator(NKATA_OT_mirror_on_save.bl_idname, text="Mirror on save: On" if view.on_save else "Mirror on save: Off", icon="CHECKBOX_HLT" if view.on_save else "CHECKBOX_DEHLT")
+    op.on_save = not view.on_save
 
 
 def draw_reference(layout: Any, part: dict[str, Any]) -> None:
@@ -462,6 +515,7 @@ CLASSES = (
     NKATA_OT_find_parts,
     NKATA_OT_start_part,
     NKATA_OT_retry_mirror,
+    NKATA_OT_mirror_on_save,
     NKATA_OT_open_reference,
     NKATA_OT_run_checks,
     NKATA_OT_fix_checks,

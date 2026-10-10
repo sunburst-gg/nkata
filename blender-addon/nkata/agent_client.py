@@ -73,8 +73,8 @@ class AgentClient:
     def close_part(self, part_id: str) -> Any:
         return shared.validate_PartCloseResponse(self._call("POST", f"/parts/{part_id}/close"))
 
-    def saved(self, part_id: str, changed: bool, spool_path: str | None, manifest: dict[str, Any] | None, source_file: str) -> Any:
-        body = shared.validate_PartSavedRequest({"v": 1, "changed": changed, "spool_path": spool_path, "manifest": manifest, "source_file": source_file}).to_dict()
+    def saved(self, part_id: str, changed: bool, spool_path: str | None, manifest: dict[str, Any] | None, source_file: str, opened_at: str | None = None) -> Any:
+        body = shared.validate_PartSavedRequest({"v": 1, "changed": changed, "spool_path": spool_path, "manifest": manifest, "source_file": source_file, "opened_at": opened_at}).to_dict()
         return shared.validate_PartSavedResponse(self._call("POST", f"/parts/{part_id}/saved", body))
 
     def publish(self, part_id: str, check_results: list[dict[str, Any]], ready: bool) -> Any:
@@ -105,6 +105,16 @@ class AgentClient:
 
     def retry_mirror(self, part_id: str) -> Any:
         return shared.validate_MirrorRetryResponse(self._call("POST", f"/parts/{part_id}/mirror/retry"))
+
+    def mirror_on_save(self, part_id: str, on_save: bool) -> Any:
+        """Off: saves still version, the newest mirror waits until it is on again."""
+        body = shared.validate_MirrorOnSaveRequest({"v": 1, "on_save": on_save}).to_dict()
+        return shared.validate_MirrorStateResponse(self._call("POST", f"/parts/{part_id}/mirror/on-save", body)).mirror
+
+    def render(self, part_id: str, path: str) -> Any:
+        """Blender's render of the current version, when UE5 gave no capture on Mark Ready."""
+        body = shared.validate_RenderRequest({"v": 1, "path": path}).to_dict()
+        return shared.validate_RenderResponse(self._call("POST", f"/parts/{part_id}/render", body))
 
 
 def parse_sse(stream: Any, on_event: Callable[[dict[str, Any]], None]) -> None:

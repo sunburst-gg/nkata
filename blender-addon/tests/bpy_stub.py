@@ -148,6 +148,16 @@ def install(collections: dict[str, FakeCollection], filepath: str) -> types.Modu
             ops._write(kwargs["filepath"])
             return {"FINISHED"}
 
+    class RenderOps:
+        @staticmethod
+        def opengl(write_still: bool = False, view_context: bool = True) -> set[str]:
+            path = bpy.context.scene.render.filepath
+            ops.calls.append(("render.opengl", {"write_still": write_still, "filepath": path}))
+            if write_still:
+                with open(path, "wb") as f:
+                    f.write(b"\x89PNG")
+            return {"FINISHED"}
+
     class WmOps:
         @staticmethod
         def save_as_mainfile(filepath: str) -> set[str]:
@@ -181,7 +191,8 @@ def install(collections: dict[str, FakeCollection], filepath: str) -> types.Modu
 
             return _Ctx()
 
-    bpy.ops = types.SimpleNamespace(collection=CollectionOps, export_scene=ExportSceneOps, wm=WmOps)
+    bpy.ops = types.SimpleNamespace(collection=CollectionOps, export_scene=ExportSceneOps, wm=WmOps, render=RenderOps)
+    Context.scene.render = types.SimpleNamespace(filepath="", image_settings=types.SimpleNamespace(file_format="PNG"))
     bpy.context = Context
     linked: list[Any] = []
     Context.scene.collection = types.SimpleNamespace(children=types.SimpleNamespace(link=linked.append, linked=linked))
