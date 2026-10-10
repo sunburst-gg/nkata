@@ -1,11 +1,17 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { Role, Template, Training, Ulid } from "@nkata/shared";
 import { membership, project, studio, template, user } from "../db/schema.js";
 import { AppError } from "../domain/errors.js";
 import { encryptWebhook, isWebhookUrl } from "../domain/discord.js";
 import { newId } from "../domain/ids.js";
-import { IdParam, loadProject, requireRole, type TypedApp } from "./_shared.js";
+import { IdParam, loadProject, requireRole, userRef, type TypedApp } from "./_shared.js";
+
+/** True when someone other than `userId` is a producer of the studio. */
+async function otherProducer(app: TypedApp, studioId: string, userId: string): Promise<boolean> {
+  const rows = await app.db.select({ user_id: membership.user_id, roles: membership.roles }).from(membership).where(eq(membership.studio_id, studioId));
+  return rows.some((r) => r.user_id !== userId && r.roles.includes("producer"));
+}
 
 const ProjectBody = z.object({
   id: Ulid.optional(),
@@ -23,8 +29,43 @@ export function billingFor(training: Training, seats: number): { line: string; s
 
 /** A project on the wire: the webhook stays in the row. */
 export function projectWire(row: typeof project.$inferSelect) {
-  const { discord_webhook, ...rest } = row;
+  const { discord_webhook, deleted_at, ...rest } = row;
+  void deleted_at;
   return { ...rest, discord_configured: discord_webhook !== null };
+}
+
+const studioWire = (row: typeof studio.$inferSelect, seats: number) => ({ id: row.id, name: row.name, member_count: seats, training: row.training, billing: billingFor(row.training, seats) });
+
+async function seatCount(app: TypedApp, studioId: string): Promise<number> {
+  return (await app.db.select({ id: membership.id }).from(membership).where(eq(membership.studio_id, studioId))).length;
+}
+
+const memberWire = (r: { id: string; name: string; avatar_url: string | null; email: string; roles: Role[] }) => ({ user: { id: r.id, name: r.name, avatar_url: r.avatar_url }, email: r.email, roles: r.roles });
+
+async function listMembers(app: TypedApp, studioId: string) {
+  const rows = await app.db
+    .select({ id: user.id, name: user.name, avatar_url: user.avatar_url, email: user.email, roles: membership.roles })
+    .from(membership)
+    .innerJoin(user, eq(user.id, membership.user_id))
+    .where(eq(membership.studio_id, studioId))
+    .orderBy(user.name);
+  return rows.map(memberWire);
+}
+
+/** Invite: adds a person to the studio by email with roles. One account, many studios. Roles replace. */
+async function invite(app: TypedApp, req: { principal: { user_id: string; studio_id: string }; log: { info: (o: object, m: string) => void } }, body: { email: string; name?: string | undefined; roles: Role[] }, projectId: string | null): Promise<{ created: boolean; member: ReturnType<typeof memberWire> }> {
+  const now = app.now();
+  const email = body.email.toLowerCase();
+  let u = (await app.db.select().from(user).where(eq(user.email, email)).limit(1))[0];
+  if (!u) [u] = await app.db.insert(user).values({ id: newId(), email, name: body.name ?? email.split("@")[0] ?? email, avatar_url: null, created_at: now, updated_at: now }).returning();
+  const m = (await app.db.select().from(membership).where(and(eq(membership.user_id, u!.id), eq(membership.studio_id, req.principal.studio_id))).limit(1))[0];
+  if (m) await app.db.update(membership).set({ roles: body.roles, updated_at: now }).where(eq(membership.id, m.id));
+  else await app.db.insert(membership).values({ id: newId(), studio_id: req.principal.studio_id, user_id: u!.id, roles: body.roles, created_at: now, updated_at: now });
+  await app.bus.audit({
+    studio_id: req.principal.studio_id, project_id: projectId, actor_id: req.principal.user_id,
+    kind: m ? "audit.roles_set" : "audit.member_invited", target_kind: "user", target_id: u!.id, payload: { email, roles: body.roles },
+  });
+  return { created: !m, member: memberWire({ id: u!.id, name: u!.name, avatar_url: u!.avatar_url, email, roles: body.roles }) };
 }
 
 export async function projectRoutes(app: TypedApp): Promise<void> {
@@ -32,8 +73,47 @@ export async function projectRoutes(app: TypedApp): Promise<void> {
     const rows = await app.db.select().from(studio).where(eq(studio.id, req.principal.studio_id)).limit(1);
     const row = rows[0];
     if (!row) throw new AppError("not_found", "studio not found");
-    const members = await app.db.select({ id: membership.id }).from(membership).where(eq(membership.studio_id, row.id));
-    return { v: 1, studio: { id: row.id, name: row.name, member_count: members.length, training: row.training, billing: billingFor(row.training, members.length) } };
+    return { v: 1, studio: studioWire(row, await seatCount(app, row.id)) };
+  });
+
+  app.put("/studio", { schema: { body: z.object({ name: z.string().trim().min(1) }) } }, async (req) => {
+    requireRole(req.principal, ["producer"], "renaming the studio");
+    const [row] = await app.db.update(studio).set({ name: req.body.name, updated_at: app.now() }).where(eq(studio.id, req.principal.studio_id)).returning();
+    if (!row) throw new AppError("not_found", "studio not found");
+    await app.bus.audit({ studio_id: row.id, project_id: null, actor_id: req.principal.user_id, kind: "audit.studio_renamed", target_kind: "studio", target_id: row.id, payload: { name: row.name } });
+    return { v: 1, studio: studioWire(row, await seatCount(app, row.id)) };
+  });
+
+  // The studio's members. Producers invite, change roles, and remove; everyone can see the list.
+  app.get("/studio/members", async (req) => ({ v: 1, members: await listMembers(app, req.principal.studio_id) }));
+
+  app.post("/studio/members", { schema: { body: z.object({ email: z.email(), name: z.string().min(1).optional(), roles: z.array(Role).min(1) }) } }, async (req, reply) => {
+    requireRole(req.principal, ["producer"], "inviting a member");
+    const out = await invite(app, req, req.body, null);
+    return reply.status(out.created ? 201 : 200).send({ v: 1, member: out.member });
+  });
+
+  app.put("/studio/members/:id", { schema: { params: IdParam, body: z.object({ roles: z.array(Role).min(1) }) } }, async (req) => {
+    requireRole(req.principal, ["producer"], "changing a role");
+    const now = app.now();
+    const rows = await app.db.update(membership).set({ roles: req.body.roles, updated_at: now }).where(and(eq(membership.studio_id, req.principal.studio_id), eq(membership.user_id, req.params.id))).returning();
+    if (!rows[0]) throw new AppError("not_found", "that person is not a member");
+    if (req.params.id === req.principal.user_id && !req.body.roles.includes("producer") && !(await otherProducer(app, req.principal.studio_id, req.principal.user_id))) {
+      await app.db.update(membership).set({ roles: req.principal.roles, updated_at: now }).where(eq(membership.id, rows[0].id));
+      throw new AppError("conflict", "a studio keeps at least one producer");
+    }
+    await app.bus.audit({ studio_id: req.principal.studio_id, project_id: null, actor_id: req.principal.user_id, kind: "audit.roles_set", target_kind: "user", target_id: req.params.id, payload: { roles: req.body.roles } });
+    const u = await userRef(app.db, req.params.id);
+    return { v: 1, member: { user: u, roles: req.body.roles } };
+  });
+
+  app.delete("/studio/members/:id", { schema: { params: IdParam } }, async (req) => {
+    requireRole(req.principal, ["producer"], "removing a member");
+    if (req.params.id === req.principal.user_id && !(await otherProducer(app, req.principal.studio_id, req.principal.user_id))) throw new AppError("conflict", "a studio keeps at least one producer");
+    const rows = await app.db.delete(membership).where(and(eq(membership.studio_id, req.principal.studio_id), eq(membership.user_id, req.params.id))).returning();
+    if (!rows[0]) throw new AppError("not_found", "that person is not a member");
+    await app.bus.audit({ studio_id: req.principal.studio_id, project_id: null, actor_id: req.principal.user_id, kind: "audit.member_removed", target_kind: "user", target_id: req.params.id, payload: {} });
+    return { v: 1, removed: true };
   });
 
   // Training on: the studio contributes to model training and pays nothing. Off: billed per seat.
@@ -73,8 +153,42 @@ export async function projectRoutes(app: TypedApp): Promise<void> {
   });
 
   app.get("/projects", async (req) => {
-    const rows = await app.db.select().from(project).where(eq(project.studio_id, req.principal.studio_id));
+    const rows = await app.db.select().from(project).where(and(eq(project.studio_id, req.principal.studio_id), isNull(project.deleted_at))).orderBy(project.created_at);
     return { v: 1, projects: rows.map(projectWire) };
+  });
+
+  // Deleted projects, for the Restore list. Producers only.
+  app.get("/projects/deleted", async (req) => {
+    requireRole(req.principal, ["producer"], "listing deleted projects");
+    const rows = await app.db.select().from(project).where(and(eq(project.studio_id, req.principal.studio_id), isNotNull(project.deleted_at))).orderBy(project.updated_at);
+    return { v: 1, projects: rows.map((r) => ({ ...projectWire(r), deleted_at: r.deleted_at?.toISOString() ?? null })) };
+  });
+
+  app.post("/projects/:id/restore", { schema: { params: IdParam } }, async (req) => {
+    requireRole(req.principal, ["producer"], "restoring a project");
+    const rows = await app.db.update(project).set({ deleted_at: null, updated_at: app.now() }).where(and(eq(project.id, req.params.id), eq(project.studio_id, req.principal.studio_id), isNotNull(project.deleted_at))).returning();
+    if (!rows[0]) throw new AppError("not_found", "no deleted project with that id");
+    await app.bus.audit({ studio_id: req.principal.studio_id, project_id: rows[0].id, actor_id: req.principal.user_id, kind: "audit.project_restored", target_kind: "project", target_id: rows[0].id, payload: { name: rows[0].name } });
+    return { v: 1, project: projectWire(rows[0]) };
+  });
+
+  app.put("/projects/:id", { schema: { params: IdParam, body: z.object({ name: z.string().trim().min(1) }) } }, async (req) => {
+    requireRole(req.principal, ["producer"], "renaming a project");
+    const proj = await loadProject(app.db, req.principal, req.params.id);
+    const [row] = await app.db.update(project).set({ name: req.body.name, updated_at: app.now() }).where(eq(project.id, proj.id)).returning();
+    await app.bus.audit({ studio_id: proj.studio_id, project_id: proj.id, actor_id: req.principal.user_id, kind: "audit.project_renamed", target_kind: "project", target_id: proj.id, payload: { name: req.body.name } });
+    return { v: 1, project: projectWire(row!) };
+  });
+
+  // Delete project: the folder on disk stays, and so do the rows. Nkata stops showing it.
+  app.delete("/projects/:id", { schema: { params: IdParam } }, async (req) => {
+    requireRole(req.principal, ["producer"], "deleting a project");
+    const proj = await loadProject(app.db, req.principal, req.params.id);
+    const now = app.now();
+    await app.db.update(project).set({ deleted_at: now, updated_at: now }).where(eq(project.id, proj.id));
+    await app.bus.audit({ studio_id: proj.studio_id, project_id: proj.id, actor_id: req.principal.user_id, kind: "audit.project_deleted", target_kind: "project", target_id: proj.id, payload: { name: proj.name } });
+    req.log.info({ project_id: proj.id }, "project deleted");
+    return { v: 1, deleted: true };
   });
 
   app.post("/projects", { schema: { body: ProjectBody } }, async (req, reply) => {
@@ -135,38 +249,20 @@ export async function projectRoutes(app: TypedApp): Promise<void> {
     },
   );
 
-  // Members of the studio, as the People screen and the invite sheet need them.
+  // Members through a project: the same studio list, kept for the agent and older callers.
   app.get("/projects/:id/members", { schema: { params: IdParam } }, async (req) => {
     const proj = await loadProject(app.db, req.principal, req.params.id);
-    const rows = await app.db
-      .select({ id: user.id, name: user.name, avatar_url: user.avatar_url, email: user.email, roles: membership.roles })
-      .from(membership)
-      .innerJoin(user, eq(user.id, membership.user_id))
-      .where(eq(membership.studio_id, proj.studio_id))
-      .orderBy(user.name);
-    return { v: 1, members: rows.map((r) => ({ user: { id: r.id, name: r.name, avatar_url: r.avatar_url }, email: r.email, roles: r.roles })) };
+    return { v: 1, members: await listMembers(app, proj.studio_id) };
   });
 
-  // Invite: a producer adds a person by email with roles. Idempotent on the email; roles replace.
   app.post(
     "/projects/:id/members",
-    { schema: { params: IdParam, body: z.object({ email: z.email(), name: z.string().min(1), roles: z.array(Role).min(1) }) } },
+    { schema: { params: IdParam, body: z.object({ email: z.email(), name: z.string().min(1).optional(), roles: z.array(Role).min(1) }) } },
     async (req, reply) => {
       requireRole(req.principal, ["producer"], "inviting a member");
       const proj = await loadProject(app.db, req.principal, req.params.id);
-      const now = app.now();
-      const email = req.body.email.toLowerCase();
-      let u = (await app.db.select().from(user).where(eq(user.email, email)).limit(1))[0];
-      if (u && u.studio_id !== proj.studio_id) throw new AppError("bad_request", "that email belongs to another studio");
-      if (!u) [u] = await app.db.insert(user).values({ id: newId(), studio_id: proj.studio_id, email, name: req.body.name, avatar_url: null, created_at: now, updated_at: now }).returning();
-      const m = (await app.db.select().from(membership).where(and(eq(membership.user_id, u!.id), eq(membership.studio_id, proj.studio_id))).limit(1))[0];
-      if (m) await app.db.update(membership).set({ roles: req.body.roles, updated_at: now }).where(eq(membership.id, m.id));
-      else await app.db.insert(membership).values({ id: newId(), studio_id: proj.studio_id, user_id: u!.id, roles: req.body.roles, created_at: now, updated_at: now });
-      await app.bus.audit({
-        studio_id: proj.studio_id, project_id: proj.id, actor_id: req.principal.user_id,
-        kind: m ? "audit.roles_set" : "audit.member_invited", target_kind: "user", target_id: u!.id, payload: { email, roles: req.body.roles },
-      });
-      return reply.status(m ? 200 : 201).send({ v: 1, member: { user: { id: u!.id, name: u!.name, avatar_url: u!.avatar_url }, email, roles: req.body.roles } });
+      const out = await invite(app, req, req.body, proj.id);
+      return reply.status(out.created ? 201 : 200).send({ v: 1, member: out.member });
     },
   );
 

@@ -90,7 +90,7 @@ export async function seed(db: Db): Promise<Seeded> {
   const users: Record<string, string> = {};
   for (const u of SEED_USERS) {
     let row = (await db.select().from(user).where(eq(user.email, u.email)).limit(1))[0];
-    if (!row) [row] = await db.insert(user).values({ id: newId(), studio_id: studioId, email: u.email, name: u.name, avatar_url: null, created_at: now, updated_at: now }).returning();
+    if (!row) [row] = await db.insert(user).values({ id: newId(), email: u.email, name: u.name, avatar_url: null, created_at: now, updated_at: now }).returning();
     const m = (await db.select().from(membership).where(and(eq(membership.user_id, row!.id), eq(membership.studio_id, studioId))).limit(1))[0];
     if (!m) await db.insert(membership).values({ id: newId(), studio_id: studioId, user_id: row!.id, roles: u.roles, created_at: now, updated_at: now });
     users[u.email] = row!.id;

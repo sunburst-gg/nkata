@@ -45,7 +45,9 @@ export async function wsRoutes(app: TypedApp): Promise<void> {
     const projectId = url.searchParams.get("project") ?? "";
     let principal: Principal;
     try {
-      principal = await resolveSession(app.db, token, app.now());
+      const session = await resolveSession(app.db, token, app.now());
+      if (session.studio_id === null) throw new AppError("forbidden", "no studio");
+      principal = { ...session, studio_id: session.studio_id };
       const rows = await app.db.select({ id: project.id }).from(project).where(and(eq(project.id, projectId), eq(project.studio_id, principal.studio_id))).limit(1);
       if (!rows[0]) throw new AppError("not_found", "project not found");
     } catch (err) {

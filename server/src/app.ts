@@ -12,7 +12,7 @@ import { createPresence, type PresenceMap } from "./presence.js";
 import { createDiscordPoster, type DiscordPoster } from "./domain/discord.js";
 import { presenceRoutes } from "./routes/presence.js";
 import type { Store } from "./store/s3.js";
-import type { Principal } from "./auth/tokens.js";
+import type { Principal, Session } from "./auth/tokens.js";
 import { resolveSession } from "./auth/tokens.js";
 import { authRoutes } from "./routes/auth.js";
 import { projectRoutes } from "./routes/projects.js";
@@ -38,7 +38,10 @@ declare module "fastify" {
     now: () => Date;
   }
   interface FastifyRequest {
+    /** The session inside its studio. Set on every route but the account routes. */
     principal: Principal;
+    /** The session as resolved, studio or not. The account routes read this. */
+    account: Session;
   }
 }
 
@@ -63,6 +66,8 @@ function isViewerOnly(p: Principal): boolean {
 }
 
 const PUBLIC = new Set(["/health", "/auth/magic-link", "/auth/callback"]);
+/** Routes an account uses before it has a studio, or to change studio. No principal there. */
+const ACCOUNT_ROUTES = new Set(["/auth/me", "/auth/switch", "/me", "/studios"]);
 
 export async function buildApp(deps: AppDeps): Promise<App> {
   const app = Fastify({
@@ -85,6 +90,7 @@ export async function buildApp(deps: AppDeps): Promise<App> {
   app.decorate("now", deps.now ?? (() => new Date()));
   // Reference values are set per request in the onRequest hook. See https://fastify.dev/docs/latest/Reference/Decorators/
   app.decorateRequest("principal", null as unknown as Principal);
+  app.decorateRequest("account", null as unknown as Session);
 
   await app.register(websocket);
 
@@ -110,8 +116,12 @@ export async function buildApp(deps: AppDeps): Promise<App> {
     if (PUBLIC.has(path) || path === "/ws") return;
     const header = req.headers.authorization ?? "";
     if (!header.startsWith("Bearer ")) throw new AppError("unauthorized", "missing bearer token");
-    req.principal = await resolveSession(app.db, header.slice("Bearer ".length), app.now());
-    req.log = req.log.child({ studio_id: req.principal.studio_id, user_id: req.principal.user_id });
+    const session = await resolveSession(app.db, header.slice("Bearer ".length), app.now());
+    req.account = session;
+    req.log = req.log.child({ studio_id: session.studio_id, user_id: session.user_id });
+    if (ACCOUNT_ROUTES.has(path)) return;
+    if (session.studio_id === null) throw new AppError("forbidden", "this account has no studio yet. Create one or accept an invite.", { code_hint: "no_studio" });
+    req.principal = { ...session, studio_id: session.studio_id };
     // A viewer reads everything and comments. Every other write is refused at this one boundary,
     // before any route runs. docs/product.md, Roles and permissions.
     if (req.method !== "GET" && isViewerOnly(req.principal) && !VIEWER_WRITES.has(req.routeOptions.url ?? "")) {

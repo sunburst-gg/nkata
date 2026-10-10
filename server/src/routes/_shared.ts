@@ -1,7 +1,7 @@
 // Helpers every route file uses: typed app, membership checks, row lookups, row to wire shapes.
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { Template, Ulid, type CheckSpec, type LockInfo, type PartState, type Role, type TemplateKind, type UserRef } from "@nkata/shared";
 import { checkSeverity } from "../domain/checks.js";
@@ -35,7 +35,8 @@ export function isReviewer(p: Principal): boolean {
 }
 
 export async function loadProject(db: Db, p: Principal, projectId: string) {
-  const rows = await db.select().from(project).where(and(eq(project.id, projectId), eq(project.studio_id, p.studio_id))).limit(1);
+  // A deleted project is gone for every route; its rows stay (docs/decisions.md, 2026-10-10).
+  const rows = await db.select().from(project).where(and(eq(project.id, projectId), eq(project.studio_id, p.studio_id), isNull(project.deleted_at))).limit(1);
   const row = rows[0];
   if (!row) throw notFound("project", projectId);
   return row;

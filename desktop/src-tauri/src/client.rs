@@ -98,7 +98,8 @@ struct ErrorDetail {
 pub struct ServerMe {
     pub user: UserRef,
     pub email: String,
-    pub studio_id: String,
+    /// None for an account that has not created or joined a studio yet.
+    pub studio_id: Option<String>,
     pub roles: Vec<String>,
 }
 

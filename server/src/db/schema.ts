@@ -34,12 +34,13 @@ export const studio = pgTable("studio", {
   training: text("training").$type<Training>().notNull().default("off"),
 });
 
+// An account. One account, many studios: the studios come from membership, never from the row.
 export const user = pgTable(
   "user",
   {
     ...base,
-    studio_id: ulid("studio_id").notNull().references(() => studio.id),
     email: text("email").notNull(),
+    // Empty until the person answers "What should we call you?" at first sign in.
     name: text("name").notNull(),
     avatar_url: text("avatar_url"),
     // Pseudonymous id for training data, set when the member acknowledges capture. Never the email.
@@ -71,6 +72,8 @@ export const project = pgTable("project", {
   package_version: text("package_version").notNull(),
   // The Discord webhook for the one review message, encrypted with DISCORD_SECRET. Null when unset.
   discord_webhook: text("discord_webhook"),
+  // Set by Delete project. The row and its versions stay (nothing is lost); lists leave it out.
+  deleted_at: ts("deleted_at"),
 });
 
 export const template = pgTable(
@@ -257,7 +260,8 @@ export const auth_token = pgTable(
   "auth_token",
   {
     ...base,
-    studio_id: ulid("studio_id").notNull().references(() => studio.id),
+    // The studio the session acts in. Null for an account with no studio yet.
+    studio_id: ulid("studio_id").references(() => studio.id),
     user_id: ulid("user_id").notNull().references(() => user.id),
     kind: text("kind").$type<"magic" | "session">().notNull(),
     token_hash: text("token_hash").notNull(),

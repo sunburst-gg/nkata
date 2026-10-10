@@ -30,9 +30,86 @@ describe.skipIf(!hasInfra)("server api", () => {
     expect((await h.app.inject({ method: "POST", url: "/auth/callback", payload: { token } })).statusCode).toBe(401);
   });
 
-  it("does not reveal unknown emails", async () => {
-    const res = await h.app.inject({ method: "POST", url: "/auth/magic-link", payload: { email: "nobody@example.com" } });
-    expect(res.json()).toEqual({ v: 1, sent: true });
+  it("signs up an unknown email: no name, no studio, then Create studio makes a producer", async () => {
+    const link = await h.app.inject({ method: "POST", url: "/auth/magic-link", payload: { email: "Nobody@Example.com" } });
+    const token = new URL((link.json() as { link: string }).link).searchParams.get("token")!;
+    const session = (await h.app.inject({ method: "POST", url: "/auth/callback", payload: { token } })).json() as { token: string; user: { name: string }; email: string; studio_id: string | null; roles: string[]; studios: unknown[] };
+    expect(session).toMatchObject({ user: { name: "" }, email: "nobody@example.com", studio_id: null, roles: [], studios: [] });
+    const as = { headers: { authorization: `Bearer ${session.token}` } };
+    // Nothing of a studio until there is one.
+    const refused = await h.app.inject({ method: "GET", url: "/projects", ...as });
+    expect(refused.statusCode).toBe(403);
+    expect((refused.json() as { error: { code_hint: string } }).error.code_hint).toBe("no_studio");
+    expect((await h.app.inject({ method: "GET", url: "/auth/me", ...as })).statusCode).toBe(200);
+    // Name, then the studio.
+    const named = await h.app.inject({ method: "PUT", url: "/me", ...as, payload: { name: "Emmanuel Njoku" } });
+    expect((named.json() as { user: { name: string } }).user.name).toBe("Emmanuel Njoku");
+    const taken = await h.app.inject({ method: "PUT", url: "/me", ...as, payload: { name: "Emmanuel Njoku", email: ARTIST } });
+    expect(taken.statusCode).toBe(409);
+    const made = await h.app.inject({ method: "POST", url: "/studios", ...as, payload: { name: "Sunburst", training: "on" } });
+    expect(made.statusCode).toBe(201);
+    const inside = made.json() as { token: string; studio_id: string; roles: string[]; studios: { name: string }[] };
+    expect(inside.roles).toEqual(["producer"]);
+    expect(inside.studios.map((x) => x.name)).toEqual(["Sunburst"]);
+    const mine = { headers: { authorization: `Bearer ${inside.token}` } };
+    const studio = (await h.app.inject({ method: "GET", url: "/studio", ...mine })).json() as { studio: { name: string; training: string; billing: { line: string } } };
+    expect(studio.studio).toMatchObject({ name: "Sunburst", training: "on", billing: { line: "Nothing to pay" } });
+    expect((await h.app.inject({ method: "GET", url: "/projects", ...mine })).json()).toEqual({ v: 1, projects: [] });
+    // The old session still has no studio; a switch issues one inside it.
+    const switched = await h.app.inject({ method: "POST", url: "/auth/switch", ...as, payload: { studio_id: inside.studio_id } });
+    expect((switched.json() as { studio_id: string }).studio_id).toBe(inside.studio_id);
+    expect((await h.app.inject({ method: "POST", url: "/auth/switch", ...as, payload: { studio_id: h.seeded.studio_id } })).statusCode).toBe(404);
+    // Renaming the studio, and the last producer stays.
+    expect(((await h.app.inject({ method: "PUT", url: "/studio", ...mine, payload: { name: "Sunburst Games" } })).json() as { studio: { name: string } }).studio.name).toBe("Sunburst Games");
+    const meId = ((await h.app.inject({ method: "GET", url: "/auth/me", ...mine })).json() as { user: { id: string } }).user.id;
+    expect((await h.app.inject({ method: "DELETE", url: `/studio/members/${meId}`, ...mine })).statusCode).toBe(409);
+    expect((await h.app.inject({ method: "PUT", url: `/studio/members/${meId}`, ...mine, payload: { roles: ["artist"] } })).statusCode).toBe(409);
+  });
+
+  it("one account joins many studios, and a producer manages the members", async () => {
+    // The seeded artist is invited to a second studio by its producer.
+    const link = await h.app.inject({ method: "POST", url: "/auth/magic-link", payload: { email: "owner@lagosinteractive.com" } });
+    const token = new URL((link.json() as { link: string }).link).searchParams.get("token")!;
+    const fresh = (await h.app.inject({ method: "POST", url: "/auth/callback", payload: { token } })).json() as { token: string };
+    const made = (await h.app.inject({ method: "POST", url: "/studios", headers: { authorization: `Bearer ${fresh.token}` }, payload: { name: "Lagos Interactive" } })).json() as { token: string; studio_id: string };
+    const owner = { headers: { authorization: `Bearer ${made.token}` } };
+    const invited = await h.app.inject({ method: "POST", url: "/studio/members", ...owner, payload: { email: ARTIST, roles: ["art_director"] } });
+    expect(invited.statusCode).toBe(201);
+    const members = (await h.app.inject({ method: "GET", url: "/studio/members", ...owner })).json() as { members: { email: string; roles: string[] }[] };
+    expect(members.members.map((m) => [m.email, m.roles])).toEqual(expect.arrayContaining([[ARTIST, ["art_director"]], ["owner@lagosinteractive.com", ["producer"]]]));
+    // The artist now has two studios and can switch into the new one.
+    const me = (await h.app.inject({ method: "GET", url: "/auth/me", ...h.as(ARTIST) })).json() as { studio_id: string; studios: { id: string; name: string; roles: string[] }[] };
+    expect(me.studio_id).toBe(h.seeded.studio_id);
+    expect(me.studios.map((s) => s.name).sort()).toEqual(["Lagos Interactive", "Sunburst Interactive"]);
+    const switched = (await h.app.inject({ method: "POST", url: "/auth/switch", ...h.as(ARTIST), payload: { studio_id: made.studio_id } })).json() as { token: string; roles: string[] };
+    expect(switched.roles).toEqual(["art_director"]);
+    const there = (await h.app.inject({ method: "GET", url: "/studio", headers: { authorization: `Bearer ${switched.token}` } })).json() as { studio: { name: string } };
+    expect(there.studio.name).toBe("Lagos Interactive");
+    // Roles change and removal, by the producer only.
+    const artistId = members.members.find((m) => m.email === ARTIST) ? ((await h.app.inject({ method: "GET", url: "/auth/me", ...h.as(ARTIST) })).json() as { user: { id: string } }).user.id : "";
+    expect((await h.app.inject({ method: "PUT", url: `/studio/members/${artistId}`, headers: { authorization: `Bearer ${switched.token}` }, payload: { roles: ["artist"] } })).statusCode).toBe(403);
+    expect((await h.app.inject({ method: "PUT", url: `/studio/members/${artistId}`, ...owner, payload: { roles: ["artist"] } })).statusCode).toBe(200);
+    expect((await h.app.inject({ method: "DELETE", url: `/studio/members/${artistId}`, ...owner })).statusCode).toBe(200);
+    expect((await h.app.inject({ method: "GET", url: "/studio", headers: { authorization: `Bearer ${switched.token}` } })).statusCode).toBe(401);
+    expect(((await h.app.inject({ method: "GET", url: "/auth/me", ...h.as(ARTIST) })).json() as { studios: unknown[] }).studios).toHaveLength(1);
+  });
+
+  it("renames and deletes a project; the rows stay and the lists forget it", async () => {
+    const made = (await h.app.inject({ method: "POST", url: "/projects", ...h.as(PRODUCER), payload: { name: "Side", folder_name: "side", blender_version: "4.2", ue_version: "5.4", package_version: "0.1.0" } })).json() as { project: { id: string } };
+    expect((await h.app.inject({ method: "PUT", url: `/projects/${made.project.id}`, ...h.as(ARTIST), payload: { name: "Side B" } })).statusCode).toBe(403);
+    const renamed = (await h.app.inject({ method: "PUT", url: `/projects/${made.project.id}`, ...h.as(PRODUCER), payload: { name: "Side B" } })).json() as { project: { name: string } };
+    expect(renamed.project.name).toBe("Side B");
+    expect((await h.app.inject({ method: "DELETE", url: `/projects/${made.project.id}`, ...h.as(PRODUCER) })).json()).toEqual({ v: 1, deleted: true });
+    const list = (await h.app.inject({ method: "GET", url: "/projects", ...h.as(ARTIST) })).json() as { projects: { id: string }[] };
+    expect(list.projects.map((p) => p.id)).not.toContain(made.project.id);
+    expect((await h.app.inject({ method: "GET", url: `/projects/${made.project.id}`, ...h.as(PRODUCER) })).statusCode).toBe(404);
+    // Restore brings it back with everything it had.
+    const deleted = (await h.app.inject({ method: "GET", url: "/projects/deleted", ...h.as(PRODUCER) })).json() as { projects: { id: string; name: string; deleted_at: string }[] };
+    expect(deleted.projects.map((p) => p.name)).toEqual(["Side B"]);
+    expect((await h.app.inject({ method: "GET", url: "/projects/deleted", ...h.as(ARTIST) })).statusCode).toBe(403);
+    expect((await h.app.inject({ method: "POST", url: `/projects/${made.project.id}/restore`, ...h.as(PRODUCER) })).statusCode).toBe(200);
+    expect((await h.app.inject({ method: "GET", url: `/projects/${made.project.id}`, ...h.as(PRODUCER) })).statusCode).toBe(200);
+    expect((await h.app.inject({ method: "POST", url: `/projects/${made.project.id}/restore`, ...h.as(PRODUCER) })).statusCode).toBe(404);
   });
 
   it("seeds the Ojukwu asset with gated parts locked", async () => {
@@ -400,6 +477,11 @@ describe.skipIf(!hasInfra)("server api", () => {
       ["POST", "/files/uploaded", { project_id: "{project}", chunks: [] }],
       ["POST", "/projects/{project}/file-versions", {}],
       ["POST", "/projects/{project}/members", { email: "x@sunburst.gg", name: "X", roles: ["artist"] }],
+      ["POST", "/studio/members", { email: "x@sunburst.gg", roles: ["artist"] }],
+      ["PUT", "/studio", { name: "Mine" }],
+      ["PUT", "/projects/{project}", { name: "Mine" }],
+      ["DELETE", "/projects/{project}", undefined],
+      ["POST", "/projects/{project}/restore", undefined],
       ["PUT", "/projects/{project}/discord", { webhook_url: null }],
     ];
     const fill = (s: string) => s.replaceAll("{face}", parts["face"]!).replaceAll("{project}", h.seeded.project_id);

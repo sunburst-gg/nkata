@@ -36,6 +36,13 @@
       "when": 1791621964918,
       "tag": "0004_training_and_capture",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791632593065,
+      "tag": "0005_accounts_and_studios",
+      "breakpoints": true
     }
   ]
 }
