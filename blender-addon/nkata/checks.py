@@ -169,9 +169,9 @@ def run_checks(
         if run is None:
             continue
         p = dict(params.get(check_id) or {})
-        passed, message = run(facts, p)
+        passed, message = _run_one(run, facts, p)
         fixed = False
-        if not passed and fix and check_id in FIXERS:
+        if not passed and fix and check_id in FIXERS and _has_params(check_id, p):
             facts = FIXERS[check_id](facts, p)
             passed, message = run(facts, p)
             fixed = passed
@@ -181,6 +181,19 @@ def run_checks(
             ).to_dict()
         )
     return results, facts
+
+
+def _run_one(run: Callable[[SceneFacts, dict[str, Any]], Outcome], facts: SceneFacts, params: dict[str, Any]) -> Outcome:
+    """A check whose template left out a required param fails with a message instead of raising,
+    so one bad template line never breaks the save."""
+    try:
+        return run(facts, params)
+    except KeyError as e:
+        return False, f"the template sets no {e.args[0]} for this check"
+
+
+def _has_params(check_id: str, params: dict[str, Any]) -> bool:
+    return check_id != "name_pattern" or "pattern" in params
 
 
 def blocked_by(results: list[dict[str, Any]]) -> list[str]:
