@@ -56,7 +56,7 @@ Postgres. Every table has `id` (ULID), `studio_id`, `created_at`, `updated_at`. 
 | `studio` | name, training | One per customer. `training` on or off: on contributes to model training and pays nothing, off is billed per seat. Changing it emits `studio.training` |
 | `user` | email, name, avatar\_url, training\_id | Magic link auth. `training_id` is a pseudonymous ULID set on capture acknowledgement, never the email |
 | `membership` | user\_id, studio\_id, roles\[\], capture\_ack\_at | Roles: artist, art\_director, producer, viewer. The enum stays open for later roles. `capture_ack_at` when the member acknowledged capture for training |
-| `project` | studio\_id, name, folder\_name, blender\_version, ue\_version, package\_version | Pinned tool versions |
+| `project` | studio\_id, name, folder\_name, blender\_version, ue\_version, package\_version, deleted\_at | Pinned tool versions. `deleted_at` set by Delete project: the rows and versions stay, lists leave it out, Restore clears it |
 | `template` | project\_id, name, file\_path, schema JSONB | The file in the folder is the truth; this row is the cache. The schema carries `kind`: character, prop, level\_area |
 | `asset` | project\_id, template\_id, name, reference\_files\[\], rights JSONB | State is derived from parts. `rights` is who holds them, confirmed by a reviewer; required to Publish while training is on. An asset can be created with any subset of the template's parts |
 | `part` | asset\_id, name, position, owner\_id, state, gate JSONB, mapping JSONB | mapping: `{kind: blend_collection, file, collection}`, `{kind: ue_asset, path}`, `{kind: ue_area, level, area}`, or `{kind: file, path}`. `ue_actor` stays for a single actor |
@@ -121,7 +121,7 @@ One call: `PUT /remote/object/call` on the Python command subsystem with a snipp
 
 **Server REST, `https://api.<domain>`**
 
-`/auth/magic-link`, `/projects`, `/projects/:id/templates`, `/assets`, `/parts`, `/parts/:id/versions`, `/parts/:id/lock` (POST acquire, DELETE release, PUT heartbeat), `/comments`, `/reviews`, `/events?since=`, `/files/upload-urls` (returns signed PUT URLs for missing chunk hashes), `/files/download-urls`, `/export/:asset_id`.
+`/auth/magic-link` (any email: an unknown one gets an account), `/auth/callback`, `/auth/me`, `/auth/switch` (a session for another studio of the account), `/studios` (GET the account's, POST creates one with the caller as producer), `/me` (PUT name and email), `/studio` (GET, PUT name), `/studio/training`, `/studio/members` (GET, POST invite, PUT and DELETE by user id), `/projects` (GET, POST, PUT name, DELETE, `/deleted`, `/:id/restore`), `/projects/:id/templates`, `/assets`, `/parts`, `/parts/:id/versions`, `/parts/:id/lock` (POST acquire, DELETE release, PUT heartbeat), `/comments`, `/reviews`, `/events?since=`, `/files/upload-urls` (returns signed PUT URLs for missing chunk hashes), `/files/download-urls`, `/export/:asset_id`.
 
 The server enforces the role on every mutating route. A viewer gets 403 on lock, publish, mark ready, review, rollback, gate removal, template edit, asset creation, and project export routes. Comments are allowed. A single asset export as images and glTF is allowed. One test per refused route.
 
