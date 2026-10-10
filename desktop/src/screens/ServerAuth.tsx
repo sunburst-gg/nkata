@@ -10,12 +10,13 @@ import { Wordmark } from "@/components/Mark";
 import { connect, createProject, DEFAULT_SERVER_URL, listProjects, primaryRoleOf, readSession, redeem, requestLink, tokenFromLink, writeSession } from "@/data/boot";
 import { useGo } from "@/lib/hooks";
 import { Centered, Header, Title } from "./Shell";
+import { ToolsSetup } from "./Tools";
 
 function Big({ children, ...rest }: React.ComponentProps<typeof Button>) {
   return <Button {...rest} className="h-11 rounded-lg text-15">{children}</Button>;
 }
 
-type Step = { kind: "email" } | { kind: "link"; email: string } | { kind: "project"; token: string; roles: string[] } | { kind: "folder"; token: string; projectId: string; name: string } | { kind: "connecting" };
+type Step = { kind: "email" } | { kind: "link"; email: string } | { kind: "project"; token: string; roles: string[] } | { kind: "folder"; token: string; projectId: string; name: string } | { kind: "connecting" } | { kind: "tools"; folder: string; name: string; slug: string | undefined };
 
 export function ServerSignIn() {
   const go = useGo();
@@ -49,7 +50,7 @@ export function ServerSignIn() {
   };
   const pickProject = async (token: string, roles: string[], projectId: string, name: string) => {
     if (primaryRoleOf(roles) === "viewer") {
-      await finish(token, projectId, null, "stream");
+      await finish(token, projectId, null, "stream", name);
       return;
     }
     setFolder(`~/Projects/${name}`);
@@ -61,7 +62,7 @@ export function ServerSignIn() {
       await pickProject(token, roles, made.id, newName.trim());
     } catch (err) { fail(err); }
   };
-  const finish = async (token: string, projectId: string, folderPath: string | null, mode: "sync" | "stream") => {
+  const finish = async (token: string, projectId: string, folderPath: string | null, mode: "sync" | "stream", name: string) => {
     setStep({ kind: "connecting" });
     const session = { serverUrl, token, projectId, folder: folderPath, mode };
     try {
@@ -69,7 +70,7 @@ export function ServerSignIn() {
       writeSession(session);
       useSource(source);
       if (mode === "stream") go.to("/join/start");
-      else go.project(source.snapshot().session.studio.projects[0]?.slug);
+      else setStep({ kind: "tools", folder: folderPath ?? "", name, slug: source.snapshot().session.studio.projects[0]?.slug });
     } catch (err) { fail(err); setStep({ kind: "email" }); }
   };
 
@@ -112,7 +113,7 @@ export function ServerSignIn() {
         </div>
       ) : null}
       {step.kind === "folder" ? (
-        <form className="flex flex-col gap-6" onSubmit={(e) => { e.preventDefault(); void finish(step.token, step.projectId, folder, "sync"); }}>
+        <form className="flex flex-col gap-6" onSubmit={(e) => { e.preventDefault(); void finish(step.token, step.projectId, folder, "sync", step.name); }}>
           <Title>{t("create.folder")}</Title>
           <Input large value={folder} onChange={(e) => setFolder(e.target.value)} aria-label="Project folder" autoFocus />
           <span className="text-secondary">{t("create.folder.note")}</span>
@@ -120,11 +121,24 @@ export function ServerSignIn() {
         </form>
       ) : null}
       {step.kind === "connecting" ? <Title>{t("setup.title", { project: "the project" })}</Title> : null}
+      {step.kind === "tools" ? <ToolsStep folder={step.folder} name={step.name} onOpen={() => go.project(step.slug)} /> : null}
     </Centered>
   );
 }
 
-/** New project in server mode: name, folder, create, open. The signed-in producer's session is reused. */
+/** The tools step after the folder: the app installs the add-on and the plugin, then the project opens. */
+function ToolsStep({ folder, name, onOpen }: { folder: string; name: string; onOpen: () => void }) {
+  return (
+    <div className="flex flex-col gap-6">
+      <Title>{t("create.tools")}</Title>
+      <ToolsSetup folder={folder} auto />
+      <span className="text-secondary">{t("create.tools.note")}</span>
+      <Big variant="primary" onClick={onOpen}>Open {name}</Big>
+    </div>
+  );
+}
+
+/** New project in server mode: name, folder, create, tools, open. The signed-in producer's session is reused. */
 export function ServerCreate() {
   const go = useGo();
   const useSource = useStore((s) => s.useSource);
@@ -134,6 +148,7 @@ export function ServerCreate() {
   const [name, setName] = useState("");
   const [folder, setFolder] = useState("");
   const [busy, setBusy] = useState(false);
+  const [made, setMade] = useState<{ folder: string; slug: string | undefined } | null>(null);
   const saved = readSession();
   if (!saved) return <Centered width={420}><Title>Sign in first.</Title></Centered>;
   const submit = async () => {
@@ -144,12 +159,20 @@ export function ServerCreate() {
       const source = await connect(session, theme);
       writeSession(session);
       useSource(source);
-      go.project(source.snapshot().session.studio.projects[0]?.slug);
+      setMade({ folder: session.folder, slug: source.snapshot().session.studio.projects[0]?.slug });
     } catch (err) {
       toast(err instanceof Error ? err.message : "Could not create the project.", "failed");
       setBusy(false);
     }
   };
+  if (made) {
+    return (
+      <>
+        <Header crumbs={[{ label: studio.name, onClick: go.home }, { label: name.trim(), current: true }]} />
+        <Centered><ToolsStep folder={made.folder} name={name.trim()} onOpen={() => go.project(made.slug)} /></Centered>
+      </>
+    );
+  }
   return (
     <>
       <Header crumbs={[{ label: studio.name, onClick: go.home }, { label: "New project", current: true }]} />

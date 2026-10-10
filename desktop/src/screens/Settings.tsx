@@ -4,7 +4,9 @@ import { useCan, useStore } from "@/store";
 import { Button } from "@/components/Button";
 import { StateDot } from "@/components/StateBadge";
 import { useProject } from "@/lib/hooks";
+import { inTauri } from "@/lib/tauri";
 import { ScreenHead } from "./Shell";
+import { ToolsSetup } from "./Tools";
 
 function Row({ label, children, trailing, dot }: { label: string; children?: React.ReactNode; trailing?: React.ReactNode; dot?: boolean }) {
   return <div className="flex h-13 items-center gap-4 border-b border-hairline">{dot ? <StateDot state="approved" /> : null}<span className="flex-1">{label}</span>{children}{trailing}</div>;
@@ -21,7 +23,7 @@ export function Settings() {
   return (
     <div className="flex max-w-180 flex-col gap-10">
       <ScreenHead title="Settings" line={`${project.name} · Producers are admins.`} />
-      <div className="flex flex-col gap-3"><span className="text-16 font-medium">Tools</span><div className="flex flex-col"><Row label="Blender" trailing={change}><span className="font-mono text-14 font-medium">{project.blender}</span></Row><Row label="Unreal Engine" trailing={change}><span className="font-mono text-14 font-medium">{project.unreal}</span></Row></div><span className="text-13 text-muted">Panels warn when a teammate runs a different version.</span></div>
+      <div className="flex flex-col gap-3"><span className="text-16 font-medium">Tools</span>{inTauri() ? <ToolsSetup folder={project.folder} /> : <div className="flex flex-col"><Row label="Blender" trailing={change}><span className="font-mono text-14 font-medium">{project.blender}</span></Row><Row label="Unreal Engine" trailing={change}><span className="font-mono text-14 font-medium">{project.unreal}</span></Row></div>}<span className="text-13 text-muted">Nkata installs the add-on and the plugin. Panels warn when a teammate runs a different version.</span></div>
       <div className="flex flex-col gap-3"><span className="text-16 font-medium">Connections</span><div className="flex flex-col">
         {source.setDiscordWebhook ? (
           <form className="flex h-13 items-center gap-4 border-b border-hairline" onSubmit={(e) => { e.preventDefault(); void source.setDiscordWebhook!(webhook.trim() || null).then(() => toast(webhook.trim() ? "Discord gets one message on Approve or Send back." : "Discord disconnected.", "approved")).catch((err: unknown) => toast(err instanceof Error ? err.message : "Could not save the webhook.", "failed")); }}>
