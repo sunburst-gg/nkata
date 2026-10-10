@@ -20,6 +20,7 @@ pub mod runtime;
 pub mod scan;
 pub mod stream;
 pub mod sync;
+pub mod tools;
 pub mod ue5;
 pub mod watch;
 
