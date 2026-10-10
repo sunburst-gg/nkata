@@ -48,7 +48,7 @@ class FakeAgent(BaseHTTPRequestHandler):
         FakeAgent.calls.append(("GET", self.path, None))
         if self.path == "/me":
             return self._json(200, {"v": 1, "user": USER, "project": {"id": ID, "name": "P", "folder_name": "p"}, "package_version": "0.1.0", "online": True, "spool_dir": "/tmp/spool", "mode": "sync"})
-        if self.path.startswith("/parts?"):
+        if self.path == "/parts" or self.path.startswith("/parts?"):
             return self._json(200, {"v": 1, "parts": [PART]})
         if self.path.endswith("/comments"):
             return self._json(200, {"v": 1, "comments": FakeAgent.comments})
@@ -133,6 +133,7 @@ class PanelTest(unittest.TestCase):
         state.STATE.mirror.clear()
         state.STATE.comments.clear()
         state.STATE.online = []
+        state.STATE.startable = []
         state.STATE.error = ""
         state.STATE.publish_line = ""
         self.panel = panel
@@ -244,6 +245,41 @@ class PanelTest(unittest.TestCase):
         self.assertIn("label:Here: Chidi in this part", "\n".join(self.draw()))
         self.state.apply_event({"kind": "lock.requested", "part_id": ID, "requester": HOLDER, "holder_id": ID2})
         self.assertIn("Chidi asked to open this part", self.state.publish_line)
+
+    def test_start_a_part_names_the_collection_and_saves_where_the_part_lives(self) -> None:
+        """A new project: no file yet. The panel lists my parts from the agent's pointer, and one
+        click names the collection and saves the file at the mapped path, which takes the lock."""
+        root = self.blend.parents[1]
+        self.blend.unlink()
+        home = Path(self.tmp.name) / "home"
+        (home / ".nkata").mkdir(parents=True)
+        (home / ".nkata" / "agent.json").write_text(json.dumps({"v": 1, "folder": str(root), "port": 7420}))
+        self.collection.name = "Collection"
+        self.bpy = bpy_stub.install({"Collection": self.collection}, "")
+        self.save_hook.register()
+        with mock.patch.dict(os.environ, {"HOME": str(home)}):
+            lines = self.draw()
+            self.assertIn("label:Save this file as a part, or start one", lines)
+            self.assertIn("op:nkata.find_parts:Find my parts", lines)
+            self.assertEqual(self.panel.NKATA_OT_find_parts().execute(None), {"FINISHED"})
+            self.assertIn("op:nkata.start_part:Ojukwu / face", self.draw())
+            start = self.panel.NKATA_OT_start_part()
+            start.part_id = ID
+            self.assertEqual(start.execute(None), {"FINISHED"})
+        self.assertEqual(self.collection.name, "face")
+        self.assertEqual(Path(self.bpy.data.filepath), self.blend)
+        self.assertTrue(self.blend.is_file())
+        self.assertEqual(self.state.part["id"], ID)
+        posts = [c[1] for c in FakeAgent.calls if c[0] == "POST"]
+        self.assertIn(f"/parts/{ID}/saved", posts)
+        self.assertIn(f"/parts/{ID}/open", posts)
+        self.assertIn("label:Ojukwu / face · Draft · Ada · Open by Ada", self.draw())
+        self.assertEqual(self.state.startable, [])
+        # Without the pointer, the panel says what to do.
+        with mock.patch.dict(os.environ, {"HOME": self.tmp.name}):
+            self.bpy = bpy_stub.install({"Collection": self.collection}, "")
+            self.assertEqual(self.panel.NKATA_OT_find_parts().execute(None), {"CANCELLED"})
+            self.assertIn("Open the project in the Nkata app first", bpy_stub.FakeOps.reports[-1])
 
     def test_open_reference_opens_the_file_on_this_machine(self) -> None:
         self.save_hook.handle_open(str(self.blend))

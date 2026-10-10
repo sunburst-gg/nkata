@@ -95,6 +95,22 @@ class FakeCollection:
         self.exporters = exporters or []
 
 
+class FakeCollections(dict):
+    """bpy.data.collections: looked up by the collection's current name, as Blender does after a
+    rename, with new()."""
+
+    def get(self, name: str, default: Any = None) -> Any:
+        for col in self.values():
+            if col.name == name:
+                return col
+        return default
+
+    def new(self, name: str) -> FakeCollection:
+        col = FakeCollection(name, [])
+        self[name] = col
+        return col
+
+
 class FakeOps:
     reports: list[str] = []
     """Records operator calls and writes a file where the exporter would."""
@@ -132,6 +148,17 @@ def install(collections: dict[str, FakeCollection], filepath: str) -> types.Modu
             ops._write(kwargs["filepath"])
             return {"FINISHED"}
 
+    class WmOps:
+        @staticmethod
+        def save_as_mainfile(filepath: str) -> set[str]:
+            ops.calls.append(("wm.save_as_mainfile", {"filepath": filepath}))
+            with open(filepath, "wb") as f:
+                f.write(b"BLENDER")
+            bpy.data.filepath = filepath
+            for handler in list(bpy.app.handlers.save_post):
+                handler(None)
+            return {"FINISHED"}
+
     class Context:
         _override: dict[str, Any] = {}
         scene = types.SimpleNamespace(unit_settings=types.SimpleNamespace(scale_length=1.0))
@@ -154,9 +181,11 @@ def install(collections: dict[str, FakeCollection], filepath: str) -> types.Modu
 
             return _Ctx()
 
-    bpy.ops = types.SimpleNamespace(collection=CollectionOps, export_scene=ExportSceneOps)
+    bpy.ops = types.SimpleNamespace(collection=CollectionOps, export_scene=ExportSceneOps, wm=WmOps)
     bpy.context = Context
-    bpy.data = types.SimpleNamespace(collections=collections, filepath=filepath, images=[types.SimpleNamespace(name="T_Face_D", size=(2048, 2048))])
+    linked: list[Any] = []
+    Context.scene.collection = types.SimpleNamespace(children=types.SimpleNamespace(link=linked.append, linked=linked))
+    bpy.data = types.SimpleNamespace(collections=FakeCollections(collections), filepath=filepath, images=[types.SimpleNamespace(name="T_Face_D", size=(2048, 2048))])
     bpy.app = types.SimpleNamespace(handlers=types.SimpleNamespace(save_post=[], load_post=[]), timers=types.SimpleNamespace(is_registered=lambda _f: False, register=lambda *_a, **_k: None, unregister=lambda _f: None))
     Context.scene.cursor = types.SimpleNamespace(location=(0.5, 0.25, 0.0))
 
