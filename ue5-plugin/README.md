@@ -13,7 +13,7 @@ Snippets the agent runs through the Remote Control API (`PUT /remote/object/call
 - `inspect_asset.py`: what the mirror must keep on an asset, for the e2e scripts.
 - `refresh.py`: rescan a content path and sync the Content Browser.
 
-Enable the Python Editor Script Plugin and the Remote Control API plugin in the project. Remote Control listens on `localhost:30010`.
+The desktop app installs the plugin: it copies this folder to `<project>/Plugins/Nkata`, enables Nkata, PythonScriptPlugin, and RemoteControl in the .uproject (`Nkata.uplugin` lists the two as dependencies), and sets `WebControl.EnableServerOnStartup=1` in `Config/DefaultEngine.ini` so Remote Control listens on `localhost:30010` whenever the project is open. `Content/Python/init_unreal.py` runs at editor start and puts `scripts/` on the Python path, so the widget can `import panel`. Keep the Unreal project inside the Nkata project folder: the panel finds the agent token by walking up from the project folder. `make ue UE_PROJECT=...` symlinks the folder for development.
 
 - `draw_pins.py`: comment pins as debug spheres on every placed copy, and `frame` to look at one. The C++ viewport module replaces it later.
 - `panel.py`: the panel model. Not run by the agent: the Editor Utility Widget imports it.

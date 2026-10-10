@@ -1,0 +1,16 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "0.1.0",
+  "FriendlyName": "Nkata",
+  "Description": "Every Blender save mirrors into this project. Parts, locks, checks, review.",
+  "Category": "Pipeline",
+  "CreatedBy": "Sunburst Interactive",
+  "CanContainContent": true,
+  "Installed": true,
+  "Modules": [],
+  "Plugins": [
+    { "Name": "PythonScriptPlugin", "Enabled": true },
+    { "Name": "RemoteControl", "Enabled": true }
+  ]
+}
