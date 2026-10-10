@@ -16,7 +16,8 @@
         "part.state",
         "comment.created",
         "review.decided",
-        "gate.opened"
+        "gate.opened",
+        "studio.training"
       ]
     },
     "PresenceEntry": {
@@ -179,6 +180,20 @@
       "required": ["v", "kind", "project_id", "actor_id", "at", "part_id", "opened_by"],
       "additionalProperties": false
     },
+    "StudioTraining": {
+      "type": "object",
+      "description": "The studio's training setting changed. Not tied to a project.",
+      "properties": {
+        "v": { "const": 1 },
+        "kind": { "const": "studio.training" },
+        "project_id": { "anyOf": [{ "$ref": "common.schema.json#/$defs/Ulid" }, { "type": "null" }] },
+        "actor_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "at": { "$ref": "common.schema.json#/$defs/Timestamp" },
+        "training": { "$ref": "common.schema.json#/$defs/Training" }
+      },
+      "required": ["v", "kind", "project_id", "actor_id", "at", "training"],
+      "additionalProperties": false
+    },
     "ServerEvent": {
       "description": "Server to client. Discriminated on kind.",
       "oneOf": [
@@ -191,7 +206,8 @@
         { "$ref": "#/$defs/PartStateChanged" },
         { "$ref": "#/$defs/CommentCreated" },
         { "$ref": "#/$defs/ReviewDecided" },
-        { "$ref": "#/$defs/GateOpened" }
+        { "$ref": "#/$defs/GateOpened" },
+        { "$ref": "#/$defs/StudioTraining" }
       ]
     },
     "PresenceHeartbeat": {

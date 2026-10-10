@@ -8,6 +8,16 @@ from typing import Any, Literal
 from . import _runtime as _rt
 
 @dataclass(frozen=True)
+class AssetRights:
+    """Who holds the rights to this asset. Required to Publish while training is on."""
+    statement: str
+    confirmed_by: Ulid
+    confirmed_at: Timestamp
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
+@dataclass(frozen=True)
 class UserRef:
     """Enough of a user to show a name and a face."""
     id: Ulid
@@ -102,6 +112,7 @@ class CommentPin:
     point: Vec3
     normal: Vec3
     body: str
+    kind: CommentKind
     resolved_at: Timestamp | None
     created_at: Timestamp
 
@@ -143,6 +154,12 @@ MirrorStatus = Literal["pending", "syncing", "synced", "failed", "skipped"]
 CheckSeverity = Literal["block", "warn"]
 
 ReviewDecision = Literal["approve", "send_back"]
+
+# Studio setting. On: the studio contributes to model training and pays nothing. Off: billed per seat.
+Training = Literal["on", "off"]
+
+# pin: a note at a point. take_a_look: asks the art director to look, no state change.
+CommentKind = Literal["pin", "take_a_look"]
 
 # Three floats in the part's local space.
 Vec3 = list[float]
@@ -191,6 +208,29 @@ def _v_ReviewDecision(value: object, path: str) -> Any:
 
 def validate_ReviewDecision(value: object, path: str = "$") -> Any:
     return _v_ReviewDecision(value, path)
+
+def _v_Training(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, ("on", "off",))
+
+def validate_Training(value: object, path: str = "$") -> Any:
+    return _v_Training(value, path)
+
+def _v_CommentKind(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, ("pin", "take_a_look",))
+
+def validate_CommentKind(value: object, path: str = "$") -> Any:
+    return _v_CommentKind(value, path)
+
+def _v_AssetRights_statement(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
+
+def validate_AssetRights(value: object, path: str = "$") -> AssetRights:
+    obj = _rt.check_object(value, path, required=("statement", "confirmed_by", "confirmed_at",), allowed=("statement", "confirmed_by", "confirmed_at",))
+    return AssetRights(
+        statement=_v_AssetRights_statement(obj["statement"], path + ".statement"),
+        confirmed_by=validate_Ulid(obj["confirmed_by"], path + ".confirmed_by"),
+        confirmed_at=validate_Timestamp(obj["confirmed_at"], path + ".confirmed_at"),
+    )
 
 def _v_Vec3_item(value: object, path: str) -> float:
     return _rt.check_float(value, path, minimum=None, maximum=None)
@@ -365,7 +405,7 @@ def _v_CommentPin_resolved_at(value: object, path: str) -> Any:
     return validate_Timestamp(value, path)
 
 def validate_CommentPin(value: object, path: str = "$") -> CommentPin:
-    obj = _rt.check_object(value, path, required=("id", "part_id", "version_id", "author", "point", "normal", "body", "resolved_at", "created_at",), allowed=("id", "part_id", "version_id", "author", "point", "normal", "body", "resolved_at", "created_at",))
+    obj = _rt.check_object(value, path, required=("id", "part_id", "version_id", "author", "point", "normal", "body", "kind", "resolved_at", "created_at",), allowed=("id", "part_id", "version_id", "author", "point", "normal", "body", "kind", "resolved_at", "created_at",))
     return CommentPin(
         id=validate_Ulid(obj["id"], path + ".id"),
         part_id=validate_Ulid(obj["part_id"], path + ".part_id"),
@@ -374,6 +414,7 @@ def validate_CommentPin(value: object, path: str = "$") -> CommentPin:
         point=validate_Vec3(obj["point"], path + ".point"),
         normal=validate_Vec3(obj["normal"], path + ".normal"),
         body=_v_CommentPin_body(obj["body"], path + ".body"),
+        kind=validate_CommentKind(obj["kind"], path + ".kind"),
         resolved_at=_v_CommentPin_resolved_at(obj["resolved_at"], path + ".resolved_at"),
         created_at=validate_Timestamp(obj["created_at"], path + ".created_at"),
     )

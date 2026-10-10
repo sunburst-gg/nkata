@@ -29,6 +29,22 @@ export type CheckSeverity = z.infer<typeof CheckSeverity>;
 export const ReviewDecision = z.enum(["approve", "send_back"]);
 export type ReviewDecision = z.infer<typeof ReviewDecision>;
 
+/** Studio setting. On: the studio contributes to model training and pays nothing. Off: billed per seat. */
+export const Training = z.enum(["on", "off"]);
+export type Training = z.infer<typeof Training>;
+
+/** pin: a note at a point. take_a_look: asks the art director to look, no state change. */
+export const CommentKind = z.enum(["pin", "take_a_look"]);
+export type CommentKind = z.infer<typeof CommentKind>;
+
+/** Who holds the rights to this asset. Required to Publish while training is on. */
+export const AssetRights = z.strictObject({
+  "statement": z.string().min(1),
+  "confirmed_by": Ulid,
+  "confirmed_at": Timestamp,
+});
+export type AssetRights = z.infer<typeof AssetRights>;
+
 /** Three floats in the part's local space. */
 export const Vec3 = z.array(z.number()).min(3).max(3);
 export type Vec3 = z.infer<typeof Vec3>;
@@ -98,6 +114,7 @@ export const CommentPin = z.strictObject({
   "point": Vec3,
   "normal": Vec3,
   "body": z.string().min(1),
+  "kind": CommentKind,
   "resolved_at": Timestamp.nullable(),
   "created_at": Timestamp,
 });

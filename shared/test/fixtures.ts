@@ -13,7 +13,7 @@ const lock = { holder: user, granted_at: at, heartbeat_at: at, expires_at: at, s
 const checkResult = { check_id: "unit_scale", severity: "block", passed: true, auto_fixed: false, message: "" };
 const comment = {
   id, part_id: id, version_id: id2, author: user, point: [0, 1, 2], normal: [0, 0, 1],
-  body: "Shorter here", resolved_at: null, created_at: at,
+  body: "Shorter here", kind: "pin", resolved_at: null, created_at: at,
 };
 const head = { v: 1, project_id: id, actor_id: id2, at };
 const presenceEntry = { user, part_id: null, since: at, last_seen: at };
@@ -26,7 +26,8 @@ const template = {
 const manifestObject = { name: "Face", triangles: 12000, materials: ["M_Skin"], bounds_min: [-1, -1, 0], bounds_max: [1, 1, 2], hash: "abc", origin: [0, 0, 0], scale: [1, 1, 1] };
 const manifest = { v: 1, kind: "character", objects: [manifestObject], bone_count: 42, armature: "Armature", mirror_target: "/Game/Characters/Ojukwu/face" };
 const mapping = { kind: "blend_collection", file: "face.blend", collection: "face" };
-const mirrorState = { part_id: id, status: "synced", version_id: id2, at, mirror_ms: 4200, message: "", failures: 0, halted: false };
+const mirrorState = { part_id: id, status: "synced", version_id: id2, at, mirror_ms: 4200, message: "", failures: 0, halted: false, on_save: true };
+const rights = { statement: "Sunburst Interactive owns this asset outright.", confirmed_by: id, confirmed_at: at };
 const checkSpec = { id: "triangle_budget", severity: "block", params: { max: 60000 } };
 const partSummary = { id, asset_id: id2, asset_name: "Ojukwu", name: "face", state: "draft", owner: user, lock, gate: { after: [] }, mapping, kind: "character", checks: [checkSpec], reference_files: ["Ojukwu/ref/concept.png"], waiting_on: [] };
 
@@ -41,6 +42,7 @@ const events = {
   CommentCreated: { ...head, kind: "comment.created", comment },
   ReviewDecided: { ...head, kind: "review.decided", part_id: id, version_id: id2, review_id: id, decision: "approve", score: 4, note: "Good" },
   GateOpened: { ...head, kind: "gate.opened", part_id: id, opened_by: [id2] },
+  StudioTraining: { ...head, project_id: null, kind: "studio.training", training: "on" },
 };
 
 export const fixtures: Fixtures = {
@@ -52,6 +54,9 @@ export const fixtures: Fixtures = {
     MirrorStatus: { valid: ["synced", "failed"], invalid: ["done"] },
     CheckSeverity: { valid: ["block", "warn"], invalid: ["error"] },
     ReviewDecision: { valid: ["approve", "send_back"], invalid: ["reject"] },
+    Training: { valid: ["on", "off"], invalid: ["yes", true] },
+    CommentKind: { valid: ["pin", "take_a_look"], invalid: ["note"] },
+    AssetRights: { valid: [rights], invalid: [{ ...rights, statement: "" }, { statement: "x" }] },
     Vec3: { valid: [[0, 1, 2.5]], invalid: [[0, 1], ["a", "b", "c"]] },
     UserRef: { valid: [user, user2], invalid: [{ id, name: "" , avatar_url: null }, { id, name: "x" }] },
     Gate: { valid: [{ after: [] }, { after: ["face", "cloth"] }], invalid: [{}, { after: [""] }] },
@@ -61,7 +66,7 @@ export const fixtures: Fixtures = {
     },
     LockInfo: { valid: [lock], invalid: [{ ...lock, stale: "no" }] },
     CheckResult: { valid: [checkResult], invalid: [{ ...checkResult, severity: "fatal" }] },
-    CommentPin: { valid: [comment, { ...comment, resolved_at: at }], invalid: [{ ...comment, point: [1] }, { ...comment, linear_issue: "SUN-12" }] },
+    CommentPin: { valid: [comment, { ...comment, resolved_at: at }, { ...comment, kind: "take_a_look" }], invalid: [{ ...comment, point: [1] }, { ...comment, linear_issue: "SUN-12" }, { ...comment, kind: "note" }] },
     ErrorBody: { valid: [{ v: 1, error: { code: "not_found", message: "No part" } }], invalid: [{ v: 1, error: { code: "" , message: "x" } }] },
   },
   template: {
@@ -94,7 +99,7 @@ export const fixtures: Fixtures = {
   },
   agent: {
     ProjectRef: { valid: [{ id, name: "Rising Sun", folder_name: "rising-sun" }], invalid: [{ id, name: "Rising Sun" }] },
-    MeResponse: { valid: [{ v: 1, user, project: { id, name: "Rising Sun", folder_name: "rising-sun" }, package_version: "0.1.0", online: true, spool_dir: "/home/ada/rising-sun/.nkata-agent/spool", mode: "sync" }], invalid: [{ v: 1, user }] },
+    MeResponse: { valid: [{ v: 1, user, project: { id, name: "Rising Sun", folder_name: "rising-sun" }, package_version: "0.1.0", online: true, spool_dir: "/home/ada/rising-sun/.nkata-agent/spool", mode: "sync", mirror_paused: false }], invalid: [{ v: 1, user }] },
     AgentMode: { valid: ["sync", "stream"], invalid: ["viewer"] },
     CheckSpec: { valid: [checkSpec, { id: "unit_scale", severity: "warn", params: {} }], invalid: [{ id: "Unit", severity: "block", params: {} }] },
     PartSummary: { valid: [partSummary, { ...partSummary, owner: null, lock: null }], invalid: [{ ...partSummary, state: "open" }] },
@@ -104,16 +109,16 @@ export const fixtures: Fixtures = {
     ManifestObject: { valid: [manifestObject], invalid: [{ ...manifestObject, triangles: -1 }] },
     ObjectManifest: { valid: [manifest, { ...manifest, armature: "Armature" }], invalid: [{ ...manifest, objects: {} }] },
     PartSavedRequest: {
-      valid: [{ v: 1, changed: true, spool_path: "/spool/x.glb", manifest, source_file: "face.blend" }, { v: 1, changed: false, spool_path: null, manifest: null, source_file: "face.blend" }],
+      valid: [{ v: 1, changed: true, spool_path: "/spool/x.glb", manifest, source_file: "face.blend" }, { v: 1, changed: false, spool_path: null, manifest: null, source_file: "face.blend", opened_at: at }],
       invalid: [{ v: 1, changed: true }],
     },
     PartSavedResponse: { valid: [{ v: 1, version_id: id, mirror: "pending" }], invalid: [{ v: 1, version_id: id, mirror: "ok" }] },
     PublishRequest: { valid: [{ v: 1, check_results: [checkResult], ready: true }], invalid: [{ v: 1, ready: true }] },
-    PublishResponse: { valid: [{ v: 1, published: false, version_id: id, state: "draft", blocked_by: [checkResult] }], invalid: [{ v: 1, published: true }] },
+    PublishResponse: { valid: [{ v: 1, published: false, version_id: id, state: "draft", blocked_by: [checkResult], render_needed: false }], invalid: [{ v: 1, published: true }] },
     ChecksRequest: { valid: [{ v: 1, results: [] }], invalid: [{ v: 1, results: [{}] }] },
     ChecksResponse: { valid: [{ v: 1, version_id: id, recorded: 3 }], invalid: [{ v: 1, version_id: id, recorded: -1 }] },
     CommentsResponse: { valid: [{ v: 1, comments: [comment] }], invalid: [{ v: 1, comments: comment }] },
-    CommentCreateRequest: { valid: [{ v: 1, point: [0, 0, 0], normal: [0, 0, 1], body: "Hi" }], invalid: [{ v: 1, point: [0, 0, 0], normal: [0, 0, 1], body: "" }] },
+    CommentCreateRequest: { valid: [{ v: 1, point: [0, 0, 0], normal: [0, 0, 1], body: "Hi" }, { v: 1, point: [0, 0, 0], normal: [0, 0, 1], body: "Look at the hands", kind: "take_a_look" }], invalid: [{ v: 1, point: [0, 0, 0], normal: [0, 0, 1], body: "" }] },
     CommentCreateResponse: { valid: [{ v: 1, comment }], invalid: [{ v: 1 }] },
     ReviewRequest: { valid: [{ v: 1, score: 5, decision: "approve", note: "" }], invalid: [{ v: 1, score: 6, decision: "approve", note: "" }] },
     ReviewResponse: { valid: [{ v: 1, review_id: id, state: "approved" }], invalid: [{ v: 1, state: "approved" }] },
@@ -123,5 +128,10 @@ export const fixtures: Fixtures = {
     MirrorRetryResponse: { valid: [{ v: 1, part_id: id, queued: true }], invalid: [{ v: 1, part_id: id }] },
     MirrorState: { valid: [mirrorState, { ...mirrorState, status: "pending", version_id: null, at: null, mirror_ms: null }], invalid: [{ ...mirrorState, failures: -1 }] },
     MirrorStateResponse: { valid: [{ v: 1, mirror: mirrorState }], invalid: [{ v: 1 }] },
+    MirrorOnSaveRequest: { valid: [{ v: 1, on_save: false }], invalid: [{ v: 1 }] },
+    MirrorPauseRequest: { valid: [{ v: 1, paused: true }], invalid: [{ v: 1, paused: "yes" }] },
+    MirrorPauseResponse: { valid: [{ v: 1, paused: true }], invalid: [{ v: 1 }] },
+    RenderRequest: { valid: [{ v: 1, path: "/spool/x.png" }], invalid: [{ v: 1, path: "" }] },
+    RenderResponse: { valid: [{ v: 1, version_id: id, stored: true }], invalid: [{ v: 1, stored: true }] },
   },
 };
