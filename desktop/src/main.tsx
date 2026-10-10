@@ -3,7 +3,10 @@ import { createRoot } from "react-dom/client";
 import "./styles/app.css";
 import { App } from "./App";
 import { useStore } from "./store";
-import { connect, readSession, useMock, writeSession } from "./data/boot";
+import { connect, readSession, routeFor, setErrorSink, useMock, writeSession } from "./data/boot";
+
+// A write the server refuses reverts on the reload and says why here.
+setErrorSink((message) => useStore.getState().toast(message, "failed"));
 
 // Hook for the screenshot script and manual checks while the data is the in-memory mock: the
 // prototype's Tweaks. demoStage, role, theme, and the rail. Goes away with the real DataSource.
@@ -22,7 +25,7 @@ import { connect, readSession, useMock, writeSession } from "./data/boot";
 const saved = useMock() ? null : readSession();
 if (saved) {
   connect(saved, useStore.getState().theme)
-    .then((source) => { useStore.getState().useSource(source); if (!location.hash || location.hash === "#/" || location.hash === "#/signin") location.hash = saved.projectId ? `#/p/${source.snapshot().session.studio.projects[0]?.slug ?? ""}` : "#/welcome"; })
+    .then((source) => { useStore.getState().useSource(source); if (!location.hash || location.hash === "#/" || location.hash === "#/signin") location.hash = `#${routeFor(source)}`; })
     .catch((err: unknown) => { writeSession(null); useStore.getState().toast(err instanceof Error ? err.message : "Sign in again.", "failed"); });
 }
 

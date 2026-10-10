@@ -2,11 +2,12 @@
 // projects list, and at the bottom Invite members, Connections, Billing. 260 wide, hairline right.
 import { AtSign, ChevronDown, Plus, Sparkles } from "lucide-react";
 import { useLocation } from "react-router";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useCan, useStore } from "@/store";
 import { cn } from "@/lib/cn";
 import { useGo, useProject } from "@/lib/hooks";
 import { MenuContent, MenuItem, MenuRoot, MenuSeparator, MenuTrigger } from "./Menu";
+import { StudioSwitcher } from "./StudioSwitcher";
 
 function NavRow({ active, onClick, children, className }: { active?: boolean; onClick: () => void; children: ReactNode; className?: string }) {
   return (
@@ -21,8 +22,8 @@ export function Sidebar() {
   const mentions = useStore((s) => s.db.mentions);
   const setMembers = useStore((s) => s.setMembers);
   const signOut = useStore((s) => s.signOut);
-  const toast = useStore((s) => s.toast);
   const can = useCan();
+  const [switching, setSwitching] = useState(false);
   const go = useGo();
   const current = useProject();
   const { pathname } = useLocation();
@@ -46,11 +47,12 @@ export function Sidebar() {
           <MenuContent width={240}>
             <MenuItem onSelect={() => go.settings("account")}>Settings</MenuItem>
             {can("manageMembers") ? <MenuItem onSelect={() => setMembers(true)}>Invite and manage members</MenuItem> : null}
-            <MenuItem onSelect={() => toast("One studio for now. Switching arrives with the next one.", "muted")}>Switch studio</MenuItem>
+            <MenuItem onSelect={() => setSwitching(true)}>Switch studio</MenuItem>
             <MenuSeparator />
             <MenuItem onSelect={() => { signOut(); go.signin(); }}>Log out</MenuItem>
           </MenuContent>
         </MenuRoot>
+        <StudioSwitcher open={switching} onOpenChange={setSwitching} />
       </div>
       <NavRow active={pathname === "/welcome"} onClick={go.welcome}><Sparkles size={16} strokeWidth={1.5} aria-hidden="true" />Get started</NavRow>
       {can("createProject") ? <NavRow active={pathname === "/new"} onClick={go.newProject}><Plus size={16} strokeWidth={1.5} aria-hidden="true" />New project</NavRow> : null}

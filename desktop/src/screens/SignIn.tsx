@@ -6,7 +6,7 @@ import { useStore } from "@/store";
 import { Button } from "@/components/Button";
 import { CONTROL, Field } from "@/components/Field";
 import { Mark } from "@/components/Mark";
-import { DEFAULT_SERVER_URL, enterServer, listProjects, redeem, requestLink, tokenFromLink, useMock } from "@/data/boot";
+import { DEFAULT_SERVER_URL, enterAccount, redeem, requestLink, routeFor, tokenFromLink, useMock } from "@/data/boot";
 import { useGo } from "@/lib/hooks";
 
 export function SignIn() {
@@ -27,13 +27,10 @@ export function SignIn() {
   const enter = async (value: string) => {
     setBusy(true);
     try {
-      const session = await redeem(serverUrl, tokenFromLink(value));
-      const projects = await listProjects(serverUrl, session.token);
-      const first = projects[0] ?? null;
-      const source = await enterServer(serverUrl, session.token, session.roles, first, theme);
+      const account = await redeem(serverUrl, tokenFromLink(value));
+      const source = await enterAccount(serverUrl, account, theme);
       useSource(source);
-      const slug = source.snapshot().session.studio.projects.find((p) => p.id === first?.id)?.slug;
-      if (slug) go.project(slug); else go.welcome();
+      go.to(routeFor(source));
     } catch (err) { fail(err); } finally { setBusy(false); }
   };
   const submit = async () => {

@@ -70,9 +70,15 @@ function openSocket(url: string, onEvent: (event: Record<string, unknown>) => vo
 
 export type ServerSource = ReturnType<typeof createServerSource>;
 
+let errorSink: (message: string) => void = () => undefined;
+/** Where a refused write is reported. main.tsx points it at the toast. */
+export function setErrorSink(fn: (message: string) => void): void {
+  errorSink = fn;
+}
+
 /** Builds the server source for a saved session, loads it, and starts the agent in the window. */
 export async function connect(session: SavedSession, theme: "dark" | "light"): Promise<ServerSource> {
-  const source = createServerSource({ serverUrl: session.serverUrl, token: session.token, projectId: session.projectId, folder: session.folder, theme, socket: openSocket });
+  const source = createServerSource({ serverUrl: session.serverUrl, token: session.token, projectId: session.projectId, folder: session.folder, theme, socket: openSocket, onError: (m) => errorSink(m) });
   await source.load();
   if (!session.projectId) return source;
   if (session.mode === "stream") await agent.startStream(session.serverUrl, session.token, session.projectId);
@@ -96,11 +102,62 @@ export function tokenFromLink(linkOrToken: string): string {
   }
 }
 
-export async function redeem(serverUrl: string, token: string): Promise<{ token: string; roles: string[]; studio_id: string }> {
-  const res = await fetch(`${serverUrl}/auth/callback`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }) });
-  const body = (await res.json()) as { token: string; roles: string[]; studio_id: string; error?: { message: string } };
-  if (!res.ok) throw new Error(body.error?.message ?? "that link is not valid");
-  return body;
+/** What the server says about the account after a sign in, a studio switch, or Create studio. */
+export interface Account {
+  token: string;
+  user: { id: string; name: string; avatar_url: string | null };
+  email: string;
+  studio_id: string | null;
+  roles: string[];
+  studios: { id: string; name: string; roles: string[] }[];
+}
+
+async function accountCall(serverUrl: string, path: string, body: unknown, token?: string): Promise<Account> {
+  const res = await fetch(`${serverUrl}${path}`, { method: "POST", headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body) });
+  const json = (await res.json()) as Account & { error?: { message: string } };
+  if (!res.ok) throw new Error(json.error?.message ?? `the server answered ${res.status}`);
+  return json;
+}
+
+export function redeem(serverUrl: string, token: string): Promise<Account> {
+  return accountCall(serverUrl, "/auth/callback", { token });
+}
+
+/** Where the app opens for a loaded source: Name, Create studio, the first project, or Welcome. */
+export function routeFor(source: ServerSource): string {
+  const db = source.snapshot();
+  if (!db.session.user.name) return "/name";
+  if (db.session.studios.length === 0 || !db.session.studio.id) return "/studio";
+  const first = db.session.studio.projects[0];
+  return first ? `/p/${first.slug}` : "/welcome";
+}
+
+/** Enters the account's studio (or none yet) and its first project. Saves the session. */
+export async function enterAccount(serverUrl: string, account: Account, theme: "dark" | "light"): Promise<ServerSource> {
+  if (!account.studio_id) {
+    const session: SavedSession = { serverUrl, token: account.token, projectId: "", folder: null, mode: "stream" };
+    const source = await connect(session, theme);
+    writeSession(session);
+    return source;
+  }
+  const projects = await listProjects(serverUrl, account.token);
+  return enterServer(serverUrl, account.token, account.roles, projects[0] ?? null, theme);
+}
+
+/** Create your studio in the desktop app: the account becomes its producer and the session moves into it. */
+export async function createServerStudio(name: string, training: "on" | "off", theme: "dark" | "light"): Promise<ServerSource> {
+  const saved = readSession();
+  if (!saved) throw new Error("Sign in first.");
+  const account = await accountCall(saved.serverUrl, "/studios", { name, training }, saved.token);
+  return enterAccount(saved.serverUrl, account, theme);
+}
+
+/** Switch studio: a session for another studio of the account, then its first project. */
+export async function switchServerStudio(studioId: string, theme: "dark" | "light"): Promise<ServerSource> {
+  const saved = readSession();
+  if (!saved) throw new Error("Sign in first.");
+  const account = await accountCall(saved.serverUrl, "/auth/switch", { studio_id: studioId }, saved.token);
+  return enterAccount(saved.serverUrl, account, theme);
 }
 
 export async function listProjects(serverUrl: string, token: string): Promise<{ id: string; name: string; folder_name: string }[]> {

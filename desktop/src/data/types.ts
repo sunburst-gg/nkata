@@ -249,9 +249,18 @@ export interface Digest {
   hasNext: boolean;
 }
 
+/** One of the account's studios, for Switch studio. */
+export interface StudioRef {
+  id: string;
+  name: string;
+  roles: Role[];
+}
+
 export interface Session {
   user: Person;
   studio: Studio;
+  /** Every studio the account belongs to. Empty before the first one is created. */
+  studios: StudioRef[];
   theme: "dark" | "light";
   digestHome: boolean;
 }
@@ -286,8 +295,10 @@ export interface DataSource {
   invite(email: string, role: Role): void;
   /** The signed-in person's name and email, from the Name screen and Settings, Account. */
   setMe(name: string, email: string): void;
-  /** Creates the studio at first run: its name and the training setting. */
-  createStudio(name: string, training: Training): void;
+  /** Creates a studio: its name and the training setting. The account becomes its producer and moves into it. */
+  createStudio(name: string, training: Training): Promise<void> | void;
+  /** Moves the session into another of the account's studios. */
+  switchStudio(id: string): Promise<void> | void;
   setStudioName(name: string): void;
   setTraining(training: Training): Promise<void> | void;
   createProject(input: { name: string; folder: string; blender: string; unreal: string }): Promise<Project> | Project;
@@ -308,4 +319,7 @@ export interface DataSource {
   setDiscordWebhook?(url: string | null): Promise<void>;
   /** Server only: the export manifest of one asset as JSON text. */
   exportAsset?(assetSlug: string): Promise<string>;
+  /** Server only: projects deleted from this studio, oldest first, and the way back. */
+  deletedProjects?(): Promise<{ id: string; name: string; deletedAt: string }[]>;
+  restoreProject?(id: string): Promise<void>;
 }

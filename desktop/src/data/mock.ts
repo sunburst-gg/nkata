@@ -159,6 +159,8 @@ export function createMockSource(initial: MockOptions | "artist" | "viewer" = {}
   let training: Training = "on";
   let trainingLog: TrainingEntry[] = [{ when: "10 Oct 2026", text: "Training on. Studio created by Emmanuel Njoku" }];
   let studioName = "Sunburst";
+  let studios: { id: string; name: string }[] = [{ id: "sunburst", name: "Sunburst" }];
+  let studioId = "sunburst";
   let me: Person = people.find((p) => p.id === (opts.role === "viewer" ? "ify" : "emmanuel"))!;
   let theme: "dark" | "light" = "light";
   let nextComment = 10;
@@ -181,7 +183,7 @@ export function createMockSource(initial: MockOptions | "artist" | "viewer" = {}
   applyStage(stage);
 
   const studio = (): Studio => ({
-    id: "sunburst", name: studioName, initial: (studioName || "S").charAt(0).toUpperCase(), peopleCount: people.length, projects,
+    id: studioId, name: studioName, initial: (studioName || "S").charAt(0).toUpperCase(), peopleCount: people.length, projects,
     training, billing: { line: training === "on" ? "Nothing to pay" : "Billed per seat", seats: people.length },
   });
   const connections = (): Connection[] => CONNECTION_DEFS.map((c) => ({ id: c.id, name: c.name, soon: c.soon, connected: connected[c.id], version: c.version, line: connected[c.id] ? c.connected : c.found }));
@@ -201,7 +203,7 @@ export function createMockSource(initial: MockOptions | "artist" | "viewer" = {}
     stage: () => stage,
     setStage: (next) => { applyStage(next); emit(); },
     snapshot: (): Snapshot => ({
-      session: { user: me, studio: studio(), theme, digestHome: false },
+      session: { user: me, studio: studio(), studios: studios.map((s) => ({ id: s.id, name: s.name, roles: [me.role] })), theme, digestHome: false },
       people, assets: assetList, activity, templates: TEMPLATES, digests: [], digestIndex: 0, connections: connections(), mentions, trainingLog,
       online: people.filter((p) => p.presence === "online" && p.role !== "viewer").length, changedToday: stage === "populated" ? 12 : assetList.length, changedThisWeek: stage === "populated" ? 12 : assetList.length,
     }),
@@ -216,11 +218,22 @@ export function createMockSource(initial: MockOptions | "artist" | "viewer" = {}
     },
     createStudio: (name, t) => {
       studioName = name.trim() || "Sunburst";
+      // The first studio is the one the stages hold; a later one is empty and the account moves into it.
+      if (studios.length === 1 && studios[0]!.name === "Sunburst" && studioId === "sunburst") studios = [{ id: "sunburst", name: studioName }];
+      else { studioId = slugOf(studioName) || `studio-${studios.length}`; studios = [...studios, { id: studioId, name: studioName }]; applyStage("fresh"); }
       training = t;
       trainingLog = [{ when: "10 Oct 2026", text: `Training ${t}. Studio created by ${me.name}` }];
       emit();
     },
-    setStudioName: (name) => { studioName = name; emit(); },
+    switchStudio: (id) => {
+      const next = studios.find((s) => s.id === id);
+      if (!next || next.id === studioId) return;
+      studioId = next.id;
+      studioName = next.name;
+      applyStage(next.id === "sunburst" ? "populated" : "fresh");
+      emit();
+    },
+    setStudioName: (name) => { studioName = name; studios = studios.map((s) => (s.id === studioId ? { ...s, name } : s)); emit(); },
     setTraining: (t) => {
       if (t === training) return;
       training = t;

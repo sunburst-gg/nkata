@@ -14,9 +14,12 @@ export function Name() {
   const go = useGo();
   const [name, setName] = useState(me.name);
   const initial = (name.trim() || me.name || "?").charAt(0).toUpperCase();
+  const studios = useStore((s) => s.db.session.studios);
   const submit = () => {
-    source.setMe(name.trim() || me.name, me.email);
-    go.studio();
+    const value = name.trim();
+    if (!value) { toast("Enter your name.", "failed"); return; }
+    source.setMe(value, me.email);
+    if (studios.length === 0) go.studio(); else go.welcome();
   };
   return (
     <SetupFrame>

@@ -98,9 +98,22 @@ function General() {
   const source = useStore((s) => s.source);
   const theme = useStore((s) => s.theme);
   const setTheme = useStore((s) => s.setTheme);
+  const toast = useStore((s) => s.toast);
   const can = useCan();
   const [name, setName] = useState(studio.name);
+  const [deleted, setDeleted] = useState<{ id: string; name: string; deletedAt: string }[] | null>(null);
   useEffect(() => setName(studio.name), [studio.name]);
+  useEffect(() => {
+    if (!source.deletedProjects || !can("deleteProject")) return;
+    source.deletedProjects().then(setDeleted).catch((err: unknown) => toast(err instanceof Error ? err.message : "Could not list deleted projects.", "failed"));
+  }, [source, can, toast, studio.projects.length]);
+  const restore = async (p: { id: string; name: string }) => {
+    try {
+      await source.restoreProject?.(p.id);
+      setDeleted((list) => (list ?? []).filter((x) => x.id !== p.id));
+      toast(`${p.name} is back.`);
+    } catch (err) { toast(err instanceof Error ? err.message : "Could not restore the project.", "failed"); }
+  };
   return (
     <div className="flex flex-col gap-5">
       {can("setTraining") ? <Field label="Studio name"><input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => { if (name.trim() && name.trim() !== studio.name) source.setStudioName(name.trim()); }} aria-label="Studio name" className={CONTROL} /></Field> : null}
@@ -111,6 +124,18 @@ function General() {
           <Button aria-pressed={theme === "dark"} className={cn(theme === "dark" && "border-accent")} onClick={() => setTheme("dark")}>Dark</Button>
         </div>
       </div>
+      {deleted && deleted.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          <span className="text-13 text-secondary">Deleted projects</span>
+          {deleted.map((p) => (
+            <div key={p.id} className="flex items-center gap-3 border-b border-hairline py-2.5 text-14">
+              <span className="flex-1 text-heading">{p.name}</span>
+              <span className="font-mono text-12 text-muted">{p.deletedAt.slice(0, 10)}</span>
+              <Button size="xs" variant="outline" onClick={() => void restore(p)}>Restore</Button>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

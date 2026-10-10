@@ -3,7 +3,7 @@
 // route. The mock in mock.ts keeps the same DataSource shape for screenshots and tests.
 import type { Role } from "@/auth/permissions";
 import { ROLE_WORDS } from "@/auth/permissions";
-import type { ActivityItem, Asset, AssetKind, AssetState, AvatarTone, Check, Comment, Connection, ConnectionId, DataSource, Digest, DigestMove, Mention, Part, PartState, Person, Project, Session, Snapshot, Studio, Template, Version } from "./types";
+import type { ActivityItem, Asset, AssetKind, AssetState, AvatarTone, Check, Comment, Connection, ConnectionId, DataSource, Digest, DigestMove, Mention, Part, PartState, Person, Project, Session, Snapshot, Studio, StudioRef, Template, Version } from "./types";
 import { agent } from "@/lib/tauri";
 import { askAbout, slugOf as slugOfName } from "./ask";
 
@@ -20,6 +20,8 @@ export interface ServerConfig {
   /** The local project folder this machine syncs, or null in stream mode. */
   folder: string | null;
   theme: "dark" | "light";
+  /** A write the server refused. The reload reverts the screen; this says why. */
+  onError?: (message: string) => void;
 }
 
 type Wire = Record<string, unknown>;
@@ -189,13 +191,22 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
 
   async function load(): Promise<void> {
     const t = now();
-    const me = await call<{ user: UserRef; email: string; studio_id: string; roles: string[] }>("GET", "/auth/me");
+    const me = await call<{ user: UserRef; email: string; studio_id: string | null; roles: string[]; studios: { id: string; name: string; roles: string[] }[] }>("GET", "/auth/me");
+    const studios: StudioRef[] = me.studios.map((s) => ({ id: s.id, name: s.name, roles: [primaryRole(s.roles)] }));
+    if (!me.studio_id) {
+      // An account with no studio yet: the Name and Create studio screens read this.
+      const role = primaryRole(me.roles);
+      const user: Person = { id: me.user.id, name: me.user.name, initial: me.user.name.charAt(0).toUpperCase(), tone: toneOf(me.user.id), title: ROLE_WORDS[role], role, email: me.email, presence: "online", where: "", seen: "now" };
+      snapshot = { ...emptySnapshot(snapshot.session.theme), session: { user, studio: emptySnapshot(snapshot.session.theme).session.studio, studios, theme: snapshot.session.theme, digestHome }, people: [user], connections };
+      emit();
+      return;
+    }
     // Before the studio has a project the session is scoped to the studio alone (DECISIONS.md).
     const scoped = config.projectId !== "";
     const [studio, projects, members, online, assetsWire, templatesWire, eventsWire] = await Promise.all([
       call<{ studio: { id: string; name: string; member_count: number; training: "on" | "off"; billing: { line: string; seats: number } } }>("GET", "/studio"),
       call<{ projects: Wire[] }>("GET", "/projects"),
-      scoped ? call<{ members: { user: UserRef; email: string; roles: string[] }[] }>("GET", `/projects/${config.projectId}/members`) : Promise.resolve({ members: [{ user: me.user, email: me.email, roles: me.roles }] }),
+      call<{ members: { user: UserRef; email: string; roles: string[] }[] }>("GET", "/studio/members"),
       scoped ? call<{ online: { user: UserRef; part_id: string | null; last_seen: string }[] }>("GET", `/presence?project_id=${config.projectId}`) : Promise.resolve({ online: [] }),
       scoped ? call<{ assets: AssetWire[] }>("GET", `/assets?project_id=${config.projectId}`) : Promise.resolve({ assets: [] }),
       scoped ? call<{ templates: { id: string; name: string; schema: { kind: string; parts: { name: string; gate?: string[]; checks: string[] }[] } }[] }>("GET", `/projects/${config.projectId}/templates`) : Promise.resolve({ templates: [] }),
@@ -255,7 +266,7 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
     const studioOut: Studio = { id: studio.studio.id, name: studio.studio.name, initial: studio.studio.name.charAt(0).toUpperCase(), peopleCount: people.length, training: studio.studio.training, billing: studio.studio.billing, projects: projectList.sort((a, b) => (a.id === config.projectId ? -1 : b.id === config.projectId ? 1 : 0)) };
     const role = primaryRole(me.roles);
     const user: Person = peopleById.get(me.user.id) ?? { id: me.user.id, name: me.user.name, initial: me.user.name.charAt(0), tone: toneOf(me.user.id), title: ROLE_WORDS[role], role, email: me.email, presence: "online", where: "", seen: "now" };
-    const session: Session = { user: { ...user, role }, studio: studioOut, theme: snapshot.session.theme, digestHome };
+    const session: Session = { user: { ...user, role }, studio: studioOut, studios, theme: snapshot.session.theme, digestHome };
     const dayAgo = t.getTime() - 86_400_000;
     const weekAgo = t.getTime() - WEEK_MS;
     const saves = eventsWire.events.filter((e) => e.event.kind === "version.created");
@@ -275,6 +286,11 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
   function scheduleReload(): void {
     if (reloadTimer) clearTimeout(reloadTimer);
     reloadTimer = setTimeout(() => { reloadTimer = null; void load().catch(() => undefined); }, 400);
+  }
+  /** A refused write: tell the person, then reload so the screen shows what the server has. */
+  function refused(err: unknown): void {
+    config.onError?.(err instanceof Error ? err.message : "The server refused that change.");
+    scheduleReload();
   }
 
   function connect(): void {
@@ -309,7 +325,7 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
       if (blocking > 0) return { ok: false, reason: `${blocking} check${blocking > 1 ? "s" : ""} block${blocking > 1 ? "" : "s"}. Fix ${blocking > 1 ? "them" : "it"} in Blender, then mark Ready.` };
       p.state = "ready";
       emit();
-      void call("POST", `/parts/${p.id}/state`, { action: "mark_ready" }).then(scheduleReload).catch(scheduleReload);
+      void call("POST", `/parts/${p.id}/state`, { action: "mark_ready" }).then(scheduleReload).catch(refused);
       return { ok: true };
     },
     fixChecks: () => ({ ok: false, reason: "Fix runs in Blender. Open the part there and press Fix." }),
@@ -321,7 +337,7 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
       const made: Version = { id: `pending-${from.id}`, n: top + 1, note: "current", render: null, authorId: snapshot.session.user.id, when: "now", mirror: "synced", from: toVersion };
       p.versions = [made, ...p.versions];
       emit();
-      void call("POST", `/parts/${p.id}/rollback`, { version_id: from.id }).then(scheduleReload).catch(scheduleReload);
+      void call("POST", `/parts/${p.id}/rollback`, { version_id: from.id }).then(scheduleReload).catch(refused);
       return made;
     },
     removeGate: (assetSlug, partName) => {
@@ -329,7 +345,7 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
       p.gate = [];
       if (p.state === "waiting") p.state = "draft";
       emit();
-      void call("POST", `/parts/${p.id}/gate/remove`).then(scheduleReload).catch(scheduleReload);
+      void call("POST", `/parts/${p.id}/gate/remove`).then(scheduleReload).catch(refused);
     },
     addComment: (assetSlug, partName, text, pos) => {
       const { p } = findPart(assetSlug, partName);
@@ -337,21 +353,40 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
       const c: Comment = { id: `pending-${n}`, n, authorId: snapshot.session.user.id, partName, when: "now", text, resolved: false, kind: "pin", source: "Nkata", ...(pos ? { pos } : {}) };
       p.comments = [...p.comments, c];
       emit();
-      void currentVersion(p.id).then((vid) => call("POST", "/comments", { part_id: p.id, version_id: vid, point: pos ?? [0, 0, 0], normal: [0, 0, 1], body: text })).then(scheduleReload).catch(scheduleReload);
+      void currentVersion(p.id).then((vid) => call("POST", "/comments", { part_id: p.id, version_id: vid, point: pos ?? [0, 0, 0], normal: [0, 0, 1], body: text })).then(scheduleReload).catch(refused);
       return c;
     },
-    // The account and studio screens edit server rows the server does not expose yet: the
-    // change shows at once and is logged as an open route (DECISIONS.md, 2026-10-10).
-    setMe: (name, email) => { snapshot = { ...snapshot, session: { ...snapshot.session, user: { ...snapshot.session.user, name, initial: name.charAt(0).toUpperCase(), email } } }; emit(); },
-    createStudio: () => undefined,
-    setStudioName: (name) => { snapshot = { ...snapshot, session: { ...snapshot.session, studio: { ...snapshot.session.studio, name, initial: name.charAt(0).toUpperCase() } } }; emit(); },
+    // Account and studio edits show at once and go to their route; the reload confirms them.
+    setMe: (name, email) => {
+      snapshot = { ...snapshot, session: { ...snapshot.session, user: { ...snapshot.session.user, name, initial: name.charAt(0).toUpperCase(), email } } };
+      emit();
+      void call("PUT", "/me", { name, ...(email !== snapshot.session.user.email ? { email } : {}) }).then(scheduleReload).catch(refused);
+    },
+    // Creating or switching a studio changes the session token, so the window does it (boot.ts).
+    createStudio: () => { throw new Error("createStudio goes through boot.ts in the desktop app"); },
+    switchStudio: () => { throw new Error("switchStudio goes through boot.ts in the desktop app"); },
+    setStudioName: (name) => {
+      snapshot = { ...snapshot, session: { ...snapshot.session, studio: { ...snapshot.session.studio, name, initial: name.charAt(0).toUpperCase() } } };
+      emit();
+      void call("PUT", "/studio", { name }).then(scheduleReload).catch(refused);
+    },
     createProject: async ({ name, blender, unreal }) => {
       const made = await call<{ project: Wire }>("POST", "/projects", { name, folder_name: slugOfName(name), blender_version: blender, ue_version: unreal, package_version: "0.1.0" });
       await load();
       return snapshot.session.studio.projects.find((p) => p.id === String(made.project["id"])) ?? snapshot.session.studio.projects[0]!;
     },
-    renameProject: (slug, name) => { snapshot = { ...snapshot, session: { ...snapshot.session, studio: { ...snapshot.session.studio, projects: snapshot.session.studio.projects.map((p) => (p.slug === slug ? { ...p, name } : p)) } } }; emit(); },
-    deleteProject: (slug) => { snapshot = { ...snapshot, session: { ...snapshot.session, studio: { ...snapshot.session.studio, projects: snapshot.session.studio.projects.filter((p) => p.slug !== slug) } } }; emit(); },
+    renameProject: (slug, name) => {
+      const target = snapshot.session.studio.projects.find((p) => p.slug === slug);
+      snapshot = { ...snapshot, session: { ...snapshot.session, studio: { ...snapshot.session.studio, projects: snapshot.session.studio.projects.map((p) => (p.slug === slug ? { ...p, name, slug: slugOf(name) } : p)) } } };
+      emit();
+      if (target) void call("PUT", `/projects/${target.id}`, { name }).then(scheduleReload).catch(refused);
+    },
+    deleteProject: (slug) => {
+      const target = snapshot.session.studio.projects.find((p) => p.slug === slug);
+      snapshot = { ...snapshot, session: { ...snapshot.session, studio: { ...snapshot.session.studio, projects: snapshot.session.studio.projects.filter((p) => p.slug !== slug) } } };
+      emit();
+      if (target) void call("DELETE", `/projects/${target.id}`).then(scheduleReload).catch(refused);
+    },
     createAsset: async (_projectSlug, name, template, parts) => {
       const tpl = snapshot.templates.find((t) => t.name === template);
       const chosen = parts === "one" ? [tpl?.parts.find((p) => p.name === "model")?.name ?? tpl?.parts[0]?.name ?? "model"] : undefined;
@@ -360,11 +395,15 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
       return snapshot.assets.find((a) => a.name === name) ?? snapshot.assets[0]!;
     },
     setMemberRole: (personId, role) => {
-      const person = snapshot.people.find((p) => p.id === personId);
-      if (!person) return;
-      void call("POST", `/projects/${config.projectId}/members`, { email: person.email, name: person.name, roles: [role] }).then(scheduleReload).catch(scheduleReload);
+      snapshot = { ...snapshot, people: snapshot.people.map((p) => (p.id === personId ? { ...p, role, title: ROLE_WORDS[role] } : p)) };
+      emit();
+      void call("PUT", `/studio/members/${personId}`, { roles: [role] }).then(scheduleReload).catch(refused);
     },
-    removeMember: (personId) => { snapshot = { ...snapshot, people: snapshot.people.filter((p) => p.id !== personId) }; emit(); },
+    removeMember: (personId) => {
+      snapshot = { ...snapshot, people: snapshot.people.filter((p) => p.id !== personId) };
+      emit();
+      void call("DELETE", `/studio/members/${personId}`).then(scheduleReload).catch(refused);
+    },
     connect: async (id: ConnectionId) => {
       if (id === "blender") await agent.toolsInstallBlender();
       else if (id === "unreal") {
@@ -379,7 +418,7 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
     },
     ask: (question) => askAbout(question, snapshot.assets),
     invite: (email, role) => {
-      void call("POST", `/projects/${config.projectId}/members`, { email, name: email.split("@")[0] ?? email, roles: [role] }).then(scheduleReload).catch(scheduleReload);
+      void call("POST", "/studio/members", { email, roles: [role] }).then(scheduleReload).catch(refused);
     },
     setDiscordWebhook: async (url) => { await call("PUT", `/projects/${config.projectId}/discord`, { webhook_url: url }); },
     setTraining: async (training) => { await call("PUT", "/studio/training", { training }); await load(); },
@@ -388,6 +427,8 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
       if (!a) throw new Error(`no asset ${assetSlug}`);
       return JSON.stringify(await call<unknown>("GET", `/export/${a.id}`), null, 2);
     },
+    deletedProjects: async () => (await call<{ projects: { id: string; name: string; deleted_at: string | null }[] }>("GET", "/projects/deleted")).projects.map((p) => ({ id: p.id, name: p.name, deletedAt: p.deleted_at ?? "" })),
+    restoreProject: async (id) => { await call("POST", `/projects/${id}/restore`); await load(); },
     setDigestIndex: (i) => { digestIndex = Math.max(0, Math.min(snapshot.digests.length - 1, i)); snapshot = { ...snapshot, digestIndex }; emit(); },
     setDigestHome: (on) => { digestHome = on; snapshot = { ...snapshot, session: { ...snapshot.session, digestHome: on } }; emit(); },
     setTheme: (theme) => { snapshot = { ...snapshot, session: { ...snapshot.session, theme } }; emit(); },
@@ -397,7 +438,7 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
 function emptySnapshot(theme: "dark" | "light"): Snapshot {
   const studio: Studio = { id: "", name: "", initial: "", peopleCount: 0, projects: [], training: "off", billing: { line: "", seats: 0 } };
   const user: Person = { id: "", name: "", initial: "", tone: 1, title: "", role: "viewer", email: "", presence: "offline", where: "", seen: "" };
-  return { session: { user, studio, theme, digestHome: true }, people: [], assets: [], activity: [], templates: [], digests: [], digestIndex: 0, connections: [], mentions: [], trainingLog: [], online: 0, changedToday: 0, changedThisWeek: 0 };
+  return { session: { user, studio, studios: [], theme, digestHome: true }, people: [], assets: [], activity: [], templates: [], digests: [], digestIndex: 0, connections: [], mentions: [], trainingLog: [], online: 0, changedToday: 0, changedThisWeek: 0 };
 }
 
 /** "10 Oct 2026" from an ISO instant. */

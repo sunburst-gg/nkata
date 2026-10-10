@@ -9,10 +9,10 @@ const emeka = { id: ID.emeka, name: "Emeka Nwosu", avatar_url: null };
 
 function routes(): Record<string, unknown> {
   return {
-    "GET /auth/me": { v: 1, user: ada, email: "ada@sunburst.gg", studio_id: ID.studio, roles: ["artist"] },
+    "GET /auth/me": { v: 1, user: ada, email: "ada@sunburst.gg", studio_id: ID.studio, roles: ["artist"], studios: [{ id: ID.studio, name: "Sunburst Interactive", roles: ["artist"] }] },
     "GET /studio": { v: 1, studio: { id: ID.studio, name: "Sunburst Interactive", member_count: 2 } },
     "GET /projects": { v: 1, projects: [{ id: ID.project, name: "Rising Sun", folder_name: "rising-sun", blender_version: "4.2", ue_version: "5.4" }] },
-    [`GET /projects/${ID.project}/members`]: { v: 1, members: [{ user: ada, email: "ada@sunburst.gg", roles: ["artist"] }, { user: emeka, email: "emeka@sunburst.gg", roles: ["artist", "art_director"] }] },
+    "GET /studio/members": { v: 1, members: [{ user: ada, email: "ada@sunburst.gg", roles: ["artist"] }, { user: emeka, email: "emeka@sunburst.gg", roles: ["artist", "art_director"] }] },
     [`GET /presence?project_id=${ID.project}`]: { v: 1, online: [{ user: ada, part_id: ID.face, since: "2026-10-05T11:50:00.000Z", last_seen: "2026-10-05T11:59:30.000Z" }] },
     [`GET /assets?project_id=${ID.project}`]: { v: 1, assets: [{ id: ID.ojukwu, name: "Ojukwu", template_id: ID.tpl, state: "draft", updated_at: "2026-10-05T11:00:00.000Z" }] },
     [`GET /projects/${ID.project}/templates`]: { v: 1, templates: [{ id: ID.tpl, name: "Character", schema: { kind: "character", parts: [{ name: "face", gate: [], checks: ["unit_scale", "triangle_budget"] }, { name: "rig", gate: ["face"], checks: ["rig_bone_names"] }] } }] },
@@ -118,6 +118,6 @@ describe("server source", () => {
     expect(calls).toContain(`POST /parts/${ID.face}/rollback`);
     expect(calls).toContain("POST /parts/01PR/gate/remove");
     expect(calls).toContain("POST /comments");
-    expect(calls).toContain(`POST /projects/${ID.project}/members`);
+    expect(calls).toContain("POST /studio/members");
   });
 });
