@@ -53,19 +53,19 @@ Postgres. Every table has `id` (ULID), `studio_id`, `created_at`, `updated_at`. 
 
 | Table | Key columns | Notes |
 | --- | --- | --- |
-| `studio` | name | One per customer |
-| `user` | email, name, avatar\_url | Magic link auth |
-| `membership` | user\_id, studio\_id, roles\[\] | Roles: artist, art\_director, producer, viewer. The enum stays open for later roles |
+| `studio` | name, training | One per customer. `training` on or off: on contributes to model training and pays nothing, off is billed per seat. Changing it emits `studio.training` |
+| `user` | email, name, avatar\_url, training\_id | Magic link auth. `training_id` is a pseudonymous ULID set on capture acknowledgement, never the email |
+| `membership` | user\_id, studio\_id, roles\[\], capture\_ack\_at | Roles: artist, art\_director, producer, viewer. The enum stays open for later roles. `capture_ack_at` when the member acknowledged capture for training |
 | `project` | studio\_id, name, folder\_name, blender\_version, ue\_version, package\_version | Pinned tool versions |
 | `template` | project\_id, name, file\_path, schema JSONB | The file in the folder is the truth; this row is the cache. The schema carries `kind`: character, prop, level\_area |
-| `asset` | project\_id, template\_id, name, reference\_files\[\] | State is derived from parts |
+| `asset` | project\_id, template\_id, name, reference\_files\[\], rights JSONB | State is derived from parts. `rights` is who holds them, confirmed by a reviewer; required to Publish while training is on. An asset can be created with any subset of the template's parts |
 | `part` | asset\_id, name, position, owner\_id, state, gate JSONB, mapping JSONB | mapping: `{kind: blend_collection, file, collection}`, `{kind: ue_asset, path}`, `{kind: ue_area, level, area}`, or `{kind: file, path}`. `ue_actor` stays for a single actor |
-| `version` | part\_id, author\_id, file\_version\_id, manifest JSONB, mirror\_status, mirror\_ms, refs JSONB, published, note | One row per save. `published` true when Publish marked it. `refs` is `{levels: [{level, actors}]}` from the placement scan, null for a non static part |
+| `version` | part\_id, author\_id, file\_version\_id, manifest JSONB, mirror\_status, mirror\_ms, refs JSONB, published, note, capture\_eligible, opened\_at, saved\_at, render\_key | One row per save, never deleted. `published` true when Publish marked it. `refs` is `{levels: [{level, actors}]}` from the placement scan, null for a non static part. `capture_eligible` is stamped from studio.training at insert and never updated (also on review, comment, check\_run). `render_key` is the store key of the Mark Ready viewport capture |
 | `file_version` | project\_id, path, size, blake3, chunk\_hashes\[\] | A whole file at a point in time |
 | `chunk` | blake3, size, store\_key | Deduped across the studio |
 | `lock` | part\_id, holder\_id, granted\_at, heartbeat\_at, expires\_at | One row per part, or none |
 | `presence` | user\_id, project\_id, part\_id, since, last\_seen | Ephemeral; also in Redis-like memory on the server |
-| `comment` | part\_id, version\_id, author\_id, point float\[3\], normal float\[3\], body, resolved\_at | Pin in part local space |
+| `comment` | part\_id, version\_id, author\_id, point float\[3\], normal float\[3\], body, kind, resolved\_at | Pin in part local space. `kind` is pin or take\_a\_look; take a look asks the art director and changes no state |
 | `review` | part\_id, version\_id, reviewer\_id, score, decision, note | decision: approve, send\_back |
 | `check_run` | version\_id, check\_id, severity, passed, auto\_fixed, message | From the editor |
 | `event` | actor\_id, kind, target\_kind, target\_id, payload JSONB | Feeds the project view and the log |
