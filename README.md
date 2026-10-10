@@ -42,10 +42,10 @@ make hooks      # git hooks: make test before every push
 make dev                                   # Postgres, RustFS
 pnpm --filter @nkata/server db:reset && pnpm --filter @nkata/server seed
 NKATA_DEV=1 pnpm --filter @nkata/server dev # magic links come back in the response
-cd desktop && pnpm tauri dev               # sign in as artist@sunburst.gg, pick Rising Sun, choose a folder
+cd desktop && pnpm tauri dev               # sign in as artist@sunburst.gg, then New project and Connections
 ```
 
-The window starts the agent for the folder, then installs the Blender add-on and, for every Unreal project inside the folder, the plugin with Python and Remote Control on. Blender finds the agent on `localhost:7420`; with no file open, the N-panel lists your parts to start and saves the file in the right place. A viewer (viewer@sunburst.gg) signs in the same way and gets stream mode with no folder step. `make addon` and `make ue` are the developer shortcuts for the same install. `DISCORD_SECRET` in the server environment turns on the one Discord message; set the webhook under Settings.
+The app opens on Sign in. A producer creates a project (name, folder, the Blender and Unreal versions found on the machine), and the window starts the agent for that folder. Connections lists the editors found on this computer; Connect installs the Blender add-on and, for the Unreal project inside the folder, the plugin with Python and Remote Control on. Blender finds the agent on `localhost:7420`; with no file open, the N-panel lists your parts to start and saves the file in the right place. A viewer (viewer@sunburst.gg) signs in the same way and gets stream mode with no folder. The browser preview (`pnpm dev`) runs on the in-memory mock; `window.__nkata` takes the prototype's Tweaks (demo stage, role, theme) for screenshots. `make addon` and `make ue` are the developer shortcuts for the same install. `DISCORD_SECRET` in the server environment turns on the one Discord message; set the webhook under Settings.
 
 ## Status
 
