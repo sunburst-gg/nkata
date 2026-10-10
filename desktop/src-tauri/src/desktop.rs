@@ -190,7 +190,9 @@ fn main() {
         )
         .with_writer(std::io::stderr)
         .init();
+    // The folder picker on New project. https://v2.tauri.app/plugin/dialog/
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(Runtime::new())
         .invoke_handler(tauri::generate_handler![
             package_version,

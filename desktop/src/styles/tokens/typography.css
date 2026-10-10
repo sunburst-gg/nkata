@@ -1,6 +1,6 @@
-/* Nkata type tokens. Geist for words, Geist Mono for things. */
+/* Nkata type tokens. Geist for words, Geist Mono for things, Newsreader for moments. */
 :root{
-  --font-sans:Geist,system-ui,-apple-system,sans-serif;--font-mono:"Geist Mono",ui-monospace,Menlo,monospace;
+  --font-sans:Geist,system-ui,-apple-system,sans-serif;--font-mono:"Geist Mono",ui-monospace,Menlo,monospace;--font-serif:Newsreader,Georgia,"Times New Roman",serif;
   --weight-regular:400;--weight-medium:500;--weight-semibold:600;
   --text-11:11px;--text-12:12px;--text-13:13px;--text-14:14px;--text-16:16px;--text-20:20px;--text-24:24px;--text-32:32px;--text-48:48px;--text-72:72px;
   --leading-11:1.4;--leading-12:1.4;--leading-13:1.4;--leading-14:1.45;--leading-16:1.5;--leading-20:1.4;--leading-24:1.25;--leading-32:1.2;--leading-48:1.05;--leading-72:1;
@@ -15,4 +15,5 @@
   --role-statement:var(--weight-medium) var(--text-32)/var(--leading-32) var(--font-sans);
   --role-section:var(--weight-semibold) var(--text-48)/var(--leading-48) var(--font-sans);
   --role-hero:var(--weight-semibold) var(--text-72)/var(--leading-72) var(--font-sans);
+  --role-moment:var(--weight-regular) var(--text-32)/1.15 var(--font-serif);
 }

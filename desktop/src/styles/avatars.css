@@ -1,11 +1,12 @@
-/* Avatar tones. Eight muted hues for people, from the prototypes. The only colors outside tokens.json;
+/* Avatar tones. Nine muted hues for people, from the prototypes (v3 adds the account owner's green). The only colors outside tokens.json;
    see DECISIONS.md. Components reference --avatar-N, never a hex. */
 :root, [data-theme] {
-  --avatar-1: #5B6B8A; --avatar-2: #7A5B6B; --avatar-3: #6B7A5B; --avatar-4: #8A6B5B;
-  --avatar-5: #5B7A8A; --avatar-6: #7A7A5B; --avatar-7: #6B5B7A; --avatar-8: #5B8A7A;
+  --avatar-1: #5B6B8A; --avatar-2: #8A5B6B; --avatar-3: #6B7A5B; --avatar-4: #8A6B5B;
+  --avatar-5: #5B7A8A; --avatar-6: #7A7A5B; --avatar-7: #6B5B8A; --avatar-8: #5B8A7A; --avatar-9: #2F6B5E;
   --avatar-fg: #FFFFFF;
   --scrim: rgba(14, 15, 17, .6);
   --on-scrim: #EEF0F2;
   --scrim-strong: rgba(14, 15, 17, .9);
   --preview-bg: #201D18;
+  --brand-discord: #5865F2;
 }

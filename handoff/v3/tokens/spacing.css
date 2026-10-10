@@ -1,0 +1,11 @@
+/* Nkata spacing, radius, shadow, motion. */
+:root{
+  --space-2:2px;--space-4:4px;--space-6:6px;--space-8:8px;--space-12:12px;--space-16:16px;--space-20:20px;--space-24:24px;--space-32:32px;--space-40:40px;--space-48:48px;--space-64:64px;
+  --radius-editor:3px;--radius-sm:4px;--radius-md:6px;--radius-lg:8px;--radius-xl:12px;--radius-full:999px;
+  --shadow-1:0 1px 2px rgba(0,0,0,.4);--shadow-2:0 8px 24px rgba(0,0,0,.5);--shadow-focus:0 0 0 2px var(--bg-canvas),0 0 0 4px var(--accent);
+  --shadow-soft:0 1px 2px rgba(17,24,20,.04),0 8px 24px rgba(17,24,20,.06);--shadow-modal:0 2px 6px rgba(17,24,20,.06),0 24px 64px rgba(17,24,20,.14);
+  --dur-state:150ms;--dur-panel:300ms;--ease-standard:cubic-bezier(.2,0,0,1);--ease-exit:cubic-bezier(.4,0,1,1);
+  --control-h-sm:28px;--control-h-md:36px;--control-h-lg:44px;--panel-h-sm:24px;--panel-h-md:30px;
+  --avatar-sm:20px;--avatar-md:24px;--avatar-lg:32px;--presence-dot:8px;
+}
+[data-theme="light"]{--shadow-1:0 1px 2px rgba(23,24,27,.08);--shadow-2:0 8px 24px rgba(23,24,27,.12);}

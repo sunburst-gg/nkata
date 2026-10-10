@@ -101,7 +101,8 @@ export const tokens = {
   "type": {
     "family": {
       "sans": "Geist",
-      "mono": "Geist Mono"
+      "mono": "Geist Mono",
+      "serif": "Newsreader"
     },
     "weight": {
       "regular": 400,

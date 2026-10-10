@@ -2,6 +2,7 @@
 @import "./fonts.css";
 @import "./tokens.css";
 @import "./avatars.css";
+@import "./welcome.css";
 @import "tailwindcss";
 
 /* Tailwind theme mapped to the token variables. No hex values in components. */
@@ -34,6 +35,7 @@
   --color-state-fg: var(--state-fg);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
   --radius-editor: var(--radius-editor);
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
@@ -43,6 +45,8 @@
   --shadow-1: var(--shadow-1);
   --shadow-2: var(--shadow-2);
   --shadow-focus: var(--shadow-focus);
+  --shadow-soft: var(--shadow-soft);
+  --shadow-modal: var(--shadow-modal);
   --ease-standard: var(--ease-standard);
   --ease-exit: var(--ease-exit);
   --default-transition-duration: var(--dur-state);
@@ -69,6 +73,10 @@
 @keyframes nk-spin { to { transform: rotate(360deg); } }
 @keyframes nk-fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes nk-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes nk-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } }
+@keyframes nk-pulse-border { 0% { border-color: var(--accent); } 100% { border-color: var(--line-hairline); } }
+.nk-shake { animation: nk-shake 150ms var(--ease-standard); }
+.nk-pulse-border { animation: nk-pulse-border 900ms var(--ease-standard) forwards; }
 
 .nk-pulse { animation: nk-pulse 1.2s ease-in-out infinite; }
 .nk-spin { animation: nk-spin .8s linear infinite; }
@@ -86,6 +94,11 @@
 .role-asset-title { font: var(--role-asset-title); letter-spacing: var(--tracking-24); }
 .role-statement { font: var(--weight-semibold) var(--text-32)/1.15 var(--font-sans); letter-spacing: var(--tracking-32); }
 .role-section { font: var(--role-section); letter-spacing: var(--tracking-48); }
+/* Serif moments: welcome, screen titles, project and asset names, section titles. */
+.role-moment { font: var(--role-moment); letter-spacing: -0.01em; }
+.role-moment-lg { font: var(--weight-regular) 40px/1.1 var(--font-serif); letter-spacing: -0.01em; }
+.role-moment-sm { font: var(--weight-regular) var(--text-20)/1.3 var(--font-serif); }
+.role-moment-md { font: var(--weight-regular) var(--text-24)/1.25 var(--font-serif); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }

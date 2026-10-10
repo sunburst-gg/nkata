@@ -6,8 +6,8 @@
     <title>Nkata</title>
     <link rel="icon" type="image/png" href="/favicon.png" />
     <script>
-      // Apply the stored theme before paint so there is no flash. Dark is the default.
-      try { var t = localStorage.getItem("nkata.theme"); if (t === "light") document.documentElement.setAttribute("data-theme", "light"); } catch (e) {}
+      // Apply the stored theme before paint so there is no flash. Light is the default.
+      try { var t = localStorage.getItem("nkata.theme"); if (t !== "dark") document.documentElement.setAttribute("data-theme", "light"); } catch (e) { document.documentElement.setAttribute("data-theme", "light"); }
     </script>
   </head>
   <body>

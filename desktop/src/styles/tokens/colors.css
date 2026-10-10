@@ -15,5 +15,15 @@
 }
 [data-theme="light"]{
   --n0:#F6F6F4;--n1:#FFFFFF;--n2:#EFEFEC;--n3:#E3E4E1;--n4:#D4D6D2;--n5:#B4B7B3;--n6:#8A8F96;--n7:#5F646B;--n8:#33373D;--n9:#17181B;
-  --accent-text:#B7761A;--state-draft:#5F646B;--state-syncing:#6B717B;
+  --accent-text:#B7761A;--state-draft:#5F646B;
+  /* v3: the page is white, surfaces step down by shade, lines are translucent black. */
+  --bg-canvas:#FFFFFF;--bg-panel:#FFFFFF;--bg-raised:#F4F4F2;--bg-hover:#F4F4F2;--bg-active:#ECECE9;--line-hairline:rgba(0,0,0,.08);--line-border:rgba(0,0,0,.14);
+  --state-locked:#5B6B8A;--state-synced:#3DBE7A;--state-syncing:#E9A23B;
+}
+
+/* A dark element inside the light app (the full screen reviewer) takes the dark scale back. */
+[data-theme="dark"]{
+  --n0:#0E0F11;--n1:#141518;--n2:#1B1D21;--n3:#24272C;--n4:#30343A;--n5:#4A4F57;--n6:#6B717B;--n7:#9AA0A9;--n8:#C9CDD3;--n9:#EEF0F2;
+  --bg-canvas:var(--n0);--bg-panel:var(--n1);--bg-raised:var(--n2);--bg-hover:var(--n2);--bg-active:var(--n3);--line-hairline:var(--n3);--line-border:var(--n4);
+  --accent-text:#E9A23B;--state-draft:#9AA0A9;--state-locked:#6E8EF5;--state-synced:#2FB8C6;--state-syncing:#D9DCE0;
 }
