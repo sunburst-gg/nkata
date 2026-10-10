@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="styles.css">
+<style>
+html,body{margin:0;background:#0E0F11;color:#EEF0F2;font-family:Geist,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#EEF0F2;text-decoration:none}a:hover{color:#E9A23B}
+@keyframes nk-pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes nk-spin{to{transform:rotate(360deg)}}
+</style>
+</helmet>
+<div style="padding:64px;display:flex;flex-direction:column;gap:80px;background:var(--bg-canvas);color:var(--fg-heading);font:400 14px/1.45 var(--font-sans);min-width:1400px">
+
+<div style="display:flex;flex-direction:column;gap:12px;max-width:820px">
+  <span style="font:var(--role-mono);color:var(--fg-muted)">Editor panels · v1</span>
+  <h1 style="margin:0;font-size:48px;font-weight:600;letter-spacing:-.03em;line-height:1.05">Same seven things, in the same order, in both editors.</h1>
+  <p style="margin:0;font-size:16px;line-height:1.5;color:var(--fg-body)">Part header, mirror status, reference, checks, comments, Publish, presence. Blender N-panel at 300 px, Unreal dock at 320 px. Panels use each editor's own greys; Nkata brings only the state colors, the accent, and the words. Unreal adds Review and Level parts. No file paths, no engineering terms.</p>
+</div>
+
+<section style="display:flex;flex-direction:column;gap:32px">
+  <div style="display:flex;align-items:baseline;gap:16px;border-bottom:1px solid var(--line-hairline);padding-bottom:12px"><span style="font-size:24px;font-weight:600;letter-spacing:-.02em">Blender</span><span style="font:var(--role-mono);color:var(--fg-muted)">N-panel · 300 px · 13 px base · radius 3 · #2b2b2b</span></div>
+  <div style="display:flex;flex-wrap:wrap;gap:48px 40px;align-items:flex-start">
+    <sc-for list="{{ blender }}" as="p" hint-placeholder-count="10">
+      <div style="display:flex;flex-direction:column;gap:12px;width:300px">
+        <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">{{ p.label }}</span><span style="font-size:12px;color:var(--fg-secondary)">{{ p.note }}</span></div>
+        <div style="width:300px;background:#2b2b2b;border:1px solid #3d3d3d;border-radius:3px;color:#E6E6E6;font-size:13px;line-height:1.4;display:flex;flex-direction:column">
+          <div style="padding:10px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #3d3d3d"><svg width="14" height="14" viewBox="0 0 64 64" fill="none"><path d="M16 50V26Q16 14 32 14Q48 14 48 26V50" stroke="#E6E6E6" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="56" cy="10" r="6" fill="#E9A23B"></circle></svg><span style="font-weight:500;white-space:nowrap">Ojukwu / face</span><span style="font:400 12px var(--font-mono);color:#9a9a9a">{{ p.v }}</span><span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap"><span style="width:16px;height:16px;border-radius:50%;background:{{ p.ownerBg }};display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:600;color:#fff">{{ p.ownerI }}</span><span style="width:6px;height:6px;border-radius:50%;background:{{ p.stateColor }}"></span>{{ p.stateWord }}</span></div>
+          <sc-if value="{{ p.lock }}" hint-placeholder-val="{{ false }}"><div style="margin:10px 12px 0;padding:10px;border-radius:3px;background:#242424;display:flex;flex-direction:column;gap:8px"><span style="display:flex;align-items:center;gap:8px"><span style="width:20px;height:20px;border-radius:50%;background:#7A5B6B;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:#fff">C</span><span style="font-weight:500">Chidi has this part.</span></span><span style="font-size:12px;color:#9a9a9a">Opened 12 minutes ago. You can look, not edit.</span><div style="display:flex;gap:6px"><button style="flex:1;white-space:nowrap;height:26px;border-radius:3px;font:500 12px var(--font-sans);background:#E6E6E6;color:#111;border:0;cursor:pointer">{{ p.askLabel }}</button><button style="flex:1;white-space:nowrap;height:26px;border-radius:3px;font:500 12px var(--font-sans);background:transparent;color:#E6E6E6;border:1px solid #4a4a4a;cursor:pointer">Open read-only</button></div></div></sc-if>
+          <div style="margin:10px 12px 0;min-height:44px;border-radius:3px;background:#242424;border:1px solid {{ p.mBorder }};display:flex;align-items:center;gap:12px;padding:6px 12px"><span style="width:12px;display:flex;justify-content:center;flex-shrink:0">{{ p.mDot }}</span><span style="display:flex;flex-direction:column;min-width:0"><span style="font-weight:500;font-size:16px;white-space:nowrap">{{ p.mLabel }}</span><sc-if value="{{ p.mHasSub }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#9a9a9a">{{ p.mSub }}</span></sc-if></span><span style="margin-left:auto;font:500 14px var(--font-mono);color:#9a9a9a;white-space:nowrap">{{ p.mTime }}</span><sc-if value="{{ p.mRetry }}" hint-placeholder-val="{{ false }}"><button style="margin-left:auto;white-space:nowrap;height:24px;padding:0 8px;border-radius:3px;font:500 12px var(--font-sans);background:#3d3d3d;color:#E6E6E6;border:0;cursor:pointer">Retry</button></sc-if></div>
+          <div style="padding:12px 12px 0;display:flex;flex-direction:column;gap:6px"><span style="font-size:11px;color:#9a9a9a">Reference</span><div style="display:flex;gap:4px"><div style="flex:1;aspect-ratio:1;border-radius:3px;background:#333 url(assets/renders/compound-tree.png) center/cover"></div><div style="flex:1;aspect-ratio:1;border-radius:3px;background:#333 url(assets/renders/compound-courtyard.png) center/cover"></div><div style="flex:1;aspect-ratio:1;border-radius:3px;background:#333 url(assets/renders/compound-ground.png) center/cover"></div><div style="flex:1;aspect-ratio:1;border-radius:3px;background:#333;display:flex;flex-direction:column;align-items:center;justify-content:center;font:400 11px var(--font-mono);color:#9a9a9a"><span>30k</span><span>tris</span></div></div></div>
+          <div style="padding:12px 12px 0;display:flex;flex-direction:column;gap:4px"><span style="font-size:11px;color:#9a9a9a">{{ p.checksTitle }}</span>
+            <sc-for list="{{ p.checks }}" as="c" hint-placeholder-count="3"><div style="display:flex;align-items:flex-start;gap:8px;min-height:24px;padding:3px 0"><span style="color:{{ c.color }};display:flex;align-items:center;height:18px">{{ c.glyph }}</span><span style="flex:1;display:flex;flex-direction:column;gap:2px;min-width:0"><span>{{ c.name }} <span style="font:400 12px var(--font-mono);color:#9a9a9a">{{ c.num }}</span></span><sc-if value="{{ c.hasWhy }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#9a9a9a">{{ c.why }}</span></sc-if></span><sc-if value="{{ c.hasFix }}" hint-placeholder-val="{{ false }}"><button style="white-space:nowrap;height:22px;padding:0 8px;border-radius:3px;font:500 12px var(--font-sans);background:#3d3d3d;color:#E6E6E6;border:0;cursor:pointer">Fix</button></sc-if></div></sc-for>
+          </div>
+          <div style="padding:12px 12px 0;display:flex;flex-direction:column;gap:6px"><span style="font-size:11px;color:#9a9a9a">Comments · 1 open</span><div style="display:flex;gap:8px"><span style="width:20px;height:20px;border-radius:50% 50% 50% 0;background:#E6E6E6;color:#111;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0">1</span><span style="display:flex;flex-direction:column;gap:2px"><span><span style="font-weight:500">Emeka</span> <span style="font:400 12px var(--font-mono);color:#9a9a9a">14 min · UE5</span></span><span style="color:#c9c9c9">Brow ridge too soft under the key light.</span><span style="font-size:12px;color:#9a9a9a">Reply</span></span></div></div>
+          <div style="padding:14px 12px 12px;display:flex;flex-direction:column;gap:6px"><button style="white-space:nowrap;height:32px;border-radius:3px;font:500 14px var(--font-sans);background:{{ p.pBg }};color:{{ p.pFg }};border:0;cursor:{{ p.pCursor }};display:inline-flex;align-items:center;justify-content:center;gap:8px">{{ p.pIcon }}{{ p.pLabel }}</button><sc-if value="{{ p.showReady }}" hint-placeholder-val="{{ true }}"><button style="white-space:nowrap;height:26px;border-radius:3px;font:500 12px var(--font-sans);background:transparent;color:#c9c9c9;border:1px solid #4a4a4a;cursor:pointer">Mark Ready</button></sc-if><sc-if value="{{ p.hasPNote }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;color:#9a9a9a;text-align:center">{{ p.pNote }}</span></sc-if></div>
+          <div style="padding:8px 12px 10px;border-top:1px solid #3d3d3d;display:flex;align-items:center;gap:8px;font-size:12px;color:#c9c9c9"><span style="display:inline-flex"><span style="width:18px;height:18px;border-radius:50%;background:#7A5B6B;border:2px solid #2b2b2b;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:600;color:#fff">C</span><span style="width:18px;height:18px;border-radius:50%;background:#6B7A5B;border:2px solid #2b2b2b;margin-left:-6px;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:600;color:#fff">N</span></span>{{ p.presence }}</div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:32px">
+  <div style="display:flex;align-items:baseline;gap:16px;border-bottom:1px solid var(--line-hairline);padding-bottom:12px"><span style="font-size:24px;font-weight:600;letter-spacing:-.02em">Unreal Engine 5</span><span style="font:var(--role-mono);color:var(--fg-muted)">Dockable tab · 320 px · 13 px base · radius 3 · #242424 · plus Review and Level parts</span></div>
+  <div style="display:flex;flex-wrap:wrap;gap:48px 40px;align-items:flex-start">
+    <sc-for list="{{ unreal }}" as="p" hint-placeholder-count="4">
+      <div style="display:flex;flex-direction:column;gap:12px;width:320px">
+        <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">{{ p.label }}</span><span style="font-size:12px;color:var(--fg-secondary)">{{ p.note }}</span></div>
+        <div style="width:320px;background:#242424;border:1px solid #2b2b2b;border-radius:3px;color:#DADADA;font-size:13px;line-height:1.4;display:flex;flex-direction:column">
+          <div style="height:26px;background:#1a1a1a;display:flex;align-items:center;gap:6px;padding:0 10px;font-size:12px;border-bottom:1px solid #111"><svg width="12" height="12" viewBox="0 0 64 64" fill="none"><path d="M16 50V26Q16 14 32 14Q48 14 48 26V50" stroke="#DADADA" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="56" cy="10" r="6" fill="#DADADA"></circle></svg>Nkata<span style="margin-left:auto;color:#8a8a8a">×</span></div>
+          <div style="padding:10px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #2b2b2b"><span style="font-weight:500;white-space:nowrap">{{ p.title }}</span><span style="font:400 12px var(--font-mono);color:#8a8a8a">{{ p.v }}</span><span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap"><span style="width:16px;height:16px;border-radius:50%;background:{{ p.ownerBg }};display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:600;color:#fff">{{ p.ownerI }}</span><span style="width:6px;height:6px;border-radius:50%;background:{{ p.stateColor }}"></span>{{ p.stateWord }}</span></div>
+          <div style="margin:10px 12px 0;min-height:44px;border-radius:3px;background:#1a1a1a;border:1px solid {{ p.mBorder }};display:flex;align-items:center;gap:12px;padding:6px 12px"><span style="width:12px;display:flex;justify-content:center;flex-shrink:0">{{ p.mDot }}</span><span style="display:flex;flex-direction:column;min-width:0"><span style="font-weight:500;font-size:16px;white-space:nowrap">{{ p.mLabel }}</span><sc-if value="{{ p.mHasSub }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#8a8a8a">{{ p.mSub }}</span></sc-if></span><span style="margin-left:auto;font:500 14px var(--font-mono);color:#8a8a8a;white-space:nowrap">{{ p.mTime }}</span></div>
+          <div style="padding:12px 12px 0;display:flex;flex-direction:column;gap:6px"><span style="font-size:11px;color:#8a8a8a">Reference</span><div style="display:flex;gap:4px"><div style="flex:1;aspect-ratio:1;border-radius:3px;background:#333 url(assets/renders/compound-tree.png) center/cover"></div><div style="flex:1;aspect-ratio:1;border-radius:3px;background:#333 url(assets/renders/compound-courtyard.png) center/cover"></div><div style="flex:1;aspect-ratio:1;border-radius:3px;background:#333 url(assets/renders/compound-ground.png) center/cover"></div><div style="flex:1;aspect-ratio:1;border-radius:3px;background:#333;display:flex;flex-direction:column;align-items:center;justify-content:center;font:400 11px var(--font-mono);color:#8a8a8a"><span>30k</span><span>tris</span></div></div></div>
+          <div style="padding:12px 12px 0;display:flex;flex-direction:column;gap:4px"><span style="font-size:11px;color:#8a8a8a">{{ p.checksTitle }}</span><sc-for list="{{ p.checks }}" as="c" hint-placeholder-count="1"><div style="display:flex;align-items:flex-start;gap:8px;min-height:24px;padding:3px 0"><span style="color:{{ c.color }};display:flex;align-items:center;height:18px">{{ c.glyph }}</span><span style="flex:1;display:flex;flex-direction:column;gap:2px"><span>{{ c.name }} <span style="font:400 12px var(--font-mono);color:#8a8a8a">{{ c.num }}</span></span><sc-if value="{{ c.hasWhy }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#8a8a8a">{{ c.why }}</span></sc-if></span></div></sc-for></div>
+          <sc-if value="{{ p.review }}" hint-placeholder-val="{{ false }}">
+            <div style="margin:12px 12px 0;padding:10px;border-radius:3px;background:#1a1a1a;display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:#8a8a8a">Review</span><span style="margin-left:auto;height:24px;padding:0 8px;border-radius:3px;background:#DADADA;color:#111;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;white-space:nowrap">+ Pin on mesh</span></div>
+              <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:11px;color:#8a8a8a">Draft notes from the reference and checks. Edit before sending.</span><div style="border:1px solid #3a3a3a;border-radius:3px;padding:8px;font-size:12px;line-height:1.45;color:#DADADA">Matches the concept sheet. Brow ridge reads soft under key light. Jaw seam visible at 2 m. Budget and naming pass.</div></div>
+              <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;color:#8a8a8a">Score</span><span style="display:inline-flex;border:1px solid #3a3a3a;border-radius:3px;overflow:hidden"><span style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;font:400 12px var(--font-mono)">1</span><span style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;font:400 12px var(--font-mono);border-left:1px solid #3a3a3a">2</span><span style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;font:400 12px var(--font-mono);border-left:1px solid #3a3a3a">3</span><span style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;font:500 12px var(--font-mono);border-left:1px solid #3a3a3a;background:#DADADA;color:#111">4</span><span style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;font:400 12px var(--font-mono);border-left:1px solid #3a3a3a">5</span></span></div>
+              <div style="display:flex;gap:6px"><button style="flex:1;white-space:nowrap;height:30px;border-radius:3px;font:500 13px var(--font-sans);background:transparent;color:#DADADA;border:1px solid #4a4a4a;cursor:pointer">Send back</button><button style="flex:1;white-space:nowrap;height:30px;border-radius:3px;font:500 13px var(--font-sans);background:#E9A23B;color:#17181B;border:0;cursor:pointer">Approve</button></div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ p.level }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:12px 12px 0;display:flex;flex-direction:column;gap:2px"><span style="font-size:11px;color:#8a8a8a">Level parts · Enugu Market</span>
+              <div style="display:flex;align-items:center;gap:8px;height:28px"><span style="width:6px;height:6px;border-radius:50%;background:var(--state-locked)"></span><span style="flex:1">Market square</span><span style="font-size:12px;color:#8a8a8a">Tobe has it</span></div>
+              <div style="display:flex;align-items:center;gap:8px;height:28px"><span style="width:6px;height:6px;border-radius:50%;background:var(--state-draft)"></span><span style="flex:1">Stalls</span><span style="font-size:12px;color:#8a8a8a">You</span></div>
+              <div style="display:flex;align-items:center;gap:8px;height:28px"><span style="width:6px;height:6px;border-radius:50%;background:var(--state-approved)"></span><span style="flex:1">Blockout</span><span style="font-size:12px;color:#8a8a8a">Approved</span></div>
+              <div style="display:flex;align-items:center;gap:8px;height:28px;color:#6b6b6b"><span style="width:6px;height:6px;border-radius:50%;border:1px solid #4a4a4a"></span><span style="flex:1">Lighting</span><span style="font-size:12px">after set dressing</span></div>
+            </div>
+          </sc-if>
+          <div style="padding:14px 12px 12px;display:flex;flex-direction:column;gap:6px"><button style="white-space:nowrap;height:32px;border-radius:3px;font:500 14px var(--font-sans);background:{{ p.pBg }};color:{{ p.pFg }};border:0;cursor:{{ p.pCursor }}">{{ p.pLabel }}</button><sc-if value="{{ p.hasPNote }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;color:#8a8a8a;text-align:center">{{ p.pNote }}</span></sc-if></div>
+          <div style="padding:8px 12px 10px;border-top:1px solid #2b2b2b;display:flex;align-items:center;gap:8px;font-size:12px;color:#c9c9c9"><span style="width:18px;height:18px;border-radius:50%;background:#5B6B8A;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:600;color:#fff">A</span>{{ p.presence }}</div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:20px;max-width:960px">
+  <div style="display:flex;align-items:baseline;gap:16px;border-bottom:1px solid var(--line-hairline);padding-bottom:12px"><span style="font-size:24px;font-weight:600;letter-spacing:-.02em">Rules</span></div>
+  <div style="display:grid;grid-template-columns:200px minmax(0,1fr);gap:16px 32px;font-size:14px;line-height:1.5">
+    <span style="color:var(--fg-muted)">Order</span><span>Header, mirror, reference, checks, comments, Publish, presence. Unreal inserts Review after checks and Level parts after Review.</span>
+    <span style="color:var(--fg-muted)">Mirror status</span><span>44 px row, 12 px dot, 16 px label, time in mono. One line on failure. The panel is often out of focus, so the dot and the word carry it alone.</span>
+    <span style="color:var(--fg-muted)">Publish</span><span>The only accent fill in the panel. Disabled reads as a reason, never as grey alone: "2 checks block", "Ready. Waiting on Emeka."</span>
+    <span style="color:var(--fg-muted)">Words</span><span>In Unreal, in Blender, Publish, Mark Ready, Approve, Send back. Never a path, a hash, an export, or an import.</span>
+    <span style="color:var(--fg-muted)">Motion</span><span>Dot color and label 150 ms cubic-bezier(.2,0,0,1). Syncing pulses 1.2 s. Published confirmation holds 1.5 s, then returns to Publish.</span>
+  </div>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const e = React.createElement, C = (n) => `var(--state-${n})`;
+    const svg = (d, w, size) => e('svg', { width: size || 12, height: size || 12, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', strokeWidth: w || 2.4, strokeLinecap: 'round', strokeLinejoin: 'round' }, e('path', { d }));
+    if (!this._g) this._g = {
+      check: svg('M3 8.5l3.2 3L13 4.5'), cross: svg('M4 4l8 8M12 4l-8 8'), warn: svg('M8 3v6M8 12v.5'),
+      dot: (c) => e('span', { style: { width: 12, height: 12, borderRadius: '50%', background: c, transition: 'background 150ms cubic-bezier(.2,0,0,1)' } }),
+      ring: e('span', { style: { width: 12, height: 12, borderRadius: '50%', border: '1.5px solid #6b6b6b' } }),
+      pulse: e('span', { style: { width: 12, height: 12, borderRadius: '50%', background: 'var(--state-syncing)', animation: 'nk-pulse 1.2s ease-in-out infinite' } }),
+      spin: e('span', { style: { width: 12, height: 12, borderRadius: '50%', border: '2px solid #E6E6E6', borderTopColor: 'transparent', animation: 'nk-spin .8s linear infinite' } }),
+      checkLg: svg('M3 8.5l3.2 3L13 4.5', 2.4, 14)
+    };
+    const g = this._g;
+    const pass = (name, num) => ({ name, num: num || '', glyph: g.check, color: C('approved'), hasWhy: false, why: '', hasFix: false });
+    const allPass = [pass('All checks pass', '6')];
+    const failing = [pass('Scale', '1.0'), pass('Naming'), { name: 'Triangles', num: '48,200 / 30,000', glyph: g.cross, color: C('failed'), hasWhy: true, why: 'Over budget by 18,200. Decimate or split the mesh.', hasFix: false }, { name: 'Textures', num: '3 over 2048', glyph: g.cross, color: C('failed'), hasWhy: true, why: 'Nkata can resize them to 2048.', hasFix: true }];
+    const synced = { mDot: g.dot(C('synced')), mLabel: 'In Unreal', mTime: '4 s', mHasSub: false, mSub: '', mBorder: 'transparent', mRetry: false };
+    const pub = { pBg: '#E9A23B', pFg: '#17181B', pCursor: 'pointer', pIcon: null, pLabel: 'Publish', showReady: true, hasPNote: false, pNote: '' };
+    const off = (label, note) => ({ pBg: '#3a3a3a', pFg: '#8a8a8a', pCursor: 'not-allowed', pIcon: null, pLabel: label, showReady: false, hasPNote: !!note, pNote: note || '' });
+    const base = { v: 'v14', ownerI: 'A', ownerBg: '#5B6B8A', stateWord: 'Draft', stateColor: C('draft'), lock: false, askLabel: 'Ask to unlock', checksTitle: 'Checks · 6 of 6', checks: allPass, presence: 'Chidi in cloth · Ngozi in hair', ...synced, ...pub };
+    const blender = [
+      { ...base, label: 'Default', note: 'Your part. Saved, in Unreal, checks pass.' },
+      { ...base, label: 'Syncing', note: 'Every save. Usually under 10 s.', mDot: g.pulse, mLabel: 'Syncing to Unreal', mTime: '2 s' },
+      { ...base, label: 'Sync failed', note: 'One line on why, and the one action.', mDot: g.dot(C('sync-failed')), mLabel: 'Not in Unreal', mTime: '', mHasSub: true, mSub: 'The editor is closed.', mBorder: 'var(--state-sync-failed)', mRetry: true },
+      { ...base, label: 'Checks block', note: 'Publish says why. Fix sits on the row.', stateWord: 'Draft', checksTitle: 'Checks · 2 of 4 fail', checks: failing, ...off('2 checks block') },
+      { ...base, label: 'Publishing', note: 'Checks run, fixes apply, the version is marked.', pBg: '#3a3a3a', pFg: '#E6E6E6', pCursor: 'wait', pIcon: g.spin, pLabel: 'Publishing', showReady: false, hasPNote: false },
+      { ...base, label: 'Published', note: 'Holds 1.5 s, then back to Publish.', v: 'v15', pBg: '#242424', pFg: 'var(--state-approved)', pCursor: 'default', pIcon: g.checkLg, pLabel: 'Published v15', showReady: true },
+      { ...base, label: 'Locked by someone else', note: 'A face and a name. Never an error.', ownerI: 'C', ownerBg: '#7A5B6B', stateWord: 'Locked', stateColor: C('locked'), lock: true, ...off('Chidi has this part'), presence: 'Chidi in face · Ngozi in hair' },
+      { ...base, label: 'Unlock asked', note: 'Chidi gets a Discord message and a panel note.', ownerI: 'C', ownerBg: '#7A5B6B', stateWord: 'Locked', stateColor: C('locked'), lock: true, askLabel: 'Asked · waiting', ...off('Chidi has this part'), presence: 'Chidi in face · Ngozi in hair' },
+      { ...base, label: 'Ready for review', note: 'The artist has looked in the engine.', stateWord: 'Ready', stateColor: C('ready'), ...off('Ready', 'Waiting on Emeka. Publish again to pull it back.') },
+      { ...base, label: 'Approved', note: 'Approved parts lock. The next gate opens.', stateWord: 'Approved', stateColor: C('approved'), ...off('Approved by Emeka', 'Locked. A producer can roll it back.') },
+      { ...base, label: 'Offline', note: 'Saves stay on disk and catch up.', mDot: g.ring, mLabel: 'Offline', mTime: '', mHasSub: true, mSub: 'Saves are kept. They go to Unreal when you are back.' }
+    ];
+    const ub = { ...base, title: 'Ojukwu / face', review: false, level: false, presence: 'Ada in face, Blender' };
+    const unreal = [
+      { ...ub, label: 'Default', note: 'The part Ada is editing in Blender, live.', mLabel: 'From Blender', ...off('Publish from Blender', 'Ada has this part. Saves arrive here.') },
+      { ...ub, label: 'Syncing', note: 'Readable across the room from the viewport.', mDot: g.pulse, mLabel: 'Syncing from Blender', mTime: '2 s', ...off('Publish from Blender') },
+      { ...ub, label: 'Review', note: 'Art director. Pin on the mesh, score, decide.', ownerI: 'A', stateWord: 'Ready', stateColor: C('ready'), review: true, ...off('Ready for review'), hasPNote: false, presence: 'You are reviewing · Ada online' },
+      { ...ub, label: 'Level parts', note: 'One area per part. Ten people, one level.', title: 'Enugu Market / stalls', v: 'v6', ownerI: 'T', ownerBg: '#5B7A8A', level: true, checksTitle: 'Checks · 5 of 5', ...pub, showReady: false, presence: 'Tobe in square · Kene in scripting' },
+      { ...ub, label: 'Mirror failed', note: 'The save did not import. One line on why.', mDot: g.dot(C('sync-failed')), mLabel: 'Not updated', mTime: '', mHasSub: true, mSub: 'Collision mesh has 0 faces. Ada was told.', mBorder: 'var(--state-sync-failed)', ...off('Publish from Blender') }
+    ];
+    return { blender, unreal };
+  }
+}
+</script>
+</body>
+</html>

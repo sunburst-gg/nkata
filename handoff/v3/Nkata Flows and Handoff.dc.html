@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="styles.css">
+<style>
+html,body{margin:0;background:#0E0F11;color:#EEF0F2;font-family:Geist,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#EEF0F2;text-decoration:none}a:hover{color:#E9A23B}
+</style>
+</helmet>
+<div style="padding:64px;display:flex;flex-direction:column;gap:96px;background:var(--bg-canvas);color:var(--fg-heading);font:400 14px/1.45 var(--font-sans);min-width:1400px">
+
+<div style="display:flex;flex-direction:column;gap:12px;max-width:820px">
+  <span style="font:var(--role-mono);color:var(--fg-muted)">Flows and handoff · v1</span>
+  <h1 style="margin:0;font-size:48px;font-weight:600;letter-spacing:-.03em;line-height:1.05">Seven flows, frame by frame. Then everything an engineer needs.</h1>
+  <p style="margin:0;font-size:16px;line-height:1.5;color:var(--fg-body)">Each frame names the surface it happens on: Blender, Unreal, the app, or Discord. State changes animate color and badge in 150 ms; panels and dialogs in 300 ms; easing cubic-bezier(.2,0,0,1) in, cubic-bezier(.4,0,1,1) out.</p>
+</div>
+
+<section style="display:flex;flex-direction:column;gap:64px">
+  <sc-for list="{{ flows }}" as="f" hint-placeholder-count="7">
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div style="display:flex;align-items:baseline;gap:16px;border-bottom:1px solid var(--line-hairline);padding-bottom:12px"><span style="font:var(--role-mono);color:var(--fg-muted)">{{ f.n }}</span><span style="font-size:24px;font-weight:600;letter-spacing:-.02em">{{ f.title }}</span><span style="color:var(--fg-secondary)">{{ f.sub }}</span></div>
+      <div style="display:flex;gap:16px;align-items:stretch">
+        <sc-for list="{{ f.frames }}" as="fr" hint-placeholder-count="4">
+          <div style="width:248px;flex-shrink:0;display:flex;flex-direction:column;gap:10px">
+            <div style="height:156px;border-radius:var(--radius-lg);background:{{ fr.bg }};border:1px solid {{ fr.border }};padding:12px 14px;display:flex;flex-direction:column;justify-content:space-between">
+              <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:400 11px var(--font-mono);color:{{ fr.surfaceFg }}">{{ fr.surface }}</span><span style="font:400 11px var(--font-mono);color:{{ fr.surfaceFg }}">{{ fr.t }}</span></div>
+              <div style="display:flex;flex-direction:column;gap:6px"><span style="display:flex;align-items:center;gap:10px;font-size:16px;font-weight:500;color:{{ fr.fg }}"><span style="width:10px;height:10px;border-radius:50%;background:{{ fr.dot }};flex-shrink:0;border:{{ fr.ring }}"></span>{{ fr.head }}</span><span style="font-size:12px;line-height:1.4;color:{{ fr.subFg }}">{{ fr.line }}</span></div>
+              <sc-if value="{{ fr.hasBtn }}" hint-placeholder-val="{{ false }}"><span style="align-self:flex-start;height:24px;padding:0 10px;border-radius:3px;font-size:12px;font-weight:500;display:inline-flex;align-items:center;background:{{ fr.btnBg }};color:{{ fr.btnFg }};white-space:nowrap">{{ fr.btn }}</span></sc-if>
+            </div>
+            <span style="font-size:13px;line-height:1.45;color:var(--fg-body)">{{ fr.caption }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-for>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:56px">
+  <div style="display:flex;align-items:baseline;gap:16px;border-bottom:1px solid var(--line-border);padding-bottom:16px"><span style="font-size:32px;font-weight:600;letter-spacing:-.025em">Handoff</span><span style="color:var(--fg-secondary)">Tokens live in styles.css and tokens/tokens.json. This page is the readable index.</span></div>
+
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:64px">
+    <div style="display:flex;flex-direction:column;gap:16px"><span style="font-size:16px;font-weight:500">Spacing</span>
+      <sc-for list="{{ spaces }}" as="sp" hint-placeholder-count="12"><div style="display:grid;grid-template-columns:110px 48px minmax(0,1fr) 220px;gap:16px;align-items:center;height:28px"><span style="font:var(--role-mono);color:var(--fg-secondary)">{{ sp.token }}</span><span style="font:var(--role-mono);color:var(--fg-muted)">{{ sp.px }}</span><span style="height:8px;background:var(--accent);border-radius:1px;width:{{ sp.w }}"></span><span style="font-size:12px;color:var(--fg-muted)">{{ sp.use }}</span></div></sc-for>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px"><span style="font-size:16px;font-weight:500">Type</span>
+      <sc-for list="{{ types }}" as="ty" hint-placeholder-count="10"><div style="display:grid;grid-template-columns:150px minmax(0,1fr) 130px;gap:16px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line-hairline)"><span style="font:var(--role-mono);color:var(--fg-secondary)">{{ ty.token }}</span><span style="font:{{ ty.font }};letter-spacing:{{ ty.track }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ ty.sample }}</span><span style="font-size:12px;color:var(--fg-muted)">{{ ty.use }}</span></div></sc-for>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:64px">
+    <div style="display:flex;flex-direction:column;gap:16px"><span style="font-size:16px;font-weight:500">State color map</span>
+      <div style="display:grid;grid-template-columns:28px 130px 170px 90px minmax(0,1fr);gap:12px;font:var(--role-mono);color:var(--fg-muted);padding-bottom:4px"><span></span><span>State</span><span>Token</span><span>Glyph</span><span>Where</span></div>
+      <sc-for list="{{ stateMap }}" as="sm" hint-placeholder-count="9"><div style="display:grid;grid-template-columns:28px 130px 170px 90px minmax(0,1fr);gap:12px;align-items:center;height:36px;border-bottom:1px solid var(--line-hairline)"><span style="width:12px;height:12px;border-radius:50%;background:{{ sm.color }};border:{{ sm.ring }}"></span><span style="font-weight:500">{{ sm.name }}</span><span style="font:var(--role-mono);color:var(--fg-secondary)">{{ sm.token }}</span><span style="font:var(--role-mono);color:var(--fg-secondary)">{{ sm.glyph }}</span><span style="font-size:12px;color:var(--fg-muted)">{{ sm.where }}</span></div></sc-for>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px"><span style="font-size:16px;font-weight:500">Icons</span><span style="font-size:13px;color:var(--fg-secondary)">Lucide, 16 px, stroke 1.75. State glyphs use stroke 2.4 at 12 px. No emoji, no filled icons, no brand marks of Blender or Unreal inside Nkata UI; use the words.</span>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 16px">
+        <sc-for list="{{ icons }}" as="ic" hint-placeholder-count="18"><div style="display:flex;align-items:center;gap:10px;height:32px"><span style="font:var(--role-mono);color:var(--fg-body)">{{ ic.name }}</span><span style="font-size:12px;color:var(--fg-muted)">{{ ic.use }}</span></div></sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:16px"><span style="font-size:16px;font-weight:500">Copy strings</span><span style="font-size:13px;color:var(--fg-secondary)">Sentence case. Short declarative lines. No exclamation marks, no em dashes. Placeholders in braces.</span>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 64px">
+      <sc-for list="{{ copy }}" as="cp" hint-placeholder-count="40"><div style="display:grid;grid-template-columns:200px minmax(0,1fr);gap:16px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--line-hairline)"><span style="font:var(--role-mono);color:var(--fg-muted)">{{ cp.k }}</span><span style="color:var(--fg-body)">{{ cp.t }}</span></div></sc-for>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:16px;max-width:960px"><span style="font-size:16px;font-weight:500">Decisions</span><span style="font-size:13px;color:var(--fg-secondary)">Where the product doc left room, one call was made. Revisit any of these.</span>
+    <sc-for list="{{ decisions }}" as="d" hint-placeholder-count="10"><div style="display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px;padding:10px 0;border-bottom:1px solid var(--line-hairline)"><span style="font:var(--role-mono);color:var(--fg-muted)">{{ d.n }}</span><span style="line-height:1.5"><span style="font-weight:500">{{ d.h }}</span> <span style="color:var(--fg-body)">{{ d.t }}</span></span></div></sc-for>
+  </div>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const C = (n) => `var(--state-${n})`;
+    const S = { B: ['Blender', '#2b2b2b', '#3d3d3d', '#9a9a9a', '#E6E6E6', '#9a9a9a'], U: ['Unreal', '#242424', '#2b2b2b', '#8a8a8a', '#DADADA', '#8a8a8a'], A: ['Nkata app', 'var(--bg-panel)', 'var(--line-hairline)', 'var(--fg-muted)', 'var(--fg-heading)', 'var(--fg-secondary)'], D: ['Discord', '#2b2d31', '#3a3c42', '#949ba4', '#F2F3F5', '#b5bac1'] };
+    const fr = (s, t, dot, head, line, caption, btn, btnKind) => { const [surface, bg, border, surfaceFg, fg, subFg] = S[s]; return { surface, bg, border, surfaceFg, fg, subFg, t, dot: dot || 'transparent', ring: dot ? '0' : '1.5px solid #6b6b6b', head, line, caption, hasBtn: !!btn, btn: btn || '', btnBg: btnKind === 'p' ? '#E9A23B' : btnKind === 'd' ? '#3a3a3a' : '#3d3d3d', btnFg: btnKind === 'p' ? '#17181B' : btnKind === 'd' ? '#8a8a8a' : '#E6E6E6' }; };
+    const flows = [
+      { n: '01', title: 'Mirror status', sub: 'Synced, syncing, synced. And the failure.', frames: [
+        fr('B', '0 s', C('synced'), 'In Unreal · 4 s', 'Ada works on face.', 'Resting state. Dot and word, nothing else moves.'),
+        fr('B', 'save', 'var(--state-syncing)', 'Syncing to Unreal · 1 s', 'Ctrl S. Only changed chunks move.', 'Dot turns neutral and pulses at 1.2 s. Timer counts up in mono.'),
+        fr('U', '+3 s', 'var(--state-syncing)', 'Syncing from Blender', 'The mesh swaps in place.', 'Unreal shows the same state with "from Blender". Same words, same dot.'),
+        fr('B', '+4 s', C('synced'), 'In Unreal · now', 'Back to rest.', 'Color animates 150 ms. No toast. The artist is looking at Unreal.'),
+        fr('B', 'fail', C('sync-failed'), 'Not in Unreal', 'The editor is closed.', 'One line on why. Border takes the state color. Retry is the only action.', 'Retry')
+      ] },
+      { n: '02', title: 'Lock', sub: 'Open a part, others see it, ask, release.', frames: [
+        fr('B', '0 s', C('draft'), 'Ojukwu / face', 'Ada opens the part.', 'No lock yet. Opening is not editing.'),
+        fr('B', 'edit', C('locked'), 'You have this part', 'First edit starts the lock.', 'Lock starts on first edit and shows in the header. Nothing to click.'),
+        fr('U', 'others', C('locked'), 'Ada has this part', 'Chidi opens face in Unreal.', 'A face and a name. Read-only, with Ask to unlock.', 'Ask to unlock'),
+        fr('D', '+0 s', C('locked'), 'Chidi asked for face', 'Ada gets a DM and a panel note.', 'The ask goes where Ada already is. Panel shows "Asked · waiting".'),
+        fr('B', 'publish', C('draft'), 'Lock released', 'Ada publishes v15.', 'Publish ends the lock. Chidi gets "face is free".')
+      ] },
+      { n: '03', title: 'Publish with checks', sub: 'Pass, warn, block, auto-fix.', frames: [
+        fr('B', 'pass', C('approved'), 'All checks pass · 6', 'Scale, naming, budget, LODs.', 'Publish is the one amber fill.', 'Publish', 'p'),
+        fr('B', 'warn', 'var(--accent)', '3 textures over 2048', 'Nkata can resize them.', 'Warnings never block. Fix sits on the row.', 'Fix'),
+        fr('B', 'block', C('failed'), 'Triangles 48,200 / 30,000', 'Decimate or split the mesh.', 'Blocking rule from the template. Publish names the reason.', '2 checks block', 'd'),
+        fr('B', 'fix', 'var(--state-syncing)', 'Fixing 2', 'Resize, then re-run.', 'Fixes apply, the checks re-run in place. 150 ms per row.'),
+        fr('B', 'done', C('approved'), 'Published v15', 'Already in Unreal.', 'Holds 1.5 s, then the button returns to Publish.')
+      ] },
+      { n: '04', title: 'Pin a comment', sub: 'Pinned on the mesh in Unreal, seen everywhere.', frames: [
+        fr('U', 'pin', 'var(--accent)', 'Pin on mesh', 'Emeka clicks the brow.', 'Pin tool from the Review block. The cursor becomes a pin.'),
+        fr('U', 'type', 'var(--accent)', 'Brow ridge too soft', 'Enter to post.', 'Comment anchors to the surface point and the part version.'),
+        fr('B', '+1 s', '#E6E6E6', 'Pin 1 · Emeka', 'Shows in the viewport and the list.', 'Same pin, same number, in Blender. Click to frame it.'),
+        fr('A', '+1 s', '#E6E6E6', 'Pin 1 on face', 'On the Part preview and Asset comments.', 'The app shows it on the last render. Linear ID added if linked.')
+      ] },
+      { n: '05', title: 'Score and approve', sub: 'The part locks, the next gate opens, people are told.', frames: [
+        fr('U', 'review', C('ready'), 'Ready · face v14', 'Emeka opens the review.', 'Draft notes from reference and checks. He edits them.'),
+        fr('U', 'score', C('ready'), 'Score 4', 'Approve.', 'One tap on 1 to 5. Approve is the amber fill.', 'Approve', 'p'),
+        fr('A', '+0 s', C('approved'), 'face · Approved', 'Locked. textures unlocks.', 'Badge animates 150 ms. textures leaves Waiting.'),
+        fr('D', '+0 s', C('approved'), 'Approved by Emeka', 'Face is locked. Textures unlocked for Ngozi.', 'Ngozi is told where she already is. Daily recap includes it.')
+      ] },
+      { n: '06', title: 'Remove a gate', sub: 'Gates are defaults, not walls.', frames: [
+        fr('A', 'asset', 'var(--line-border)', 'textures · Waiting', 'After face, cloth, hair.', 'Art director opens Ojukwu.'),
+        fr('A', 'confirm', 'var(--accent)', 'Remove the gate on textures?', 'Ngozi can start before face is approved.', 'Dialog in 300 ms. Keep gate is the default focus.', 'Remove gate', 'p'),
+        fr('A', 'done', C('draft'), 'textures · Draft', 'Gate removed by Emeka.', 'A log line on the asset timeline. Ngozi gets a Discord message.')
+      ] },
+      { n: '07', title: 'Roll back', sub: 'Pick a version, confirm, a new version appears.', frames: [
+        fr('A', 'part', 'var(--accent)', 'face · v14', 'Version strip on the left.', 'Click any version to preview it in place.'),
+        fr('A', 'pick', 'var(--fg-muted)', 'Previewing v12', 'Roll back to v12. It becomes v15.', 'Nothing changes until you confirm. Keep v14 is one click.', 'Roll back', 'p'),
+        fr('A', 'done', C('synced'), 'face · v15 from v12', 'In Unreal.', 'History is never rewritten. v13 and v14 stay on the strip.'),
+        fr('B', '+3 s', C('synced'), 'In Unreal · v15', 'Ada sees v15 if she reopens.', 'If Ada had the lock, the producer is asked to confirm first.')
+      ] }
+    ];
+    const spaces = [['--space-2', 2, 'hairline offsets'], ['--space-4', 4, 'icon to text, tight'], ['--space-6', 6, 'chips, avatar stack'], ['--space-8', 8, 'buttons in a group'], ['--space-12', 12, 'row inner, panel padding'], ['--space-16', 16, 'list rows, cards inner'], ['--space-20', 20, 'card padding'], ['--space-24', 24, 'minimum between elements'], ['--space-32', 32, 'page margin, section gap'], ['--space-40', 40, 'screen header to content'], ['--space-48', 48, 'major sections'], ['--space-64', 64, 'home page margin']].map(([token, px, use]) => ({ token, px, use, w: (px * 3) + 'px' }));
+    const types = [['--role-hero', '600 72px/1 var(--font-sans)', '-0.04em', 'Nkata', 'Landing only'], ['--role-section', '600 48px/1.05 var(--font-sans)', '-0.03em', 'Real files', 'Marketing, docs'], ['--role-statement', '600 32px/1.15 var(--font-sans)', '-0.025em', 'Ojukwu', 'Screen titles'], ['--role-asset-title', '600 24px/1.25 var(--font-sans)', '-0.02em', 'Sunburst', 'Section heads'], ['--role-lead', '400 20px/1.4 var(--font-sans)', '0', 'Choose a folder.', 'Lead copy'], ['tile', '500 16px/1.4 var(--font-sans)', '0', 'Enugu Market', 'Tile and panel heads'], ['--role-app', '400 14px/1.45 var(--font-sans)', '0', 'Ada has this part', 'App body'], ['--role-panel', '400 13px/1.4 var(--font-sans)', '0', 'Checks · 6 of 6', 'Editor panels'], ['--role-mono', '400 12px/1.4 var(--font-mono)', '0', 'v14 · 48,200 / 30,000', 'IDs, counts, times'], ['--role-caption', '400 11px/1.4 var(--font-sans)', '0', 'Reference', 'Panel captions, floor']].map(([token, font, track, sample, use]) => ({ token, font, track, sample, use }));
+    const stateMap = [['Draft', 'draft', '--state-draft', 'dot', 'Part has saves, not Ready'], ['Locked', 'locked', '--state-locked', 'lock', 'Someone is editing'], ['Ready', 'ready', '--state-ready', 'eye', 'Asks for review'], ['Approved', 'approved', '--state-approved', 'check', 'Reviewed, locked'], ['Failed check', 'failed', '--state-failed', 'x', 'Blocks Publish'], ['Synced', 'synced', '--state-synced', 'link', 'Mirror at rest'], ['Syncing', 'syncing', '--state-syncing', 'pulse', 'Mirror moving'], ['Sync failed', 'sync-failed', '--state-sync-failed', 'link-2-off', 'Mirror broke'], ['Waiting', null, 'none · ring', 'circle', 'Behind a gate']].map(([name, k, token, glyph, where]) => ({ name, token, glyph, where, color: k ? C(k) : 'transparent', ring: k ? '0' : '1.5px solid var(--line-border)' }));
+    const icons = [['search', 'Ask, filters'], ['chevron-down', 'Menus'], ['plus', 'New, Pin'], ['x', 'Close, fail'], ['check', 'Pass, approve'], ['lock', 'Locked'], ['eye', 'Ready'], ['link', 'Synced'], ['link-2-off', 'Sync failed'], ['rotate-ccw', 'Roll back'], ['download', 'Export'], ['git-fork', 'never used'], ['message-circle', 'Comments'], ['map-pin', 'Pin tool'], ['users', 'People'], ['layout-template', 'Templates'], ['settings', 'Settings'], ['grip-vertical', 'Reorder parts']].map(([name, use]) => ({ name, use }));
+    const copy = [
+      ['auth.signin.title', 'Sign in.'], ['auth.signup.title', 'Create an account.'], ['auth.discord', 'Continue with Discord'], ['auth.link', 'Send a sign-in link'],
+      ['home.empty', 'No projects yet. Start one in under five minutes.'], ['create.name', 'Name the project.'], ['create.folder', 'Choose a folder.'], ['create.folder.note', 'The project lives here as normal files. If Nkata goes away, the project stays.'],
+      ['create.tools', 'Pin the tools.'], ['setup.title', 'Setting up {project}.'], ['setup.done', 'Ready.'], ['invite.title', 'Invite your team.'],
+      ['project.status', '{n} online · {n} changed today · {n} ready for review'], ['project.empty', 'No assets yet. Pick a template to start.'], ['review.empty', 'Nothing to review.'], ['rail.empty', 'Nothing has changed today.'],
+      ['mirror.synced', 'In Unreal · {s} s'], ['mirror.syncing', 'Syncing to Unreal · {s} s'], ['mirror.failed.closed', 'Not in Unreal. The editor is closed.'], ['mirror.failed.import', 'Not updated. {reason}.'],
+      ['mirror.offline', 'Offline. Saves are kept. They go to Unreal when you are back.'], ['lock.you', 'You have this part'], ['lock.other', '{name} has this part. Opened {t} ago.'], ['lock.ask', 'Ask to unlock'],
+      ['lock.asked', 'Asked · waiting'], ['lock.free', '{part} is free.'], ['check.pass', 'All checks pass · {n}'], ['check.tris', 'Triangles {a} / {b}. Decimate or split the mesh.'],
+      ['check.tex', '{n} textures over {px}. Nkata can resize them.'], ['publish.block', '{n} checks block'], ['publish.done', 'Published v{n}'], ['ready.wait', 'Ready. Waiting on {name}.'],
+      ['approve.toast', 'Approved by {name}. {part} is locked.'], ['gate.confirm', 'Remove the gate on {part}?'], ['gate.log', '{name} removed the gate on {part}.'], ['rollback.confirm', 'Roll back to v{a}. It becomes v{b} and goes to Unreal. Nothing is deleted.'],
+      ['rollback.done', '{part} is v{b}, from v{a}. In Unreal.'], ['discord.publish', '{name} published {asset} / {part}, version {n}.'], ['discord.unlock', '{part} unlocked for {name}.'], ['conflict', 'Two saves on {part}. Yours is current. {name}\'s is kept as v{n}b.']
+    ].map(([k, t]) => ({ k, t }));
+    const decisions = [
+      ['Draft is a state.', 'The brief names Locked, Draft, Ready, Approved. Draft uses neutral grey, not a new hue, so the seven brand state colors stay intact.'],
+      ['Lock is a badge, not a state.', 'A part can be Draft and Locked at once. The badge shows who; the state shows where it is in review.'],
+      ['Waiting is shown, not named as a state.', 'Parts behind a gate show a hollow ring and "after {part}". They become Draft when the gate opens.'],
+      ['Publish lives in Blender.', 'In Unreal the panel says "Publish from Blender" for parts authored there. Unreal-native parts (levels) publish from Unreal.'],
+      ['Ready can be pulled back.', 'Publishing again from Ready returns the part to Draft and removes it from the queue.'],
+      ['Approved locks for everyone.', 'Only a producer can roll back an approved part. The art director can send back before approval.'],
+      ['Roll back never rewrites.', 'It creates a new version from an old one. The strip keeps every version.'],
+      ['Review is a filter.', 'No separate review screen. The Review button filters the Project screen to Ready, oldest first.'],
+      ['No AI in v1.', 'The review-notes draft in the Unreal panel is shown as a v2 slot and can ship as a plain template of the checks.'],
+      ['Studios hold projects.', 'Sunburst is a studio. Rising Sun is a project. People belong to the studio and are added to projects.']
+    ].map(([h, t], i) => ({ n: String(i + 1).padStart(2, '0'), h, t }));
+    return { flows, spaces, types, stateMap, icons: icons.filter(i => i.use !== 'never used'), copy, decisions };
+  }
+}
+</script>
+</body>
+</html>
