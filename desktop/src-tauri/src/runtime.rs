@@ -83,8 +83,10 @@ impl Runtime {
     /// mirror and the relay, and the watcher that pushes on change and pulls on an interval.
     pub async fn start_sync(&self, opts: StartSync) -> Result<Status> {
         self.stop().await;
-        let folder =
-            std::fs::canonicalize(&opts.folder).map_err(|e| AgentError::io(&opts.folder, e))?;
+        // The window offers "~/Projects/<name>" as the default and the folder may not exist yet.
+        let wanted = expand_home(&opts.folder);
+        std::fs::create_dir_all(&wanted).map_err(|e| AgentError::io(&wanted, e))?;
+        let folder = std::fs::canonicalize(&wanted).map_err(|e| AgentError::io(&wanted, e))?;
         let config = AgentConfig {
             index_path: AgentConfig::default_index_path(&folder),
             folder: folder.clone(),
@@ -215,9 +217,43 @@ impl Runtime {
     }
 }
 
+/// A leading `~` or `~/` becomes the home folder. Anything else is returned as given.
+pub fn expand_home(path: &std::path::Path) -> PathBuf {
+    let Some(rest) = path.to_str().and_then(|s| s.strip_prefix('~')) else {
+        return path.to_path_buf();
+    };
+    let Some(home) = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")) else {
+        return path.to_path_buf();
+    };
+    let rest = rest.trim_start_matches(['/', '\\']);
+    if rest.is_empty() {
+        PathBuf::from(home)
+    } else {
+        PathBuf::from(home).join(rest)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_tilde_becomes_the_home_folder_and_other_paths_stay() {
+        let home = std::env::var_os("HOME").expect("HOME is set in tests");
+        assert_eq!(
+            expand_home(std::path::Path::new("~/Projects/x")),
+            PathBuf::from(&home).join("Projects/x")
+        );
+        assert_eq!(expand_home(std::path::Path::new("~")), PathBuf::from(&home));
+        assert_eq!(
+            expand_home(std::path::Path::new("/tmp/x")),
+            PathBuf::from("/tmp/x")
+        );
+        assert_eq!(
+            expand_home(std::path::Path::new("rel/x")),
+            PathBuf::from("rel/x")
+        );
+    }
 
     #[tokio::test]
     async fn status_is_stopped_before_start_and_after_stop() {
