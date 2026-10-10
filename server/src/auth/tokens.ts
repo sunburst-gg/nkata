@@ -2,8 +2,8 @@
 // Magic tokens are single use and live 15 minutes. Session tokens live 30 days.
 // A session acts in one studio. An account with no studio yet has a session with none, which
 // only the account routes accept (app.ts, ACCOUNT_ROUTES).
-import { createHash, randomBytes } from "node:crypto";
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { createHash, randomBytes, randomInt } from "node:crypto";
+import { and, desc, eq, gt, isNotNull, isNull } from "drizzle-orm";
 import type { Role } from "@nkata/shared";
 import type { Db } from "../db/client.js";
 import { auth_token, membership, studio, user } from "../db/schema.js";
@@ -34,7 +34,14 @@ function newToken(): string {
   return randomBytes(32).toString("base64url");
 }
 
-export async function issueToken(db: Db, params: { user_id: string; studio_id: string | null; kind: "magic" | "session"; now: Date }): Promise<string> {
+export const CODE_ATTEMPTS = 5;
+
+/** Six digits, zero padded, from the system random source. */
+export function newCode(): string {
+  return String(randomInt(0, 1_000_000)).padStart(6, "0");
+}
+
+export async function issueToken(db: Db, params: { user_id: string; studio_id: string | null; kind: "magic" | "session"; now: Date; code?: string }): Promise<string> {
   const token = newToken();
   const ttl = params.kind === "magic" ? MAGIC_TTL_MS : SESSION_TTL_MS;
   await db.insert(auth_token).values({
@@ -43,9 +50,33 @@ export async function issueToken(db: Db, params: { user_id: string; studio_id: s
     user_id: params.user_id,
     kind: params.kind,
     token_hash: hashToken(token),
+    code_hash: params.code ? hashToken(`${params.user_id}:${params.code}`) : null,
     expires_at: new Date(params.now.getTime() + ttl),
   });
   return token;
+}
+
+/**
+ * Redeems the newest open code for an email. A wrong code counts a try; after five the code is
+ * dead and the person asks for a new one. A used or expired code is as wrong as any other.
+ */
+export async function redeemCode(db: Db, email: string, code: string, now: Date): Promise<{ user_id: string; studio_id: string | null }> {
+  const u = (await db.select({ id: user.id }).from(user).where(eq(user.email, email.toLowerCase())).limit(1))[0];
+  const wrong = new AppError("unauthorized", "that code is not right, or it expired. Ask for a new one.");
+  if (!u) throw wrong;
+  const row = (await db
+    .select()
+    .from(auth_token)
+    .where(and(eq(auth_token.user_id, u.id), eq(auth_token.kind, "magic"), isNull(auth_token.used_at), gt(auth_token.expires_at, now), isNotNull(auth_token.code_hash)))
+    .orderBy(desc(auth_token.created_at))
+    .limit(1))[0];
+  if (!row || row.attempts >= CODE_ATTEMPTS) throw wrong;
+  if (row.code_hash !== hashToken(`${u.id}:${code}`)) {
+    await db.update(auth_token).set({ attempts: row.attempts + 1, updated_at: now }).where(eq(auth_token.id, row.id));
+    throw wrong;
+  }
+  await db.update(auth_token).set({ used_at: now, updated_at: now }).where(eq(auth_token.id, row.id));
+  return { user_id: row.user_id, studio_id: row.studio_id };
 }
 
 /** Marks a magic token used and returns its user. Throws on unknown, used, or expired. */

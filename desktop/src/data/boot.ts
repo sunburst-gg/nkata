@@ -86,12 +86,17 @@ export async function connect(session: SavedSession, theme: "dark" | "light"): P
   return source;
 }
 
-/** Magic link sign in. Dev servers answer with the link; production sends it by email. */
-export async function requestLink(serverUrl: string, email: string): Promise<string | null> {
+/** Asks for the sign-in code. The server emails it; a dev server also hands it back. */
+export async function requestCode(serverUrl: string, email: string): Promise<{ code: string | null; link: string | null }> {
   const res = await fetch(`${serverUrl}/auth/magic-link`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email }) });
-  if (!res.ok) throw new Error(`the server answered ${res.status}`);
-  const body = (await res.json()) as { sent: boolean; link?: string };
-  return body.link ?? null;
+  const body = (await res.json()) as { sent: boolean; link?: string; code?: string; error?: { message: string } };
+  if (!res.ok) throw new Error(body.error?.message ?? `the server answered ${res.status}`);
+  return { code: body.code ?? null, link: body.link ?? null };
+}
+
+/** The six digits from the email. */
+export function redeemCode(serverUrl: string, email: string, code: string): Promise<Account> {
+  return accountCall(serverUrl, "/auth/code", { email, code });
 }
 
 export function tokenFromLink(linkOrToken: string): string {

@@ -30,6 +30,25 @@ describe.skipIf(!hasInfra)("server api", () => {
     expect((await h.app.inject({ method: "POST", url: "/auth/callback", payload: { token } })).statusCode).toBe(401);
   });
 
+  it("emails a six digit code that signs in, five tries, then a new one", async () => {
+    const before = h.mailed.length;
+    const res = (await h.app.inject({ method: "POST", url: "/auth/magic-link", payload: { email: ARTIST } })).json() as { sent: boolean; code: string; link: string };
+    expect(res.code).toMatch(/^\d{6}$/);
+    expect(h.mailed.slice(before)).toEqual([{ to: ARTIST, code: res.code, link: res.link }]);
+    expect((await h.app.inject({ method: "POST", url: "/auth/code", payload: { email: ARTIST, code: "12345" } })).statusCode).toBe(400);
+    const wrong = String((Number(res.code) + 1) % 1_000_000).padStart(6, "0");
+    for (let i = 0; i < 5; i++) expect((await h.app.inject({ method: "POST", url: "/auth/code", payload: { email: ARTIST, code: wrong } })).statusCode).toBe(401);
+    // Five wrong tries kill the code, even the right one.
+    expect((await h.app.inject({ method: "POST", url: "/auth/code", payload: { email: ARTIST, code: res.code } })).statusCode).toBe(401);
+    const fresh = (await h.app.inject({ method: "POST", url: "/auth/magic-link", payload: { email: ARTIST } })).json() as { code: string };
+    const signed = await h.app.inject({ method: "POST", url: "/auth/code", payload: { email: ARTIST.toUpperCase(), code: fresh.code } });
+    expect(signed.statusCode).toBe(200);
+    expect((signed.json() as { studio_id: string; roles: string[] })).toMatchObject({ studio_id: h.seeded.studio_id, roles: ["artist"] });
+    // A code is single use, and an unknown email is as wrong as a wrong code.
+    expect((await h.app.inject({ method: "POST", url: "/auth/code", payload: { email: ARTIST, code: fresh.code } })).statusCode).toBe(401);
+    expect((await h.app.inject({ method: "POST", url: "/auth/code", payload: { email: "ghost@example.com", code: "000000" } })).statusCode).toBe(401);
+  });
+
   it("signs up an unknown email: no name, no studio, then Create studio makes a producer", async () => {
     const link = await h.app.inject({ method: "POST", url: "/auth/magic-link", payload: { email: "Nobody@Example.com" } });
     const token = new URL((link.json() as { link: string }).link).searchParams.get("token")!;

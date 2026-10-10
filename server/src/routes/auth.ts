@@ -4,7 +4,7 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { Training, Ulid } from "@nkata/shared";
-import { issueToken, redeemMagicToken, studiosOf } from "../auth/tokens.js";
+import { issueToken, newCode, redeemCode, redeemMagicToken, studiosOf } from "../auth/tokens.js";
 import { membership, studio, user } from "../db/schema.js";
 import { AppError } from "../domain/errors.js";
 import { newId } from "../domain/ids.js";
@@ -21,15 +21,29 @@ export async function authRoutes(app: TypedApp): Promise<void> {
       req.log.info({ user_id: row!.id }, "account created");
     }
     const studios = await studiosOf(app.db, row!.id);
-    const token = await issueToken(app.db, { user_id: row!.id, studio_id: studios[0]?.id ?? null, kind: "magic", now });
+    const code = newCode();
+    const token = await issueToken(app.db, { user_id: row!.id, studio_id: studios[0]?.id ?? null, kind: "magic", now, code });
     const link = `${app.config.PUBLIC_URL}/auth/callback?token=${token}`;
-    if (app.config.NKATA_DEV) {
-      req.log.info({ user_id: row!.id, link }, "magic link (dev mode)");
-      return { v: 1, sent: true, link };
+    if (app.mailer.configured) {
+      await app.mailer.sendCode(email, code, link);
+      req.log.info({ user_id: row!.id }, "sign-in code sent");
+    } else if (!app.config.NKATA_DEV) {
+      throw new AppError("bad_request", "this server cannot send email yet. Set RESEND_API_KEY and MAIL_FROM, or run with NKATA_DEV=1.");
     }
-    // Email delivery is a later step. Until then the link is only in the dev log.
-    req.log.info({ user_id: row!.id }, "magic link issued");
+    if (app.config.NKATA_DEV) {
+      // Dev mode hands the code and the link back so a test or a laptop with no inbox can sign in.
+      req.log.info({ user_id: row!.id, link, code }, "sign-in code (dev mode)");
+      return { v: 1, sent: true, link, code };
+    }
     return { v: 1, sent: true };
+  });
+
+  // The code from the email, typed into the app.
+  app.post("/auth/code", { schema: { body: z.object({ email: z.email(), code: z.string().regex(/^\d{6}$/) }) } }, async (req) => {
+    const now = app.now();
+    const { user_id, studio_id } = await redeemCode(app.db, req.body.email, req.body.code, now);
+    const session = await issueToken(app.db, { user_id, studio_id, kind: "session", now });
+    return account(user_id, studio_id, session);
   });
 
   const account = async (userId: string, studioId: string | null, token: string) => {

@@ -4,6 +4,8 @@ import { useCan, useStore } from "@/store";
 import { PresenceAvatar } from "@/components/PresenceAvatar";
 import { firstName, useGo } from "@/lib/hooks";
 import { renderUrl } from "@/lib/renders";
+import blenderLogo from "@/assets/logos/blender.svg";
+import unrealLogo from "@/assets/logos/unreal.svg";
 
 function Cursor({ className, small = false, fill }: { className?: string; small?: boolean; fill?: string }) {
   return (
@@ -58,8 +60,8 @@ export function Welcome() {
             <div className="wc-window">
               <span className="wc-serif">Connections</span>
               <div className="wc-grid">
-                <div className="wc-tool"><span className="wc-tool-mark blender">B</span><span className="wc-tool-name">Blender</span><span className="wc-tool-line">{blender?.version ?? "5.1.2"} found</span><span className="wc-tool-btn">Connect</span></div>
-                <div className="wc-tool"><span className="wc-tool-mark unreal">UE</span><span className="wc-tool-name">Unreal Engine</span><span className="wc-tool-line">{unreal?.version ?? "5.8.1"} found</span><span className="wc-tool-on">Connected</span></div>
+                <div className="wc-tool"><span className="wc-tool-mark blender"><img src={blenderLogo} alt="" width={14} height={14} draggable={false} /></span><span className="wc-tool-name">Blender</span><span className="wc-tool-line">{blender?.version ?? "5.1.2"} found</span><span className="wc-tool-btn">Connect</span></div>
+                <div className="wc-tool"><span className="wc-tool-mark unreal"><img src={unrealLogo} alt="" width={14} height={14} draggable={false} /></span><span className="wc-tool-name">Unreal Engine</span><span className="wc-tool-line">{unreal?.version ?? "5.8.1"} found</span><span className="wc-tool-on">Connected</span></div>
               </div>
               <Cursor className="wc-cursor" />
             </div>

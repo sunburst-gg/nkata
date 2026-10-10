@@ -10,6 +10,7 @@ import { AppError } from "./domain/errors.js";
 import { createEventBus, type EventBus } from "./events.js";
 import { createPresence, type PresenceMap } from "./presence.js";
 import { createDiscordPoster, type DiscordPoster } from "./domain/discord.js";
+import { createMailer, type Mailer } from "./domain/mail.js";
 import { presenceRoutes } from "./routes/presence.js";
 import type { Store } from "./store/s3.js";
 import type { Principal, Session } from "./auth/tokens.js";
@@ -35,6 +36,7 @@ declare module "fastify" {
     bus: EventBus;
     presence: PresenceMap;
     discord: DiscordPoster;
+    mailer: Mailer;
     now: () => Date;
   }
   interface FastifyRequest {
@@ -53,6 +55,8 @@ export type AppDeps = {
   now?: () => Date;
   /** The Discord poster. Tests inject one that records. */
   discord?: DiscordPoster;
+  /** The sign-in code mailer. Tests inject one that records. */
+  mailer?: Mailer;
 };
 
 export type App = FastifyInstance;
@@ -65,7 +69,7 @@ function isViewerOnly(p: Principal): boolean {
   return p.roles.length > 0 && p.roles.every((r) => r === "viewer");
 }
 
-const PUBLIC = new Set(["/health", "/auth/magic-link", "/auth/callback"]);
+const PUBLIC = new Set(["/health", "/auth/magic-link", "/auth/callback", "/auth/code"]);
 /** Routes an account uses before it has a studio, or to change studio. No principal there. */
 const ACCOUNT_ROUTES = new Set(["/auth/me", "/auth/switch", "/me", "/studios"]);
 
@@ -87,6 +91,7 @@ export async function buildApp(deps: AppDeps): Promise<App> {
   app.decorate("bus", createEventBus(deps.db));
   app.decorate("presence", createPresence());
   app.decorate("discord", deps.discord ?? createDiscordPoster(deps.db, deps.config.DISCORD_SECRET));
+  app.decorate("mailer", deps.mailer ?? createMailer(deps.config));
   app.decorate("now", deps.now ?? (() => new Date()));
   // Reference values are set per request in the onRequest hook. See https://fastify.dev/docs/latest/Reference/Decorators/
   app.decorateRequest("principal", null as unknown as Principal);

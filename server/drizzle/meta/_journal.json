@@ -43,6 +43,13 @@
       "when": 1791632593065,
       "tag": "0005_accounts_and_studios",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791634834133,
+      "tag": "0006_email_code",
+      "breakpoints": true
     }
   ]
 }

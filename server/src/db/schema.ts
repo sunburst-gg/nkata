@@ -265,6 +265,9 @@ export const auth_token = pgTable(
     user_id: ulid("user_id").notNull().references(() => user.id),
     kind: text("kind").$type<"magic" | "session">().notNull(),
     token_hash: text("token_hash").notNull(),
+    // The six digit code emailed with the link. Same row, same expiry; five tries.
+    code_hash: text("code_hash"),
+    attempts: integer("attempts").notNull().default(0),
     expires_at: ts("expires_at").notNull(),
     used_at: ts("used_at"),
   },

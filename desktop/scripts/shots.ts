@@ -11,10 +11,10 @@ const PORT = 4173;
 const BROWSER = process.env["NKATA_CHROME"] ?? "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
 
 type Stage = "fresh" | "connected" | "firstAsset" | "populated";
-type Shot = { name: string; path: string; stage?: Stage; createProject?: boolean; role?: "artist" | "viewer"; rail?: boolean; tab?: string; open?: "members" | "ask" | "createAsset"; full?: [string, string?]; theme?: "light" | "dark"; width?: 1280 | 1440 };
+type Shot = { name: string; path: string; stage?: Stage; createProject?: boolean; click?: string; role?: "artist" | "viewer"; rail?: boolean; tab?: string; open?: "members" | "ask" | "createAsset"; full?: [string, string?]; theme?: "light" | "dark"; width?: 1280 | 1440 };
 const RS = "/p/rising-sun";
 const SHOTS: Shot[] = [
-  { name: "signin", path: "/signin" }, { name: "name", path: "/name" }, { name: "studio", path: "/studio" },
+  { name: "signin", path: "/signin" }, { name: "signin-code", path: "/signin", click: "button[type=submit]" }, { name: "name", path: "/name" }, { name: "studio", path: "/studio" },
   { name: "welcome", path: "/welcome" }, { name: "welcome-connected", path: "/welcome", stage: "connected" },
   { name: "new-project", path: "/new" },
   { name: "project-fresh", path: "/p/nkatatest", stage: "fresh", createProject: true }, { name: "project-connected", path: "/p/nkatatest", stage: "connected" }, { name: "project-first", path: "/p/nkatatest", stage: "firstAsset" },
@@ -58,6 +58,7 @@ async function main() {
       }, { stage: s.stage, role: s.role, rail: s.rail, tab: s.tab, createProject: s.createProject });
       await page.evaluate((path) => { location.hash = `#${path}`; }, s.path);
       await page.waitForTimeout(300);
+      if (s.click) { await page.click(s.click); await page.waitForTimeout(300); }
       if (s.open || s.full) {
         await page.evaluate((o) => {
           type Hook = { open: (w: string) => void; fullScreen: (a: string, p?: string) => void };

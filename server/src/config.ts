@@ -19,6 +19,10 @@ const Env = z.object({
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).default("info"),
   // Encrypts the Discord webhook URL at rest. Without it no webhook can be stored.
   DISCORD_SECRET: z.string().min(16).optional(),
+  // Sends the sign-in code. Resend's HTTPS API (https://resend.com/docs/api-reference/emails/send-email).
+  // Without both, only dev mode can sign anyone in.
+  RESEND_API_KEY: z.string().min(1).optional(),
+  MAIL_FROM: z.string().min(3).optional(),
 });
 
 export type Config = z.infer<typeof Env>;
