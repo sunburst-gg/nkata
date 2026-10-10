@@ -1,5 +1,5 @@
-// shadcn Dialog (Radix), restyled. 420 wide, bg-panel, border-border, radius-xl, shadow-2.
-// 300 ms in, 150 ms out. The safe choice takes the first focus.
+// shadcn Dialog (Radix), restyled to v3: 560 or 440 wide, bg-panel, border-border, radius 12,
+// shadow-modal, 24 px padding, a serif title with × on the right. 300 ms in. Esc and the scrim close.
 import * as RadixDialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
@@ -9,34 +9,36 @@ export interface DialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
-  description?: ReactNode;
+  /** Read by assistive tech. The prototype shows no visible description on most dialogs. */
+  description?: string;
   children?: ReactNode;
-  /** Buttons, right aligned. */
-  actions?: ReactNode;
   width?: number;
   closeButton?: boolean;
+  /** Top aligned, for Ask. */
+  top?: boolean;
+  className?: string;
 }
 
-export function Dialog({ open, onOpenChange, title, description, children, actions, width = 440, closeButton = false }: DialogProps) {
+export function Dialog({ open, onOpenChange, title, description, children, width = 440, closeButton = false, top = false, className }: DialogProps) {
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
         <RadixDialog.Overlay className="fixed inset-0 z-40 bg-[var(--scrim)] data-[state=open]:nk-fade-in" />
         <RadixDialog.Content
           style={{ width }}
-          className={cn("fixed left-1/2 top-1/2 z-50 flex max-w-[calc(100vw-64px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-5 rounded-xl border border-border bg-panel p-7 shadow-2 outline-none", "data-[state=open]:nk-panel-in")}
+          aria-describedby={description ? undefined : ""}
+          className={cn("fixed left-1/2 z-50 flex max-h-[80%] max-w-[calc(100vw-64px)] -translate-x-1/2 flex-col gap-4 overflow-auto rounded-xl border border-border bg-panel p-6 shadow-modal outline-none data-[state=open]:nk-panel-in", top ? "top-[120px]" : "top-1/2 -translate-y-1/2", className)}
         >
-          <div className="flex items-baseline">
-            <RadixDialog.Title className="text-20 font-semibold tracking-[-0.01em]">{title}</RadixDialog.Title>
+          <div className={cn("flex items-center", top && "sr-only")}>
+            <RadixDialog.Title className="role-moment-md m-0 text-heading">{title}</RadixDialog.Title>
             {closeButton ? (
-              <RadixDialog.Close aria-label="Close" className="ml-auto flex size-7 items-center justify-center rounded-md text-muted hover:bg-hover">
-                <X size={16} strokeWidth={1.75} />
+              <RadixDialog.Close aria-label="Close" className="ml-auto flex size-7 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-muted hover:bg-hover hover:text-heading">
+                <X size={18} strokeWidth={1.5} />
               </RadixDialog.Close>
             ) : null}
           </div>
-          {description ? <RadixDialog.Description className="text-14 leading-[1.5] text-body">{description}</RadixDialog.Description> : null}
+          {description ? <RadixDialog.Description className="text-14 leading-[1.5] text-secondary">{description}</RadixDialog.Description> : null}
           {children}
-          {actions ? <div className="flex justify-end gap-2">{actions}</div> : null}
         </RadixDialog.Content>
       </RadixDialog.Portal>
     </RadixDialog.Root>

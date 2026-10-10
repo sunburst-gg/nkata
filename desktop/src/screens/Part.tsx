@@ -1,110 +1,102 @@
-// Part. Version strip on the left, preview in the center, checks and comments on the right.
-// Clicking a version previews it and shows a Roll back bar. Roll back makes a new version.
-import { useState } from "react";
-import { t } from "@/copy/en";
+// Part. Versions down the left, the model in the middle, checks and comments on the right.
+// Click a version to preview it; the Roll back bar appears. Roll back creates a new version.
+import { useEffect, useState } from "react";
+import { Check, X } from "lucide-react";
 import { useCan, useStore } from "@/store";
 import { Button } from "@/components/Button";
-import { CheckRow } from "@/components/CheckRow";
-import { CommentPin } from "@/components/CommentPin";
-import { CommentThread } from "@/components/CommentThread";
-import { EmptyPreview } from "@/components/EmptyPreview";
-import { MirrorStatus } from "@/components/MirrorStatus";
-import { PersonAvatar } from "@/components/PresenceAvatar";
-import { RotatablePreview } from "@/components/RotatablePreview";
-import { StateBadge } from "@/components/StateBadge";
-import { VersionThumb } from "@/components/VersionThumb";
-import { useGo, usePart, usePeople, useProject } from "@/lib/hooks";
-import { ScreenHead } from "./Shell";
+import { CommentRail } from "@/components/CommentRail";
+import { PinRow, Stage } from "@/components/ModelStage";
+import { StateDot } from "@/components/StateBadge";
+import type { Asset, Check as CheckModel, Part as PartModel } from "@/data/types";
+import { cn } from "@/lib/cn";
+import { firstName, usePart, usePeople } from "@/lib/hooks";
+import { renderStyle } from "@/lib/renders";
+import { STATE_WORD } from "@/lib/state";
+import { useViewerSession } from "@/lib/viewer";
+import { useResetViewer } from "./Asset";
 
 export function Part() {
   const found = usePart();
-  const project = useProject();
+  useResetViewer(found ? `${found.asset.slug}/${found.part.name}` : "");
+  if (!found) return <span className="text-secondary">That part is not in this asset.</span>;
+  return <PartScreen key={found.part.id} asset={found.asset} part={found.part} />;
+}
+
+function PartScreen({ asset, part }: { asset: Asset; part: PartModel }) {
   const can = useCan();
-  const source = useStore((s) => s.source);
   const toast = useStore((s) => s.toast);
-  const me = useStore((s) => s.db.session.user);
-  const { people, by } = usePeople();
-  const go = useGo();
+  const source = useStore((s) => s.source);
+  const setFullScreen = useStore((s) => s.setFullScreen);
+  const { by } = usePeople();
+  const session = useViewerSession(asset, part);
   const [picked, setPicked] = useState<number | null>(null);
-  const [activePin, setActivePin] = useState<number | undefined>(2);
-  if (!found) return <span className="text-secondary">That part is not here.</span>;
-  const { asset, part } = found;
-
-  const current = part.versions[0];
-  const previewVersion = picked !== null ? part.versions.find((v) => v.n === picked) : current;
-  const blocking = part.checks.filter((c) => c.status === "fail" && c.blocks).length;
-  const passing = part.checks.filter((c) => c.status === "pass").length;
-  const canReady = part.state === "draft" && blocking === 0;
-  const stateLabel = part.state === "draft" && blocking ? `Draft · ${blocking} check blocks` : undefined;
-  const holder = part.lock ? by(part.lock.holderId) : null;
-  const open = part.comments.filter((c) => !c.resolved).length;
-
-  const markReady = () => {
-    const r = source.markReady(asset.slug, part.name);
-    if (r.ok) toast(`${part.name} is Ready. Emeka has it in the review queue.`, "ready");
-    else toast(r.reason, "failed");
-  };
-  const fix = () => {
-    const r = source.fixChecks(asset.slug, part.name);
-    if (r.ok) toast("Decimated to 28,410. Textures resized to 2048. In Unreal.", "synced");
-    else toast(r.reason, "failed");
-  };
+  const top = part.versions[0];
+  const current = top?.n ?? 0;
+  const preview = picked ?? current;
+  const owner = firstName(by(part.ownerId).name);
+  const open = (where: "Blender" | "Unreal") => toast(`Opening in ${where}.`, "locked");
   const rollBack = () => {
-    if (picked === null) return;
+    if (!picked) return;
     const made = source.rollBack(asset.slug, part.name, picked);
     setPicked(null);
-    toast(t("rollback.done", { part: part.name, a: picked, b: made.n }), "synced");
+    toast(`Rolled back. v${made.n} is v${picked}.`);
   };
-
+  const fix = (c: CheckModel) => {
+    const r = source.fixChecks(asset.slug, part.name);
+    if (r.ok) toast(`${c.name} fixed. Check passes.`); else toast(r.reason, "failed");
+  };
   return (
-    <div className="flex h-full flex-col gap-8">
-      <ScreenHead
-        title={part.name}
-        line={
-          <>
-            <StateBadge state={part.state} label={stateLabel} />
-            {holder ? <span className="inline-flex items-center gap-2"><PersonAvatar person={holder} size={20} />{holder.id === me.id ? t("lock.you") : `${holder.name.split(" ")[0]} has this part`}</span> : null}
-            <MirrorStatus state={part.mirror.state} seconds={part.mirror.seconds} />
-          </>
-        }
-        actions={
-          <>
-            {can("openEditors") ? <><Button>Open in Blender</Button><Button>Open in UE5</Button></> : null}
-            {can("markReady") ? <Button variant={canReady ? "primary" : "secondary"} onClick={markReady}>{part.state === "ready" ? "Ready for review" : "Mark Ready"}</Button> : null}
-          </>
-        }
-      />
-      <div className="grid min-h-0 flex-1 grid-cols-[132px_minmax(0,1fr)_340px] items-start gap-8">
-        <div className="flex max-h-full flex-col gap-4 overflow-auto" aria-label="Versions">
-          {part.versions.map((v, i) => <VersionThumb key={v.id} version={v} current={i === 0} picked={picked === v.n} dim={i > 6} onPick={() => setPicked(i === 0 ? null : v.n)} />)}
-          {part.versions.length === 0 ? <span className="text-13 text-secondary">No versions yet.</span> : null}
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center gap-4">
+        <h1 className="role-moment m-0 leading-[1.1] text-heading">{`${asset.name} / ${part.name}`}</h1>
+        <span className="inline-flex items-center gap-1.5 text-13 text-secondary"><StateDot state={part.state} size={7} />{`${STATE_WORD[part.state]} · ${owner}${top ? ` · v${current}` : ""}`}</span>
+        {can("openEditors") ? <div className="ml-auto flex gap-2"><Button onClick={() => open("Blender")}>Open in Blender</Button><Button onClick={() => open("Unreal")}>Open in Unreal</Button></div> : null}
+      </div>
+      <div className="grid items-start gap-6" style={{ gridTemplateColumns: "112px minmax(0, 1fr) 320px" }}>
+        <div className="flex flex-col gap-3">
+          {part.versions.length === 0 ? <span className="text-12 text-secondary">No versions yet.</span> : null}
+          {part.versions.slice(0, 4).map((v) => (
+            <button key={v.id} type="button" aria-pressed={picked === v.n} onClick={() => setPicked(picked === v.n || v.n === current ? null : v.n)} className={cn("cursor-pointer overflow-hidden rounded-[10px] border-2 bg-panel p-0 text-left transition-colors duration-150", picked === v.n ? "border-accent" : "border-hairline")}>
+              <div className="aspect-[4/3] bg-[var(--preview-bg)]" style={v.render ? renderStyle(v.render, "tile") : undefined} />
+              <div className="flex justify-between px-2 py-1.5 text-12"><span className="font-mono text-heading">v{v.n}</span><span className="text-muted">{v.when}</span></div>
+            </button>
+          ))}
         </div>
-        <div className="flex flex-col gap-4">
-          {previewVersion?.render ? (
-            <RotatablePreview frames={[previewVersion.render]} aspect="16/10" label={`v${previewVersion.n} · in Unreal · Lit`}>
-              {part.comments.filter((c) => c.pin && !c.resolved).map((c) => <CommentPin key={c.id} n={c.n} tone={activePin === c.n ? "active" : "default"} at={c.pin!} onClick={() => setActivePin(c.n)} />)}
-            </RotatablePreview>
-          ) : <EmptyPreview owner={by(part.ownerId)} assetName={`${asset.name} / ${part.name}`} aspect="16/10" />}
-          {picked !== null && can("rollBack") && current ? (
-            <div className="nk-panel-in flex items-center gap-4 rounded-lg border border-border bg-panel px-5 py-4">
-              <span className="flex-1">Roll back to <span className="font-mono text-14 font-medium">v{picked}</span>. It becomes v{current.n + 1} and goes to Unreal. Nothing is deleted.</span>
-              <Button size="sm" className="h-8" onClick={() => setPicked(null)}>Keep v{current.n}</Button>
-              <Button size="sm" variant="primary" className="h-8" onClick={rollBack}>Roll back</Button>
+        <div className="flex flex-col gap-3">
+          <Stage session={session} caption={top ? `v${preview} · ${owner} · in Unreal` : "No publish yet"} aspect="16/10" />
+          <PinRow onFull={() => setFullScreen({ assetSlug: asset.slug, partName: part.name })} />
+          {picked && can("rollBack") ? (
+            <div className="flex items-center gap-3 rounded-xl border border-border bg-panel px-4 py-3 shadow-soft nk-panel-in">
+              <span className="flex-1 text-14 text-body">Roll back to v{picked}? This creates v{current + 1}. Nothing is lost.</span>
+              <Button size="sm" variant="outline" onClick={() => setPicked(null)}>Cancel</Button>
+              <Button size="sm" variant="primary" onClick={rollBack}>Roll back</Button>
             </div>
           ) : null}
         </div>
-        <div className="flex flex-col gap-8">
-          {part.checks.length ? (
-            <div className="flex flex-col gap-4">
-              <div className="flex items-baseline justify-between"><span className="text-16 font-medium">Checks</span><span className="role-mono" style={{ color: blocking ? "var(--state-failed)" : "var(--state-approved)" }}>{blocking ? `${passing} of ${part.checks.length} · ${blocking} blocks` : `${passing} of ${part.checks.length} pass`}</span></div>
-              <div className="flex flex-col gap-3">{part.checks.map((c) => <CheckRow key={c.id} check={c} canFix={can("fixChecks")} onFix={fix} />)}</div>
-            </div>
-          ) : null}
-          <CommentThread comments={part.comments} people={people} activeN={activePin} countLabel={`${open} open`} onPick={setActivePin} placeholder="Reply" onAdd={can("comment") ? (text) => source.addComment(asset.slug, part.name, text) : undefined} />
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-3">
+            <span className="role-moment-sm text-heading">Checks</span>
+            {part.checks.length === 0 ? <span className="text-13 text-secondary">Checks run on the first save.</span> : null}
+            {part.checks.map((c) => <CheckRow key={c.id} check={c} onFix={can("fixChecks") && c.fixable && c.status !== "pass" ? () => fix(c) : undefined} />)}
+          </div>
+          <CommentRail session={session} emptyText="No comments yet." />
         </div>
       </div>
-      <span className="sr-only">{project.name}</span>
-      <span className="hidden">{go ? null : null}</span>
+    </div>
+  );
+}
+
+function CheckRow({ check, onFix }: { check: CheckModel; onFix?: () => void }) {
+  const pass = check.status === "pass";
+  const [shake, setShake] = useState(!pass);
+  useEffect(() => { if (shake) { const t = setTimeout(() => setShake(false), 200); return () => clearTimeout(t); } return undefined; }, [shake]);
+  return (
+    <div className={cn("flex items-center gap-2.5 border-b border-hairline py-2", shake && "nk-shake")}>
+      <span aria-hidden="true" className="inline-flex size-4 shrink-0 items-center justify-center rounded-full text-[var(--avatar-fg)]" style={{ background: pass ? "var(--state-approved)" : check.status === "warn" ? "var(--state-syncing)" : "var(--state-failed)" }}>
+        {pass ? <Check size={10} strokeWidth={2.5} /> : <X size={10} strokeWidth={2.5} />}
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col"><span className="text-14 text-heading">{check.name}</span><span className="text-13 text-secondary">{check.detail}</span></div>
+      {onFix ? <Button size="xs" variant="outline" onClick={onFix}>Fix</Button> : null}
     </div>
   );
 }

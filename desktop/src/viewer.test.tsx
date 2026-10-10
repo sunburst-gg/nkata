@@ -2,51 +2,84 @@
 // check reads the DOM every route produces, with no browser.
 import { renderToString } from "react-dom/server";
 import { MemoryRouter } from "react-router";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { AppRoutes } from "./App";
 import { TooltipProvider } from "./components/Tooltip";
 import { useStore } from "./store";
 
-const ROUTES = ["/home", "/profile", "/p/rising-sun", "/p/rising-sun/a/ojukwu", "/p/rising-sun/a/ojukwu/face", "/p/rising-sun/a/kettle", "/p/rising-sun/changes", "/p/rising-sun/people", "/p/rising-sun/templates", "/p/rising-sun/settings", "/join", "/join/start"];
-// Screens with the app header show the Viewer label beside the avatar. Setup screens have no header.
-const HEADERLESS = ["/join", "/join/start"];
-// Control labels, as they sit inside a button or menu item.
-const WRITE_WORDS = [">Publish<", ">Mark Ready<", ">Approve<", ">Send back<", ">Roll back<", ">Remove gate<", ">Assign<", ">Export<", ">Fix<", ">Open in Blender<", ">Open in UE5<", ">New project<", ">Review<", ">Templates<", ">Settings<", ">Invite<"];
+const RS = "/p/rising-sun";
+const ROUTES = ["/welcome", "/connections", "/mentions", RS, `${RS}/a/ojukwu`, `${RS}/a/ojukwu/face`, "/p/nkatatest/a/market-stall", "/settings/account", "/settings/members", "/settings/connections", "/settings/general"];
+// The settings shell has no header, so no Viewer label there.
+const HEADERLESS = ["/settings/account", "/settings/members", "/settings/connections", "/settings/general"];
+// Control labels, as they sit inside a button, a menu item, or a nav row.
+const WRITE_WORDS = [">Publish<", ">Mark Ready<", ">Approve<", ">Send back<", ">Roll back<", ">Remove gate<", ">Assign<", ">Export<", ">Fix<", ">Open in Blender<", ">Open in Unreal<", ">New project<", ">Review<", ">Connect<", ">Add<", ">Invite members<", ">Billing<", ">Delete project<", ">Create asset<", ">Open folder<", "Studio name"];
 
 function render(path: string): string {
-  return renderToString(<TooltipProvider><MemoryRouter initialEntries={[path]}><AppRoutes /></MemoryRouter></TooltipProvider>);
+  const html = renderToString(<TooltipProvider><MemoryRouter initialEntries={[path]}><AppRoutes /></MemoryRouter></TooltipProvider>);
+  // The Welcome cards hold a picture of the app, not controls.
+  return html.replace(/<div class="wc-scene">[\s\S]*?<div class="wc-caption">/g, "");
 }
 
 describe("viewer role", () => {
+  beforeEach(() => {
+    useStore.getState().setStage("populated");
+    useStore.getState().setRail(true);
+    useStore.getState().setTab("All");
+  });
+
   it("renders no disabled control and no write action on any screen", () => {
     useStore.getState().switchRole("viewer");
-    useStore.getState().setRail(true);
     for (const path of ROUTES) {
       const html = render(path);
       expect(html, path).not.toMatch(/\sdisabled(=""|\s|>)/);
       expect(html, path).not.toMatch(/aria-disabled="true"/);
       for (const w of WRITE_WORDS) expect(html, `${path} shows ${w}`).not.toContain(w);
-      if (!html) expect(["/p/rising-sun/templates", "/p/rising-sun/settings"], `${path} rendered nothing`).toContain(path);
-      else if (!HEADERLESS.includes(path)) expect(html, path).toContain("Viewer");
+      expect(html, `${path} rendered nothing`).not.toBe("");
+      if (!HEADERLESS.includes(path)) expect(html, path).toContain(">Viewer<");
     }
-    expect(render("/p/rising-sun")).toContain("14 changed this week");
-    expect(render("/p/rising-sun/a/ojukwu")).toContain("Download images");
-    expect(render("/p/rising-sun/a/ojukwu")).toContain("Comment");
-    expect(render("/p/rising-sun/changes")).toContain("Open Nkata on this page");
-    expect(render("/p/rising-sun/a/kettle")).toContain("No preview yet");
+    expect(render(RS)).toContain("12 changed this week");
+    expect(render(`${RS}/a/ojukwu`)).toContain("Download images");
+    expect(render(`${RS}/a/ojukwu`)).toContain("Pin a comment");
+    expect(render(`${RS}/a/ojukwu`)).toContain("Write a comment");
+    expect(render(`${RS}/a/ojukwu/face`)).toContain(">Checks<");
+    expect(render("/settings/account")).not.toContain(">Billing<");
+    // A viewer who lands on /new gets the breadcrumb and nothing to fill in.
+    expect(render("/new")).not.toContain(">Create project<");
   });
 
-  it("an artist sees the write actions a viewer does not", () => {
+  it("a producer sees the write actions a viewer does not", () => {
     useStore.getState().switchRole("artist");
-    useStore.getState().setRail(true);
-    const part = render("/p/rising-sun/a/ojukwu/face");
-    expect(part).toContain("Mark Ready");
+    const part = render(`${RS}/a/ojukwu/face`);
     expect(part).toContain("Open in Blender");
     expect(part).toContain(">Fix<");
-    expect(render("/p/rising-sun")).toContain("5 online · 14 changed today · 4 ready for review");
-    expect(render("/p/rising-sun")).toContain(">Review<");
-    expect(render("/home")).toContain("New project");
-    expect(render("/p/rising-sun/a/ojukwu")).toContain(">Export<");
-    expect(render("/p/rising-sun/a/ojukwu")).not.toContain("Download images");
+    expect(part).toContain("Ojukwu / face");
+    const project = render(RS);
+    expect(project).toContain("3 online · 12 changed today · 2 ready for review");
+    expect(project).toContain(">Review<");
+    expect(project).toContain("Training on");
+    expect(project).toContain("~/Documents/Nkata/Rising Sun");
+    expect(render("/welcome")).toContain("New project");
+    expect(render("/welcome")).toContain("Welcome, Emmanuel");
+    expect(render(`${RS}/a/ojukwu`)).toContain(">Export<");
+    expect(render(`${RS}/a/ojukwu`)).toContain(">Remove gate<");
+    expect(render(`${RS}/a/ojukwu`)).not.toContain("Download images");
+    expect(render("/settings/billing")).toContain("Nothing to pay");
+    expect(render("/settings/training")).toContain("Every change is logged");
+    expect(render("/mentions")).toContain("remove the gate on textures");
+    useStore.getState().setStage("connected");
+    expect(render("/connections")).toContain(">Connect<");
+    expect(render("/connections")).toContain("Soon");
+  });
+
+  it("the first run reaches every empty state", () => {
+    useStore.getState().switchRole("artist");
+    useStore.getState().setStage("fresh");
+    expect(render("/welcome")).toContain("No projects yet.");
+    useStore.getState().setStage("connected");
+    expect(render("/p/nkatatest")).toContain("No assets yet");
+    expect(render("/p/nkatatest")).toContain(">Create asset<");
+    useStore.getState().setStage("firstAsset");
+    expect(render("/p/nkatatest")).toContain("Market stall");
+    expect(render("/p/nkatatest")).not.toContain("changed today");
   });
 });

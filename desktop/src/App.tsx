@@ -5,50 +5,42 @@ import { applyTheme, useStore } from "@/store";
 import { Toaster } from "@/components/Toast";
 import { TooltipProvider } from "@/components/Tooltip";
 import { Asset } from "@/screens/Asset";
-import { CreateStudio, Join, JoinStart, SignIn, SignUp } from "@/screens/Auth";
-import { Changes } from "@/screens/Changes";
-import { Create } from "@/screens/Create";
-import { Home } from "@/screens/Home";
+import { Connections } from "@/screens/Connections";
+import { CreateStudio } from "@/screens/CreateStudio";
+import { Mentions } from "@/screens/Mentions";
+import { Name } from "@/screens/Name";
+import { NewProject } from "@/screens/NewProject";
 import { Part } from "@/screens/Part";
-import { People } from "@/screens/People";
-import { Profile } from "@/screens/Profile";
 import { Project } from "@/screens/Project";
-import { ProjectLayout } from "@/screens/ProjectLayout";
 import { Settings } from "@/screens/Settings";
-import { ServerCreate, ServerSignIn } from "@/screens/ServerAuth";
-import { States } from "@/screens/States";
-import { useMock } from "@/data/boot";
-import { Templates } from "@/screens/Templates";
+import { AppShell } from "@/screens/Shell";
+import { SignIn } from "@/screens/SignIn";
+import { Welcome } from "@/screens/Welcome";
 
 function ScrollReset() {
   const { pathname } = useLocation();
-  useEffect(() => { document.querySelector("main")?.scrollTo(0, 0); }, [pathname]);
+  useEffect(() => { document.querySelector("main > div")?.scrollTo(0, 0); }, [pathname]);
   return null;
 }
 
 export function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/home" replace />} />
-      <Route path="/signin" element={useMock() ? <SignIn /> : <ServerSignIn />} />
-      <Route path="/signup" element={<SignUp />} />
-      <Route path="/new-studio" element={<CreateStudio />} />
-      <Route path="/join" element={useMock() ? <Join /> : <ServerSignIn />} />
-      <Route path="/join/start" element={<JoinStart />} />
-      <Route path="/home" element={<Home />} />
-      <Route path="/profile" element={<Profile />} />
-      <Route path="/new/:step" element={useMock() ? <Create /> : <ServerCreate />} />
-      <Route path="/p/:project" element={<ProjectLayout />}>
-        <Route index element={<Project />} />
-        <Route path="changes" element={<Changes />} />
-        <Route path="people" element={<People />} />
-        <Route path="templates" element={<Templates />} />
-        <Route path="settings" element={<Settings />} />
-        <Route path="a/:asset" element={<Asset />} />
-        <Route path="a/:asset/:part" element={<Part />} />
+      <Route path="/" element={<Navigate to="/signin" replace />} />
+      <Route path="/signin" element={<SignIn />} />
+      <Route path="/name" element={<Name />} />
+      <Route path="/studio" element={<CreateStudio />} />
+      <Route path="/settings/:tab?" element={<Settings />} />
+      <Route element={<AppShell />}>
+        <Route path="/welcome" element={<Welcome />} />
+        <Route path="/new" element={<NewProject />} />
+        <Route path="/connections" element={<Connections />} />
+        <Route path="/mentions" element={<Mentions />} />
+        <Route path="/p/:project" element={<Project />} />
+        <Route path="/p/:project/a/:asset" element={<Asset />} />
+        <Route path="/p/:project/a/:asset/:part" element={<Part />} />
       </Route>
-      <Route path="/states" element={<States />} />
-      <Route path="*" element={<Navigate to="/home" replace />} />
+      <Route path="*" element={<Navigate to="/signin" replace />} />
     </Routes>
   );
 }

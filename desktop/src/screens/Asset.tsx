@@ -1,61 +1,86 @@
-// Asset. Parts as a strip of thumbnails, a large rotatable preview, comments on the right.
-// Export, Remove gate, Assign top right for those who can. A viewer gets Download images.
-import { useState } from "react";
-import { t } from "@/copy/en";
+// Asset. Parts across the top, the model with Pin a comment and Full screen, comments on the right.
+import { useEffect } from "react";
 import { useCan, useStore } from "@/store";
 import { Button } from "@/components/Button";
-import { CommentThread } from "@/components/CommentThread";
-import { Dialog } from "@/components/Dialog";
-import { EmptyPreview } from "@/components/EmptyPreview";
-import { PartThumb } from "@/components/PartThumb";
-import { RotatablePreview } from "@/components/RotatablePreview";
-import { useAsset, useGo, usePeople, useProject } from "@/lib/hooks";
+import { CommentRail } from "@/components/CommentRail";
+import { PinRow, Stage } from "@/components/ModelStage";
+import { PresenceAvatar } from "@/components/PresenceAvatar";
+import { StateDot } from "@/components/StateBadge";
+import type { Asset as AssetModel, Part } from "@/data/types";
+import { useAsset, useGo, usePeople } from "@/lib/hooks";
+import { renderStyle } from "@/lib/renders";
+import { STATE_WORD } from "@/lib/state";
+import { useViewerSession } from "@/lib/viewer";
 import { agent } from "@/lib/tauri";
-import { ScreenHead } from "./Shell";
+
+/** Leaving a model screen ends pinning and drops an unposted pin. */
+export function useResetViewer(key: string) {
+  const setPinning = useStore((s) => s.setPinning);
+  useEffect(() => () => { setPinning(false); useStore.setState({ activePin: null }); }, [key, setPinning]);
+}
 
 export function Asset() {
   const asset = useAsset();
-  const project = useProject();
-  const can = useCan();
-  const source = useStore((s) => s.source);
-  const toast = useStore((s) => s.toast);
-  const { people, by } = usePeople();
   const go = useGo();
-  const [gateFor, setGateFor] = useState<string | null>(null);
-  if (!asset) return <span className="text-secondary">That asset is not in {project.name}.</span>;
+  useResetViewer(asset?.slug ?? "");
+  if (!asset) return <span className="text-secondary">That asset is not in this project.</span>;
+  return <AssetScreen asset={asset} onPart={(p) => go.part(asset.slug, p.name, asset.projectSlug)} />;
+}
 
-  const approved = asset.parts.filter((p) => p.state === "approved").length;
-  const gated = asset.parts.find((p) => p.state === "waiting" && p.gate.length > 0);
-  const comments = asset.parts.flatMap((p) => p.comments);
-  const owner = by(asset.ownerId);
-  const firstPart = asset.parts.find((p) => p.state !== "waiting") ?? asset.parts[0];
-  const kind = asset.kind.replace(/s$/, "");
-  const line = `${kind} · ${approved} of ${asset.parts.length} approved${asset.usedIn.length ? ` · in ${asset.usedIn.join(" and ")}` : ""}`;
-
+function AssetScreen({ asset, onPart }: { asset: AssetModel; onPart: (p: Part) => void }) {
+  const can = useCan();
+  const toast = useStore((s) => s.toast);
+  const source = useStore((s) => s.source);
+  const setFullScreen = useStore((s) => s.setFullScreen);
+  const { by } = usePeople();
+  const session = useViewerSession(asset);
+  const top = asset.parts[0]?.versions[0];
+  const caption = top ? `Last publish · v${top.n} · ${top.when}` : "No publish yet";
+  const open = (where: "Blender" | "Unreal") => toast(`Opening in ${where}.`, "locked");
+  const exportAsset = async () => {
+    try {
+      const json = source.exportAsset ? await source.exportAsset(asset.slug) : null;
+      if (json) { const path = await agent.writeExport("", asset.slug, json); toast(`Exported to ${path}`); } else toast(`${asset.name} exported.`);
+    } catch (err) { toast(err instanceof Error ? err.message : "Export failed.", "failed"); }
+  };
+  const gated = asset.parts.find((p) => p.gate.length > 0);
   return (
-    <div className="flex flex-col gap-8">
-      <ScreenHead
-        title={asset.name}
-        line={line}
-        actions={
-          <>
-            {can("exportProject") ? <Button onClick={() => { if (!source.exportAsset) { toast(`Exporting ${asset.name} to plain folders.`, "synced"); return; } void source.exportAsset(asset.slug).then((json) => agent.writeExport(project.folder || ".", asset.slug, json)).then((path) => toast(`Exported ${asset.name} to ${path}.`, "synced")).catch((err: unknown) => toast(err instanceof Error ? err.message : "Export failed.", "failed")); }}>Export</Button> : null}
-            {can("removeGate") && gated ? <Button onClick={() => setGateFor(gated.name)}>Remove gate</Button> : null}
-            {can("assign") ? <Button>Assign</Button> : null}
-            {can("downloadImages") && !can("exportProject") ? <Button onClick={() => toast(`Downloading ${asset.parts.length * 3} images of ${asset.name}.`, "synced")}>Download images</Button> : null}
-          </>
-        }
-      />
-      <div className="flex gap-6">
-        {asset.parts.map((p) => <PartThumb key={p.id} part={p} owner={by(p.ownerId)} active={p.id === firstPart?.id} onOpen={() => go.part(asset.slug, p.name, project.slug)} />)}
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center gap-4">
+        <h1 className="role-moment m-0 leading-[1.1] text-heading">{asset.name}</h1>
+        <span className="text-13 text-secondary">{asset.meta}</span>
+        <div className="ml-auto flex gap-2">
+          {can("openEditors") ? <><Button onClick={() => open("Blender")}>Open in Blender</Button><Button onClick={() => open("Unreal")}>Open in Unreal</Button></> : null}
+          {can("exportAsset") && !can("openEditors") ? null : can("exportAsset") ? <Button onClick={() => void exportAsset()}>Export</Button> : null}
+          {can("assign") ? <Button onClick={() => toast("Assign opens in the next release. Owners come from the template for now.", "muted")}>Assign</Button> : null}
+          {can("removeGate") ? <Button onClick={() => { if (gated) { source.removeGate(asset.slug, gated.name); toast(`Gate removed on ${asset.name} / ${gated.name}.`); } else toast("No gate on this asset.", "muted"); }}>Remove gate</Button> : null}
+          {can("downloadImages") && !can("openEditors") ? <Button onClick={() => toast("Images download in the desktop app.", "muted")}>Download images</Button> : null}
+        </div>
       </div>
-      <div className="grid grid-cols-[minmax(0,1fr)_340px] items-start gap-8">
-        {asset.render ? <RotatablePreview frames={[asset.render]} label="Approved parts · in Unreal · Lit" /> : <EmptyPreview owner={owner} assetName={asset.name} />}
-        <CommentThread comments={comments} people={people} showPart onAdd={can("comment") && firstPart ? (text) => source.addComment(asset.slug, firstPart.name, text) : undefined} />
+      <div className="flex gap-4 overflow-x-auto pb-1">
+        {asset.parts.map((p) => {
+          const owner = by(p.ownerId);
+          const render = p.versions[0]?.render ?? p.render;
+          return (
+            <button key={p.id} type="button" onClick={() => onPart(p)} className="w-42 shrink-0 cursor-pointer overflow-hidden rounded-xl border border-hairline bg-panel p-0 text-left transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-soft">
+              <div className="relative aspect-[4/3] bg-[var(--preview-bg)]" style={render ? renderStyle(render, "tile") : undefined}>
+                <PresenceAvatar initial={owner.initial} tone={owner.tone} name={owner.name} size={22} ring="var(--avatar-fg)" className="absolute bottom-2 left-2 text-10" />
+              </div>
+              <div className="flex items-center gap-2 px-3 py-2.5">
+                <span className="flex-1 truncate text-14 font-medium text-heading">{p.name}</span>
+                <StateDot state={p.state} size={7} /><span className="text-12 text-secondary">{STATE_WORD[p.state]}</span>
+              </div>
+            </button>
+          );
+        })}
       </div>
-      {gated ? (
-        <Dialog open={gateFor !== null} onOpenChange={(o) => { if (!o) setGateFor(null); }} title={t("gate.confirm", { part: gated.name })} description={`${by(gated.ownerId).name.split(" ")[0]} can start before ${gated.gate[0]} is approved. The asset timeline will say "${by(useStore.getState().db.session.user.id).name.split(" ")[0]} removed the gate on ${gated.name}."`} actions={<><Button autoFocus onClick={() => setGateFor(null)}>Keep gate</Button><Button variant="primary" onClick={() => { source.removeGate(asset.slug, gated.name); setGateFor(null); toast(`Gate removed on ${gated.name}. ${by(gated.ownerId).name.split(" ")[0]} can start now.`, "approved"); }}>Remove gate</Button></>} />
-      ) : null}
+      <div className="grid items-start gap-6" style={{ gridTemplateColumns: "minmax(0, 1fr) 320px" }}>
+        <div className="flex flex-col gap-3">
+          <Stage session={session} caption={caption} aspect="16/9" />
+          <PinRow onFull={() => setFullScreen({ assetSlug: asset.slug })} />
+        </div>
+        <CommentRail session={session} />
+      </div>
     </div>
   );
 }

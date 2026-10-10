@@ -21,7 +21,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input({ e
           "w-full bg-panel text-heading placeholder:text-muted border px-3 outline-none transition-[border-color] duration-150",
           "focus:border-accent focus:shadow-focus disabled:bg-raised disabled:text-disabled disabled:border-hairline",
           error ? "border-state-failed" : "border-border",
-          large ? "h-11 rounded-lg px-3.5 text-15" : "h-9 rounded-md text-14",
+          large ? "h-11 rounded-[10px] px-3.5 text-14" : "h-9 rounded-lg text-14",
           className,
         )}
         {...rest}

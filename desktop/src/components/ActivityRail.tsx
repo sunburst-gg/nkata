@@ -1,48 +1,39 @@
-// ActivityRail. 360 wide, hairline left. Online faces, then the feed. Review filters the grid to
-// Ready, oldest first; it is not rendered for a viewer (the parent decides with can()).
+// The activity rail: Today, a Review button with the count of Ready assets, and the feed. 320 wide.
 import { X } from "lucide-react";
 import type { ActivityItem, Person } from "@/data/types";
-import { t } from "@/copy/en";
-import { stateColor } from "@/lib/state";
+import { firstName } from "@/lib/hooks";
 import { Button } from "./Button";
-import { PersonAvatar } from "./PresenceAvatar";
+import { PresenceAvatar } from "./PresenceAvatar";
 
 export interface ActivityRailProps {
   feed: ActivityItem[];
-  people: Person[];
-  online: Person[];
+  by: (id: string) => Person;
   readyCount: number;
   showReview: boolean;
-  onReview?: () => void;
+  onReview: () => void;
   onClose: () => void;
-  onOpen?: (item: ActivityItem) => void;
 }
 
-export function ActivityRail({ feed, people, online, readyCount, showReview, onReview, onClose, onOpen }: ActivityRailProps) {
-  const by = (id: string) => people.find((p) => p.id === id);
+export function ActivityRail({ feed, by, readyCount, showReview, onReview, onClose }: ActivityRailProps) {
   return (
-    <aside aria-label="Activity" className="nk-panel-in flex w-90 shrink-0 flex-col overflow-hidden border-l border-hairline bg-canvas">
-      <div className="flex items-center gap-3 px-6 pb-4 pt-6">
-        <span className="flex-1 text-16 font-medium">Activity</span>
-        {showReview ? <Button size="sm" variant="inverted" onClick={onReview}>Review<span className="role-mono opacity-70">{readyCount}</span></Button> : null}
-        <button type="button" onClick={onClose} aria-label="Close activity" className="flex size-8 items-center justify-center rounded-md text-muted hover:bg-hover"><X size={16} strokeWidth={1.75} /></button>
+    <aside id="activity" aria-label="Today" className="flex w-80 shrink-0 flex-col overflow-auto border-l border-hairline p-6 nk-panel-in">
+      <div className="mb-5 flex items-center gap-3">
+        <span className="role-moment-sm text-heading">Today</span>
+        {showReview ? <Button size="sm" variant="outline" className="ml-auto h-7.5" onClick={onReview}>Review<span className="role-mono text-secondary">{readyCount}</span></Button> : <span className="ml-auto" />}
+        <button type="button" aria-label="Close" onClick={onClose} className="flex size-6 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-muted hover:text-heading"><X size={16} strokeWidth={1.5} /></button>
       </div>
-      <div className="flex items-center gap-1.5 px-6 pb-4">
-        {online.map((p) => <PersonAvatar key={p.id} person={p} size={28} ring="var(--bg-canvas)" className="-ml-1.5 first:ml-0" />)}
-        <span className="ml-2 text-13 text-secondary">{online.length} online</span>
-      </div>
-      <div className="flex flex-1 flex-col gap-6 overflow-auto px-6 pb-8 pt-2">
-        {feed.length === 0 ? <span className="text-13 text-secondary">{t("rail.empty")}</span> : null}
-        {feed.map((f) => {
-          const p = by(f.personId);
+      {feed.length === 0 ? <span className="text-13 text-secondary">Nothing has changed today.</span> : null}
+      <div className="flex flex-col gap-4">
+        {feed.map((e) => {
+          const p = by(e.personId);
           return (
-            <button type="button" key={f.id} onClick={() => onOpen?.(f)} className="flex gap-3 text-left outline-none focus-visible:shadow-focus rounded-md">
-              {p ? <PersonAvatar person={p} size={28} /> : null}
-              <div className="flex min-w-0 flex-col gap-0.75 leading-[1.45]">
-                <span><span className="font-medium">{p?.name.split(" ")[0]}</span> <span className="text-body">{f.text}</span></span>
-                <span className="inline-flex items-center gap-2 text-13 text-secondary"><span aria-hidden="true" className="size-1.5 rounded-full" style={{ background: stateColor(f.dot) }} />{f.target}<span className="role-mono text-muted">{f.when}</span></span>
+            <div key={e.id} className="flex gap-2.5">
+              <PresenceAvatar initial={p.initial} tone={p.tone} name={p.name} size={26} />
+              <div className="flex flex-col gap-0.5 text-13 leading-[1.45]">
+                <span><span className="font-medium text-heading">{firstName(p.name)}</span> {e.text}</span>
+                <span className="text-muted">{e.when}</span>
               </div>
-            </button>
+            </div>
           );
         })}
       </div>

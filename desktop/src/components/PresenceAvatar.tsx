@@ -4,7 +4,7 @@ import * as RadixAvatar from "@radix-ui/react-avatar";
 import type { AvatarTone, Person, Presence } from "@/data/types";
 import { cn } from "@/lib/cn";
 
-export type AvatarSize = 16 | 18 | 20 | 22 | 24 | 28 | 32 | 36 | 48 | 56 | 64;
+export type AvatarSize = 16 | 18 | 20 | 22 | 24 | 26 | 28 | 32 | 36 | 48 | 56 | 64;
 
 export interface PresenceAvatarProps {
   initial: string;
