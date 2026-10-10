@@ -65,6 +65,15 @@ pub enum PartState {
     Approved,
 }
 
+/// pin: a note at a point. take_a_look: asks the art director to look, no state change.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum CommentKind {
+    #[default]
+    Pin,
+    TakeALook,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum MirrorStatus {
@@ -123,6 +132,8 @@ pub struct MeResponse {
     pub online: bool,
     pub spool_dir: String,
     pub mode: AgentMode,
+    /// True while every mirror waits. Saves still version.
+    pub mirror_paused: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -173,6 +184,10 @@ pub struct PartSavedRequest {
     pub spool_path: Option<String>,
     pub manifest: Option<ObjectManifest>,
     pub source_file: String,
+    /// When the editor opened the file, for the version's opened_at. Optional on the wire:
+    /// absent when unknown, so the Python side round-trips it unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opened_at: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -192,6 +207,8 @@ pub struct MirrorState {
     pub message: String,
     pub failures: u32,
     pub halted: bool,
+    /// False: this part's saves version but do not mirror until turned on again.
+    pub on_save: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -289,6 +306,10 @@ pub struct PublishResponse {
     pub version_id: String,
     pub state: PartState,
     pub blocked_by: Vec<CheckResult>,
+    /// True after Mark Ready when UE5 gave no viewport capture: Blender renders and posts it.
+    /// The server never sets it, so it defaults when read from there.
+    #[serde(default)]
+    pub render_needed: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -313,6 +334,7 @@ pub struct CommentPin {
     pub point: [f64; 3],
     pub normal: [f64; 3],
     pub body: String,
+    pub kind: CommentKind,
     pub resolved_at: Option<String>,
     pub created_at: String,
 }
@@ -329,6 +351,39 @@ pub struct CommentCreateRequest {
     pub point: [f64; 3],
     pub normal: [f64; 3],
     pub body: String,
+    #[serde(default)]
+    pub kind: CommentKind,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MirrorOnSaveRequest {
+    pub v: u8,
+    pub on_save: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MirrorPauseRequest {
+    pub v: u8,
+    pub paused: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MirrorPauseResponse {
+    pub v: u8,
+    pub paused: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RenderRequest {
+    pub v: u8,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RenderResponse {
+    pub v: u8,
+    pub version_id: String,
+    pub stored: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

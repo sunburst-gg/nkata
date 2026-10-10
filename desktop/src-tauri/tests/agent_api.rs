@@ -723,3 +723,138 @@ async fn unreachable_ue5_keeps_the_job_pending() {
     assert_eq!(body["mirror"]["failures"], 0);
     std::fs::remove_dir_all(&h.folder).unwrap();
 }
+
+/// Mirror on save off and Pause both hold the newest job while every save still versions.
+/// Mark Ready takes the engine's viewport as the render, and Blender's render is the fallback.
+#[tokio::test]
+async fn mirror_holds_on_pause_or_off_and_mark_ready_stores_a_render() {
+    let Ok(server_url) = std::env::var("NKATA_TEST_SERVER_URL") else {
+        return;
+    };
+    let fake = FakeUe5 {
+        script: Arc::new(Mutex::new(vec![])),
+        calls: Arc::new(AtomicUsize::new(0)),
+        last_command: Arc::new(Mutex::new(String::new())),
+    };
+    let h = start_as(&server_url, fake.clone(), ENV_ARTIST).await;
+    let (_, parts) = h.get("/parts?file=Kettle%2Fuvs.blend").await;
+    let uvs = parts["parts"][0]["id"].as_str().unwrap().to_string();
+    async fn save(h: &Harness, id: &str) -> Value {
+        let spool = spool_export(h, id);
+        let (st, body) = h
+            .post(
+                &format!("/parts/{id}/saved"),
+                Some(json!({"v": 1, "changed": true, "spool_path": spool, "manifest": manifest(), "source_file": "Kettle/uvs.blend", "opened_at": "2026-10-10T09:00:00.000Z"})),
+            )
+            .await;
+        assert_eq!(st, 201, "{body}");
+        body
+    }
+
+    // Off: the save versions, nothing reaches the editor, the panel says why.
+    let (st, off) = h
+        .post(
+            &format!("/parts/{uvs}/mirror/on-save"),
+            Some(json!({"v": 1, "on_save": false})),
+        )
+        .await;
+    assert_eq!(st, 200, "{off}");
+    assert_eq!(off["mirror"]["on_save"], false);
+    let saved = save(&h, &uvs).await;
+    assert_eq!(saved["mirror"], "pending");
+    tokio::time::sleep(Duration::from_millis(700)).await;
+    assert_eq!(fake.calls.load(Ordering::SeqCst), 0);
+    let (_, state) = h.get(&format!("/parts/{uvs}/mirror")).await;
+    assert_eq!(state["mirror"]["status"], "pending");
+    assert_eq!(state["mirror"]["message"], "Mirror on save is off");
+
+    // On: the held job runs.
+    h.post(
+        &format!("/parts/{uvs}/mirror/on-save"),
+        Some(json!({"v": 1, "on_save": true})),
+    )
+    .await;
+    wait_for_mirror(&h, &uvs, "synced").await;
+    let after_on = fake.calls.load(Ordering::SeqCst);
+    assert!(after_on >= 1);
+
+    // Pause holds every part the same way.
+    let (st, paused) = h
+        .post("/mirror/pause", Some(json!({"v": 1, "paused": true})))
+        .await;
+    assert_eq!(st, 200, "{paused}");
+    let (_, me) = h.get("/me").await;
+    assert_eq!(me["mirror_paused"], true);
+    save(&h, &uvs).await;
+    tokio::time::sleep(Duration::from_millis(700)).await;
+    assert_eq!(fake.calls.load(Ordering::SeqCst), after_on);
+    let (_, state) = h.get(&format!("/parts/{uvs}/mirror")).await;
+    assert_eq!(state["mirror"]["message"], "Mirror paused");
+    h.post("/mirror/pause", Some(json!({"v": 1, "paused": false})))
+        .await;
+    wait_for_mirror(&h, &uvs, "synced").await;
+
+    // Mark Ready: the editor's capture becomes the render.
+    let png = h.folder.join("capture.png");
+    std::fs::write(&png, b"\x89PNG fake").unwrap();
+    fake.script
+        .lock()
+        .await
+        .push(json!({"ok": true, "message": "", "path": png.display().to_string()}));
+    let (st, published) = h
+        .post(
+            &format!("/parts/{uvs}/publish"),
+            Some(json!({"v": 1, "check_results": [], "ready": true})),
+        )
+        .await;
+    assert_eq!(st, 200, "{published}");
+    assert_eq!(published["published"], true);
+    assert_eq!(published["state"], "ready");
+    assert_eq!(published["render_needed"], false);
+    let version_id = published["version_id"].as_str().unwrap().to_string();
+    assert!(fake
+        .last_command
+        .lock()
+        .await
+        .contains("capture_viewport.py"));
+    let token = dev_login(&server_url, ENV_ARTIST).await.unwrap();
+    let render = reqwest::Client::new()
+        .get(format!(
+            "{server_url}/parts/{uvs}/versions/{version_id}/render"
+        ))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(render.status().as_u16(), 200);
+
+    // No capture from the editor: Blender renders and posts it.
+    fake.script
+        .lock()
+        .await
+        .push(json!({"ok": false, "message": "no viewport is active"}));
+    let (_, again) = h
+        .post(
+            &format!("/parts/{uvs}/publish"),
+            Some(json!({"v": 1, "check_results": [], "ready": true})),
+        )
+        .await;
+    assert_eq!(again["render_needed"], true, "{again}");
+    let blender_png = h.folder.join("blender.png");
+    std::fs::write(&blender_png, b"\x89PNG blender").unwrap();
+    let (st, stored) = h
+        .post(
+            &format!("/parts/{uvs}/render"),
+            Some(json!({"v": 1, "path": blender_png.display().to_string()})),
+        )
+        .await;
+    assert_eq!(st, 200, "{stored}");
+    assert_eq!(stored["stored"], true);
+    let (st, missing) = h
+        .post(
+            &format!("/parts/{uvs}/render"),
+            Some(json!({"v": 1, "path": h.folder.join("nope.png").display().to_string()})),
+        )
+        .await;
+    assert_eq!(st, 400, "{missing}");
+}
