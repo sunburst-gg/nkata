@@ -29,8 +29,8 @@ testenv_up() {
   if docker info >/dev/null 2>&1; then
     echo "testenv: starting Postgres and RustFS with Docker" >&2
     docker compose -f "$ROOT/infra/docker-compose.yml" up -d --wait
-    export DATABASE_URL="postgres://nkata:nkata@localhost:5432/nkata"
-    export S3_ENDPOINT="http://localhost:9000"
+    export DATABASE_URL="postgres://nkata:nkata@localhost:${NKATA_PG_PORT:-5432}/nkata"
+    export S3_ENDPOINT="http://localhost:${NKATA_S3_PORT:-9000}"
     echo "docker" > "$STATE_FILE"
     return 0
   fi
