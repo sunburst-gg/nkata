@@ -4,7 +4,7 @@ import type { Role } from "@/auth/permissions";
 
 export type RenderKey = "ground" | "overview" | "interior" | "courtyard" | "tree";
 
-export type AvatarTone = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+export type AvatarTone = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
 export type Presence = "online" | "idle" | "offline";
 
@@ -70,8 +70,8 @@ export interface Comment {
   /** pin: a note at a point. take_a_look: asks the art director to look, no state change. */
   kind: CommentKind;
   source: "UE5" | "Blender" | "Nkata";
-  /** Pin position on the preview in percent. */
-  pin?: { x: number; y: number };
+  /** The point on the mesh the comment is pinned to, in the model's space. Absent: a thread reply. */
+  pos?: [number, number, number];
 }
 
 export interface Part {
@@ -93,6 +93,8 @@ export interface Part {
 export interface Asset {
   id: string;
   slug: string;
+  /** The project this asset belongs to. */
+  projectSlug: string;
   name: string;
   kind: AssetKind;
   state: AssetState;
@@ -107,6 +109,12 @@ export interface Asset {
   template: string;
   usedIn: string[];
   changedOrder: number;
+  /** "4 s ago", "Yesterday". The tile's right-hand word. */
+  when: string;
+  /** The last mirror did not reach Unreal. An amber dot on the tile. */
+  syncIssue?: boolean;
+  /** The GLB the Blender add-on exported for the latest version. Absent: the poster only. */
+  model?: string;
 }
 
 export interface ActivityItem {
@@ -140,6 +148,11 @@ export interface Project {
   id: string;
   slug: string;
   name: string;
+  /** The square beside the name. An avatar tone, never a hex in components. */
+  tone: AvatarTone;
+  /** "Created 10 Oct 2026". */
+  createdLabel: string;
+  ownerId: string;
   assetCount: number;
   changed: string;
   renders: RenderKey[];
@@ -166,6 +179,44 @@ export interface Studio {
 }
 
 export type CommentKind = "pin" | "take_a_look";
+
+export type ConnectionId = "blender" | "unreal" | "discord" | "linear" | "substance" | "maya" | "houdini" | "unity" | "godot";
+
+export interface Connection {
+  id: ConnectionId;
+  name: string;
+  /** One line under the name: what was found, or what it does. */
+  line: string;
+  soon: boolean;
+  connected: boolean;
+  /** Found on this computer: the version, for the New project pre-fill. */
+  version?: string;
+}
+
+/** A comment that names the signed-in person. */
+export interface Mention {
+  id: string;
+  authorId: string;
+  on: string;
+  assetSlug: string;
+  partName?: string;
+  when: string;
+  text: string;
+}
+
+export interface TrainingEntry {
+  when: string;
+  text: string;
+}
+
+export interface AskAnswer {
+  answer: string;
+  note: string;
+  link: { label: string; assetSlug: string; partName?: string } | null;
+}
+
+/** What the mock holds for each demo stage of the first run. */
+export type DemoStage = "fresh" | "connected" | "firstAsset" | "populated";
 
 export interface DigestRenderPair {
   assetSlug: string;
@@ -213,6 +264,9 @@ export interface Snapshot {
   templates: Template[];
   digests: Digest[];
   digestIndex: number;
+  connections: Connection[];
+  mentions: Mention[];
+  trainingLog: TrainingEntry[];
   online: number;
   changedToday: number;
   changedThisWeek: number;
@@ -228,15 +282,30 @@ export interface DataSource {
   fixChecks(assetSlug: string, partName: string): { ok: true } | { ok: false; reason: string };
   rollBack(assetSlug: string, partName: string, toVersion: number): Version;
   removeGate(assetSlug: string, partName: string): void;
-  addComment(assetSlug: string, partName: string, text: string): Comment;
+  addComment(assetSlug: string, partName: string, text: string, pos?: [number, number, number]): Comment;
   invite(email: string, role: Role): void;
+  /** The signed-in person's name and email, from the Name screen and Settings, Account. */
+  setMe(name: string, email: string): void;
+  /** Creates the studio at first run: its name and the training setting. */
+  createStudio(name: string, training: Training): void;
+  setStudioName(name: string): void;
+  setTraining(training: Training): Promise<void> | void;
+  createProject(input: { name: string; folder: string; blender: string; unreal: string }): Promise<Project> | Project;
+  renameProject(slug: string, name: string): void;
+  deleteProject(slug: string): void;
+  setMemberRole(personId: string, role: Role): void;
+  removeMember(personId: string): void;
+  /** Connect a tool: installs the add-on or plugin, or the Discord hook. */
+  connect(id: ConnectionId): Promise<void> | void;
+  /** Creates an asset from a template: every part, or one (the default for a prop). */
+  createAsset(projectSlug: string, name: string, template: string, parts: "all" | "one"): Promise<Asset> | Asset;
+  /** Cmd K. One question, one answer with the gate, the owner, the last comment, and a link. */
+  ask(question: string): AskAnswer;
   setDigestIndex(i: number): void;
   setDigestHome(on: boolean): void;
   setTheme(theme: "dark" | "light"): void;
   /** Server only: the project's Discord webhook. Absent on the mock. */
   setDiscordWebhook?(url: string | null): Promise<void>;
-  /** Server only: the studio's training setting. Producers only. */
-  setTraining?(training: Training): Promise<void>;
   /** Server only: the export manifest of one asset as JSON text. */
   exportAsset?(assetSlug: string): Promise<string>;
 }

@@ -4,19 +4,20 @@ import { useCallback, useSyncExternalStore } from "react";
 import { createStore as createVanilla, type StoreApi } from "zustand/vanilla";
 import type { Role } from "@/auth/permissions";
 import { can, type Action } from "@/auth/permissions";
-import { createMockSource } from "@/data/mock";
+import { createMockSource, type MockSource } from "@/data/mock";
 import { writeSession } from "@/data/boot";
 import { agent } from "@/lib/tauri";
-import type { AssetKind, DataSource, Snapshot } from "@/data/types";
+import type { AssetKind, DataSource, DemoStage, Snapshot } from "@/data/types";
 
 export type Theme = "dark" | "light";
 const THEME_KEY = "nkata.theme";
 
+/** Light is primary (docs/app_experience.md). Dark is complete and kept when chosen. */
 export function readStoredTheme(): Theme {
   try {
-    return localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark";
+    return localStorage.getItem(THEME_KEY) === "dark" ? "dark" : "light";
   } catch {
-    return "dark";
+    return "light";
   }
 }
 
@@ -34,19 +35,39 @@ export function applyTheme(theme: Theme): void {
 export interface Toast {
   id: number;
   text: string;
-  /** A state token name, for the dot. */
-  tone: "approved" | "ready" | "failed" | "synced" | "draft" | "locked";
+  /** A state token name, for the check circle. */
+  tone: "approved" | "ready" | "failed" | "synced" | "draft" | "locked" | "muted";
   action?: { label: string; run: () => void };
 }
 
+/** What the full screen reviewer shows: one asset, and one part when opened from the part screen. */
+export interface FullScreen {
+  assetSlug: string;
+  partName?: string;
+}
+
+/** The project tabs. Ready is the Review filter from the activity rail. */
+export type Tab = "All" | AssetKind | "Ready";
+
 interface UiState {
   railOpen: boolean;
-  reviewMode: boolean;
-  tab: "All" | AssetKind;
+  tab: Tab;
   theme: Theme;
   toasts: Toast[];
-  inviteOpen: boolean;
   signedIn: boolean;
+  /** v3 overlays. One at a time; Esc closes any of them. */
+  membersOpen: boolean;
+  askOpen: boolean;
+  deleteProject: string | null;
+  createAssetOpen: boolean;
+  fullScreen: FullScreen | null;
+  /** The project tile that pulses once after a mirror. */
+  pulseAsset: string | null;
+  /** The viewer session: shared by the asset screen, the part screen, and the full screen. */
+  pinning: boolean;
+  pendingPin: [number, number, number] | null;
+  activePin: string | null;
+  draft: string;
 }
 
 interface Store extends UiState {
@@ -56,12 +77,25 @@ interface Store extends UiState {
   can: (action: Action) => boolean;
   refresh: () => void;
   setRail: (open: boolean) => void;
-  setReview: (on: boolean) => void;
-  setTab: (tab: UiState["tab"]) => void;
+  setTab: (tab: Tab) => void;
   setTheme: (theme: Theme) => void;
-  toast: (text: string, tone: Toast["tone"], action?: Toast["action"]) => void;
+  toast: (text: string, tone?: Toast["tone"], action?: Toast["action"]) => void;
   dismissToast: (id: number) => void;
-  setInvite: (open: boolean) => void;
+  setMembers: (open: boolean) => void;
+  setAsk: (open: boolean) => void;
+  setDeleteProject: (slug: string | null) => void;
+  setCreateAsset: (open: boolean) => void;
+  setFullScreen: (full: FullScreen | null) => void;
+  pulse: (assetSlug: string) => void;
+  setPinning: (on: boolean) => void;
+  setPendingPin: (pos: [number, number, number] | null) => void;
+  setActivePin: (id: string | null) => void;
+  setDraft: (text: string) => void;
+  /** Closes every overlay and ends pinning. Esc. */
+  closeAll: () => void;
+  /** Mock only: jump to a demo stage of the first run. */
+  setStage: (stage: DemoStage) => void;
+  stage: () => DemoStage | null;
   signIn: (as: "artist" | "viewer") => void;
   signOut: () => void;
   switchRole: (as: "artist" | "viewer") => void;
@@ -79,12 +113,20 @@ export function createStore(source: DataSource = createMockSource()): StoreApi<S
     db: source.snapshot(),
     role: source.snapshot().session.user.role,
     railOpen: false,
-    reviewMode: false,
     tab: "All",
     theme: readStoredTheme(),
     toasts: [],
-    inviteOpen: false,
     signedIn: false,
+    membersOpen: false,
+    askOpen: false,
+    deleteProject: null,
+    createAssetOpen: false,
+    fullScreen: null,
+    pulseAsset: null,
+    pinning: false,
+    pendingPin: null,
+    activePin: null,
+    draft: "",
     serverMode: false,
     can: (action) => can(action, get().role),
     refresh: () => {
@@ -92,23 +134,40 @@ export function createStore(source: DataSource = createMockSource()): StoreApi<S
       set({ db, role: db.session.user.role });
     },
     setRail: (railOpen) => set({ railOpen }),
-    setReview: (reviewMode) => set({ reviewMode, tab: reviewMode ? "All" : get().tab }),
     setTab: (tab) => set({ tab }),
     setTheme: (theme) => {
       applyTheme(theme);
       get().source.setTheme(theme);
       set({ theme });
     },
-    toast: (text, tone, action) => {
+    toast: (text, tone = "approved", action) => {
       const id = ++toastSeq;
       set({ toasts: [...get().toasts.slice(-2), action ? { id, text, tone, action } : { id, text, tone }] });
-      setTimeout(() => get().dismissToast(id), 3500);
+      setTimeout(() => get().dismissToast(id), 3200);
     },
     dismissToast: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
-    setInvite: (inviteOpen) => set({ inviteOpen }),
+    setMembers: (membersOpen) => set({ membersOpen }),
+    setAsk: (askOpen) => set({ askOpen }),
+    setDeleteProject: (deleteProject) => set({ deleteProject }),
+    setCreateAsset: (createAssetOpen) => set({ createAssetOpen }),
+    setFullScreen: (fullScreen) => set({ fullScreen, pinning: false, pendingPin: null }),
+    pulse: (assetSlug) => {
+      set({ pulseAsset: assetSlug });
+      setTimeout(() => { if (get().pulseAsset === assetSlug) set({ pulseAsset: null }); }, 900);
+    },
+    setPinning: (pinning) => set({ pinning, pendingPin: null }),
+    setPendingPin: (pendingPin) => set({ pendingPin, activePin: null, draft: pendingPin ? "" : get().draft }),
+    setActivePin: (activePin) => set({ activePin }),
+    setDraft: (draft) => set({ draft }),
+    closeAll: () => set({ membersOpen: false, askOpen: false, deleteProject: null, createAssetOpen: false, fullScreen: null, pinning: false, pendingPin: null }),
+    setStage: (stage) => {
+      const src = get().source as Partial<MockSource>;
+      if (src.setStage) { src.setStage(stage); set({ tab: "All", railOpen: false }); get().refresh(); }
+    },
+    stage: () => (get().source as Partial<MockSource>).stage?.() ?? null,
     signIn: (as) => {
       get().source.signIn(as);
-      set({ signedIn: true, railOpen: false, reviewMode: false });
+      set({ signedIn: true, railOpen: false, tab: "All" });
       get().refresh();
     },
     signOut: () => {
@@ -121,7 +180,8 @@ export function createStore(source: DataSource = createMockSource()): StoreApi<S
         unsubscribe = mock.subscribe(() => store.getState().refresh());
         set({ source: mock, db: mock.snapshot(), role: mock.snapshot().session.user.role, serverMode: false });
       }
-      set({ signedIn: false, railOpen: false, reviewMode: false, inviteOpen: false });
+      get().closeAll();
+      set({ signedIn: false, railOpen: false, tab: "All" });
     },
     switchRole: (as) => {
       get().source.signIn(as);
@@ -131,7 +191,7 @@ export function createStore(source: DataSource = createMockSource()): StoreApi<S
       unsubscribe();
       unsubscribe = next.subscribe(() => store.getState().refresh());
       const db = next.snapshot();
-      set({ source: next, db, role: db.session.user.role, signedIn: true, serverMode: true, railOpen: false, reviewMode: false });
+      set({ source: next, db, role: db.session.user.role, signedIn: true, serverMode: true, railOpen: false, tab: "All" });
     },
   }));
   let unsubscribe = source.subscribe(() => store.getState().refresh());

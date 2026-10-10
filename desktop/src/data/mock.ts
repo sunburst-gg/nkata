@@ -1,203 +1,286 @@
-// Rising Sun by Sunburst, in memory. Content from the prototypes. One module behind DataSource.
+// Sunburst, in memory, behind DataSource. Content from handoff/v3/Nkata App v3.dc.html: the
+// studio, two projects, six assets, seven people. Four demo stages of the first run (fresh,
+// connected, firstAsset, populated) reach every state the prototype's Tweaks reach.
 import type { Role } from "@/auth/permissions";
-import type { ActivityItem, Asset, Check, Comment, DataSource, Digest, Part, Person, RenderKey, Snapshot, Studio, Template, Version } from "./types";
+import type { ActivityItem, Asset, AskAnswer, Check, Comment, Connection, ConnectionId, DataSource, DemoStage, Mention, Part, Person, Project, RenderKey, Snapshot, Studio, Template, Training, TrainingEntry, Version } from "./types";
+
+/** The Khronos Duck, bundled. Every mock asset loads it so the viewer works offline. */
+export const SAMPLE_MODEL = "/models/Duck.glb";
 
 const P = {
-  ada: { id: "ada", name: "Ada Okafor", initial: "A", tone: 1, title: "Character artist", role: "artist", email: "ada@sunburst.studio", presence: "online", where: "In Ojukwu / face, Blender", seen: "now" },
-  chidi: { id: "chidi", name: "Chidi Eze", initial: "C", tone: 2, title: "Character artist", role: "artist", email: "chidi@sunburst.studio", presence: "online", where: "In Ojukwu / cloth, Blender", seen: "now" },
-  ngozi: { id: "ngozi", name: "Ngozi Obi", initial: "N", tone: 3, title: "Texture artist", role: "artist", email: "ngozi@sunburst.studio", presence: "online", where: "In Ojukwu / hair, Blender", seen: "now" },
-  emeka: { id: "emeka", name: "Emeka Nwosu", initial: "E", tone: 4, title: "Art director", role: "art_director", email: "emeka@sunburst.studio", presence: "online", where: "Reviewing Compound / interior, UE5", seen: "now" },
-  tobe: { id: "tobe", name: "Tobe Anyanwu", initial: "T", tone: 5, title: "Environment artist", role: "artist", email: "tobe@sunburst.studio", presence: "online", where: "In Enugu Market / stalls, UE5", seen: "now" },
-  emmanuel: { id: "emmanuel", name: "Emmanuel Njoku", initial: "E", tone: 8, title: "Producer", role: "producer", email: "emmanuel@sunburst.studio", presence: "offline", where: "Last on the board", seen: "1 d" },
-  funmi: { id: "funmi", name: "Funmi Adebayo", initial: "F", tone: 2, title: "Publisher", role: "viewer", email: "funmi@lagosinteractive.com", presence: "online", where: "Reading What changed", seen: "now" },
+  emmanuel: { id: "emmanuel", name: "Emmanuel Njoku", initial: "E", tone: 9, title: "Producer", role: "producer", email: "nj@njokuscript.com", presence: "online", where: "On the project view", seen: "now" },
+  ada: { id: "ada", name: "Ada Okafor", initial: "A", tone: 1, title: "Artist", role: "artist", email: "ada@sunburst.studio", presence: "online", where: "In Market stall / model, Blender", seen: "now" },
+  chidi: { id: "chidi", name: "Chidi Eze", initial: "C", tone: 2, title: "Artist", role: "artist", email: "chidi@sunburst.studio", presence: "online", where: "In Ojukwu / cloth, Blender", seen: "now" },
+  ngozi: { id: "ngozi", name: "Ngozi Bello", initial: "N", tone: 6, title: "Artist", role: "artist", email: "ngozi@sunburst.studio", presence: "offline", where: "", seen: "1 d" },
+  emeka: { id: "emeka", name: "Emeka Obi", initial: "E", tone: 4, title: "Art director", role: "art_director", email: "emeka@sunburst.studio", presence: "offline", where: "", seen: "2 h" },
+  tobe: { id: "tobe", name: "Tobe Nwosu", initial: "T", tone: 5, title: "Artist", role: "artist", email: "tobe@sunburst.studio", presence: "online", where: "In Compound / interior, Unreal", seen: "now" },
+  ify: { id: "ify", name: "Ify Umeh", initial: "I", tone: 7, title: "Viewer", role: "viewer", email: "ify@sunburst.studio", presence: "offline", where: "", seen: "3 d" },
 } satisfies Record<string, Person>;
 
 const r = (key: RenderKey, pos = "center") => ({ key, pos });
+const WHEN = ["Today", "Today", "Yesterday", "Mon"];
+const RENDERS: RenderKey[] = ["ground", "courtyard", "tree", "interior"];
 
-function versions(part: string, top: number, notes: Record<number, string>, render: RenderKey, author: string): Version[] {
+function versions(part: string, top: number, author: string): Version[] {
   const out: Version[] = [];
-  for (let n = top; n >= top - 5; n--) {
-    out.push({ id: `${part}-v${n}`, n, note: notes[n] ?? "", render: r(render, `${30 + (top - n) * 8}% 50%`), authorId: author, when: n === top ? "12 min" : n === top - 1 ? "1 h" : `${top - n} h`, mirror: notes[n] === "not mirrored" ? "failed" : "synced" });
+  for (let n = top, i = 0; n >= 1 && i < 4; n--, i++) {
+    out.push({ id: `${part}-v${n}`, n, note: i === 0 ? "current" : "", render: r(RENDERS[i]!), authorId: author, when: WHEN[i]!, mirror: "synced" });
   }
   return out;
 }
 
-const faceChecks: Check[] = [
-  { id: "scale", name: "Scale", detail: "1.0", status: "pass", blocks: false, fixable: false },
-  { id: "naming", name: "Naming", detail: "SM_Ojukwu_Face", status: "pass", blocks: false, fixable: false },
-  { id: "rig", name: "Rig names", detail: "42 bones match the template", status: "pass", blocks: false, fixable: false },
-  { id: "tris", name: "Triangle budget", detail: "48,200 of 30,000. Decimate or split the mesh.", status: "fail", blocks: true, fixable: true, fixedDetail: "28,410 of 30,000" },
-  { id: "tex", name: "Texture size", detail: "3 textures over 2048. Fixed with the budget.", status: "warn", blocks: false, fixable: true, fixedDetail: "All 2048" },
-  { id: "lods", name: "LODs", detail: "3 levels", status: "pass", blocks: false, fixable: false },
-];
+function checks(): Check[] {
+  return [
+    { id: "scale", name: "Scale", detail: "Applied, 1.0", status: "pass", blocks: false, fixable: false },
+    { id: "tris", name: "Triangles", detail: "18,400 of 30,000", status: "pass", blocks: false, fixable: false },
+    { id: "tex", name: "Textures", detail: "1 texture over 2048. Nkata can resize it.", status: "fail", blocks: true, fixable: true, fixedDetail: "Resized to 2048." },
+    { id: "naming", name: "Naming", detail: "market_stall_model", status: "pass", blocks: false, fixable: false },
+  ];
+}
 
-const passChecks = (names: [string, string][]): Check[] => names.map(([name, detail], i) => ({ id: `c${i}`, name, detail, status: "pass", blocks: false, fixable: false }));
-
-const faceComments: Comment[] = [
-  { id: "c1", n: 1, authorId: "emeka", partName: "face", when: "14 min", text: "Steam reads too strong in the key light.", resolved: false, kind: "pin", source: "UE5", pin: { x: 58, y: 30 } },
-  { id: "c2", n: 2, authorId: "emeka", partName: "face", when: "12 min", text: "Shadow under the table is crushed. Approve after fix.", resolved: false, kind: "pin", source: "UE5", pin: { x: 30, y: 58 } },
-];
-
-const part = (name: string, state: Part["state"], ownerId: string, render: Part["render"], extra: Partial<Part> = {}): Part => ({
-  id: `${name}`,
+const part = (name: string, state: Part["state"], ownerId: string, render: RenderKey, extra: Partial<Part> = {}): Part => ({
+  id: name,
   name,
   state,
   ownerId,
-  render,
+  render: r(render),
   lock: null,
   gate: [],
-  versions: [],
-  checks: [],
+  versions: versions(name, 3, ownerId),
+  checks: checks(),
   comments: [],
   mirror: { state: "synced", seconds: 4 },
   refs: [],
   ...extra,
 });
 
-function ojukwuParts(): Part[] {
-  return [
-    part("face", "draft", "ada", r("interior"), { lock: { holderId: "ada", since: "12 min" }, versions: versions("face", 14, { 14: "current", 12: "published", 11: "not mirrored", 9: "published" }, "interior", "ada"), checks: faceChecks.map((c) => ({ ...c })), comments: faceComments.map((c) => ({ ...c })) }),
-    part("cloth", "locked", "chidi", r("courtyard", "60% 30%"), { lock: { holderId: "chidi", since: "4 min" }, versions: versions("cloth", 8, { 8: "current", 6: "published" }, "courtyard", "chidi"), checks: passChecks([["Scale", "1.0"], ["Naming", "SM_Ojukwu_Cloth"], ["Triangle budget", "18,900 of 20,000"]]), comments: [{ id: "c3", n: 3, authorId: "chidi", partName: "cloth", when: "Mon", text: "Collar matches the sheet now.", resolved: true, kind: "pin", source: "Blender" }] }),
-    part("hair", "ready", "ngozi", r("tree", "70% 20%"), { versions: versions("hair", 3, { 3: "current" }, "tree", "ngozi"), checks: passChecks([["Scale", "1.0"], ["Naming", "SM_Ojukwu_Hair"]]) }),
-    part("textures", "waiting", "ngozi", null, { gate: ["face", "cloth", "hair"] }),
-    part("rig", "waiting", "chidi", null, { gate: ["textures"] }),
-    part("lookdev", "waiting", "ada", null, { gate: ["rig"] }),
+const ojukwuComments: Comment[] = [
+  { id: "c1", n: 1, authorId: "emeka", partName: "face", when: "2 h ago", text: "Left eye socket is too deep. Approve after fix.", resolved: false, kind: "pin", source: "Nkata", pos: [-0.65, 0.3, 0.6] },
+  { id: "c2", n: 2, authorId: "ada", partName: "face", when: "3 h ago", text: "Fixed the strap. Take a look when you have a minute.", resolved: false, kind: "take_a_look", source: "Nkata" },
+];
+const stallComments: Comment[] = [
+  { id: "c3", n: 1, authorId: "emeka", partName: "model", when: "2 h ago", text: "Beak reads too clean for a market stall. Add wear.", resolved: false, kind: "pin", source: "Nkata", pos: [-40, 110, 20] },
+];
+
+type AssetSeed = { name: string; kind: Asset["kind"]; state: Asset["state"]; img: RenderKey; who: string[]; when: string; syncIssue?: boolean; parts: Part[]; comments?: Comment[]; meta: string };
+
+function seedAssets(projectSlug: string, stage: DemoStage): Asset[] {
+  const stall: AssetSeed = { name: "Market stall", kind: "Props", state: "draft", img: "ground", who: ["ada"], when: "4 s ago", parts: [part("model", "draft", "ada", "ground", { comments: stallComments.map((c) => ({ ...c })) })], meta: "Prop · 1 part · Ada" };
+  const all: AssetSeed[] = [
+    stall,
+    { name: "Ojukwu", kind: "Characters", state: "ready", img: "courtyard", who: ["ada", "chidi"], when: "12 min ago", meta: "Character · 6 parts · Ada", parts: [
+      part("face", "draft", "ada", "courtyard", { comments: ojukwuComments.map((c) => ({ ...c })) }),
+      part("cloth", "ready", "chidi", "ground"),
+      part("hair", "draft", "ada", "tree"),
+      part("textures", "locked", "ngozi", "interior", { gate: ["face", "cloth", "hair"], versions: [] }),
+      part("rig", "locked", "tobe", "overview", { gate: ["textures"], versions: [] }),
+      part("lookdev", "locked", "ada", "courtyard", { gate: ["rig"], versions: [] }),
+    ] },
+    { name: "Enugu Market", kind: "Levels", state: "approved", img: "overview", who: [], when: "2 h ago", meta: "Level · 1 part · Tobe", parts: [part("square", "approved", "tobe", "overview")] },
+    { name: "Compound", kind: "Levels", state: "draft", img: "interior", who: ["tobe"], when: "3 h ago", syncIssue: true, meta: "Level · 1 part · Tobe", parts: [part("interior", "draft", "tobe", "interior", { mirror: { state: "failed", seconds: 0 } })] },
+    { name: "Kettle", kind: "Props", state: "approved", img: "tree", who: [], when: "Yesterday", meta: "Prop · 1 part · Tobe", parts: [part("model", "approved", "tobe", "tree")] },
+    { name: "Ngozi", kind: "Characters", state: "ready", img: "courtyard", who: ["ngozi"], when: "Yesterday", meta: "Character · 1 part · Ngozi", parts: [part("face", "ready", "ngozi", "courtyard")] },
   ];
+  const picked = stage === "populated" ? all : stage === "firstAsset" ? [stall] : [];
+  return picked.map((a, i) => ({
+    id: slugOf(a.name), slug: slugOf(a.name), projectSlug, name: a.name, kind: a.kind, state: a.state, render: r(a.img), meta: a.meta, ownerId: a.parts[0]?.ownerId ?? "ada",
+    present: a.who, parts: a.parts, template: a.kind === "Characters" ? "Character" : a.kind === "Props" ? "Environment prop" : "Level area", usedIn: [], changedOrder: i, when: a.when, syncIssue: a.syncIssue, model: SAMPLE_MODEL,
+  }));
 }
 
-function levelParts(names: [string, Part["state"], string][], render: RenderKey): Part[] {
-  return names.map(([name, state, owner], i) => part(name, state, owner, state === "waiting" ? null : r(render, `${20 + i * 20}% 40%`), { versions: state === "waiting" ? [] : versions(name, 6 - i, { [6 - i]: "current" }, render, owner), checks: passChecks([["Scale", "1.0"], ["Naming", "ok"]]), gate: state === "waiting" ? [names[i - 1]?.[0] ?? ""] : [] }));
-}
-
-function assets(): Asset[] {
-  return [
-    { id: "ojukwu", slug: "ojukwu", name: "Ojukwu", kind: "Characters", state: "draft", render: r("ground", "60% 40%"), meta: "Character · changed 12 min ago", ownerId: "ada", present: ["ada", "chidi", "ngozi"], parts: ojukwuParts(), template: "Character", usedIn: ["Enugu Market"], changedOrder: 0 },
-    { id: "compound-interior", slug: "compound-interior", name: "Compound / interior", kind: "Levels", state: "ready", render: r("interior"), meta: "Level · marked Ready 14 min ago", ownerId: "ada", present: ["ada"], parts: levelParts([["set dressing", "ready", "ada"], ["lighting", "approved", "emeka"], ["props", "draft", "tobe"]], "interior"), template: "Level area", usedIn: [], changedOrder: 1 },
-    { id: "enugu-market", slug: "enugu-market", name: "Enugu Market", kind: "Levels", state: "ready", render: r("overview"), meta: "Level · changed 1 h ago", ownerId: "tobe", present: ["tobe", "emeka"], parts: levelParts([["square", "approved", "tobe"], ["stalls", "ready", "tobe"], ["lighting", "waiting", "emeka"]], "overview"), template: "Level area", usedIn: [], changedOrder: 2 },
-    { id: "compound", slug: "compound", name: "Compound", kind: "Levels", state: "approved", render: r("courtyard"), meta: "Level · approved yesterday", ownerId: "tobe", present: [], parts: levelParts([["blockout", "approved", "tobe"], ["set dressing", "approved", "tobe"], ["lighting", "approved", "emeka"]], "courtyard"), template: "Level area", usedIn: [], changedOrder: 3 },
-    { id: "clay-oven", slug: "clay-oven", name: "Clay oven", kind: "Props", state: "approved", render: r("tree", "20% 10%"), meta: "Prop · approved Monday", ownerId: "tobe", present: [], parts: levelParts([["model", "approved", "tobe"], ["textures", "approved", "ngozi"]], "tree"), template: "Environment prop", usedIn: ["Compound"], changedOrder: 5 },
-    { id: "zinc-roof-house", slug: "zinc-roof-house", name: "Zinc roof house", kind: "Props", state: "locked", render: r("courtyard", "80% 20%"), meta: "Prop · Chidi has it", ownerId: "chidi", present: ["chidi"], parts: levelParts([["model", "locked", "chidi"], ["textures", "waiting", "ngozi"]], "courtyard"), template: "Environment prop", usedIn: ["Compound"], changedOrder: 6 },
-    { id: "market-stall", slug: "market-stall", name: "Market stall", kind: "Props", state: "ready", render: r("overview", "30% 70%"), meta: "Prop · marked Ready 3 h ago", ownerId: "tobe", present: ["tobe"], parts: levelParts([["model", "ready", "tobe"], ["textures", "draft", "ngozi"]], "overview"), template: "Environment prop", usedIn: ["Enugu Market"], changedOrder: 7 },
-    { id: "kettle", slug: "kettle", name: "Kettle", kind: "Props", state: "draft", render: null, noRenderText: "concept · model · uvs", meta: "Prop · changed 1 h ago", ownerId: "tobe", present: [], parts: [part("concept", "approved", "tobe", null, { versions: versions("concept", 2, { 2: "current" }, "tree", "tobe") }), part("model", "draft", "tobe", null, { versions: versions("model", 4, { 4: "current" }, "tree", "tobe") }), part("uvs", "waiting", "tobe", null, { gate: ["model"] })], template: "Environment prop", usedIn: [], changedOrder: 4 },
-  ];
+export function slugOf(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
 const ACTIVITY: ActivityItem[] = [
-  { id: "a1", personId: "ada", text: "saved v14. In Unreal.", target: "Ojukwu / face", when: "12 min", dot: "synced", assetSlug: "ojukwu", partName: "face" },
-  { id: "a2", personId: "ada", text: "marked Ready.", target: "Compound / interior", when: "14 min", dot: "ready", assetSlug: "compound-interior" },
-  { id: "a3", personId: "emeka", text: "pinned 2 comments.", target: "Ojukwu / face", when: "14 min", dot: "muted", assetSlug: "ojukwu", partName: "face" },
-  { id: "a4", personId: "ada", text: "hit the triangle budget.", target: "Ojukwu / face", when: "20 min", dot: "failed", assetSlug: "ojukwu", partName: "face" },
-  { id: "a5", personId: "tobe", text: "published v22.", target: "Enugu Market / square", when: "1 h", dot: "approved", assetSlug: "enugu-market" },
-  { id: "a6", personId: "tobe", text: "saved v4.", target: "Kettle / model", when: "1 h", dot: "synced", assetSlug: "kettle", partName: "model" },
-  { id: "a7", personId: "emeka", text: "approved. Locked.", target: "Compound / lighting", when: "2 h", dot: "approved", assetSlug: "compound" },
-  { id: "a8", personId: "chidi", text: "opened. Lock started.", target: "Zinc roof house / model", when: "2 h", dot: "locked", assetSlug: "zinc-roof-house" },
-  { id: "a9", personId: "ngozi", text: "marked Ready.", target: "Ojukwu / hair", when: "1 d", dot: "ready", assetSlug: "ojukwu", partName: "hair" },
-  { id: "a10", personId: "tobe", text: "marked Ready.", target: "Market stall / model", when: "3 h", dot: "ready", assetSlug: "market-stall" },
+  { id: "a1", personId: "ada", text: "published Market stall / model, v3", target: "Market stall / model", when: "4 s ago", dot: "synced", assetSlug: "market-stall", partName: "model" },
+  { id: "a2", personId: "emeka", text: "approved Enugu Market / square", target: "Enugu Market / square", when: "2 h ago", dot: "approved", assetSlug: "enugu-market", partName: "square" },
+  { id: "a3", personId: "chidi", text: "marked Ojukwu / cloth Ready", target: "Ojukwu / cloth", when: "3 h ago", dot: "ready", assetSlug: "ojukwu", partName: "cloth" },
+  { id: "a4", personId: "tobe", text: "opened Compound / interior", target: "Compound / interior", when: "3 h ago", dot: "muted", assetSlug: "compound", partName: "interior" },
+  { id: "a5", personId: "ngozi", text: "left a comment on Ojukwu / face", target: "Ojukwu / face", when: "Yesterday", dot: "muted", assetSlug: "ojukwu", partName: "face" },
+];
+
+const MENTIONS: Mention[] = [
+  { id: "m1", authorId: "emeka", on: "Ojukwu / face", assetSlug: "ojukwu", partName: "face", when: "2 h ago", text: "Emmanuel, can you remove the gate on textures so Ngozi can start?" },
+  { id: "m2", authorId: "ada", on: "Market stall / model", assetSlug: "market-stall", partName: "model", when: "Yesterday", text: "Emmanuel, the folder moved. Is the path still right?" },
 ];
 
 const TEMPLATES: Template[] = [
-  { id: "character", name: "Character", usedBy: 4, tools: "Blender 4.2 · Unreal 5.4 · FBX, 3 LODs, 2048", parts: [
-    { id: "t1", name: "face", gate: [], checks: ["Scale", "Naming", "Tris 30k", "Rig names"], refs: 3 },
-    { id: "t2", name: "cloth", gate: [], checks: ["Scale", "Naming", "Tris 20k"], refs: 2 },
-    { id: "t3", name: "hair", gate: [], checks: ["Scale", "Naming", "Tris 10k"], refs: 2 },
-    { id: "t4", name: "textures", gate: ["face", "cloth", "hair"], checks: ["Size 2048", "Naming"], refs: 1 },
-    { id: "t5", name: "rig", gate: ["textures"], checks: ["Rig names", "Scale"], refs: 0 },
-    { id: "t6", name: "lookdev", gate: ["rig"], checks: ["LODs 3", "Collision"], refs: 1 },
+  { id: "character", name: "Character", usedBy: 2, tools: "Blender · Unreal · skeletal mesh", parts: [
+    { id: "t1", name: "face", gate: [], checks: ["Scale", "Naming", "Triangles"], refs: 0 }, { id: "t2", name: "cloth", gate: [], checks: ["Scale", "Naming"], refs: 0 }, { id: "t3", name: "hair", gate: [], checks: ["Scale", "Naming"], refs: 0 },
+    { id: "t4", name: "textures", gate: ["face", "cloth", "hair"], checks: ["Texture size"], refs: 0 }, { id: "t5", name: "rig", gate: ["textures"], checks: ["Rig names"], refs: 0 }, { id: "t6", name: "lookdev", gate: ["rig"], checks: [], refs: 0 },
   ] },
-  { id: "prop", name: "Environment prop", usedBy: 4, tools: "Blender 4.2 · Unreal 5.4 · glTF, 3 LODs, 2048", parts: [
-    { id: "p1", name: "concept", gate: [], checks: ["Size 2048"], refs: 2 }, { id: "p2", name: "model", gate: [], checks: ["Scale", "Naming", "Tris 15k", "Pivot at base"], refs: 2 }, { id: "p3", name: "uvs", gate: ["model"], checks: ["UV set", "Naming"], refs: 0 }, { id: "p4", name: "textures", gate: ["uvs"], checks: ["Size 2048", "Naming"], refs: 1 }, { id: "p5", name: "lods", gate: ["textures"], checks: ["LODs 3"], refs: 0 }, { id: "p6", name: "collision", gate: ["model"], checks: ["Collision"], refs: 0 },
+  { id: "prop", name: "Environment prop", usedBy: 2, tools: "Blender · Unreal · static mesh", parts: [
+    { id: "p1", name: "concept", gate: [], checks: [], refs: 0 }, { id: "p2", name: "model", gate: [], checks: ["Scale", "Naming", "Triangles", "Pivot at base"], refs: 0 }, { id: "p3", name: "uvs", gate: [], checks: ["UV set"], refs: 0 },
+    { id: "p4", name: "textures", gate: [], checks: ["Texture size"], refs: 0 }, { id: "p5", name: "lods", gate: [], checks: ["LODs"], refs: 0 }, { id: "p6", name: "collision", gate: [], checks: ["Collision"], refs: 0 },
   ] },
-  { id: "level", name: "Level area", usedBy: 3, tools: "Unreal 5.4 · One File Per Actor", parts: [
-    { id: "l1", name: "blockout", gate: [], checks: ["Scale"], refs: 2 }, { id: "l2", name: "layout", gate: ["blockout"], checks: ["Naming"], refs: 1 }, { id: "l3", name: "set dressing", gate: ["layout"], checks: ["Naming"], refs: 1 }, { id: "l4", name: "lighting", gate: ["set dressing"], checks: [], refs: 1 },
+  { id: "level", name: "Level area", usedBy: 2, tools: "Unreal · One File Per Actor", parts: [
+    { id: "l1", name: "blockout", gate: [], checks: ["Scale"], refs: 0 }, { id: "l2", name: "layout", gate: [], checks: ["Naming"], refs: 0 }, { id: "l3", name: "set_dressing", gate: [], checks: ["Naming"], refs: 0 }, { id: "l4", name: "lighting", gate: [], checks: [], refs: 0 },
   ] },
 ];
 
-const DIGESTS: Digest[] = [
-  {
-    weekLabel: "Week of 28 September", changed: 14, moved: 3, notes: 9, hasPrevious: true, hasNext: false,
-    renderPairs: [
-      { assetSlug: "ojukwu", name: "Ojukwu", note: "face v9 to v14 · Ada", before: r("courtyard"), after: r("ground"), beforeLabel: "Last week · v9", afterLabel: "This week · v14" },
-      { assetSlug: "compound-interior", name: "Compound / interior", note: "v3 to v6 · Ada", before: r("tree"), after: r("interior"), beforeLabel: "Last week · v3", afterLabel: "This week · v6" },
-    ],
-    moves: [
-      { assetSlug: "compound-interior", name: "Compound / interior", from: "draft", to: "ready", when: "Wed", render: r("interior") },
-      { assetSlug: "compound", name: "Compound / lighting", from: "ready", to: "approved", when: "Tue", render: r("overview") },
-      { assetSlug: "ojukwu", name: "Ojukwu / hair", from: "draft", to: "ready", when: "Mon", render: r("tree") },
-      { assetSlug: "enugu-market", name: "Enugu Market / square", from: "ready", to: "approved", when: "Mon", render: r("courtyard") },
-    ],
-    weekNotes: [
-      { personId: "emeka", on: "Ojukwu / face", when: "Thu", text: "Shadow under the table is crushed. Approve after fix." },
-      { personId: "tobe", on: "Kettle / model", when: "Wed", text: "Spout reads too thin from the gate. Thicker in v4." },
-      { personId: "chidi", on: "Ojukwu / cloth", when: "Tue", text: "Collar matches the sheet now." },
-      { personId: "funmi", on: "Enugu Market", when: "Mon", text: "The market reads busy from the gate. Keep that." },
-    ],
-  },
-  {
-    weekLabel: "Week of 21 September", changed: 9, moved: 2, notes: 4, hasPrevious: false, hasNext: true,
-    renderPairs: [{ assetSlug: "enugu-market", name: "Enugu Market", note: "square v18 to v22 · Tobe", before: r("overview", "20% 50%"), after: r("overview"), beforeLabel: "Two weeks ago · v18", afterLabel: "Last week · v22" }],
-    moves: [
-      { assetSlug: "clay-oven", name: "Clay oven / model", from: "ready", to: "approved", when: "Mon", render: r("tree") },
-      { assetSlug: "compound", name: "Compound / blockout", from: "ready", to: "approved", when: "Thu", render: r("courtyard") },
-    ],
-    weekNotes: [
-      { personId: "emeka", on: "Compound / lighting", when: "Fri", text: "Dusk pass reads right. Keep the warm key." },
-      { personId: "tobe", on: "Enugu Market / stalls", when: "Wed", text: "Stall roofs need the zinc material from the house." },
-    ],
-  },
+const CONNECTION_DEFS: { id: ConnectionId; name: string; soon: boolean; version?: string; found: string; connected: string }[] = [
+  { id: "blender", name: "Blender", soon: false, version: "5.1.2", found: "Blender 5.1.2 is on this computer. Connect adds the Nkata panel.", connected: "Blender 5.1.2. The Nkata panel is in the sidebar, press N." },
+  { id: "unreal", name: "Unreal Engine", soon: false, version: "5.8.1", found: "Unreal 5.8.1 is on this computer. Connect adds the Nkata tab to your project.", connected: "Unreal 5.8.1. The Nkata tab is in the editor." },
+  { id: "discord", name: "Discord", soon: false, found: "A message when a part is sent back or approved. A recap every evening.", connected: "A message when a part is sent back or approved. A recap every evening." },
+  { id: "linear", name: "Linear", soon: true, found: "Turn a pinned comment into an issue.", connected: "" },
+  { id: "substance", name: "Substance", soon: true, found: "Textures and materials.", connected: "" },
+  { id: "maya", name: "Maya", soon: true, found: "Modeling and rigging.", connected: "" },
+  { id: "houdini", name: "Houdini", soon: true, found: "Procedural assets.", connected: "" },
+  { id: "unity", name: "Unity", soon: true, found: "A second engine.", connected: "" },
+  { id: "godot", name: "Godot", soon: true, found: "A second engine.", connected: "" },
 ];
 
-const STUDIO: Studio = {
-  id: "sunburst", name: "Sunburst", initial: "S", peopleCount: 7, training: "off", billing: { line: "Billed per seat", seats: 7 },
-  projects: [
-    { id: "rising-sun", slug: "rising-sun", name: "Rising Sun", assetCount: 8, changed: "changed 12 min ago", renders: ["ground", "overview", "interior"], present: ["ada", "chidi", "ngozi", "emeka"], folder: "~/Projects/Rising Sun", blender: "4.2.3 LTS", unreal: "5.4.4", inviteLink: "nkata.app/join/rising-sun-7f3a", sizeLabel: "3.4 GB" },
-    { id: "greybox", slug: "greybox-tests", name: "Greybox tests", assetCount: 3, changed: "changed Tuesday", renders: ["courtyard"], present: [], folder: "~/Projects/Greybox", blender: "4.2.3 LTS", unreal: "5.4.4", inviteLink: "nkata.app/join/greybox-2c1d", sizeLabel: "420 MB" },
-  ],
-};
+function project(name: string, tone: Project["tone"], assetCount: number): Project {
+  return { id: slugOf(name), slug: slugOf(name), name, tone, createdLabel: "Created 10 Oct 2026", ownerId: "emmanuel", assetCount, changed: "", renders: [], present: [], folder: `~/Documents/Nkata/${name}`, blender: "5.1.2", unreal: "5.8.1", inviteLink: `nkata://join/${slugOf(name)}`, sizeLabel: "" };
+}
 
-export function createMockSource(initialRole: "artist" | "viewer" = "artist"): DataSource {
+export interface MockOptions {
+  stage?: DemoStage;
+  role?: "artist" | "viewer";
+}
+
+export interface MockSource extends DataSource {
+  /** Jumps to a demo stage of the first run. The screens re-read everything. */
+  setStage(stage: DemoStage): void;
+  stage(): DemoStage;
+}
+
+export function createMockSource(initial: MockOptions | "artist" | "viewer" = {}): MockSource {
+  const opts: MockOptions = typeof initial === "string" ? { role: initial } : initial;
   const listeners = new Set<() => void>();
+  let stage: DemoStage = opts.stage ?? "fresh";
   let people: Person[] = Object.values(P).map((p) => ({ ...p }));
-  let assetList = assets();
-  let activity = [...ACTIVITY];
-  let digestIndex = 0;
-  let session: Snapshot["session"] = { user: people.find((p) => p.id === (initialRole === "viewer" ? "funmi" : "ada"))!, studio: STUDIO, theme: "dark", digestHome: true };
+  let projects: Project[] = [];
+  let assetList: Asset[] = [];
+  let activity: ActivityItem[] = [];
+  let mentions: Mention[] = [];
+  let connected: Record<ConnectionId, boolean> = { blender: false, unreal: false, discord: false, linear: false, substance: false, maya: false, houdini: false, unity: false, godot: false };
+  let training: Training = "on";
+  let trainingLog: TrainingEntry[] = [{ when: "10 Oct 2026", text: "Training on. Studio created by Emmanuel Njoku" }];
+  let studioName = "Sunburst";
+  let me: Person = people.find((p) => p.id === (opts.role === "viewer" ? "ify" : "emmanuel"))!;
+  let theme: "dark" | "light" = "light";
   let nextComment = 10;
+  let nextActivity = 100;
 
   const emit = () => listeners.forEach((fn) => fn());
+
+  function applyStage(next: DemoStage): void {
+    stage = next;
+    const populated = next === "populated";
+    projects = next === "fresh" ? [] : populated ? [project("NkataTest", 5, 1), project("Rising Sun", 4, 6)] : [project("NkataTest", 5, next === "firstAsset" ? 1 : 0)];
+    const test = slugOf("NkataTest");
+    assetList = populated ? [...seedAssets(test, "firstAsset"), ...seedAssets(slugOf("Rising Sun"), "populated")] : seedAssets(test, next);
+    connected = { ...connected, blender: next !== "fresh", unreal: next !== "fresh", discord: populated };
+    activity = populated || next === "firstAsset" ? ACTIVITY.map((a) => ({ ...a })) : [];
+    mentions = populated ? MENTIONS.map((m) => ({ ...m })) : [];
+    people = Object.values(P).filter((p) => populated || !["tobe", "ify"].includes(p.id)).map((p) => ({ ...p }));
+    me = people.find((p) => p.id === me.id) ?? people[0]!;
+  }
+  applyStage(stage);
+
+  const studio = (): Studio => ({
+    id: "sunburst", name: studioName, initial: (studioName || "S").charAt(0).toUpperCase(), peopleCount: people.length, projects,
+    training, billing: { line: training === "on" ? "Nothing to pay" : "Billed per seat", seats: people.length },
+  });
+  const connections = (): Connection[] => CONNECTION_DEFS.map((c) => ({ id: c.id, name: c.name, soon: c.soon, connected: connected[c.id], version: c.version, line: connected[c.id] ? c.connected : c.found }));
   const findPart = (assetSlug: string, partName: string) => {
     const a = assetList.find((x) => x.slug === assetSlug);
     const p = a?.parts.find((x) => x.name === partName);
     if (!a || !p) throw new Error(`no part ${assetSlug}/${partName}`);
     return { a, p };
   };
-  const touch = () => {
-    assetList = [...assetList];
-    emit();
+  const touch = () => { assetList = [...assetList]; emit(); };
+  const log = (text: string, target: string, dot: ActivityItem["dot"], assetSlug: string, partName?: string) => {
+    activity = [{ id: `act-${nextActivity++}`, personId: me.id, text, target, when: "Just now", dot, assetSlug, partName }, ...activity];
   };
+  const countAssets = () => { projects = projects.map((p) => ({ ...p, assetCount: assetList.filter((a) => a.projectSlug === p.slug).length })); };
 
   return {
-    snapshot: () => ({ session, people, assets: assetList, activity, templates: TEMPLATES, digests: DIGESTS, digestIndex, online: people.filter((p) => p.presence === "online" && p.role !== "viewer").length, changedToday: 14, changedThisWeek: 14 }),
+    stage: () => stage,
+    setStage: (next) => { applyStage(next); emit(); },
+    snapshot: (): Snapshot => ({
+      session: { user: me, studio: studio(), theme, digestHome: false },
+      people, assets: assetList, activity, templates: TEMPLATES, digests: [], digestIndex: 0, connections: connections(), mentions, trainingLog,
+      online: people.filter((p) => p.presence === "online" && p.role !== "viewer").length, changedToday: stage === "populated" ? 12 : assetList.length, changedThisWeek: stage === "populated" ? 12 : assetList.length,
+    }),
     subscribe: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
-    signIn: (as) => { session = { ...session, user: people.find((p) => p.id === (as === "viewer" ? "funmi" : "ada"))! }; emit(); },
+    signIn: (as) => { me = people.find((p) => p.id === (as === "viewer" ? "ify" : "emmanuel")) ?? me; emit(); },
     signOut: () => emit(),
+    setMe: (name, email) => {
+      const next = { ...me, name: name.trim() || me.name, initial: (name.trim() || me.name).charAt(0).toUpperCase(), email: email.trim() || me.email };
+      people = people.map((p) => (p.id === me.id ? next : p));
+      me = next;
+      emit();
+    },
+    createStudio: (name, t) => {
+      studioName = name.trim() || "Sunburst";
+      training = t;
+      trainingLog = [{ when: "10 Oct 2026", text: `Training ${t}. Studio created by ${me.name}` }];
+      emit();
+    },
+    setStudioName: (name) => { studioName = name; emit(); },
+    setTraining: (t) => {
+      if (t === training) return;
+      training = t;
+      trainingLog = [{ when: "10 Oct 2026", text: `${t === "on" ? "Training on. Billing stopped. " : "Training off. Billing starts 1 Nov. "}${me.name}` }, ...trainingLog];
+      emit();
+    },
+    createProject: ({ name, folder, blender, unreal }) => {
+      const made: Project = { ...project(name.trim() || "NkataTest", 5, 0), folder: folder || `~/Documents/Nkata/${name.trim() || "NkataTest"}`, blender, unreal };
+      projects = [...projects, made];
+      emit();
+      return made;
+    },
+    renameProject: (slug, name) => { projects = projects.map((p) => (p.slug === slug ? { ...p, name } : p)); emit(); },
+    deleteProject: (slug) => {
+      projects = projects.filter((p) => p.slug !== slug);
+      assetList = assetList.filter((a) => a.projectSlug !== slug);
+      emit();
+    },
+    createAsset: (projectSlug, name, template, parts) => {
+      const tpl = TEMPLATES.find((t) => t.name === template) ?? TEMPLATES[1]!;
+      const kind: Asset["kind"] = tpl.id === "character" ? "Characters" : tpl.id === "level" ? "Levels" : "Props";
+      const chosen = parts === "one" ? [tpl.parts.find((p) => p.name === "model") ?? tpl.parts[0]!] : tpl.parts;
+      const made: Asset = {
+        id: slugOf(name), slug: slugOf(name), projectSlug, name, kind, state: "draft", render: null, noRenderText: chosen.map((p) => p.name).join(" · "), meta: `${kind.replace(/s$/, "")} · ${chosen.length} part${chosen.length > 1 ? "s" : ""} · ${me.name.split(" ")[0]}`,
+        ownerId: me.id, present: [], template: tpl.name, usedIn: [], changedOrder: 0, when: "Just now",
+        parts: chosen.map((tp) => ({ id: tp.name, name: tp.name, state: tp.gate.some((g) => chosen.some((c) => c.name === g)) ? "waiting" : "draft", ownerId: me.id, render: null, lock: null, gate: tp.gate.filter((g) => chosen.some((c) => c.name === g)), versions: [], checks: [], comments: [], mirror: { state: "offline", seconds: 0 }, refs: [] })),
+      };
+      assetList = [made, ...assetList];
+      countAssets();
+      log(`created ${name}`, name, "draft", made.slug);
+      emit();
+      // The first save in Blender: a version, a render, and the mirror into Unreal.
+      setTimeout(() => {
+        const first = made.parts[0];
+        if (!first) return;
+        first.versions = [{ id: `${first.name}-v1`, n: 1, note: "current", render: r("ground"), authorId: me.id, when: "Just now", mirror: "synced" }];
+        first.mirror = { state: "synced", seconds: 4 };
+        first.checks = checks().map((c) => ({ ...c, status: "pass", blocks: false, detail: c.fixedDetail ?? c.detail }));
+        made.render = r("ground");
+        made.model = SAMPLE_MODEL;
+        made.when = "4 s ago";
+        made.present = [me.id];
+        log(`published ${name} / ${first.name}, v1`, `${name} / ${first.name}`, "synced", made.slug, first.name);
+        touch();
+      }, 1200);
+      return made;
+    },
     markReady: (assetSlug, partName) => {
       const { a, p } = findPart(assetSlug, partName);
       const blocking = p.checks.filter((c) => c.status === "fail" && c.blocks).length;
       if (blocking > 0) return { ok: false, reason: `${blocking} check${blocking > 1 ? "s" : ""} block${blocking > 1 ? "" : "s"}. Fix ${blocking > 1 ? "them" : "it"}, then mark Ready.` };
       p.state = "ready";
-      p.lock = null;
-      p.mirror = { state: "syncing", seconds: 2 };
-      if (a.parts.every((x) => x.state === "ready" || x.state === "approved" || x.state === "waiting")) a.state = "ready";
-      activity = [{ id: `act-${Date.now()}`, personId: session.user.id, text: "marked Ready.", target: `${a.name} / ${p.name}`, when: "now", dot: "ready", assetSlug, partName }, ...activity];
-      setTimeout(() => { p.mirror = { state: "synced", seconds: 4 }; touch(); }, 1800);
+      if (a.parts.every((x) => x.state === "ready" || x.state === "approved")) a.state = "ready";
+      log(`marked ${a.name} / ${p.name} Ready`, `${a.name} / ${p.name}`, "ready", assetSlug, partName);
       touch();
       return { ok: true };
     },
     fixChecks: (assetSlug, partName) => {
       const { p } = findPart(assetSlug, partName);
       for (const c of p.checks) if (c.fixable && c.status !== "pass") { c.status = "pass"; c.detail = c.fixedDetail ?? c.detail; c.blocks = false; }
-      p.mirror = { state: "syncing", seconds: 2 };
-      setTimeout(() => { p.mirror = { state: "synced", seconds: 4 }; touch(); }, 1800);
       touch();
       return { ok: true };
     },
@@ -206,35 +289,46 @@ export function createMockSource(initialRole: "artist" | "viewer" = "artist"): D
       const from = p.versions.find((v) => v.n === toVersion);
       if (!from) throw new Error(`no version v${toVersion}`);
       const top = p.versions[0]?.n ?? 0;
-      const made: Version = { id: `${partName}-v${top + 1}`, n: top + 1, note: "current", render: from.render, authorId: session.user.id, when: "now", mirror: "synced", from: toVersion };
+      const made: Version = { id: `${partName}-v${top + 1}`, n: top + 1, note: "current", render: from.render, authorId: me.id, when: "Just now", mirror: "synced", from: toVersion };
       p.versions = [made, ...p.versions.map((v) => ({ ...v, note: v.note === "current" ? "" : v.note }))];
-      p.mirror = { state: "syncing", seconds: 2 };
-      setTimeout(() => { p.mirror = { state: "synced", seconds: 4 }; touch(); }, 1800);
       touch();
       return made;
     },
     removeGate: (assetSlug, partName) => {
       const { a, p } = findPart(assetSlug, partName);
       p.gate = [];
-      if (p.state === "waiting") p.state = "draft";
-      if (!p.versions.length) p.versions = [{ id: `${partName}-v0`, n: 0, note: "gate removed", render: a.render ?? r("ground"), authorId: p.ownerId, when: "now", mirror: "synced" }];
-      activity = [{ id: `act-${Date.now()}`, personId: session.user.id, text: `removed the gate on ${p.name}.`, target: `${a.name} / ${p.name}`, when: "now", dot: "draft", assetSlug, partName }, ...activity];
+      if (p.state === "locked" || p.state === "waiting") p.state = "draft";
+      log(`removed the gate on ${a.name} / ${p.name}`, `${a.name} / ${p.name}`, "draft", assetSlug, partName);
       touch();
     },
-    addComment: (assetSlug, partName, text) => {
+    addComment: (assetSlug, partName, text, pos) => {
       const { a, p } = findPart(assetSlug, partName);
       const n = Math.max(0, ...a.parts.flatMap((x) => x.comments.map((c) => c.n))) + 1;
-      const c: Comment = { id: `c${nextComment++}`, n, authorId: session.user.id, partName, when: "now", text, resolved: false, kind: "pin", source: "Nkata" };
+      const c: Comment = { id: `c${nextComment++}`, n, authorId: me.id, partName, when: "Just now", text, resolved: false, kind: "pin", source: "Nkata", ...(pos ? { pos } : {}) };
       p.comments = [...p.comments, c];
       touch();
       return c;
     },
-    invite: (email: string, role: Role) => {
-      activity = [{ id: `act-${Date.now()}`, personId: session.user.id, text: `invited ${email} as ${role === "art_director" ? "an art director" : role === "artist" ? "an artist" : `a ${role}`}.`, target: "Rising Sun", when: "now", dot: "muted", assetSlug: "" }, ...activity];
+    invite: (email, role) => {
+      const name = email.split("@")[0] ?? email;
+      people = [...people, { id: `invite-${people.length}`, name: email, initial: name.charAt(0).toUpperCase(), tone: 2, title: "Invite sent", role, email: "Invite sent", presence: "offline", where: "", seen: "" }];
       emit();
     },
-    setDigestIndex: (i) => { digestIndex = Math.max(0, Math.min(DIGESTS.length - 1, i)); emit(); },
-    setDigestHome: (on) => { session = { ...session, digestHome: on }; emit(); },
-    setTheme: (theme) => { session = { ...session, theme }; emit(); },
+    setMemberRole: (personId, role) => { people = people.map((p) => (p.id === personId ? { ...p, role, title: role === "art_director" ? "Art director" : role.charAt(0).toUpperCase() + role.slice(1) } : p)); emit(); },
+    removeMember: (personId) => { people = people.filter((p) => p.id !== personId); emit(); },
+    connect: (id) => { connected = { ...connected, [id]: true }; emit(); },
+    ask: (question): AskAnswer => {
+      const q = question.toLowerCase();
+      const ojukwu = assetList.find((a) => a.slug === "ojukwu");
+      if (ojukwu && (q.includes("ojukwu") || q.includes("block"))) {
+        return { answer: "Ojukwu is waiting on face. Ada owns it, Draft since Tuesday. The gate to textures opens when face is Approved.", note: 'Last comment, Emeka, 2 h ago: "Shadow under the table is crushed. Approve after fix."', link: { label: "Open Ojukwu / face", assetSlug: "ojukwu", partName: "face" } };
+      }
+      const ready = assetList.filter((a) => a.state === "ready");
+      if (ready.length) return { answer: `${ready.length} asset${ready.length > 1 ? "s are" : " is"} Ready for review: ${ready.map((a) => a.name).join(", ")}.`, note: "Open the activity rail and press Review to see them.", link: { label: `Open ${ready[0]!.name}`, assetSlug: ready[0]!.slug } };
+      return { answer: "Nothing is blocked. Save a part in Blender and ask again.", note: "", link: null };
+    },
+    setDigestIndex: () => undefined,
+    setDigestHome: () => undefined,
+    setTheme: (t) => { theme = t; emit(); },
   };
 }

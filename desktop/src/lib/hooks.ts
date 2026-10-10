@@ -4,13 +4,15 @@ import type { Asset, Part, Person, Project } from "@/data/types";
 
 export function usePeople() {
   const people = useStore((s) => s.db.people);
-  return { people, by: (id: string): Person => people.find((p) => p.id === id) ?? people[0]! };
+  const me = useStore((s) => s.db.session.user);
+  return { people, by: (id: string): Person => people.find((p) => p.id === id) ?? (id === me.id ? me : people[0] ?? me) };
 }
 
-export function useProject(): Project {
+/** The project in the URL, or the first one. Undefined before any project exists. */
+export function useProject(): Project | undefined {
   const { project } = useParams();
   const studio = useStore((s) => s.db.session.studio);
-  return studio.projects.find((p) => p.slug === project) ?? studio.projects[0]!;
+  return studio.projects.find((p) => p.slug === project) ?? studio.projects[0];
 }
 
 export function useAsset(): Asset | undefined {
@@ -26,21 +28,28 @@ export function usePart(): { asset: Asset; part: Part } | undefined {
   return asset && p ? { asset, part: p } : undefined;
 }
 
+export type SettingsTab = "account" | "general" | "members" | "billing" | "training" | "connections" | "mcp" | "agents";
+
 export function useGo() {
   const navigate = useNavigate();
-  const project = useStore((s) => s.db.session.studio.projects[0]!.slug);
+  const first = useStore((s) => s.db.session.studio.projects[0]?.slug ?? "");
   return {
-    home: () => navigate("/home"),
     signin: () => navigate("/signin"),
-    profile: () => navigate("/profile"),
-    project: (slug = project) => navigate(`/p/${slug}`),
-    asset: (slug: string, p = project) => navigate(`/p/${p}/a/${slug}`),
-    part: (asset: string, part: string, p = project) => navigate(`/p/${p}/a/${asset}/${part}`),
-    changes: (p = project) => navigate(`/p/${p}/changes`),
-    people: (p = project) => navigate(`/p/${p}/people`),
-    templates: (p = project) => navigate(`/p/${p}/templates`),
-    settings: (p = project) => navigate(`/p/${p}/settings`),
-    create: (step = 1) => navigate(`/new/${step}`),
+    name: () => navigate("/name"),
+    studio: () => navigate("/studio"),
+    welcome: () => navigate("/welcome"),
+    newProject: () => navigate("/new"),
+    project: (slug = first) => navigate(`/p/${slug}`),
+    asset: (slug: string, p = first) => navigate(`/p/${p}/a/${slug}`),
+    part: (asset: string, part: string, p = first) => navigate(`/p/${p}/a/${asset}/${part}`),
+    connections: () => navigate("/connections"),
+    mentions: () => navigate("/mentions"),
+    settings: (tab: SettingsTab = "account") => navigate(`/settings/${tab}`),
     to: (path: string) => navigate(path),
   };
+}
+
+/** The first word of a name: "Ada" from "Ada Okafor". */
+export function firstName(name: string): string {
+  return name.split(" ")[0] ?? name;
 }

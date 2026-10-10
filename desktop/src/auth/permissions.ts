@@ -1,6 +1,9 @@
 // Every role check in the app goes through can(). Components never read the role directly.
-// A viewer sees everything and comments. What a viewer cannot do is not in the DOM.
-// Roles follow shared/schemas/common.schema.json (docs/product.md, Roles and permissions).
+// A viewer sees everything, orbits, comments, and downloads images. What a viewer cannot do is
+// not in the DOM. Roles follow shared/schemas/common.schema.json (docs/product.md, Roles).
+// Producer: everything. Art director: review, approve, send back, gates, plus an artist's work.
+// Artist: publish, mark Ready, open editors. Studio admin (members, training, billing, projects)
+// is the producer's (handoff/v3/CLAUDE_CODE_PROMPT_v3.md, Roles).
 
 export type Role = "artist" | "art_director" | "producer" | "viewer";
 
@@ -19,28 +22,34 @@ export type Action =
   | "lock"
   | "openEditors"
   | "createProject"
+  | "renameProject"
+  | "deleteProject"
+  | "createAsset"
   | "createStudio"
   | "invite"
+  | "manageMembers"
   | "review"
   | "viewTemplates"
   | "editTemplates"
   | "viewSettings"
+  | "setTraining"
+  | "viewBilling"
+  | "connectTools"
   | "comment"
-  | "viewPeople"
-  | "setDigestHome";
+  | "pin"
+  | "ask"
+  | "viewPeople";
 
-const VIEWER: ReadonlySet<Action> = new Set<Action>(["comment", "downloadImages", "exportAsset", "viewPeople", "setDigestHome"]);
+const VIEWER: ReadonlySet<Action> = new Set<Action>(["comment", "pin", "downloadImages", "exportAsset", "viewPeople", "viewSettings", "ask"]);
 const REVIEWERS: ReadonlySet<Role> = new Set<Role>(["art_director", "producer"]);
-const ADMIN_ONLY: ReadonlySet<Action> = new Set<Action>(["invite", "viewSettings"]);
+const PRODUCER_ONLY: ReadonlySet<Action> = new Set<Action>(["invite", "manageMembers", "setTraining", "viewBilling", "createStudio", "deleteProject", "renameProject"]);
 // review is the Ready filter on the project screen, not the act of approving.
-const REVIEWER_ONLY: ReadonlySet<Action> = new Set<Action>(["approve", "sendBack", "removeGate", "assign", "editTemplates"]);
+const REVIEWER_ONLY: ReadonlySet<Action> = new Set<Action>(["approve", "sendBack", "removeGate", "assign", "editTemplates", "createAsset"]);
 
 export function can(action: Action, role: Role): boolean {
   if (role === "viewer") return VIEWER.has(action);
-  if (action === "setDigestHome") return false;
-  if (ADMIN_ONLY.has(action)) return role === "producer";
+  if (PRODUCER_ONLY.has(action)) return role === "producer";
   if (REVIEWER_ONLY.has(action)) return REVIEWERS.has(role);
-  if (action === "rollBack") return true;
   return true;
 }
 
@@ -51,7 +60,9 @@ export const ROLE_WORDS: Record<Role, string> = {
   viewer: "Viewer",
 };
 
-/** Invite sheet order and lines. Viewer is last, with one line. */
+export const ROLES: Role[] = ["artist", "art_director", "producer", "viewer"];
+
+/** Role lines for the members picker. Viewer is last, with one line. */
 export const ROLE_LINES: { role: Role; line: string }[] = [
   { role: "artist", line: "Opens parts in Blender and Unreal. Publishes and marks Ready." },
   { role: "art_director", line: "Everything an artist does, plus review, approve, and gates." },

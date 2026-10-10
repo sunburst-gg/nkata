@@ -3,7 +3,9 @@
 // route. The mock in mock.ts keeps the same DataSource shape for screenshots and tests.
 import type { Role } from "@/auth/permissions";
 import { ROLE_WORDS } from "@/auth/permissions";
-import type { ActivityItem, Asset, AssetKind, AssetState, AvatarTone, Check, Comment, DataSource, Digest, DigestMove, Part, PartState, Person, Project, Session, Snapshot, Studio, Template, Version } from "./types";
+import type { ActivityItem, Asset, AssetKind, AssetState, AvatarTone, Check, Comment, Connection, ConnectionId, DataSource, Digest, DigestMove, Mention, Part, PartState, Person, Project, Session, Snapshot, Studio, Template, Version } from "./types";
+import { agent } from "@/lib/tauri";
+import { askAbout, slugOf as slugOfName } from "./ask";
 
 export type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -31,7 +33,7 @@ type PartWire = {
 };
 type AssetWire = { id: string; name: string; template_id: string; state: string; updated_at: string };
 type VersionWire = { id: string; part_id: string; author_id: string; mirror_status: string; mirror_ms: number | null; refs: { level: string; actors: number }[] | null; published: boolean; note: string; created_at: string };
-type CommentWire = { id: string; part_id: string; author: UserRef; body: string; kind: "pin" | "take_a_look"; resolved_at: string | null; created_at: string };
+type CommentWire = { id: string; part_id: string; author: UserRef; body: string; kind: "pin" | "take_a_look"; point: number[]; resolved_at: string | null; created_at: string };
 type CheckWire = { check_id: string; severity: "block" | "warn"; passed: boolean; auto_fixed: boolean; message: string };
 type EventWire = { id: string; event: Wire & { kind: string; actor_id: string; at: string; part_id?: string } };
 
@@ -165,6 +167,16 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
   let digestIndex = 0;
   let digestHome = true;
   let stopSocket: (() => void) | null = null;
+  let connections: Connection[] = [];
+  // Tools come from the agent on this machine, not the server. Absent outside Tauri.
+  async function refreshConnections(): Promise<void> {
+    try {
+      const report = await agent.toolsDetect(config.folder ?? "");
+      connections = connectionsOf({ blender: report.blender?.version ?? null, unreal: report.uprojects.length > 0 ? "project found" : null, blenderConnected: false, unrealConnected: false });
+    } catch {
+      connections = connectionsOf({ blender: null, unreal: null, blenderConnected: false, unrealConnected: false });
+    }
+  }
   let reloadTimer: ReturnType<typeof setTimeout> | null = null;
   const emit = () => listeners.forEach((fn) => fn());
 
@@ -178,14 +190,16 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
   async function load(): Promise<void> {
     const t = now();
     const me = await call<{ user: UserRef; email: string; studio_id: string; roles: string[] }>("GET", "/auth/me");
+    // Before the studio has a project the session is scoped to the studio alone (DECISIONS.md).
+    const scoped = config.projectId !== "";
     const [studio, projects, members, online, assetsWire, templatesWire, eventsWire] = await Promise.all([
       call<{ studio: { id: string; name: string; member_count: number; training: "on" | "off"; billing: { line: string; seats: number } } }>("GET", "/studio"),
       call<{ projects: Wire[] }>("GET", "/projects"),
-      call<{ members: { user: UserRef; email: string; roles: string[] }[] }>("GET", `/projects/${config.projectId}/members`),
-      call<{ online: { user: UserRef; part_id: string | null; last_seen: string }[] }>("GET", `/presence?project_id=${config.projectId}`),
-      call<{ assets: AssetWire[] }>("GET", `/assets?project_id=${config.projectId}`),
-      call<{ templates: { id: string; name: string; schema: { kind: string; parts: { name: string; gate?: string[]; checks: string[] }[] } }[] }>("GET", `/projects/${config.projectId}/templates`),
-      call<{ events: EventWire[] }>("GET", `/events?project_id=${config.projectId}&limit=1000`),
+      scoped ? call<{ members: { user: UserRef; email: string; roles: string[] }[] }>("GET", `/projects/${config.projectId}/members`) : Promise.resolve({ members: [{ user: me.user, email: me.email, roles: me.roles }] }),
+      scoped ? call<{ online: { user: UserRef; part_id: string | null; last_seen: string }[] }>("GET", `/presence?project_id=${config.projectId}`) : Promise.resolve({ online: [] }),
+      scoped ? call<{ assets: AssetWire[] }>("GET", `/assets?project_id=${config.projectId}`) : Promise.resolve({ assets: [] }),
+      scoped ? call<{ templates: { id: string; name: string; schema: { kind: string; parts: { name: string; gate?: string[]; checks: string[] }[] } }[] }>("GET", `/projects/${config.projectId}/templates`) : Promise.resolve({ templates: [] }),
+      scoped ? call<{ events: EventWire[] }>("GET", `/events?project_id=${config.projectId}&limit=1000`) : Promise.resolve({ events: [] }),
     ]);
     const presenceById = new Map(online.online.map((o) => [o.user.id, o]));
     const people: Person[] = members.members.map((m) => {
@@ -197,6 +211,7 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
     const templateKind = new Map(templatesWire.templates.map((tp) => [tp.id, tp.schema.kind]));
     const templateName = new Map(templatesWire.templates.map((tp) => [tp.id, tp.name]));
     const assets: Asset[] = [];
+    const projectSlugOf = slugOf(String((projects.projects.find((p) => p["id"] === config.projectId) ?? {})["name"] ?? ""));
     const partIndex = new Map<string, { assetSlug: string; assetName: string; partName: string }>();
     const details = await Promise.all(assetsWire.assets.map((a) => call<{ parts: PartWire[] }>("GET", `/assets/${a.id}`)));
     for (const [i, a] of assetsWire.assets.entries()) {
@@ -209,14 +224,15 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
         const versions = versionsRes.versions.map((v, idx, all) => versionOf(v, all.length - idx, t));
         const current = versionsRes.versions[0];
         const checks: Check[] = current ? (await call<{ results: CheckWire[] }>("GET", `/parts/${pw.id}/versions/${current.id}/checks`)).results.map(checkOf) : [];
-        const comments: Comment[] = commentsRes.comments.map((c, n) => ({ id: c.id, n: n + 1, authorId: c.author.id, partName: pw.name, when: ago(c.created_at, t), text: c.body, resolved: c.resolved_at !== null, kind: c.kind, source: "Nkata" }));
+        const comments: Comment[] = commentsRes.comments.map((c, n) => ({ id: c.id, n: n + 1, authorId: c.author.id, partName: pw.name, when: ago(c.created_at, t), text: c.body, resolved: c.resolved_at !== null, kind: c.kind ?? "pin", source: "Nkata", ...((c.point ?? []).some((x) => x !== 0) ? { pos: [c.point?.[0] ?? 0, c.point?.[1] ?? 0, c.point?.[2] ?? 0] as [number, number, number] } : {}) }));
         const mirror = !current ? { state: "offline" as const, seconds: 0 } : current.mirror_status === "failed" ? { state: "failed" as const, seconds: 0 } : current.mirror_status === "synced" || current.mirror_status === "skipped" ? { state: "synced" as const, seconds: Math.round((current.mirror_ms ?? 0) / 1000) } : { state: "syncing" as const, seconds: 0 };
         return { id: pw.id, name: pw.name, state: partState(pw), ownerId: pw.owner_id ?? "", render: null, lock: pw.lock ? { holderId: pw.lock.holder.id, since: ago(pw.lock.granted_at, t) } : null, gate: pw.waiting_on, versions, checks, comments, mirror, refs: current?.refs ?? [] };
       }));
       const usedIn = [...new Set(parts.flatMap((p) => p.refs.map((r) => r.level.split("/").pop() ?? r.level)))];
       const present = online.online.filter((o) => o.part_id && partsWire.some((p) => p.id === o.part_id)).map((o) => o.user.id);
       const latest = partsWire.map((p) => p.updated_at).sort().at(-1) ?? a.updated_at;
-      assets.push({ id: a.id, slug, name: a.name, kind: KIND_TAB[kind] ?? "Props", state: assetState(parts), render: null, noRenderText: parts.map((p) => p.name).join(" · "), meta: `${KIND_WORD[kind] ?? kind} · changed ${ago(latest, t)} ago`, ownerId: parts[0]?.ownerId ?? "", present, parts, template: templateName.get(a.template_id) ?? "", usedIn, changedOrder: i });
+      const ownerName = peopleById.get(parts[0]?.ownerId ?? "")?.name.split(" ")[0] ?? "";
+      assets.push({ id: a.id, slug, projectSlug: projectSlugOf, name: a.name, kind: KIND_TAB[kind] ?? "Props", state: assetState(parts), render: null, noRenderText: parts.map((p) => p.name).join(" · "), meta: `${KIND_WORD[kind] ?? kind} · ${parts.length} part${parts.length === 1 ? "" : "s"}${ownerName ? ` · ${ownerName}` : ""}`, ownerId: parts[0]?.ownerId ?? "", present, parts, template: templateName.get(a.template_id) ?? "", usedIn, changedOrder: i, when: `${ago(latest, t)} ago`, syncIssue: parts.some((p) => p.mirror.state === "failed") });
     }
     assets.sort((x, y) => (y.parts.map((p) => p.versions[0]?.when ?? "").join("") > x.parts.map((p) => p.versions[0]?.when ?? "").join("") ? 1 : -1));
     for (const o of online.online) {
@@ -230,8 +246,10 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
       parts: tp.schema.parts.map((p, i) => ({ id: `${tp.id}-${i}`, name: p.name, gate: p.gate ?? [], checks: p.checks.map((c) => CHECK_WORDS[c] ?? c), refs: 0 })),
     }));
     const projectWire = projects.projects.find((p) => p["id"] === config.projectId) ?? projects.projects[0] ?? {};
+    const owner = people.find((p) => p.role === "producer") ?? people[0];
     const projectList: Project[] = projects.projects.map((p) => ({
-      id: String(p["id"]), slug: slugOf(String(p["name"])), name: String(p["name"]), assetCount: p["id"] === config.projectId ? assets.length : 0, changed: "", renders: [], present: online.online.map((o) => o.user.id),
+      id: String(p["id"]), slug: slugOf(String(p["name"])), name: String(p["name"]), tone: toneOf(String(p["id"])), createdLabel: `Created ${dateLabel(String(p["created_at"] ?? ""))}`, ownerId: owner?.id ?? "",
+      assetCount: p["id"] === config.projectId ? assets.length : 0, changed: "", renders: [], present: online.online.map((o) => o.user.id),
       folder: config.folder ?? "", blender: String(p["blender_version"] ?? ""), unreal: String(p["ue_version"] ?? ""), inviteLink: `nkata://join/${String(p["id"])}`, sizeLabel: "",
     }));
     const studioOut: Studio = { id: studio.studio.id, name: studio.studio.name, initial: studio.studio.name.charAt(0).toUpperCase(), peopleCount: people.length, training: studio.studio.training, billing: studio.studio.billing, projects: projectList.sort((a, b) => (a.id === config.projectId ? -1 : b.id === config.projectId ? 1 : 0)) };
@@ -242,8 +260,10 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
     const weekAgo = t.getTime() - WEEK_MS;
     const saves = eventsWire.events.filter((e) => e.event.kind === "version.created");
     const digests = digestsOf(eventsWire.events, assets, peopleById, t);
+    const first = user.name.split(" ")[0] ?? "";
+    const mentions: Mention[] = first ? assets.flatMap((a) => a.parts.flatMap((p) => p.comments.filter((c) => c.authorId !== user.id && c.text.includes(first)).map((c) => ({ id: c.id, authorId: c.authorId, on: `${a.name} / ${p.name}`, assetSlug: a.slug, partName: p.name, when: c.when, text: c.text })))) : [];
     snapshot = {
-      session, people, assets, activity, templates, digests, digestIndex,
+      session, people, assets, activity, templates, digests, digestIndex, connections, mentions, trainingLog: [],
       online: online.online.filter((o) => peopleById.get(o.user.id)?.role !== "viewer").length,
       changedToday: saves.filter((e) => new Date(e.event.at).getTime() > dayAgo).length,
       changedThisWeek: saves.filter((e) => new Date(e.event.at).getTime() > weekAgo).length,
@@ -258,7 +278,7 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
   }
 
   function connect(): void {
-    if (!config.socket || stopSocket) return;
+    if (!config.socket || stopSocket || !config.projectId) return;
     const url = `${config.serverUrl.replace(/^http/, "ws")}/ws?project=${config.projectId}&token=${encodeURIComponent(token)}`;
     stopSocket = config.socket(url, () => scheduleReload());
   }
@@ -279,7 +299,7 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
   return {
     snapshot: () => snapshot,
     subscribe: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
-    load: async () => { await load(); connect(); },
+    load: async () => { await refreshConnections(); await load(); connect(); },
     signInWithToken: (t) => { token = t; },
     signIn: () => { /* the server source signs in with a token; see signInWithToken */ },
     signOut: () => { stopSocket?.(); stopSocket = null; token = ""; snapshot = emptySnapshot(snapshot.session.theme); emit(); },
@@ -311,15 +331,53 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
       emit();
       void call("POST", `/parts/${p.id}/gate/remove`).then(scheduleReload).catch(scheduleReload);
     },
-    addComment: (assetSlug, partName, text) => {
+    addComment: (assetSlug, partName, text, pos) => {
       const { p } = findPart(assetSlug, partName);
       const n = Math.max(0, ...p.comments.map((c) => c.n)) + 1;
-      const c: Comment = { id: `pending-${n}`, n, authorId: snapshot.session.user.id, partName, when: "now", text, resolved: false, kind: "pin", source: "Nkata" };
+      const c: Comment = { id: `pending-${n}`, n, authorId: snapshot.session.user.id, partName, when: "now", text, resolved: false, kind: "pin", source: "Nkata", ...(pos ? { pos } : {}) };
       p.comments = [...p.comments, c];
       emit();
-      void currentVersion(p.id).then((vid) => call("POST", "/comments", { part_id: p.id, version_id: vid, point: [0, 0, 0], normal: [0, 0, 1], body: text })).then(scheduleReload).catch(scheduleReload);
+      void currentVersion(p.id).then((vid) => call("POST", "/comments", { part_id: p.id, version_id: vid, point: pos ?? [0, 0, 0], normal: [0, 0, 1], body: text })).then(scheduleReload).catch(scheduleReload);
       return c;
     },
+    // The account and studio screens edit server rows the server does not expose yet: the
+    // change shows at once and is logged as an open route (DECISIONS.md, 2026-10-10).
+    setMe: (name, email) => { snapshot = { ...snapshot, session: { ...snapshot.session, user: { ...snapshot.session.user, name, initial: name.charAt(0).toUpperCase(), email } } }; emit(); },
+    createStudio: () => undefined,
+    setStudioName: (name) => { snapshot = { ...snapshot, session: { ...snapshot.session, studio: { ...snapshot.session.studio, name, initial: name.charAt(0).toUpperCase() } } }; emit(); },
+    createProject: async ({ name, blender, unreal }) => {
+      const made = await call<{ project: Wire }>("POST", "/projects", { name, folder_name: slugOfName(name), blender_version: blender, ue_version: unreal, package_version: "0.1.0" });
+      await load();
+      return snapshot.session.studio.projects.find((p) => p.id === String(made.project["id"])) ?? snapshot.session.studio.projects[0]!;
+    },
+    renameProject: (slug, name) => { snapshot = { ...snapshot, session: { ...snapshot.session, studio: { ...snapshot.session.studio, projects: snapshot.session.studio.projects.map((p) => (p.slug === slug ? { ...p, name } : p)) } } }; emit(); },
+    deleteProject: (slug) => { snapshot = { ...snapshot, session: { ...snapshot.session, studio: { ...snapshot.session.studio, projects: snapshot.session.studio.projects.filter((p) => p.slug !== slug) } } }; emit(); },
+    createAsset: async (_projectSlug, name, template, parts) => {
+      const tpl = snapshot.templates.find((t) => t.name === template);
+      const chosen = parts === "one" ? [tpl?.parts.find((p) => p.name === "model")?.name ?? tpl?.parts[0]?.name ?? "model"] : undefined;
+      await call("POST", "/assets", { project_id: config.projectId, template_name: template, name, owners: {}, ...(chosen ? { parts: chosen } : {}) });
+      await load();
+      return snapshot.assets.find((a) => a.name === name) ?? snapshot.assets[0]!;
+    },
+    setMemberRole: (personId, role) => {
+      const person = snapshot.people.find((p) => p.id === personId);
+      if (!person) return;
+      void call("POST", `/projects/${config.projectId}/members`, { email: person.email, name: person.name, roles: [role] }).then(scheduleReload).catch(scheduleReload);
+    },
+    removeMember: (personId) => { snapshot = { ...snapshot, people: snapshot.people.filter((p) => p.id !== personId) }; emit(); },
+    connect: async (id: ConnectionId) => {
+      if (id === "blender") await agent.toolsInstallBlender();
+      else if (id === "unreal") {
+        const report = await agent.toolsDetect(config.folder ?? "");
+        const first = report.uprojects[0];
+        if (!first) throw new Error("Put your Unreal project inside the project folder first.");
+        await agent.toolsInstallUe(first);
+      }
+      connections = connections.map((c) => (c.id === id ? { ...c, connected: true } : c));
+      snapshot = { ...snapshot, connections };
+      emit();
+    },
+    ask: (question) => askAbout(question, snapshot.assets),
     invite: (email, role) => {
       void call("POST", `/projects/${config.projectId}/members`, { email, name: email.split("@")[0] ?? email, roles: [role] }).then(scheduleReload).catch(scheduleReload);
     },
@@ -339,5 +397,27 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
 function emptySnapshot(theme: "dark" | "light"): Snapshot {
   const studio: Studio = { id: "", name: "", initial: "", peopleCount: 0, projects: [], training: "off", billing: { line: "", seats: 0 } };
   const user: Person = { id: "", name: "", initial: "", tone: 1, title: "", role: "viewer", email: "", presence: "offline", where: "", seen: "" };
-  return { session: { user, studio, theme, digestHome: true }, people: [], assets: [], activity: [], templates: [], digests: [], digestIndex: 0, online: 0, changedToday: 0, changedThisWeek: 0 };
+  return { session: { user, studio, theme, digestHome: true }, people: [], assets: [], activity: [], templates: [], digests: [], digestIndex: 0, connections: [], mentions: [], trainingLog: [], online: 0, changedToday: 0, changedThisWeek: 0 };
+}
+
+/** "10 Oct 2026" from an ISO instant. */
+export function dateLabel(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getUTCDate()} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+/** The Connections cards from what the agent found. The rest are Soon. */
+export function connectionsOf(found: { blender: string | null; unreal: string | null; blenderConnected: boolean; unrealConnected: boolean }): Connection[] {
+  return [
+    { id: "blender", name: "Blender", soon: false, connected: found.blenderConnected, version: found.blender ?? undefined, line: found.blender ? (found.blenderConnected ? `Blender ${found.blender}. The Nkata panel is in the sidebar, press N.` : `Blender ${found.blender} is on this computer. Connect adds the Nkata panel.`) : "Not found. Install Blender 4.2 or newer, then come back." },
+    { id: "unreal", name: "Unreal Engine", soon: false, connected: found.unrealConnected, line: found.unreal ? (found.unrealConnected ? "The Nkata tab is in the editor." : "An Unreal project is in the folder. Connect adds the Nkata tab to it.") : "Put your Unreal project inside the project folder, then connect." },
+    { id: "discord", name: "Discord", soon: false, connected: false, line: "A message when a part is sent back or approved. A recap every evening." },
+    { id: "linear", name: "Linear", soon: true, connected: false, line: "Turn a pinned comment into an issue." },
+    { id: "substance", name: "Substance", soon: true, connected: false, line: "Textures and materials." },
+    { id: "maya", name: "Maya", soon: true, connected: false, line: "Modeling and rigging." },
+    { id: "houdini", name: "Houdini", soon: true, connected: false, line: "Procedural assets." },
+    { id: "unity", name: "Unity", soon: true, connected: false, line: "A second engine." },
+    { id: "godot", name: "Godot", soon: true, connected: false, line: "A second engine." },
+  ];
 }

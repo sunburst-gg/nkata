@@ -11,6 +11,7 @@ import { agent, inTauri } from "@/lib/tauri";
 export interface SavedSession {
   serverUrl: string;
   token: string;
+  /** Empty before the studio has a project. */
   projectId: string;
   /** The synced folder, or null for a viewer in stream mode. */
   folder: string | null;
@@ -25,8 +26,8 @@ export function readSession(): SavedSession | null {
     const raw = localStorage.getItem(KEY);
     if (!raw) return null;
     const s = JSON.parse(raw) as Partial<SavedSession>;
-    if (!s.serverUrl || !s.token || !s.projectId || !s.mode) return null;
-    return { serverUrl: s.serverUrl, token: s.token, projectId: s.projectId, folder: s.folder ?? null, mode: s.mode };
+    if (!s.serverUrl || !s.token || !s.mode) return null;
+    return { serverUrl: s.serverUrl, token: s.token, projectId: s.projectId ?? "", folder: s.folder ?? null, mode: s.mode };
   } catch {
     return null;
   }
@@ -73,6 +74,7 @@ export type ServerSource = ReturnType<typeof createServerSource>;
 export async function connect(session: SavedSession, theme: "dark" | "light"): Promise<ServerSource> {
   const source = createServerSource({ serverUrl: session.serverUrl, token: session.token, projectId: session.projectId, folder: session.folder, theme, socket: openSocket });
   await source.load();
+  if (!session.projectId) return source;
   if (session.mode === "stream") await agent.startStream(session.serverUrl, session.token, session.projectId);
   else if (session.folder) await agent.startSync(session.serverUrl, session.token, session.projectId, session.folder);
   return source;
@@ -116,4 +118,59 @@ export async function createProject(serverUrl: string, token: string, body: { na
 
 export function mockSource(): DataSource {
   return createMockSource();
+}
+
+const FOLDERS_KEY = "nkata.folders";
+
+/** The synced folder this machine uses for a project. Chosen at New project; the default otherwise. */
+export function folderFor(projectId: string, name: string): string {
+  try {
+    const map = JSON.parse(localStorage.getItem(FOLDERS_KEY) ?? "{}") as Record<string, string>;
+    return map[projectId] ?? `~/Documents/Nkata/${name}`;
+  } catch {
+    return `~/Documents/Nkata/${name}`;
+  }
+}
+
+export function rememberFolder(projectId: string, folder: string): void {
+  try {
+    const map = JSON.parse(localStorage.getItem(FOLDERS_KEY) ?? "{}") as Record<string, string>;
+    map[projectId] = folder;
+    localStorage.setItem(FOLDERS_KEY, JSON.stringify(map));
+  } catch {
+    // Storage can be blocked. The default folder applies next launch.
+  }
+}
+
+/** Connects a signed-in person to one project, or to the studio alone when there is none yet. */
+export async function enterServer(serverUrl: string, token: string, roles: string[], project: { id: string; name: string } | null, theme: "dark" | "light"): Promise<ServerSource> {
+  const viewer = primaryRole(roles) === "viewer";
+  const session: SavedSession = project
+    ? { serverUrl, token, projectId: project.id, folder: viewer ? null : folderFor(project.id, project.name), mode: viewer ? "stream" : "sync" }
+    : { serverUrl, token, projectId: "", folder: null, mode: "stream" };
+  const source = await connect(session, theme);
+  writeSession(session);
+  return source;
+}
+
+/** New project in server mode: create it, then reconnect to it with the chosen folder. */
+export async function createServerProject(input: { name: string; folder: string; blender: string; unreal: string }, theme: "dark" | "light"): Promise<ServerSource> {
+  const saved = readSession();
+  if (!saved) throw new Error("Sign in first.");
+  const made = await createProject(saved.serverUrl, saved.token, { name: input.name, folder_name: input.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"), blender_version: input.blender, ue_version: input.unreal });
+  rememberFolder(made.id, input.folder);
+  const session: SavedSession = { ...saved, projectId: made.id, folder: input.folder, mode: "sync" };
+  const source = await connect(session, theme);
+  writeSession(session);
+  return source;
+}
+
+/** Opens another project of the studio: the agent moves to its folder and the screens reload. */
+export async function openServerProject(project: { id: string; name: string }, viewer: boolean, theme: "dark" | "light"): Promise<ServerSource | null> {
+  const saved = readSession();
+  if (!saved || saved.projectId === project.id) return null;
+  const session: SavedSession = { ...saved, projectId: project.id, folder: viewer ? null : folderFor(project.id, project.name), mode: viewer ? "stream" : "sync" };
+  const source = await connect(session, theme);
+  writeSession(session);
+  return source;
 }

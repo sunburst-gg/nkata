@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { can, type Action } from "./permissions";
 
-const WRITE: Action[] = ["publish", "markReady", "approve", "sendBack", "rollBack", "removeGate", "assign", "exportProject", "fixChecks", "lock", "openEditors", "createProject", "createStudio", "viewTemplates", "viewSettings", "review", "invite"];
+const WRITE: Action[] = ["publish", "markReady", "approve", "sendBack", "rollBack", "removeGate", "assign", "exportProject", "fixChecks", "lock", "openEditors", "createProject", "createStudio", "viewTemplates", "review", "invite", "createAsset", "manageMembers", "setTraining", "viewBilling", "connectTools", "renameProject", "deleteProject"];
 
 describe("permissions", () => {
   it("a viewer can only read, comment, and download images", () => {
@@ -10,6 +10,10 @@ describe("permissions", () => {
     expect(can("downloadImages", "viewer")).toBe(true);
     expect(can("exportAsset", "viewer")).toBe(true);
     expect(can("viewPeople", "viewer")).toBe(true);
+    expect(can("pin", "viewer")).toBe(true);
+    expect(can("ask", "viewer")).toBe(true);
+    // Settings holds the viewer's own account, nothing of the studio's.
+    expect(can("viewSettings", "viewer")).toBe(true);
   });
 
   it("artists publish and mark ready but do not review or invite", () => {
@@ -29,5 +33,8 @@ describe("permissions", () => {
     expect(can("invite", "art_director")).toBe(false);
     expect(can("invite", "producer")).toBe(true);
     expect(can("approve", "producer")).toBe(true);
+    expect(can("setTraining", "art_director")).toBe(false);
+    expect(can("createAsset", "art_director")).toBe(true);
+    expect(can("deleteProject", "producer")).toBe(true);
   });
 });
