@@ -1,5 +1,7 @@
 # Local dev stack. `make dev` starts it, `make dev-down` removes it.
-# Ports: Postgres 5432, S3 API 9000, store console 9001.
+# Host ports: Postgres 5432, S3 API 9000, store console 9001.
+# Override one that is taken: NKATA_PG_PORT, NKATA_S3_PORT, NKATA_S3_CONSOLE_PORT,
+# then set DATABASE_URL and S3_ENDPOINT in .env to match.
 # The store is RustFS, an S3 server with the MinIO command line and env names.
 # MinIO withdrew its images from Docker Hub and quay.io in September 2026 (docs/decisions.md).
 # Image and env: https://docs.rustfs.com/installation/docker.html
@@ -11,7 +13,7 @@ services:
       POSTGRES_PASSWORD: nkata
       POSTGRES_DB: nkata
     ports:
-      - "5432:5432"
+      - "${NKATA_PG_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -29,8 +31,8 @@ services:
       RUSTFS_CONSOLE_ENABLE: "true"
       RUSTFS_CONSOLE_ADDRESS: ":9001"
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "${NKATA_S3_PORT:-9000}:9000"
+      - "${NKATA_S3_CONSOLE_PORT:-9001}:9001"
     volumes:
       - storedata:/data
     healthcheck:

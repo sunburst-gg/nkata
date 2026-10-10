@@ -29,7 +29,7 @@ Needs Node 22, pnpm 10, Rust stable, Python 3.11, and Docker or local Postgres 1
 
 ```
 pnpm install
-make dev        # Postgres and RustFS in Docker
+make dev        # Postgres and RustFS in Docker. Port taken? NKATA_PG_PORT=5433 make dev
 make test       # every package test plus the step gate, no editor needed
 make hooks      # git hooks: make test before every push
 ```
