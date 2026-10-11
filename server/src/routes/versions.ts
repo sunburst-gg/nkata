@@ -52,11 +52,24 @@ function versionWire(row: typeof version.$inferSelect) {
   return { ...row, created_at: row.created_at.toISOString(), updated_at: row.updated_at.toISOString() };
 }
 
+/** The wire plus signed links to the render and the model, so the app never asks per version. */
+async function versionWithUrls(app: TypedApp, row: typeof version.$inferSelect) {
+  return {
+    ...versionWire(row),
+    render_url: row.render_key ? await app.store.signGet(row.render_key) : null,
+    model_url: row.model_key ? await app.store.signGet(row.model_key) : null,
+  };
+}
+
+type Artifact = { kind: "render" | "model"; folder: string; ext: string; column: "render_key" | "model_key" };
+const RENDER: Artifact = { kind: "render", folder: "renders", ext: "png", column: "render_key" };
+const MODEL: Artifact = { kind: "model", folder: "models", ext: "glb", column: "model_key" };
+
 export async function versionRoutes(app: TypedApp): Promise<void> {
   app.get("/parts/:id/versions", { schema: { params: IdParam } }, async (req) => {
     const { part: row } = await loadPart(app.db, req.principal, req.params.id);
     const rows = await app.db.select().from(version).where(eq(version.part_id, row.id)).orderBy(desc(version.created_at), desc(version.id));
-    return { v: 1, versions: rows.map(versionWire) };
+    return { v: 1, versions: await Promise.all(rows.map((r) => versionWithUrls(app, r))) };
   });
 
   app.post("/parts/:id/versions", { schema: { params: IdParam, body: VersionBody } }, async (req, reply) => {
@@ -177,38 +190,43 @@ export async function versionRoutes(app: TypedApp): Promise<void> {
     return { v: 1, published: true, version_id: ver.id, state, blocked_by: [] };
   });
 
-  // The render: a PNG the agent captures in UE5 on Mark Ready, or Blender's viewport as the
-  // fallback. Three steps: a signed PUT URL, the upload by the agent, then done with the key.
-  app.post("/parts/:id/versions/:vid/render-url", { schema: { params: VersionParams, body: RenderUrlBody } }, async (req) => {
-    const { part: row, asset: a } = await loadPart(app.db, req.principal, req.params.id);
-    requireCanEdit(req.principal, row);
-    const ver = (await app.db.select({ id: version.id }).from(version).where(and(eq(version.id, req.params.vid), eq(version.part_id, row.id))).limit(1))[0];
-    if (!ver) throw notFound("version", req.params.vid);
-    const key = `studios/${a.studio_id}/renders/${row.id}/${ver.id}.png`;
-    return { v: 1, key, url: await app.store.signPut(key, req.body.size) };
-  });
+  // The render (a PNG the agent captures in UE5 on Mark Ready, or Blender's viewport as the
+  // fallback) and the model (the GLB the add-on exported, or the area export from Unreal) store
+  // the same way. Three steps: a signed PUT URL, the upload by the agent, then done with the key.
+  for (const art of [RENDER, MODEL]) {
+    const keyOf = (studioId: string, partId: string, versionId: string) => `studios/${studioId}/${art.folder}/${partId}/${versionId}.${art.ext}`;
+    app.post(`/parts/:id/versions/:vid/${art.kind}-url`, { schema: { params: VersionParams, body: RenderUrlBody } }, async (req) => {
+      const { part: row, asset: a } = await loadPart(app.db, req.principal, req.params.id);
+      requireCanEdit(req.principal, row);
+      const ver = (await app.db.select({ id: version.id }).from(version).where(and(eq(version.id, req.params.vid), eq(version.part_id, row.id))).limit(1))[0];
+      if (!ver) throw notFound("version", req.params.vid);
+      const key = keyOf(a.studio_id, row.id, ver.id);
+      return { v: 1, key, url: await app.store.signPut(key, req.body.size) };
+    });
 
-  app.put("/parts/:id/versions/:vid/render", { schema: { params: VersionParams, body: RenderDoneBody } }, async (req) => {
-    const { part: row, asset: a } = await loadPart(app.db, req.principal, req.params.id);
-    requireCanEdit(req.principal, row);
-    const ver = (await app.db.select().from(version).where(and(eq(version.id, req.params.vid), eq(version.part_id, row.id))).limit(1))[0];
-    if (!ver) throw notFound("version", req.params.vid);
-    const expected = `studios/${a.studio_id}/renders/${row.id}/${ver.id}.png`;
-    if (req.body.key !== expected) throw new AppError("bad_request", "the render key does not belong to this version", { key: req.body.key });
-    if ((await app.store.head(expected)) === null) throw new AppError("chunks_missing", "the render was not uploaded", { key: expected });
-    const now = app.now();
-    const [saved] = await app.db.update(version).set({ render_key: expected, updated_at: now }).where(eq(version.id, ver.id)).returning();
-    req.log.info({ project_id: a.project_id, part_id: row.id, version_id: ver.id }, "render stored");
-    return { v: 1, version: versionWire(saved!) };
-  });
+    app.put(`/parts/:id/versions/:vid/${art.kind}`, { schema: { params: VersionParams, body: RenderDoneBody } }, async (req) => {
+      const { part: row, asset: a } = await loadPart(app.db, req.principal, req.params.id);
+      requireCanEdit(req.principal, row);
+      const ver = (await app.db.select().from(version).where(and(eq(version.id, req.params.vid), eq(version.part_id, row.id))).limit(1))[0];
+      if (!ver) throw notFound("version", req.params.vid);
+      const expected = keyOf(a.studio_id, row.id, ver.id);
+      if (req.body.key !== expected) throw new AppError("bad_request", `the ${art.kind} key does not belong to this version`, { key: req.body.key });
+      if ((await app.store.head(expected)) === null) throw new AppError("chunks_missing", `the ${art.kind} was not uploaded`, { key: expected });
+      const now = app.now();
+      const [saved] = await app.db.update(version).set({ [art.column]: expected, updated_at: now }).where(eq(version.id, ver.id)).returning();
+      req.log.info({ project_id: a.project_id, part_id: row.id, version_id: ver.id }, `${art.kind} stored`);
+      return { v: 1, version: await versionWithUrls(app, saved!) };
+    });
 
-  app.get("/parts/:id/versions/:vid/render", { schema: { params: VersionParams } }, async (req) => {
-    const { part: row } = await loadPart(app.db, req.principal, req.params.id);
-    const ver = (await app.db.select({ id: version.id, render_key: version.render_key }).from(version).where(and(eq(version.id, req.params.vid), eq(version.part_id, row.id))).limit(1))[0];
-    if (!ver) throw notFound("version", req.params.vid);
-    if (!ver.render_key) throw notFound("render", ver.id);
-    return { v: 1, version_id: ver.id, url: await app.store.signGet(ver.render_key) };
-  });
+    app.get(`/parts/:id/versions/:vid/${art.kind}`, { schema: { params: VersionParams } }, async (req) => {
+      const { part: row } = await loadPart(app.db, req.principal, req.params.id);
+      const ver = (await app.db.select().from(version).where(and(eq(version.id, req.params.vid), eq(version.part_id, row.id))).limit(1))[0];
+      if (!ver) throw notFound("version", req.params.vid);
+      const key = ver[art.column];
+      if (!key) throw notFound(art.kind, ver.id);
+      return { v: 1, version_id: ver.id, url: await app.store.signGet(key) };
+    });
+  }
 
   // Roll back: a new version that points at an older file_version. One click, nothing deleted.
   app.post("/parts/:id/rollback", { schema: { params: IdParam, body: RollbackBody } }, async (req, reply) => {

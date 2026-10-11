@@ -50,6 +50,13 @@
       "when": 1791634834133,
       "tag": "0006_email_code",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791719495942,
+      "tag": "0007_version_model",
+      "breakpoints": true
     }
   ]
 }

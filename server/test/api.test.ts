@@ -414,6 +414,25 @@ describe.skipIf(!hasInfra)("server api", () => {
       expect(await (await fetch(link)).text()).toBe("PNG!");
     });
 
+    it("stores the version's model the same way and lists both links on the version", async () => {
+      const face = parts["face"]!;
+      const url = await h.app.inject({ method: "POST", url: `/parts/${face}/versions/${faceVersion}/model-url`, ...h.as(ARTIST), payload: { size: 4 } });
+      const { key, url: put } = url.json() as { key: string; url: string };
+      expect(key).toBe(`studios/${h.seeded.studio_id}/models/${face}/${faceVersion}.glb`);
+      expect((await h.app.inject({ method: "PUT", url: `/parts/${face}/versions/${faceVersion}/model`, ...h.as(ARTIST), payload: { key: key.replace(".glb", ".png") } })).statusCode).toBe(400);
+      expect((await h.app.inject({ method: "PUT", url: `/parts/${face}/versions/${faceVersion}/model`, ...h.as(ARTIST), payload: { key } })).statusCode).toBe(422);
+      expect((await fetch(put, { method: "PUT", body: Buffer.from("glTF"), headers: { "content-length": "4" } })).ok).toBe(true);
+      expect((await h.app.inject({ method: "PUT", url: `/parts/${face}/versions/${faceVersion}/model`, ...h.as(VIEWER), payload: { key } })).statusCode).toBe(403);
+      const done = (await h.app.inject({ method: "PUT", url: `/parts/${face}/versions/${faceVersion}/model`, ...h.as(ARTIST), payload: { key } })).json() as { version: { model_key: string; model_url: string; render_url: string } };
+      expect(done.version.model_key).toBe(key);
+      expect(await (await fetch(done.version.model_url)).text()).toBe("glTF");
+      const list = (await h.app.inject({ method: "GET", url: `/parts/${face}/versions`, ...h.as(VIEWER) })).json() as { versions: { id: string; model_url: string | null; render_url: string | null }[] };
+      const v = list.versions.find((x) => x.id === faceVersion)!;
+      expect(v.model_url).toContain("models/");
+      expect(v.render_url).toContain("renders/");
+      expect(list.versions.filter((x) => x.id !== faceVersion).every((x) => x.model_url === null)).toBe(true);
+    });
+
     it("the event log replays in order with a cursor", async () => {
       const first = await h.app.inject({ method: "GET", url: `/events?project_id=${h.seeded.project_id}&limit=3`, ...h.as(ARTIST) });
       const page = first.json() as { events: { id: string; event: { kind: string } }[]; next: string; more: boolean };

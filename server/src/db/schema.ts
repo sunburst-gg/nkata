@@ -157,6 +157,8 @@ export const version = pgTable(
     saved_at: ts("saved_at"),
     // Store key of the viewport capture taken on Mark Ready. Null until one exists.
     render_key: text("render_key"),
+    // The GLB the add-on exported for this version, or the area export from Unreal. Null until stored.
+    model_key: text("model_key"),
   },
   (t) => [index("version_part_created_idx").on(t.part_id, sql`${t.created_at} desc`)],
 );
