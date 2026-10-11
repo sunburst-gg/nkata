@@ -10,18 +10,22 @@ import { PresenceAvatar } from "./PresenceAvatar";
 
 export function MembersModal() {
   const open = useStore((s) => s.membersOpen);
+  const projectSlug = useStore((s) => s.membersProject);
   const setMembers = useStore((s) => s.setMembers);
+  const projects = useStore((s) => s.db.session.studio.projects);
   const can = useCan();
   if (!can("manageMembers")) return null;
+  const project = projectSlug ? projects.find((p) => p.slug === projectSlug) : undefined;
   return (
-    <Dialog open={open} onOpenChange={setMembers} title="Members" width={560} closeButton>
-      <MembersPanel />
+    <Dialog open={open} onOpenChange={(o) => setMembers(o)} title="Members" width={560} closeButton>
+      <MembersPanel project={project ? { slug: project.slug, name: project.name } : undefined} />
     </Dialog>
   );
 }
 
-/** The members list with the add row, also the Settings, Members tab. */
-export function MembersPanel({ compact = false }: { compact?: boolean }) {
+/** The members list with the add row, also the Settings, Members tab. From a project, the invite
+ *  email names the project and carries a note. */
+export function MembersPanel({ compact = false, project }: { compact?: boolean; project?: { slug: string; name: string } }) {
   const people = useStore((s) => s.db.people);
   const me = useStore((s) => s.db.session.user);
   const source = useStore((s) => s.source);
@@ -29,12 +33,14 @@ export function MembersPanel({ compact = false }: { compact?: boolean }) {
   const can = useCan();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("artist");
+  const [note, setNote] = useState("");
   const add = () => {
     const value = email.trim();
     if (!value.includes("@")) { toast("Enter an email.", "failed"); return; }
-    source.invite(value, role);
+    source.invite(value, role, project ? { projectSlug: project.slug, ...(note.trim() ? { note: note.trim() } : {}) } : undefined);
     setEmail("");
-    toast("Invite sent.");
+    setNote("");
+    toast(project ? `Invite sent. The email opens on ${project.name}.` : "Invite sent.");
   };
   const manage = can("manageMembers");
   return (
@@ -46,6 +52,7 @@ export function MembersPanel({ compact = false }: { compact?: boolean }) {
           <Button type="submit" variant="primary" className="h-10">Add</Button>
         </form>
       ) : null}
+      {manage && project ? <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder={`A note for the email, like "Start with Ojukwu."`} aria-label="A note for the invite" className={`${CONTROL} h-10 px-3`} /> : null}
       <span className="pt-2 text-13 text-secondary">People with access</span>
       <div className="flex flex-col">
         {people.map((p) => (

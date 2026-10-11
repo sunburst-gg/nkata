@@ -57,6 +57,8 @@ interface UiState {
   signedIn: boolean;
   /** v3 overlays. One at a time; Esc closes any of them. */
   membersOpen: boolean;
+  /** The project the Members dialog was opened from, so an invite carries it and a note. */
+  membersProject: string | null;
   askOpen: boolean;
   deleteProject: string | null;
   createAssetOpen: boolean;
@@ -83,7 +85,7 @@ interface Store extends UiState {
   setTheme: (theme: Theme) => void;
   toast: (text: string, tone?: Toast["tone"], action?: Toast["action"]) => void;
   dismissToast: (id: number) => void;
-  setMembers: (open: boolean) => void;
+  setMembers: (open: boolean, projectSlug?: string) => void;
   setAsk: (open: boolean) => void;
   setDeleteProject: (slug: string | null) => void;
   setCreateAsset: (open: boolean) => void;
@@ -121,6 +123,7 @@ export function createStore(source: DataSource = createMockSource()): StoreApi<S
     toasts: [],
     signedIn: false,
     membersOpen: false,
+    membersProject: null,
     askOpen: false,
     deleteProject: null,
     createAssetOpen: false,
@@ -150,7 +153,7 @@ export function createStore(source: DataSource = createMockSource()): StoreApi<S
       setTimeout(() => get().dismissToast(id), 3200);
     },
     dismissToast: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
-    setMembers: (membersOpen) => set({ membersOpen }),
+    setMembers: (membersOpen, projectSlug) => set({ membersOpen, membersProject: membersOpen ? projectSlug ?? null : null }),
     setAsk: (askOpen) => set({ askOpen }),
     setDeleteProject: (deleteProject) => set({ deleteProject }),
     setCreateAsset: (createAssetOpen) => set({ createAssetOpen }),

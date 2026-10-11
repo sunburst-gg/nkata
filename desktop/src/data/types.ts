@@ -298,7 +298,8 @@ export interface DataSource {
   rollBack(assetSlug: string, partName: string, toVersion: number): Version;
   removeGate(assetSlug: string, partName: string): void;
   addComment(assetSlug: string, partName: string, text: string, pos?: [number, number, number]): Comment;
-  invite(email: string, role: Role): void;
+  /** Invite to the studio, or through a project with a note: the project invite email carries it. */
+  invite(email: string, role: Role, options?: { projectSlug?: string; note?: string }): void;
   /** The signed-in person's name and email, from the Name screen and Settings, Account. */
   setMe(name: string, email: string): void;
   /** Creates a studio: its name and the training setting. The account becomes its producer and moves into it. */

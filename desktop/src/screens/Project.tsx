@@ -77,7 +77,7 @@ export function Project() {
         {can("openEditors") ? (
           <div className="ml-auto flex shrink-0 gap-2">
             <Button onClick={openFolder}>Open folder</Button>
-            {can("manageMembers") ? <Button onClick={() => setMembers(true)}>Members</Button> : <Button onClick={() => go.settings("members")}>Members</Button>}
+            {can("manageMembers") ? <Button onClick={() => setMembers(true, project.slug)}>Members</Button> : <Button onClick={() => go.settings("members")}>Members</Button>}
             {can("renameProject") ? (
               <MenuRoot>
                 <MenuTrigger asChild><Button aria-label="More" className="w-9 px-0 tracking-[0.1em]">···</Button></MenuTrigger>

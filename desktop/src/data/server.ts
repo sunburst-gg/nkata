@@ -425,8 +425,12 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
       emit();
     },
     ask: (question) => askAbout(question, snapshot.assets),
-    invite: (email, role) => {
-      void call("POST", "/studio/members", { email, roles: [role] }).then(scheduleReload).catch(refused);
+    invite: (email, role, options) => {
+      const proj = options?.projectSlug ? snapshot.session.studio.projects.find((p) => p.slug === options.projectSlug) : undefined;
+      const req = proj
+        ? call("POST", `/projects/${proj.id}/members`, { email, roles: [role], ...(options?.note ? { note: options.note } : {}) })
+        : call("POST", "/studio/members", { email, roles: [role] });
+      void req.then(scheduleReload).catch(refused);
     },
     setDiscordWebhook: async (url) => { await call("PUT", `/projects/${config.projectId}/discord`, { webhook_url: url }); },
     setTraining: async (training) => { await call("PUT", "/studio/training", { training }); await load(); },
