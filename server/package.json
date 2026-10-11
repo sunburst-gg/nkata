@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/main.ts",
-    "start": "tsx src/main.ts",
+    "dev": "tsx --env-file-if-exists=../.env watch src/main.ts",
+    "start": "tsx --env-file-if-exists=../.env src/main.ts",
     "seed": "tsx src/seed.ts",
     "migrate": "tsx src/db/migrate.ts",
     "db:reset": "tsx src/db/reset.ts",
