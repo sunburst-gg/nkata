@@ -827,6 +827,26 @@ async fn mirror_holds_on_pause_or_off_and_mark_ready_stores_a_render() {
         .await
         .unwrap();
     assert_eq!(render.status().as_u16(), 200);
+    // The save's export is the version's model, uploaded off the save path.
+    let http = reqwest::Client::new();
+    let mut model_status = 0;
+    for _ in 0..100 {
+        model_status = http
+            .get(format!(
+                "{server_url}/parts/{uvs}/versions/{version_id}/model"
+            ))
+            .bearer_auth(&token)
+            .send()
+            .await
+            .unwrap()
+            .status()
+            .as_u16();
+        if model_status == 200 {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    assert_eq!(model_status, 200, "the model never reached the server");
 
     // No capture from the editor: Blender renders and posts it.
     fake.script

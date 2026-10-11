@@ -342,6 +342,27 @@ async fn saved(
         source_file = body.source_file,
         "saved"
     );
+    // The export is the version's model in the app, so a viewer sees this save in 3D.
+    // Off the save path: the editor gets its answer now, the upload runs on its own.
+    if let (true, Some(spool)) = (body.changed, body.spool_path.as_deref()) {
+        let server = s.server.clone();
+        let (pid, vid, path, project_id) = (
+            id.clone(),
+            version_id.clone(),
+            PathBuf::from(spool),
+            s.project.id.clone(),
+        );
+        tokio::spawn(async move {
+            match server.store_model(&pid, &vid, &path).await {
+                Ok(()) => {
+                    tracing::info!(project_id, part_id = pid, version_id = vid, "model stored")
+                }
+                Err(e) => {
+                    tracing::warn!(project_id, part_id = pid, version_id = vid, error = %e, "model not stored")
+                }
+            }
+        });
+    }
     if mirrors {
         let (Some(spool), Some(manifest)) = (body.spool_path, body.manifest) else {
             unreachable!("checked above")
@@ -482,6 +503,34 @@ async fn publish(
         blocked = out.blocked_by.len(),
         "publish"
     );
+    // Mark Ready on a level area: the editor exports the tagged actors as the version's model.
+    if out.published && body.ready {
+        if let Ok(part) = s.server.part(&id).await {
+            if let crate::protocol::PartMapping::UeArea { level, area } = &part.mapping {
+                match s
+                    .mirror
+                    .export_area(&id, &version_id, level, area, &s.spool_dir)
+                    .await
+                {
+                    Some(path) => match s.server.store_model(&id, &version_id, &path).await {
+                        Ok(()) => tracing::info!(
+                            project_id = s.project.id,
+                            part_id = id,
+                            version_id,
+                            source = "ue5",
+                            "model stored"
+                        ),
+                        Err(e) => {
+                            tracing::warn!(project_id = s.project.id, part_id = id, error = %e, "model not stored")
+                        }
+                    },
+                    None => {
+                        tracing::info!(project_id = s.project.id, part_id = id, "no area export")
+                    }
+                }
+            }
+        }
+    }
     // Mark Ready: the engine's viewport becomes the version's render. No capture: Blender's turn.
     if out.published && body.ready {
         let captured = match s.mirror.capture(&id, &version_id, &s.spool_dir).await {

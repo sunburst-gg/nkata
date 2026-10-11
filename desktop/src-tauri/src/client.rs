@@ -480,6 +480,28 @@ impl ServerClient {
         version_id: &str,
         path: &std::path::Path,
     ) -> Result<()> {
+        self.store_artifact("render", part_id, version_id, path)
+            .await
+    }
+
+    /// Stores a GLB as the version's model: the add-on's export, or the area export from Unreal.
+    pub async fn store_model(
+        &self,
+        part_id: &str,
+        version_id: &str,
+        path: &std::path::Path,
+    ) -> Result<()> {
+        self.store_artifact("model", part_id, version_id, path)
+            .await
+    }
+
+    async fn store_artifact(
+        &self,
+        kind: &str,
+        part_id: &str,
+        version_id: &str,
+        path: &std::path::Path,
+    ) -> Result<()> {
         #[derive(Deserialize)]
         struct Signed {
             key: String,
@@ -490,7 +512,7 @@ impl ServerClient {
             .map_err(|e| AgentError::io(path, e))?;
         let signed: Signed = self
             .post(
-                &format!("/parts/{part_id}/versions/{version_id}/render-url"),
+                &format!("/parts/{part_id}/versions/{version_id}/{kind}-url"),
                 &serde_json::json!({ "size": bytes.len() }),
             )
             .await?;
@@ -510,7 +532,7 @@ impl ServerClient {
         let res = self
             .http
             .put(format!(
-                "{}/parts/{part_id}/versions/{version_id}/render",
+                "{}/parts/{part_id}/versions/{version_id}/{kind}",
                 self.base
             ))
             .bearer_auth(&self.token)

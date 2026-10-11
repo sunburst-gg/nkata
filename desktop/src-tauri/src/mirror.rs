@@ -257,6 +257,57 @@ impl MirrorRunner {
         None
     }
 
+    /// Mark Ready on a level area: the editor exports the tagged actors as one GLB and the
+    /// caller stores it as the version's model. None when the editor is closed or refuses.
+    pub async fn export_area(
+        &self,
+        part_id: &str,
+        version_id: &str,
+        level: &str,
+        area: &str,
+        spool_dir: &Path,
+    ) -> Option<PathBuf> {
+        let script = self.scripts_dir.join("export_area.py");
+        let dir = spool_dir.join(part_id);
+        if let Err(e) = std::fs::create_dir_all(&dir) {
+            tracing::warn!(part_id, error = %e, "export area: spool dir");
+            return None;
+        }
+        let out_path = dir.join(format!("{version_id}.area.glb"));
+        let args_path = dir.join(format!("{version_id}.area.args.json"));
+        let args = serde_json::json!({ "v": 1, "part_id": part_id, "version_id": version_id, "level": level, "area": area, "out_path": out_path });
+        if let Err(e) = std::fs::write(&args_path, serde_json::to_vec_pretty(&args).ok()?) {
+            tracing::warn!(part_id, error = %e, "export area: args not written");
+            return None;
+        }
+        match self.ue5.run_script(&script, &args_path).await {
+            Ok(CallOutcome::Done(r)) if r.ok => {
+                let path = r.path.map(PathBuf::from).unwrap_or(out_path);
+                if std::fs::metadata(&path)
+                    .map(|m| m.len() > 0)
+                    .unwrap_or(false)
+                {
+                    Some(path)
+                } else {
+                    tracing::info!(part_id, path = %path.display(), "export area: file never appeared");
+                    None
+                }
+            }
+            Ok(CallOutcome::Done(r)) => {
+                tracing::info!(part_id, message = r.message, "export area: refused");
+                None
+            }
+            Ok(CallOutcome::Unreachable(why)) => {
+                tracing::info!(part_id, why, "export area: UE5 not reachable");
+                None
+            }
+            Err(e) => {
+                tracing::warn!(part_id, error = %e, "export area: error");
+                None
+            }
+        }
+    }
+
     pub async fn state(&self, part_id: &str) -> MirrorState {
         let parts = self.parts.lock().await;
         parts

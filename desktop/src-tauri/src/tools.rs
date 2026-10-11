@@ -26,7 +26,13 @@ use crate::error::{AgentError, Result};
 pub const BLENDER_REPO: &str = "user_default";
 pub const UE_PLUGIN_NAME: &str = "Nkata";
 /// Plugins the .uproject must list as enabled. Names are the ones UE shows in Edit, Plugins.
-pub const UE_PLUGINS: [&str; 3] = [UE_PLUGIN_NAME, "PythonScriptPlugin", "RemoteControl"];
+/// GLTFExporter is Epic's glTF exporter, which export_area.py runs on Mark Ready.
+pub const UE_PLUGINS: [&str; 4] = [
+    UE_PLUGIN_NAME,
+    "PythonScriptPlugin",
+    "RemoteControl",
+    "GLTFExporter",
+];
 const UE_INI_SECTION: &str = "SystemSettings";
 const UE_INI_LINE: &str = "WebControl.EnableServerOnStartup=1";
 /// Folders never copied into an editor: tests, caches, and the vendored copy's own caches.
@@ -464,7 +470,8 @@ mod tests {
         assert_eq!(on("Water"), Some(true));
         assert_eq!(on("Nkata"), Some(true));
         assert_eq!(on("PythonScriptPlugin"), Some(true));
-        assert_eq!(list.len(), 4);
+        assert_eq!(on("GLTFExporter"), Some(true));
+        assert_eq!(list.len(), 5);
         assert_eq!(enable_plugins(&out, &UE_PLUGINS).unwrap(), out);
         assert!(enable_plugins("[]", &UE_PLUGINS).is_err());
     }
@@ -507,7 +514,7 @@ mod tests {
         assert!(!target.join("tests").exists());
         let doc: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(&uproject).unwrap()).unwrap();
-        assert_eq!(doc["Plugins"].as_array().unwrap().len(), 3);
+        assert_eq!(doc["Plugins"].as_array().unwrap().len(), 4);
         let ini = std::fs::read_to_string(project.join("Config/DefaultEngine.ini")).unwrap();
         assert!(ini.contains("[SystemSettings]\nWebControl.EnableServerOnStartup=1"));
         // A second install replaces the folder and changes nothing else.
