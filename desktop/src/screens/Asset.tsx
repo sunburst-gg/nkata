@@ -77,7 +77,7 @@ function AssetScreen({ asset, onPart }: { asset: AssetModel; onPart: (p: Part) =
       <div className="grid items-start gap-6" style={{ gridTemplateColumns: "minmax(0, 1fr) 320px" }}>
         <div className="flex flex-col gap-3">
           <Stage session={session} caption={caption} aspect="16/9" />
-          <PinRow onFull={() => setFullScreen({ assetSlug: asset.slug })} />
+          <PinRow onFull={() => setFullScreen({ assetSlug: asset.slug })} walkable={asset.kind === "Levels"} />
         </div>
         <CommentRail session={session} />
       </div>

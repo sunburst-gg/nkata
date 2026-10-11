@@ -18,7 +18,12 @@ export function renderUrl(key: RenderKey, size: "full" | "tile" = "full"): strin
   return size === "tile" ? TILE[key] : FULL[key];
 }
 
+/** The image of a render: a bundled crop, or the version's capture by URL. */
+export function renderSrc(render: Render, size: "full" | "tile" = "full"): string {
+  return render.url ?? renderUrl(render.key, size);
+}
+
 /** Inline style for a cropped render background. */
 export function renderStyle(render: Render, size: "full" | "tile" = "full"): React.CSSProperties {
-  return { backgroundImage: `url(${renderUrl(render.key, size)})`, backgroundSize: "cover", backgroundPosition: render.pos, backgroundColor: "var(--preview-bg)" };
+  return { backgroundImage: `url(${renderSrc(render, size)})`, backgroundSize: "cover", backgroundPosition: render.pos ?? "center", backgroundColor: "var(--preview-bg)" };
 }

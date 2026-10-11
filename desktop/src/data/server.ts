@@ -34,7 +34,8 @@ type PartWire = {
   updated_at: string;
 };
 type AssetWire = { id: string; name: string; template_id: string; state: string; updated_at: string };
-type VersionWire = { id: string; part_id: string; author_id: string; mirror_status: string; mirror_ms: number | null; refs: { level: string; actors: number }[] | null; published: boolean; note: string; created_at: string };
+type ManifestWire = { objects: { name: string; triangles: number; materials: string[]; hash: string }[]; bone_count?: number | null } | null;
+type VersionWire = { id: string; part_id: string; author_id: string; mirror_status: string; mirror_ms: number | null; refs: { level: string; actors: number }[] | null; published: boolean; note: string; created_at: string; render_url?: string | null; model_url?: string | null; manifest?: ManifestWire };
 type CommentWire = { id: string; part_id: string; author: UserRef; body: string; kind: "pin" | "take_a_look"; point: number[]; resolved_at: string | null; created_at: string };
 type CheckWire = { check_id: string; severity: "block" | "warn"; passed: boolean; auto_fixed: boolean; message: string };
 type EventWire = { id: string; event: Wire & { kind: string; actor_id: string; at: string; part_id?: string } };
@@ -100,7 +101,11 @@ export function checkOf(c: CheckWire): Check {
 }
 
 export function versionOf(v: VersionWire, n: number, now: Date): Version {
-  return { id: v.id, n, note: v.published ? "published" : v.note, render: null, authorId: v.author_id, when: ago(v.created_at, now), mirror: v.mirror_status === "failed" ? "failed" : "synced" };
+  return {
+    id: v.id, n, note: v.published ? "published" : v.note, render: v.render_url ? { url: v.render_url } : null, authorId: v.author_id, when: ago(v.created_at, now), mirror: v.mirror_status === "failed" ? "failed" : "synced",
+    ...(v.model_url ? { model: v.model_url } : {}),
+    ...(v.manifest ? { manifest: { objects: v.manifest.objects.map((o) => ({ name: o.name, triangles: o.triangles, materials: [...o.materials], hash: o.hash })), bones: v.manifest.bone_count ?? null } } : {}),
+  };
 }
 
 export function activityOf(e: EventWire, people: Map<string, Person>, parts: Map<string, { assetSlug: string; assetName: string; partName: string }>, now: Date): ActivityItem | null {
@@ -237,13 +242,16 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
         const checks: Check[] = current ? (await call<{ results: CheckWire[] }>("GET", `/parts/${pw.id}/versions/${current.id}/checks`)).results.map(checkOf) : [];
         const comments: Comment[] = commentsRes.comments.map((c, n) => ({ id: c.id, n: n + 1, authorId: c.author.id, partName: pw.name, when: ago(c.created_at, t), text: c.body, resolved: c.resolved_at !== null, kind: c.kind ?? "pin", source: "Nkata", ...((c.point ?? []).some((x) => x !== 0) ? { pos: [c.point?.[0] ?? 0, c.point?.[1] ?? 0, c.point?.[2] ?? 0] as [number, number, number] } : {}) }));
         const mirror = !current ? { state: "offline" as const, seconds: 0 } : current.mirror_status === "failed" ? { state: "failed" as const, seconds: 0 } : current.mirror_status === "synced" || current.mirror_status === "skipped" ? { state: "synced" as const, seconds: Math.round((current.mirror_ms ?? 0) / 1000) } : { state: "syncing" as const, seconds: 0 };
-        return { id: pw.id, name: pw.name, state: partState(pw), ownerId: pw.owner_id ?? "", render: null, lock: pw.lock ? { holderId: pw.lock.holder.id, since: ago(pw.lock.granted_at, t) } : null, gate: pw.waiting_on, versions, checks, comments, mirror, refs: current?.refs ?? [] };
+        return { id: pw.id, name: pw.name, state: partState(pw), ownerId: pw.owner_id ?? "", render: versions.find((x) => x.render)?.render ?? null, lock: pw.lock ? { holderId: pw.lock.holder.id, since: ago(pw.lock.granted_at, t) } : null, gate: pw.waiting_on, versions, checks, comments, mirror, refs: current?.refs ?? [] };
       }));
       const usedIn = [...new Set(parts.flatMap((p) => p.refs.map((r) => r.level.split("/").pop() ?? r.level)))];
       const present = online.online.filter((o) => o.part_id && partsWire.some((p) => p.id === o.part_id)).map((o) => o.user.id);
       const latest = partsWire.map((p) => p.updated_at).sort().at(-1) ?? a.updated_at;
       const ownerName = peopleById.get(parts[0]?.ownerId ?? "")?.name.split(" ")[0] ?? "";
-      assets.push({ id: a.id, slug, projectSlug: projectSlugOf, name: a.name, kind: KIND_TAB[kind] ?? "Props", state: assetState(parts), render: null, noRenderText: parts.map((p) => p.name).join(" · "), meta: `${KIND_WORD[kind] ?? kind} · ${parts.length} part${parts.length === 1 ? "" : "s"}${ownerName ? ` · ${ownerName}` : ""}`, ownerId: parts[0]?.ownerId ?? "", present, parts, template: templateName.get(a.template_id) ?? "", usedIn, changedOrder: i, when: `${ago(latest, t)} ago`, syncIssue: parts.some((p) => p.mirror.state === "failed") });
+      // The asset's picture and model: the newest render and GLB across its parts.
+      const shown = parts.map((p) => p.versions.find((v) => v.render || v.model)).find(Boolean);
+      const model = parts.map((p) => p.versions.find((v) => v.model)?.model).find(Boolean);
+      assets.push({ id: a.id, slug, projectSlug: projectSlugOf, name: a.name, kind: KIND_TAB[kind] ?? "Props", state: assetState(parts), render: shown?.render ?? null, ...(model ? { model } : {}), noRenderText: parts.map((p) => p.name).join(" · "), meta: `${KIND_WORD[kind] ?? kind} · ${parts.length} part${parts.length === 1 ? "" : "s"}${ownerName ? ` · ${ownerName}` : ""}`, ownerId: parts[0]?.ownerId ?? "", present, parts, template: templateName.get(a.template_id) ?? "", usedIn, changedOrder: i, when: `${ago(latest, t)} ago`, syncIssue: parts.some((p) => p.mirror.state === "failed") });
     }
     assets.sort((x, y) => (y.parts.map((p) => p.versions[0]?.when ?? "").join("") > x.parts.map((p) => p.versions[0]?.when ?? "").join("") ? 1 : -1));
     for (const o of online.online) {

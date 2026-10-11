@@ -29,10 +29,13 @@ export type MirrorState = "synced" | "syncing" | "failed" | "offline";
 export type CheckStatus = "pass" | "fail" | "warn" | "running" | "waiting";
 export type AssetKind = "Characters" | "Props" | "Levels";
 
-export interface Render {
-  key: RenderKey;
-  /** CSS background-position for the crop. */
-  pos: string;
+/** A render: one of the bundled compound crops (the mock), or the version's capture by URL. */
+export type Render = { key: RenderKey; pos: string; url?: undefined } | { url: string; key?: undefined; pos?: undefined };
+
+/** What the add-on wrote next to the export: enough to say what changed between two versions. */
+export interface VersionManifest {
+  objects: { name: string; triangles: number; materials: string[]; hash: string }[];
+  bones: number | null;
 }
 
 export interface Version {
@@ -46,6 +49,9 @@ export interface Version {
   mirror: "synced" | "failed";
   /** Set when this version was made by Roll back. */
   from?: number;
+  /** The GLB of this version: the add-on's export, or the area export from Unreal. */
+  model?: string;
+  manifest?: VersionManifest;
 }
 
 export interface Check {

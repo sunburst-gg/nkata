@@ -2,10 +2,9 @@
 // Shared by the asset screen, the part screen, and the full screen reviewer, so a pin dropped in
 // one is the same pin in the others (handoff/v3/CLAUDE_CODE_PROMPT_v3.md, Full screen review).
 import { useStore } from "@/store";
-import type { Asset, Comment, Part } from "@/data/types";
+import type { Asset, Comment, Part, Version } from "@/data/types";
 import type { ViewerPin } from "@/components/ModelViewer/nk-viewer";
-import { renderUrl } from "./renders";
-import { SAMPLE_MODEL } from "@/data/mock";
+import { renderSrc } from "./renders";
 import { firstName, usePeople } from "./hooks";
 
 export const PENDING = "pending";
@@ -23,8 +22,8 @@ export interface ViewerSession {
   cancel: () => void;
 }
 
-/** Comments and pins for an asset, or for one of its parts. */
-export function useViewerSession(asset: Asset, part?: Part): ViewerSession {
+/** Comments and pins for an asset, or for one of its parts; `version` picks the one previewed. */
+export function useViewerSession(asset: Asset, part?: Part, version?: Version): ViewerSession {
   const pendingPin = useStore((s) => s.pendingPin);
   const activePin = useStore((s) => s.activePin);
   const draft = useStore((s) => s.draft);
@@ -33,7 +32,10 @@ export function useViewerSession(asset: Asset, part?: Part): ViewerSession {
   const pinned = comments.filter((c) => c.pos);
   const pins: ViewerPin[] = pinned.map((c) => ({ id: c.id, pos: c.pos! }));
   if (pendingPin) pins.push({ id: PENDING, pos: pendingPin });
-  const render = part ? part.versions[0]?.render ?? part.render : asset.render;
+  const shown = version ?? part?.versions[0];
+  const render = part ? shown?.render ?? part.render : asset.render;
+  // The model of the version shown, else the newest one the part has, else the asset's.
+  const model = part ? shown?.model ?? part.versions.find((v) => v.model)?.model ?? null : asset.model ?? null;
   const target = part ?? asset.parts[0];
   return {
     comments,
@@ -41,8 +43,8 @@ export function useViewerSession(asset: Asset, part?: Part): ViewerSession {
     activePin: pendingPin ? PENDING : activePin,
     pinNo: (c) => pinned.indexOf(c) + 1,
     nextPinNo: pinned.length + 1,
-    src: asset.model ?? (asset.render ? SAMPLE_MODEL : null),
-    poster: render ? renderUrl(render.key) : undefined,
+    src: model,
+    poster: render ? renderSrc(render) : undefined,
     post: () => {
       const text = draft.trim();
       if (!text || !target) return;

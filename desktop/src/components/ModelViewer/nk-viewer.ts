@@ -5,6 +5,7 @@
 // https://threejs.org/docs/
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
@@ -27,10 +28,14 @@ const STYLE = `
 
 const ORBIT_HINT = "Drag to orbit · Scroll to zoom · Right drag to pan";
 const PIN_HINT = "Click the model to pin a comment";
+const WALK_HINT = "W A S D to move · Mouse to look · Esc to stop";
+/** Eye height and pace for walking a level area, in meters: the exporter writes meters. */
+const EYE_HEIGHT = 1.7;
+const WALK_SPEED = 3.2;
 
 export class NkViewer extends HTMLElement {
   static get observedAttributes(): string[] {
-    return ["src", "pinning", "bg", "poster", "pins", "active-pin", "activepin"];
+    return ["src", "pinning", "bg", "poster", "pins", "active-pin", "activepin", "mode"];
   }
 
   private _pins: ViewerPin[] = [];
@@ -51,6 +56,10 @@ export class NkViewer extends HTMLElement {
   private _ro: ResizeObserver | null = null;
   private _raf = 0;
   private _model: THREE.Object3D | null = null;
+  private _walk: PointerLockControls | null = null;
+  private _keys = new Set<string>();
+  private _lastTick = 0;
+  private _walking = false;
 
   constructor() {
     super();
@@ -93,8 +102,17 @@ export class NkViewer extends HTMLElement {
       if (!this._down) return;
       const moved = Math.hypot(e.clientX - this._down[0], e.clientY - this._down[1]);
       this._down = null;
+      if (this._walking) {
+        // Locked pointer: a click pins at the center of the view.
+        if (this._walk?.isLocked && this._pinOn) this._dropPinAt(0, 0);
+        else if (!this._walk?.isLocked) this._walk?.lock();
+        return;
+      }
       if (moved < 4 && this._pinOn) this._dropPin(e);
     });
+    // Walking: the keys come from the document so the canvas needs no focus.
+    document.addEventListener("keydown", this._onKey);
+    document.addEventListener("keyup", this._onKey);
     this._resize();
     this._load();
     this._tick();
@@ -103,8 +121,17 @@ export class NkViewer extends HTMLElement {
   disconnectedCallback(): void {
     cancelAnimationFrame(this._raf);
     this._ro?.disconnect();
+    document.removeEventListener("keydown", this._onKey);
+    document.removeEventListener("keyup", this._onKey);
+    this._walk?.unlock();
     this._renderer?.dispose();
   }
+
+  private readonly _onKey = (e: KeyboardEvent): void => {
+    if (!this._walking) return;
+    if (e.type === "keydown") this._keys.add(e.code);
+    else this._keys.delete(e.code);
+  };
 
   attributeChangedCallback(name: string, _old: string | null, value: string | null): void {
     if (name === "src" && this._scene) this._load();
@@ -128,6 +155,76 @@ export class NkViewer extends HTMLElement {
       this._canvas.style.cursor = on ? "crosshair" : "";
     }
     if (name === "poster") this._poster.style.backgroundImage = value ? `url(${value})` : "none";
+    if (name === "mode") this._setMode(value === "walk");
+  }
+
+  /** Orbit around the model, or walk through it first person (a level area). */
+  private _setMode(walk: boolean): void {
+    if (walk === this._walking) return;
+    const camera = this._camera;
+    const controls = this._controls;
+    if (!camera || !controls) { this._walking = walk; return; }
+    this._walking = walk;
+    this._keys.clear();
+    if (walk) {
+      controls.enabled = false;
+      if (!this._walk) {
+        this._walk = new PointerLockControls(camera, this._canvas);
+        this._walk.addEventListener("unlock", () => this.dispatchEvent(new CustomEvent("nk-walk-end", { bubbles: true })));
+      }
+      this._standUp();
+      this._hint.textContent = WALK_HINT;
+      this._canvas.style.cursor = "crosshair";
+      this._lastTick = performance.now();
+      this._walk.lock();
+    } else {
+      this._walk?.unlock();
+      controls.enabled = true;
+      this._hint.textContent = this._pinOn ? PIN_HINT : ORBIT_HINT;
+      this._canvas.style.cursor = this._pinOn ? "crosshair" : "";
+      if (this._model) this._frame(this._model);
+    }
+  }
+
+  /** Puts the camera at eye height on the floor under the model's center, looking across it. */
+  private _standUp(): void {
+    const camera = this._camera;
+    const model = this._model;
+    if (!camera || !model) return;
+    const box = new THREE.Box3().setFromObject(model);
+    const center = box.getCenter(new THREE.Vector3());
+    const floor = this._floorUnder(center.x, box.max.y + 1, center.z) ?? box.min.y;
+    camera.position.set(center.x, floor + EYE_HEIGHT, center.z);
+    camera.lookAt(center.x, floor + EYE_HEIGHT, center.z - 1);
+    camera.near = 0.05;
+    camera.far = Math.max(100, box.getSize(new THREE.Vector3()).length() * 4);
+    camera.updateProjectionMatrix();
+  }
+
+  /** The floor height under a point: the first mesh hit looking down, or null in the void. */
+  private _floorUnder(x: number, fromY: number, z: number): number | null {
+    if (!this._model) return null;
+    this._ray.set(new THREE.Vector3(x, fromY, z), new THREE.Vector3(0, -1, 0));
+    const hit = this._ray.intersectObject(this._model, true)[0];
+    return hit ? hit.point.y : null;
+  }
+
+  private _step(dt: number): void {
+    const walk = this._walk;
+    const camera = this._camera;
+    if (!walk || !camera || !walk.isLocked) return;
+    const fast = this._keys.has("ShiftLeft") || this._keys.has("ShiftRight");
+    const speed = WALK_SPEED * (fast ? 2.5 : 1) * dt;
+    const forward = (this._keys.has("KeyW") || this._keys.has("ArrowUp") ? 1 : 0) - (this._keys.has("KeyS") || this._keys.has("ArrowDown") ? 1 : 0);
+    const right = (this._keys.has("KeyD") || this._keys.has("ArrowRight") ? 1 : 0) - (this._keys.has("KeyA") || this._keys.has("ArrowLeft") ? 1 : 0);
+    if (forward) walk.moveForward(forward * speed);
+    if (right) walk.moveRight(right * speed);
+    // Stay at eye height over whatever is under foot; in the void, keep the last height.
+    const floor = this._floorUnder(camera.position.x, camera.position.y + 0.5, camera.position.z);
+    if (floor !== null) {
+      const want = floor + EYE_HEIGHT;
+      camera.position.y += (want - camera.position.y) * Math.min(1, dt * 12);
+    }
   }
 
   // React 19 sets a prop as a property when the element has one, so the JSON string lands here.
@@ -178,18 +275,10 @@ export class NkViewer extends HTMLElement {
         this._model = m;
         scene.add(m);
         const box = new THREE.Box3().setFromObject(m);
-        const size = box.getSize(new THREE.Vector3());
         const center = box.getCenter(new THREE.Vector3());
         m.position.sub(center);
-        const d = Math.max(size.x, size.y, size.z);
-        camera.position.set(d * 1.1, d * 0.6, d * 1.5);
-        camera.near = d / 100;
-        camera.far = d * 20;
-        camera.updateProjectionMatrix();
-        controls.target.set(0, 0, 0);
-        controls.minDistance = d * 0.4;
-        controls.maxDistance = d * 5;
-        controls.update();
+        if (this._walking) this._standUp();
+        else this._frame(m);
         this._loading.style.opacity = "0";
         this._poster.style.opacity = "0";
         this.dispatchEvent(new CustomEvent("nk-loaded", { bubbles: true }));
@@ -203,10 +292,31 @@ export class NkViewer extends HTMLElement {
     );
   }
 
+  /** Frames the model for orbit: a three quarter view with the whole model in sight. */
+  private _frame(m: THREE.Object3D): void {
+    const camera = this._camera;
+    const controls = this._controls;
+    if (!camera || !controls) return;
+    const size = new THREE.Box3().setFromObject(m).getSize(new THREE.Vector3());
+    const d = Math.max(size.x, size.y, size.z) || 1;
+    camera.position.set(d * 1.1, d * 0.6, d * 1.5);
+    camera.near = d / 100;
+    camera.far = d * 20;
+    camera.updateProjectionMatrix();
+    controls.target.set(0, 0, 0);
+    controls.minDistance = d * 0.4;
+    controls.maxDistance = d * 5;
+    controls.update();
+  }
+
   private _dropPin(e: PointerEvent): void {
-    if (!this._model || !this._camera) return;
     const rect = this._canvas.getBoundingClientRect();
-    const ndc = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+    this._dropPinAt(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+  }
+
+  private _dropPinAt(x: number, y: number): void {
+    if (!this._model || !this._camera) return;
+    const ndc = new THREE.Vector2(x, y);
     this._ray.setFromCamera(ndc, this._camera);
     const hit = this._ray.intersectObject(this._model, true)[0];
     if (!hit) return;
@@ -235,7 +345,10 @@ export class NkViewer extends HTMLElement {
     const scene = this._scene;
     const camera = this._camera;
     if (!renderer || !scene || !camera) return;
-    this._controls?.update();
+    const now = performance.now();
+    if (this._walking) this._step(Math.min(0.1, (now - this._lastTick) / 1000));
+    else this._controls?.update();
+    this._lastTick = now;
     renderer.render(scene, camera);
     if (!this._pinEls.length) return;
     const w = this.clientWidth;

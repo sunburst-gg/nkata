@@ -26,7 +26,7 @@ function routes(): Record<string, unknown> {
       { id: "01PR", asset_id: ID.ojukwu, asset_name: "Ojukwu", kind: "character", name: "rig", position: 1, state: "locked", owner: null, owner_id: null, lock: null, gate: { after: ["face"] }, waiting_on: ["face"], checks: [], reference_files: [], updated_at: "2026-10-05T11:00:00.000Z" },
     ] },
     [`GET /parts/${ID.face}/versions`]: { v: 1, versions: [
-      { id: ID.v2, part_id: ID.face, author_id: ID.ada, mirror_status: "synced", mirror_ms: 4200, refs: [{ level: "/Game/Levels/L_EnuguMarket", actors: 2 }], published: true, note: "", created_at: "2026-10-05T11:30:00.000Z" },
+      { id: ID.v2, part_id: ID.face, author_id: ID.ada, mirror_status: "synced", mirror_ms: 4200, refs: [{ level: "/Game/Levels/L_EnuguMarket", actors: 2 }], published: true, note: "", created_at: "2026-10-05T11:30:00.000Z", render_url: "https://store/renders/face/v2.png", model_url: "https://store/models/face/v2.glb", manifest: { v: 1, kind: "character", objects: [{ name: "Face", triangles: 1200, materials: ["M_Skin"], bounds_min: [0, 0, 0], bounds_max: [1, 1, 2], hash: "abc", origin: [0, 0, 0], scale: [1, 1, 1] }], bone_count: 42, armature: "Armature", mirror_target: null } },
       { id: ID.v1, part_id: ID.face, author_id: ID.ada, mirror_status: "failed", mirror_ms: null, refs: null, published: false, note: "", created_at: "2026-10-05T10:00:00.000Z" },
     ] },
     [`GET /parts/${ID.face}/comments`]: { v: 1, comments: [{ id: ID.c1, part_id: ID.face, author: emeka, body: "Steam too strong.", resolved_at: null, created_at: "2026-10-05T11:40:00.000Z" }] },
@@ -90,10 +90,15 @@ describe("server source", () => {
     expect(db.session.studio.projects[0]).toMatchObject({ id: ID.project, slug: "rising-sun", name: "Rising Sun", assetCount: 1, folder: "/home/ada/rising-sun", blender: "4.2", unreal: "5.4" });
     expect(db.people.map((p) => [p.name, p.role, p.presence])).toEqual([["Ada Okafor", "artist", "online"], ["Emeka Nwosu", "art_director", "offline"]]);
     const ojukwu = db.assets[0]!;
-    expect(ojukwu).toMatchObject({ slug: "ojukwu", kind: "Characters", state: "failed", template: "Character", usedIn: ["L_EnuguMarket"], present: [ID.ada], render: null });
+    expect(ojukwu).toMatchObject({ slug: "ojukwu", kind: "Characters", state: "failed", template: "Character", usedIn: ["L_EnuguMarket"], present: [ID.ada] });
     const face = ojukwu.parts[0]!;
     expect(face).toMatchObject({ name: "face", state: "draft", ownerId: ID.ada, lock: { holderId: ID.ada, since: "12 min" }, mirror: { state: "synced", seconds: 4 } });
     expect(face.versions.map((v) => [v.n, v.note, v.mirror])).toEqual([[2, "published", "synced"], [1, "", "failed"]]);
+    // The version's model and render reach the viewer; the asset shows the newest of its parts.
+    expect(face.versions[0]).toMatchObject({ model: "https://store/models/face/v2.glb", render: { url: "https://store/renders/face/v2.png" }, manifest: { bones: 42, objects: [{ name: "Face", triangles: 1200, hash: "abc" }] } });
+    expect(face.versions[1]!.model).toBeUndefined();
+    expect(ojukwu.model).toBe("https://store/models/face/v2.glb");
+    expect(ojukwu.render).toEqual({ url: "https://store/renders/face/v2.png" });
     expect(face.checks.map((c) => [c.name, c.status])).toEqual([["Triangle budget", "fail"], ["Scale", "pass"]]);
     expect(face.comments[0]).toMatchObject({ authorId: ID.emeka, text: "Steam too strong.", partName: "face", source: "Nkata" });
     expect(ojukwu.parts[1]).toMatchObject({ name: "rig", state: "waiting", gate: ["face"], versions: [], mirror: { state: "offline" } });

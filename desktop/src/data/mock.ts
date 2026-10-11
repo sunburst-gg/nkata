@@ -2,7 +2,7 @@
 // studio, two projects, six assets, seven people. Four demo stages of the first run (fresh,
 // connected, firstAsset, populated) reach every state the prototype's Tweaks reach.
 import type { Role } from "@/auth/permissions";
-import type { ActivityItem, Asset, AskAnswer, Check, Comment, Connection, ConnectionId, DataSource, DemoStage, Mention, Part, Person, Project, RenderKey, Snapshot, Studio, Template, Training, TrainingEntry, Version } from "./types";
+import type { ActivityItem, Asset, AskAnswer, Check, Comment, Connection, ConnectionId, DataSource, DemoStage, Mention, Part, Person, Project, RenderKey, Snapshot, Studio, Template, Training, TrainingEntry, Version, VersionManifest } from "./types";
 
 /** The Khronos Duck, bundled. Every mock asset loads it so the viewer works offline. */
 export const SAMPLE_MODEL = "/models/Duck.glb";
@@ -21,10 +21,18 @@ const r = (key: RenderKey, pos = "center") => ({ key, pos });
 const WHEN = ["Today", "Today", "Yesterday", "Mon"];
 const RENDERS: RenderKey[] = ["ground", "courtyard", "tree", "interior"];
 
+/** A manifest per version so What changed has something to say: v3 reworks the main object and
+ *  adds a material, v2 added a second object, v1 is the first block. */
+function manifestFor(part: string, n: number): VersionManifest {
+  const main = { name: `${part}_mesh`, triangles: 9000 + n * 1200, materials: n >= 3 ? [`M_${part}`, `M_${part}_detail`] : [`M_${part}`], hash: `${part}-${n >= 3 ? "c" : "a"}` };
+  const second = { name: `${part}_trim`, triangles: 2400, materials: ["M_trim"], hash: `${part}-trim` };
+  return { objects: n >= 2 ? [main, second] : [main], bones: part === "face" || part === "rig" ? 42 : null };
+}
+
 function versions(part: string, top: number, author: string): Version[] {
   const out: Version[] = [];
   for (let n = top, i = 0; n >= 1 && i < 4; n--, i++) {
-    out.push({ id: `${part}-v${n}`, n, note: i === 0 ? "current" : "", render: r(RENDERS[i]!), authorId: author, when: WHEN[i]!, mirror: "synced" });
+    out.push({ id: `${part}-v${n}`, n, note: i === 0 ? "current" : "", render: r(RENDERS[i]!), authorId: author, when: WHEN[i]!, mirror: "synced", model: SAMPLE_MODEL, manifest: manifestFor(part, n) });
   }
   return out;
 }
@@ -269,7 +277,7 @@ export function createMockSource(initial: MockOptions | "artist" | "viewer" = {}
       setTimeout(() => {
         const first = made.parts[0];
         if (!first) return;
-        first.versions = [{ id: `${first.name}-v1`, n: 1, note: "current", render: r("ground"), authorId: me.id, when: "Just now", mirror: "synced" }];
+        first.versions = [{ id: `${first.name}-v1`, n: 1, note: "current", render: r("ground"), authorId: me.id, when: "Just now", mirror: "synced", model: SAMPLE_MODEL, manifest: manifestFor(first.name, 1) }];
         first.mirror = { state: "synced", seconds: 4 };
         first.checks = checks().map((c) => ({ ...c, status: "pass", blocks: false, detail: c.fixedDetail ?? c.detail }));
         made.render = r("ground");
@@ -302,7 +310,7 @@ export function createMockSource(initial: MockOptions | "artist" | "viewer" = {}
       const from = p.versions.find((v) => v.n === toVersion);
       if (!from) throw new Error(`no version v${toVersion}`);
       const top = p.versions[0]?.n ?? 0;
-      const made: Version = { id: `${partName}-v${top + 1}`, n: top + 1, note: "current", render: from.render, authorId: me.id, when: "Just now", mirror: "synced", from: toVersion };
+      const made: Version = { id: `${partName}-v${top + 1}`, n: top + 1, note: "current", render: from.render, authorId: me.id, when: "Just now", mirror: "synced", from: toVersion, ...(from.model ? { model: from.model } : {}), ...(from.manifest ? { manifest: from.manifest } : {}) };
       p.versions = [made, ...p.versions.map((v) => ({ ...v, note: v.note === "current" ? "" : v.note }))];
       touch();
       return made;

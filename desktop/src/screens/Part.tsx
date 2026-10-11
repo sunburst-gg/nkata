@@ -1,16 +1,19 @@
 // Part. Versions down the left, the model in the middle, checks and comments on the right.
 // Click a version to preview it; the Roll back bar appears. Roll back creates a new version.
 import { useEffect, useState } from "react";
-import { Check, X } from "lucide-react";
+import { useSearchParams } from "react-router";
+import { Check, Minus, Plus, X } from "lucide-react";
 import { useCan, useStore } from "@/store";
 import { Button } from "@/components/Button";
 import { CommentRail } from "@/components/CommentRail";
 import { PinRow, Stage } from "@/components/ModelStage";
+import { RenderWipe } from "@/components/RenderWipe";
 import { StateDot } from "@/components/StateBadge";
 import type { Asset, Check as CheckModel, Part as PartModel } from "@/data/types";
 import { cn } from "@/lib/cn";
+import { diffLines, diffManifests } from "@/lib/diff";
 import { firstName, usePart, usePeople } from "@/lib/hooks";
-import { renderStyle } from "@/lib/renders";
+import { renderSrc, renderStyle } from "@/lib/renders";
 import { STATE_WORD } from "@/lib/state";
 import { useViewerSession } from "@/lib/viewer";
 import { useResetViewer } from "./Asset";
@@ -28,12 +31,26 @@ function PartScreen({ asset, part }: { asset: Asset; part: PartModel }) {
   const source = useStore((s) => s.source);
   const setFullScreen = useStore((s) => s.setFullScreen);
   const { by } = usePeople();
-  const session = useViewerSession(asset, part);
-  const [picked, setPicked] = useState<number | null>(null);
+  const [params, setParams] = useSearchParams();
+  // ?compare=N opens the part comparing vN with the current version (the activity rail links here).
+  const compareParam = Number(params.get("compare"));
+  const [compare, setCompare] = useState(Number.isFinite(compareParam) && compareParam > 0);
+  const [picked, setPicked] = useState<number | null>(compare ? compareParam : null);
   const top = part.versions[0];
   const current = top?.n ?? 0;
   const preview = picked ?? current;
+  const shownVersion = part.versions.find((v) => v.n === preview);
+  const session = useViewerSession(asset, part, shownVersion);
   const owner = firstName(by(part.ownerId).name);
+  // Compare: the picked (older) version against the current one.
+  const older = compare && picked && picked !== current ? part.versions.find((v) => v.n === picked) : undefined;
+  const diff = older && top ? diffManifests(older.manifest, top.manifest) : null;
+  const toggleCompare = () => {
+    const on = !compare;
+    setCompare(on);
+    setPicked(on ? (part.versions[1]?.n ?? null) : null);
+    if (!on && params.has("compare")) { params.delete("compare"); setParams(params, { replace: true }); }
+  };
   const open = (where: "Blender" | "Unreal") => toast(`Opening in ${where}.`, "locked");
   const rollBack = () => {
     if (!picked) return;
@@ -54,6 +71,7 @@ function PartScreen({ asset, part }: { asset: Asset; part: PartModel }) {
       </div>
       <div className="grid items-start gap-6" style={{ gridTemplateColumns: "112px minmax(0, 1fr) 320px" }}>
         <div className="flex flex-col gap-3">
+          {part.versions.length > 1 ? <Button size="xs" variant="outline" aria-pressed={compare} onClick={toggleCompare} className={cn("self-start", compare && "border-accent bg-active")}>Compare</Button> : null}
           {part.versions.length === 0 ? <span className="text-12 text-secondary">No versions yet.</span> : null}
           {part.versions.slice(0, 4).map((v) => (
             <button key={v.id} type="button" aria-pressed={picked === v.n} onClick={() => setPicked(picked === v.n || v.n === current ? null : v.n)} className={cn("cursor-pointer overflow-hidden rounded-[10px] border-2 bg-panel p-0 text-left transition-colors duration-150", picked === v.n ? "border-accent" : "border-hairline")}>
@@ -63,9 +81,13 @@ function PartScreen({ asset, part }: { asset: Asset; part: PartModel }) {
           ))}
         </div>
         <div className="flex flex-col gap-3">
-          <Stage session={session} caption={top ? `v${preview} · ${owner} · in Unreal` : "No publish yet"} aspect="16/10" />
-          <PinRow onFull={() => setFullScreen({ assetSlug: asset.slug, partName: part.name })} />
-          {picked && can("rollBack") ? (
+          {older && older.render && top?.render ? (
+            <RenderWipe before={renderSrc(older.render)} after={renderSrc(top.render)} labels={[`v${older.n}`, `v${top.n}`]} className="aspect-[16/10]" />
+          ) : (
+            <Stage session={session} caption={top ? `v${preview} · ${owner} · in Unreal` : "No publish yet"} aspect="16/10" />
+          )}
+          <PinRow onFull={() => setFullScreen({ assetSlug: asset.slug, partName: part.name })} walkable={asset.kind === "Levels"} />
+          {picked && !compare && can("rollBack") ? (
             <div className="flex items-center gap-3 rounded-xl border border-border bg-panel px-4 py-3 shadow-soft nk-panel-in">
               <span className="flex-1 text-14 text-body">Roll back to v{picked}? This creates v{current + 1}. Nothing is lost.</span>
               <Button size="sm" variant="outline" onClick={() => setPicked(null)}>Cancel</Button>
@@ -74,6 +96,26 @@ function PartScreen({ asset, part }: { asset: Asset; part: PartModel }) {
           ) : null}
         </div>
         <div className="flex flex-col gap-6">
+          {compare ? (
+            <div className="flex flex-col gap-3">
+              <span className="role-moment-sm text-heading">What changed</span>
+              {!older ? <span className="text-13 text-secondary">Pick an older version to compare with v{current}.</span> : null}
+              {older && !diff ? <span className="text-13 text-secondary">v{older.n} and v{current} have no manifest to compare. The renders tell the story.</span> : null}
+              {older && diff ? (
+                <>
+                  <span className="font-mono text-12 text-muted">v{older.n} to v{current}</span>
+                  {diffLines(diff).map((l) => (
+                    <div key={l.text} className="flex items-center gap-2.5 border-b border-hairline py-2 text-14 text-heading">
+                      <span aria-hidden="true" className="inline-flex size-4 shrink-0 items-center justify-center rounded-full text-[var(--avatar-fg)]" style={{ background: l.tone === "added" ? "var(--state-approved)" : l.tone === "removed" ? "var(--state-failed)" : l.tone === "touched" ? "var(--accent)" : "var(--fg-muted)" }}>
+                        {l.tone === "added" ? <Plus size={10} strokeWidth={2.5} /> : l.tone === "removed" ? <Minus size={10} strokeWidth={2.5} /> : l.tone === "touched" ? <span className="size-1.5 rounded-full bg-[var(--accent-fg)]" /> : <Check size={10} strokeWidth={2.5} />}
+                      </span>
+                      <span>{l.text}</span>
+                    </div>
+                  ))}
+                </>
+              ) : null}
+            </div>
+          ) : null}
           <div className="flex flex-col gap-3">
             <span className="role-moment-sm text-heading">Checks</span>
             {part.checks.length === 0 ? <span className="text-13 text-secondary">Checks run on the first save.</span> : null}

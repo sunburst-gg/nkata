@@ -68,6 +68,8 @@ interface UiState {
   pendingPin: [number, number, number] | null;
   activePin: string | null;
   draft: string;
+  /** Walking a level area in the viewer. Esc ends it. */
+  walking: boolean;
 }
 
 interface Store extends UiState {
@@ -91,6 +93,7 @@ interface Store extends UiState {
   setPendingPin: (pos: [number, number, number] | null) => void;
   setActivePin: (id: string | null) => void;
   setDraft: (text: string) => void;
+  setWalking: (on: boolean) => void;
   /** Closes every overlay and ends pinning. Esc. */
   closeAll: () => void;
   /** Mock only: jump to a demo stage of the first run. */
@@ -127,6 +130,7 @@ export function createStore(source: DataSource = createMockSource()): StoreApi<S
     pendingPin: null,
     activePin: null,
     draft: "",
+    walking: false,
     serverMode: false,
     can: (action) => can(action, get().role),
     refresh: () => {
@@ -150,7 +154,7 @@ export function createStore(source: DataSource = createMockSource()): StoreApi<S
     setAsk: (askOpen) => set({ askOpen }),
     setDeleteProject: (deleteProject) => set({ deleteProject }),
     setCreateAsset: (createAssetOpen) => set({ createAssetOpen }),
-    setFullScreen: (fullScreen) => set({ fullScreen, pinning: false, pendingPin: null }),
+    setFullScreen: (fullScreen) => set({ fullScreen, pinning: false, pendingPin: null, walking: false }),
     pulse: (assetSlug) => {
       set({ pulseAsset: assetSlug });
       setTimeout(() => { if (get().pulseAsset === assetSlug) set({ pulseAsset: null }); }, 900);
@@ -159,7 +163,8 @@ export function createStore(source: DataSource = createMockSource()): StoreApi<S
     setPendingPin: (pendingPin) => set({ pendingPin, activePin: null, draft: pendingPin ? "" : get().draft }),
     setActivePin: (activePin) => set({ activePin }),
     setDraft: (draft) => set({ draft }),
-    closeAll: () => set({ membersOpen: false, askOpen: false, deleteProject: null, createAssetOpen: false, fullScreen: null, pinning: false, pendingPin: null }),
+    setWalking: (walking) => set({ walking }),
+    closeAll: () => set({ membersOpen: false, askOpen: false, deleteProject: null, createAssetOpen: false, fullScreen: null, pinning: false, pendingPin: null, walking: false }),
     setStage: (stage) => {
       const src = get().source as Partial<MockSource>;
       if (src.setStage) { src.setStage(stage); set({ tab: "All", railOpen: false }); get().refresh(); }

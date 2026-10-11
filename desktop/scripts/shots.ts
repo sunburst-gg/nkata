@@ -20,6 +20,7 @@ const SHOTS: Shot[] = [
   { name: "project-fresh", path: "/p/nkatatest", stage: "fresh", createProject: true }, { name: "project-connected", path: "/p/nkatatest", stage: "connected" }, { name: "project-first", path: "/p/nkatatest", stage: "firstAsset" },
   { name: "project", path: RS, stage: "populated" }, { name: "project-rail", path: RS, stage: "populated", rail: true }, { name: "project-review", path: RS, stage: "populated", rail: true, tab: "Ready" },
   { name: "asset", path: `${RS}/a/ojukwu`, stage: "populated" }, { name: "asset-stall", path: "/p/nkatatest/a/market-stall", stage: "populated" }, { name: "part", path: `${RS}/a/ojukwu/face`, stage: "populated" },
+  { name: "part-compare", path: `${RS}/a/ojukwu/face?compare=2`, stage: "populated" }, { name: "asset-level", path: `${RS}/a/enugu-market`, stage: "populated" },
   { name: "full", path: `${RS}/a/ojukwu/face`, stage: "populated", full: ["ojukwu", "face"] },
   { name: "connections", path: "/connections", stage: "connected" }, { name: "mentions", path: "/mentions", stage: "populated" },
   { name: "members", path: "/welcome", stage: "populated", open: "members" }, { name: "ask", path: RS, stage: "populated", open: "ask" }, { name: "create-asset", path: "/p/nkatatest", stage: "connected", open: "createAsset" },

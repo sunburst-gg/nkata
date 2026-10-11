@@ -84,7 +84,15 @@ export function AppShell() {
         <div className="flex min-h-0 flex-1">
           <div className="min-w-0 flex-1 overflow-auto p-8"><Outlet /></div>
           {railOpen && showStatus && project ? (
-            <ActivityRail feed={db.activity} by={by} readyCount={readyCount} showReview={can("review")} onReview={() => { setTab("Ready"); go.project(project.slug); }} onClose={() => setRail(false)} />
+            <ActivityRail feed={db.activity} by={by} readyCount={readyCount} showReview={can("review")} onReview={() => { setTab("Ready"); go.project(project.slug); }} onClose={() => setRail(false)} onOpen={(e) => {
+              const target = db.assets.find((a) => a.slug === e.assetSlug);
+              if (!target) return;
+              const published = /published .* v(\d+)$/.exec(e.text);
+              const previous = published ? Number(published[1]) - 1 : 0;
+              if (e.partName && previous > 0) go.to(`/p/${target.projectSlug}/a/${target.slug}/${e.partName}?compare=${previous}`);
+              else if (e.partName) go.part(target.slug, e.partName, target.projectSlug);
+              else go.asset(target.slug, target.projectSlug);
+            }} />
           ) : null}
         </div>
       </main>

@@ -42,6 +42,7 @@ describe("viewer role", () => {
     expect(render(`${RS}/a/ojukwu`)).toContain("Pin a comment");
     expect(render(`${RS}/a/ojukwu`)).toContain("Write a comment");
     expect(render(`${RS}/a/ojukwu/face`)).toContain(">Checks<");
+    expect(render(`${RS}/a/ojukwu/face?compare=2`)).toContain(">What changed<");
     expect(render("/settings/account")).not.toContain(">Billing<");
     // A viewer who lands on /new gets the breadcrumb and nothing to fill in.
     expect(render("/new")).not.toContain(">Create project<");
@@ -66,6 +67,14 @@ describe("viewer role", () => {
     expect(render("/settings/billing")).toContain("Nothing to pay");
     expect(render("/settings/training")).toContain("Every change is logged");
     expect(render("/mentions")).toContain("remove the gate on textures");
+    // Compare: the facts from the two manifests and the renders under a wipe.
+    const compare = render(`${RS}/a/ojukwu/face?compare=2`);
+    expect(compare).toContain(">What changed<");
+    expect(compare).toContain("face_mesh changed");
+    expect(compare).toContain("Material M_face_detail added");
+    expect(compare).toContain("Drag to wipe");
+    expect(render(`${RS}/a/enugu-market`)).toContain(">Walk<");
+    expect(render(`${RS}/a/ojukwu`)).not.toContain(">Walk<");
     useStore.getState().setStage("connected");
     expect(render("/connections")).toContain(">Connect<");
     expect(render("/connections")).toContain("Soon");

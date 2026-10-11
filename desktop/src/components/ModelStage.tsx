@@ -1,6 +1,6 @@
 // The model in a rounded dark frame with the caption top right, and under it the pin row:
 // Pin a comment, the hint, and Full screen. Without a GLB the latest render stands in.
-import { Maximize2 } from "lucide-react";
+import { Footprints, Maximize2 } from "lucide-react";
 import { useStore } from "@/store";
 import type { ViewerSession } from "@/lib/viewer";
 import { cn } from "@/lib/cn";
@@ -13,12 +13,14 @@ export function PinDot({ size = 10 }: { size?: number }) {
 
 export function Stage({ session, caption, aspect = "16/9", className, rounded = true }: { session: ViewerSession; caption?: string; aspect?: string; className?: string; rounded?: boolean }) {
   const pinning = useStore((s) => s.pinning);
+  const walking = useStore((s) => s.walking);
+  const setWalking = useStore((s) => s.setWalking);
   const setPendingPin = useStore((s) => s.setPendingPin);
   const setActivePin = useStore((s) => s.setActivePin);
   return (
     <div className={cn("relative overflow-hidden bg-[var(--preview-bg)]", rounded && "rounded-xl", className)} style={aspect ? { aspectRatio: aspect } : undefined}>
       {session.src ? (
-        <ModelViewer src={session.src} poster={session.poster} pins={session.pins} activePin={session.activePin} pinning={pinning} onPin={(pos) => setPendingPin(pos)} onPinSelect={(id) => setActivePin(id === "pending" ? null : id)} className="absolute inset-0" />
+        <ModelViewer src={session.src} poster={session.poster} pins={session.pins} activePin={session.activePin} pinning={pinning} mode={walking ? "walk" : "orbit"} onWalkEnd={() => setWalking(false)} onPin={(pos) => setPendingPin(pos)} onPinSelect={(id) => setActivePin(id === "pending" ? null : id)} className="absolute inset-0" />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center bg-[var(--preview-bg)] text-13 text-[var(--on-scrim)]" style={session.poster ? { backgroundImage: `url(${session.poster})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}>
           {session.poster ? null : "No model yet. Save a part in Blender and it appears here."}
@@ -29,13 +31,18 @@ export function Stage({ session, caption, aspect = "16/9", className, rounded = 
   );
 }
 
-export function PinRow({ onFull }: { onFull: () => void }) {
+/** Pin a comment, the hint, Walk for a level area, and Full screen. */
+export function PinRow({ onFull, walkable = false }: { onFull: () => void; walkable?: boolean }) {
   const pinning = useStore((s) => s.pinning);
   const setPinning = useStore((s) => s.setPinning);
+  const walking = useStore((s) => s.walking);
+  const setWalking = useStore((s) => s.setWalking);
+  const hint = walking ? "W A S D to move. Mouse to look. Esc to stop." : pinning ? "Click a spot on the model." : "Drag to orbit. Scroll to zoom.";
   return (
     <div className="flex items-center gap-3">
       <PinButton pinning={pinning} onToggle={() => setPinning(!pinning)} />
-      <span className="text-13 text-secondary">{pinning ? "Click a spot on the model." : "Drag to orbit. Scroll to zoom."}</span>
+      {walkable ? <Button size="sm" variant="outline" aria-pressed={walking} onClick={() => setWalking(!walking)} className={cn(walking && "border-accent bg-active")} icon={<Footprints size={14} strokeWidth={1.5} aria-hidden="true" />}>{walking ? "Walking" : "Walk"}</Button> : null}
+      <span className="text-13 text-secondary">{hint}</span>
       <Button size="sm" variant="outline" className="ml-auto" onClick={onFull} icon={<Maximize2 size={14} strokeWidth={1.5} aria-hidden="true" />}>Full screen</Button>
     </div>
   );
