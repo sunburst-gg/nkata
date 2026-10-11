@@ -34,7 +34,12 @@ describe.skipIf(!hasInfra)("server api", () => {
     const before = h.mailed.length;
     const res = (await h.app.inject({ method: "POST", url: "/auth/magic-link", payload: { email: ARTIST } })).json() as { sent: boolean; code: string; link: string };
     expect(res.code).toMatch(/^\d{6}$/);
-    expect(h.mailed.slice(before)).toEqual([{ to: ARTIST, code: res.code, link: res.link }]);
+    const sent = h.mailed.slice(before);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ to: ARTIST, subject: `${res.code} is your Nkata code` });
+    expect(sent[0]!.html).toContain(res.code);
+    expect(sent[0]!.html).toContain("15 minutes");
+    expect(sent[0]!.text).toContain(res.code);
     expect((await h.app.inject({ method: "POST", url: "/auth/code", payload: { email: ARTIST, code: "12345" } })).statusCode).toBe(400);
     const wrong = String((Number(res.code) + 1) % 1_000_000).padStart(6, "0");
     for (let i = 0; i < 5; i++) expect((await h.app.inject({ method: "POST", url: "/auth/code", payload: { email: ARTIST, code: wrong } })).statusCode).toBe(401);
@@ -92,8 +97,16 @@ describe.skipIf(!hasInfra)("server api", () => {
     const fresh = (await h.app.inject({ method: "POST", url: "/auth/callback", payload: { token } })).json() as { token: string };
     const made = (await h.app.inject({ method: "POST", url: "/studios", headers: { authorization: `Bearer ${fresh.token}` }, payload: { name: "Lagos Interactive" } })).json() as { token: string; studio_id: string };
     const owner = { headers: { authorization: `Bearer ${made.token}` } };
+    const before = h.mailed.length;
     const invited = await h.app.inject({ method: "POST", url: "/studio/members", ...owner, payload: { email: ARTIST, roles: ["art_director"] } });
     expect(invited.statusCode).toBe(201);
+    // The studio invite email went out once; a roles change later sends nothing.
+    const mail = h.mailed.slice(before);
+    expect(mail).toHaveLength(1);
+    expect(mail[0]).toMatchObject({ to: ARTIST, subject: "owner added you to Lagos Interactive on Nkata" });
+    expect(mail[0]!.html).toContain("Join Lagos Interactive");
+    expect(mail[0]!.html).toContain("Art director");
+    expect((await h.app.inject({ method: "GET", url: `/join?email=${encodeURIComponent(ARTIST)}` })).statusCode).toBe(200);
     const members = (await h.app.inject({ method: "GET", url: "/studio/members", ...owner })).json() as { members: { email: string; roles: string[] }[] };
     expect(members.members.map((m) => [m.email, m.roles])).toEqual(expect.arrayContaining([[ARTIST, ["art_director"]], ["owner@lagosinteractive.com", ["producer"]]]));
     // The artist now has two studios and can switch into the new one.
@@ -469,8 +482,15 @@ describe.skipIf(!hasInfra)("server api", () => {
       expect(emails).toEqual(["artist@sunburst.gg", "director@sunburst.gg", "env@sunburst.gg", "producer@sunburst.gg", "viewer@sunburst.gg"]);
       const denied = await h.app.inject({ method: "POST", url: `/projects/${h.seeded.project_id}/members`, ...h.as(AD), payload: { email: "new@sunburst.gg", name: "New artist", roles: ["artist"] } });
       expect(denied.statusCode).toBe(403);
-      const invited = await h.app.inject({ method: "POST", url: `/projects/${h.seeded.project_id}/members`, ...h.as(PRODUCER), payload: { email: "new@sunburst.gg", name: "New artist", roles: ["artist"] } });
+      const before = h.mailed.length;
+      const invited = await h.app.inject({ method: "POST", url: `/projects/${h.seeded.project_id}/members`, ...h.as(PRODUCER), payload: { email: "new@sunburst.gg", name: "New artist", roles: ["artist"], note: "Start with Ojukwu." } });
       expect(invited.statusCode).toBe(201);
+      // Through a project: the project invite, with the note.
+      const mail = h.mailed.slice(before);
+      expect(mail).toHaveLength(1);
+      expect(mail[0]!.subject).toContain("shared Rising Sun with you");
+      expect(mail[0]!.html).toContain("Start with Ojukwu.");
+      expect(mail[0]!.html).toContain("Open Rising Sun");
       const again = await h.app.inject({ method: "POST", url: `/projects/${h.seeded.project_id}/members`, ...h.as(PRODUCER), payload: { email: "new@sunburst.gg", name: "New artist", roles: ["artist", "art_director"] } });
       expect(again.statusCode).toBe(200);
       expect((again.json() as { member: { roles: string[] } }).member.roles).toEqual(["artist", "art_director"]);

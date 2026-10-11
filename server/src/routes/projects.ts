@@ -1,7 +1,9 @@
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { Role, Template, Training, Ulid } from "@nkata/shared";
-import { membership, project, studio, template, user } from "../db/schema.js";
+import { asset, membership, project, studio, template, user } from "../db/schema.js";
+import type { Principal } from "../auth/tokens.js";
+import { projectInviteEmail, studioInviteEmail } from "../domain/emails.js";
 import { AppError } from "../domain/errors.js";
 import { encryptWebhook, isWebhookUrl } from "../domain/discord.js";
 import { newId } from "../domain/ids.js";
@@ -52,20 +54,44 @@ async function listMembers(app: TypedApp, studioId: string) {
   return rows.map(memberWire);
 }
 
-/** Invite: adds a person to the studio by email with roles. One account, many studios. Roles replace. */
-async function invite(app: TypedApp, req: { principal: { user_id: string; studio_id: string }; log: { info: (o: object, m: string) => void } }, body: { email: string; name?: string | undefined; roles: Role[] }, projectId: string | null): Promise<{ created: boolean; member: ReturnType<typeof memberWire> }> {
+/**
+ * Invite: adds a person to the studio by email with roles. One account, many studios. Roles
+ * replace. A new membership sends the invite email: the studio one, or the project one with the
+ * note when the invite came through a project. A roles change sends nothing.
+ */
+async function invite(app: TypedApp, req: { principal: Principal; log: { info: (o: object, m: string) => void; warn: (o: object, m: string) => void } }, body: { email: string; name?: string | undefined; roles: Role[]; note?: string | undefined }, proj: typeof project.$inferSelect | null): Promise<{ created: boolean; member: ReturnType<typeof memberWire> }> {
   const now = app.now();
   const email = body.email.toLowerCase();
   let u = (await app.db.select().from(user).where(eq(user.email, email)).limit(1))[0];
-  if (!u) [u] = await app.db.insert(user).values({ id: newId(), email, name: body.name ?? email.split("@")[0] ?? email, avatar_url: null, created_at: now, updated_at: now }).returning();
+  if (!u) [u] = await app.db.insert(user).values({ id: newId(), email, name: body.name ?? "", avatar_url: null, created_at: now, updated_at: now }).returning();
   const m = (await app.db.select().from(membership).where(and(eq(membership.user_id, u!.id), eq(membership.studio_id, req.principal.studio_id))).limit(1))[0];
   if (m) await app.db.update(membership).set({ roles: body.roles, updated_at: now }).where(eq(membership.id, m.id));
   else await app.db.insert(membership).values({ id: newId(), studio_id: req.principal.studio_id, user_id: u!.id, roles: body.roles, created_at: now, updated_at: now });
   await app.bus.audit({
-    studio_id: req.principal.studio_id, project_id: projectId, actor_id: req.principal.user_id,
+    studio_id: req.principal.studio_id, project_id: proj?.id ?? null, actor_id: req.principal.user_id,
     kind: m ? "audit.roles_set" : "audit.member_invited", target_kind: "user", target_id: u!.id, payload: { email, roles: body.roles },
   });
+  if (!m && app.mailer.configured) {
+    const st = (await app.db.select().from(studio).where(eq(studio.id, req.principal.studio_id)).limit(1))[0];
+    const role = body.roles.includes("producer") ? "producer" : body.roles.includes("art_director") ? "art_director" : body.roles[0]!;
+    const inviter = { name: req.principal.name || req.principal.email, email: req.principal.email };
+    const href = `${app.config.PUBLIC_URL}/join?email=${encodeURIComponent(email)}`;
+    const mail = proj
+      ? projectInviteEmail({ to: email, project: { name: proj.name, studio: st?.name ?? "", assets: await assetCount(app, proj.id), people: await seatCount(app, req.principal.studio_id) }, role, inviter, note: body.note?.trim() || null, href })
+      : studioInviteEmail({ to: email, studio: st?.name ?? "", role, inviter, href });
+    try {
+      await app.mailer.send(mail);
+      req.log.info({ user_id: u!.id, project_id: proj?.id ?? null }, "invite sent");
+    } catch (err) {
+      // The membership stands; the person can still sign in with their email. The producer sees the list.
+      req.log.warn({ err, user_id: u!.id }, "invite email not sent");
+    }
+  }
   return { created: !m, member: memberWire({ id: u!.id, name: u!.name, avatar_url: u!.avatar_url, email, roles: body.roles }) };
+}
+
+async function assetCount(app: TypedApp, projectId: string): Promise<number> {
+  return (await app.db.select({ id: asset.id }).from(asset).where(eq(asset.project_id, projectId))).length;
 }
 
 export async function projectRoutes(app: TypedApp): Promise<void> {
@@ -257,11 +283,11 @@ export async function projectRoutes(app: TypedApp): Promise<void> {
 
   app.post(
     "/projects/:id/members",
-    { schema: { params: IdParam, body: z.object({ email: z.email(), name: z.string().min(1).optional(), roles: z.array(Role).min(1) }) } },
+    { schema: { params: IdParam, body: z.object({ email: z.email(), name: z.string().min(1).optional(), roles: z.array(Role).min(1), note: z.string().max(500).optional() }) } },
     async (req, reply) => {
       requireRole(req.principal, ["producer"], "inviting a member");
       const proj = await loadProject(app.db, req.principal, req.params.id);
-      const out = await invite(app, req, req.body, proj.id);
+      const out = await invite(app, req, req.body, proj);
       return reply.status(out.created ? 201 : 200).send({ v: 1, member: out.member });
     },
   );

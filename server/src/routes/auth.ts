@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Training, Ulid } from "@nkata/shared";
 import { issueToken, newCode, redeemCode, redeemMagicToken, studiosOf } from "../auth/tokens.js";
 import { membership, studio, user } from "../db/schema.js";
+import { signInCodeEmail } from "../domain/emails.js";
 import { AppError } from "../domain/errors.js";
 import { newId } from "../domain/ids.js";
 import type { TypedApp } from "./_shared.js";
@@ -25,7 +26,7 @@ export async function authRoutes(app: TypedApp): Promise<void> {
     const token = await issueToken(app.db, { user_id: row!.id, studio_id: studios[0]?.id ?? null, kind: "magic", now, code });
     const link = `${app.config.PUBLIC_URL}/auth/callback?token=${token}`;
     if (app.mailer.configured) {
-      await app.mailer.sendCode(email, code, link);
+      await app.mailer.send(signInCodeEmail({ to: email, code }));
       req.log.info({ user_id: row!.id }, "sign-in code sent");
     } else if (!app.config.NKATA_DEV) {
       throw new AppError("bad_request", "this server cannot send email yet. Set RESEND_API_KEY and MAIL_FROM, or run with NKATA_DEV=1.");
@@ -64,6 +65,13 @@ export async function authRoutes(app: TypedApp): Promise<void> {
   app.get("/auth/me", async (req) => {
     const p = req.account;
     return account(p.user_id, p.studio_id, "");
+  });
+
+  // Where the invite email's button lands: one page that says to open Nkata and sign in.
+  app.get("/join", { schema: { querystring: z.object({ email: z.string().optional() }) } }, async (req, reply) => {
+    const email = req.query.email ?? "";
+    const safe = email.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);
+    return reply.type("text/html; charset=utf-8").send(`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Nkata</title></head><body style="margin:0;background:#F6F6F4;color:#17181B;font-family:Helvetica,Arial,sans-serif"><div style="max-width:560px;margin:80px auto;padding:40px;background:#fff;border:1px solid #E3E4E1;border-radius:14px"><p style="margin:0 0 12px;font-family:Georgia,serif;font-size:28px">You are in.</p><p style="margin:0 0 20px;font-size:15px;line-height:23px;color:#4A4F57">Open Nkata on your computer and sign in${safe ? ` as <b>${safe}</b>` : ""}. The code arrives by email and the studio is there.</p><p style="margin:0;font-size:13px;color:#6B717B">No Nkata yet? Get it at <a href="https://nkata.app" style="color:#6B717B">nkata.app</a>.</p></div></body></html>`);
   });
 
   // A session for another studio of the same account.

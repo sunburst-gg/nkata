@@ -17,8 +17,8 @@ export type Harness = {
   pool: pg.Pool;
   seeded: Seeded;
   tokens: Record<string, string>;
-  /** Every sign-in code the fake mailer sent. */
-  mailed: { to: string; code: string; link: string }[];
+  /** Every email the fake mailer sent. */
+  mailed: { to: string; subject: string; html: string; text: string }[];
   as(email: string): { headers: { authorization: string } };
   close(): Promise<void>;
 };
@@ -30,8 +30,8 @@ export async function startHarness(): Promise<Harness> {
   const store = createStore(config);
   await store.ensureBucket();
   const seeded = await seed(db);
-  const mailed: { to: string; code: string; link: string }[] = [];
-  const app = await buildApp({ db, store, config, mailer: { configured: true, sendCode: async (to, code, link) => { mailed.push({ to, code, link }); } } });
+  const mailed: { to: string; subject: string; html: string; text: string }[] = [];
+  const app = await buildApp({ db, store, config, mailer: { configured: true, send: async (email) => { mailed.push(email); } } });
   await app.ready();
 
   const tokens: Record<string, string> = {};

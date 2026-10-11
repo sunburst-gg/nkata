@@ -69,7 +69,7 @@ function isViewerOnly(p: Principal): boolean {
   return p.roles.length > 0 && p.roles.every((r) => r === "viewer");
 }
 
-const PUBLIC = new Set(["/health", "/auth/magic-link", "/auth/callback", "/auth/code"]);
+const PUBLIC = new Set(["/health", "/auth/magic-link", "/auth/callback", "/auth/code", "/join"]);
 /** Routes an account uses before it has a studio, or to change studio. No principal there. */
 const ACCOUNT_ROUTES = new Set(["/auth/me", "/auth/switch", "/me", "/studios"]);
 
