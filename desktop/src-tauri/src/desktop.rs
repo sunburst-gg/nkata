@@ -66,6 +66,23 @@ fn addon_dir() -> Option<PathBuf> {
     )
 }
 
+/// The generated shared Python types, zipped into the add-on as nkata/nkata_shared when the
+/// add-on folder has no vendored copy (tools::extension_zip).
+fn shared_py_dir() -> Option<PathBuf> {
+    shipped_dir("NKATA_SHARED_PY", "shared/py", "common.py")
+}
+
+/// True when an add-on that can import ships with this build: the folder plus either its
+/// vendored shared package or shared/py.
+fn addon_installable() -> bool {
+    addon_dir().is_some_and(|dir| {
+        dir.join(nkata_agent::tools::SHARED_IN_ADDON)
+            .join("__init__.py")
+            .is_file()
+            || shared_py_dir().is_some()
+    })
+}
+
 fn plugin_dir() -> Option<PathBuf> {
     shipped_dir("NKATA_UE5_PLUGIN", "ue5-plugin", "Nkata.uplugin")
 }
@@ -90,7 +107,7 @@ async fn tools_detect(folder: String) -> Result<ToolsReport, String> {
         .into_iter()
         .map(|p| p.display().to_string())
         .collect(),
-        addon_shipped: addon_dir().is_some(),
+        addon_shipped: addon_installable(),
         plugin_shipped: plugin_dir().is_some(),
     })
     .await
@@ -101,10 +118,11 @@ async fn tools_detect(folder: String) -> Result<ToolsReport, String> {
 #[tauri::command]
 async fn tools_install_blender() -> Result<String, String> {
     let addon = addon_dir().ok_or("the add-on did not ship with this build")?;
+    let shared_py = shared_py_dir();
     let blender = nkata_agent::tools::find_blender().ok_or("Blender was not found")?;
     tauri::async_runtime::spawn_blocking(move || {
         let work = std::env::temp_dir().join("nkata-tools");
-        nkata_agent::tools::install_blender_addon(&blender.exe, &addon, &work)
+        nkata_agent::tools::install_blender_addon(&blender.exe, &addon, shared_py.as_deref(), &work)
             .map_err(|e| e.to_string())
     })
     .await

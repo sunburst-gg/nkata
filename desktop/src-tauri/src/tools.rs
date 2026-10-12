@@ -109,14 +109,36 @@ pub fn parse_blender_version(stdout: &str) -> Option<String> {
     (!rest.is_empty()).then(|| rest.to_string())
 }
 
+/// Where the generated shared Python types live inside the add-on (docs/decisions.md,
+/// 2026-10-01). `make addon-vendor` copies shared/py there; the folder is not in git.
+pub const SHARED_IN_ADDON: &str = "nkata/nkata_shared";
+
 /// Zips the add-on folder with `blender_manifest.toml` at the root, as `extension build` does.
-pub fn extension_zip(addon_dir: &Path, out: &Path) -> Result<()> {
+/// The add-on imports `nkata.nkata_shared`. When the folder has no vendored copy, the files
+/// under `shared_py` are written at that path instead, so a fresh checkout and a bundle both
+/// install an add-on that enables. Without either the zip would install and then fail to
+/// enable, which is the error this guards against.
+pub fn extension_zip(addon_dir: &Path, shared_py: Option<&Path>, out: &Path) -> Result<()> {
     if !addon_dir.join("blender_manifest.toml").is_file() {
         return Err(AgentError::Config(format!(
             "{} has no blender_manifest.toml",
             addon_dir.display()
         )));
     }
+    let vendored = addon_dir.join(SHARED_IN_ADDON);
+    let shared_py = if vendored.join("__init__.py").is_file() {
+        None
+    } else {
+        match shared_py {
+            Some(dir) if dir.join("__init__.py").is_file() => Some(dir),
+            _ => {
+                let what = format!("{} has no {SHARED_IN_ADDON}", addon_dir.display());
+                return Err(AgentError::Config(format!(
+                    "{what} and shared/py was not found. Run make addon-vendor."
+                )));
+            }
+        }
+    };
     if let Some(parent) = out.parent() {
         std::fs::create_dir_all(parent).map_err(|e| AgentError::io(parent, e))?;
     }
@@ -124,24 +146,30 @@ pub fn extension_zip(addon_dir: &Path, out: &Path) -> Result<()> {
     let mut zip = zip::ZipWriter::new(file);
     let options = zip::write::SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated);
-    for entry in WalkDir::new(addon_dir)
-        .sort_by_file_name()
-        .into_iter()
-        .filter_entry(|e| !skipped(e.path()))
-        .flatten()
-    {
-        let path = entry.path();
-        if !path.is_file() || path.extension().is_some_and(|x| x == "pyc") {
-            continue;
+    let mut sources: Vec<(&Path, String)> = vec![(addon_dir, String::new())];
+    if let Some(dir) = shared_py {
+        sources.push((dir, format!("{SHARED_IN_ADDON}/")));
+    }
+    for (root, prefix) in sources {
+        for entry in WalkDir::new(root)
+            .sort_by_file_name()
+            .into_iter()
+            .filter_entry(|e| !skipped(e.path()))
+            .flatten()
+        {
+            let path = entry.path();
+            if !path.is_file() || path.extension().is_some_and(|x| x == "pyc") {
+                continue;
+            }
+            let rel = path
+                .strip_prefix(root)
+                .map_err(|_| AgentError::Config(format!("{} left the add-on", path.display())))?;
+            let name = format!("{prefix}{}", rel.to_string_lossy().replace('\\', "/"));
+            zip.start_file(name, options)
+                .map_err(|e| AgentError::Config(format!("zip {}: {e}", rel.display())))?;
+            let bytes = std::fs::read(path).map_err(|e| AgentError::io(path, e))?;
+            zip.write_all(&bytes).map_err(|e| AgentError::io(out, e))?;
         }
-        let rel = path
-            .strip_prefix(addon_dir)
-            .map_err(|_| AgentError::Config(format!("{} left the add-on", path.display())))?;
-        let name = rel.to_string_lossy().replace('\\', "/");
-        zip.start_file(name, options)
-            .map_err(|e| AgentError::Config(format!("zip {}: {e}", rel.display())))?;
-        let bytes = std::fs::read(path).map_err(|e| AgentError::io(path, e))?;
-        zip.write_all(&bytes).map_err(|e| AgentError::io(out, e))?;
     }
     zip.finish()
         .map_err(|e| AgentError::Config(format!("zip {}: {e}", out.display())))?;
@@ -154,10 +182,17 @@ fn skipped(path: &Path) -> bool {
         .is_some_and(|n| SKIP_DIRS.contains(&n))
 }
 
-/// Installs and enables the add-on through Blender itself. Returns Blender's last output line.
-pub fn install_blender_addon(blender: &Path, addon_dir: &Path, work_dir: &Path) -> Result<String> {
+/// Installs and enables the add-on through Blender itself. Returns Blender's last output line,
+/// or the first `Error:` line when Blender fails, since Blender prints the cause before its
+/// own status lines.
+pub fn install_blender_addon(
+    blender: &Path,
+    addon_dir: &Path,
+    shared_py: Option<&Path>,
+    work_dir: &Path,
+) -> Result<String> {
     let zip_path = work_dir.join("nkata-addon.zip");
-    extension_zip(addon_dir, &zip_path)?;
+    extension_zip(addon_dir, shared_py, &zip_path)?;
     let out = Command::new(blender)
         .args([
             "--command",
@@ -182,8 +217,13 @@ pub fn install_blender_addon(blender: &Path, addon_dir: &Path, work_dir: &Path) 
         .unwrap_or("")
         .to_string();
     if !out.status.success() {
+        let cause = text
+            .lines()
+            .map(str::trim)
+            .find(|l| l.starts_with("Error"))
+            .unwrap_or(&last);
         return Err(AgentError::Config(format!(
-            "Blender could not install the add-on: {last}"
+            "Blender could not install the add-on: {cause}"
         )));
     }
     Ok(last)
@@ -371,16 +411,32 @@ mod tests {
         assert_eq!(parse_blender_version("something else"), None);
     }
 
+    fn shared_py() -> PathBuf {
+        repo_root().join("shared/py")
+    }
+
+    /// A copy of the add-on without the vendored shared package, as a fresh checkout has it.
+    fn unvendored_addon(tmp: &Path) -> PathBuf {
+        let dir = tmp.join("blender-addon");
+        copy_dir(&repo_root().join("blender-addon"), &dir).unwrap();
+        let _ = std::fs::remove_dir_all(dir.join(SHARED_IN_ADDON));
+        dir
+    }
+
+    fn zip_names(path: &Path) -> Vec<String> {
+        let file = std::fs::File::open(path).unwrap();
+        let mut archive = zip::ZipArchive::new(file).unwrap();
+        (0..archive.len())
+            .map(|i| archive.by_index(i).unwrap().name().to_string())
+            .collect()
+    }
+
     #[test]
     fn the_zip_has_the_manifest_at_the_root_and_no_tests() {
         let tmp = tempfile::tempdir().unwrap();
         let out = tmp.path().join("addon.zip");
-        extension_zip(&repo_root().join("blender-addon"), &out).unwrap();
-        let file = std::fs::File::open(&out).unwrap();
-        let mut archive = zip::ZipArchive::new(file).unwrap();
-        let names: Vec<String> = (0..archive.len())
-            .map(|i| archive.by_index(i).unwrap().name().to_string())
-            .collect();
+        extension_zip(&repo_root().join("blender-addon"), Some(&shared_py()), &out).unwrap();
+        let names = zip_names(&out);
         assert!(
             names.contains(&"blender_manifest.toml".to_string()),
             "{names:?}"
@@ -393,6 +449,60 @@ mod tests {
         );
     }
 
+    #[test]
+    fn the_zip_carries_shared_py_as_nkata_shared_when_the_add_on_has_no_copy() {
+        let tmp = tempfile::tempdir().unwrap();
+        let addon = unvendored_addon(tmp.path());
+        let out = tmp.path().join("addon.zip");
+        extension_zip(&addon, Some(&shared_py()), &out).unwrap();
+        let names = zip_names(&out);
+        assert!(
+            names.contains(&"nkata/nkata_shared/__init__.py".to_string()),
+            "{names:?}"
+        );
+        assert!(
+            names.contains(&"nkata/nkata_shared/common.py".to_string()),
+            "{names:?}"
+        );
+        assert_eq!(
+            names
+                .iter()
+                .filter(|n| n.ends_with("nkata_shared/__init__.py"))
+                .count(),
+            1,
+            "{names:?}"
+        );
+    }
+
+    #[test]
+    fn the_zip_keeps_the_vendored_copy_when_the_add_on_has_one() {
+        let tmp = tempfile::tempdir().unwrap();
+        let addon = unvendored_addon(tmp.path());
+        let vendored = addon.join(SHARED_IN_ADDON);
+        std::fs::create_dir_all(&vendored).unwrap();
+        std::fs::write(vendored.join("__init__.py"), "VENDORED = True\n").unwrap();
+        let out = tmp.path().join("addon.zip");
+        extension_zip(&addon, Some(&shared_py()), &out).unwrap();
+        let names = zip_names(&out);
+        assert!(names.contains(&"nkata/nkata_shared/__init__.py".to_string()));
+        assert!(
+            !names.contains(&"nkata/nkata_shared/common.py".to_string()),
+            "{names:?}"
+        );
+    }
+
+    #[test]
+    fn the_zip_refuses_an_add_on_that_could_not_import() {
+        let tmp = tempfile::tempdir().unwrap();
+        let addon = unvendored_addon(tmp.path());
+        let out = tmp.path().join("addon.zip");
+        let err = extension_zip(&addon, None, &out).unwrap_err();
+        assert!(err.to_string().contains("make addon-vendor"), "{err}");
+        let err = extension_zip(&addon, Some(&tmp.path().join("nowhere")), &out).unwrap_err();
+        assert!(err.to_string().contains("make addon-vendor"), "{err}");
+        assert!(!out.exists());
+    }
+
     #[cfg(unix)]
     #[test]
     fn the_add_on_installs_through_blenders_command_line() {
@@ -401,8 +511,13 @@ mod tests {
         let fake = tmp.path().join("blender");
         std::fs::write(&fake, "#!/bin/sh\necho \"$@\" > \"$(dirname \"$0\")/args\"\necho 'STATUS Installed \"nkata\"'\n").unwrap();
         std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
-        let last =
-            install_blender_addon(&fake, &repo_root().join("blender-addon"), tmp.path()).unwrap();
+        let last = install_blender_addon(
+            &fake,
+            &repo_root().join("blender-addon"),
+            Some(&shared_py()),
+            tmp.path(),
+        )
+        .unwrap();
         assert_eq!(last, "STATUS Installed \"nkata\"");
         let args = std::fs::read_to_string(tmp.path().join("args")).unwrap();
         assert!(
@@ -415,21 +530,28 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn a_failing_blender_is_an_error_with_its_last_line() {
+    fn a_failing_blender_is_an_error_with_its_error_line() {
         use std::os::unix::fs::PermissionsExt;
         let tmp = tempfile::tempdir().unwrap();
         let fake = tmp.path().join("blender");
+        // Blender 5.2 prints the cause, then its own status line, then exits 1.
         std::fs::write(
             &fake,
-            "#!/bin/sh\necho 'Error: repository \"user_default\" not found' >&2\nexit 1\n",
+            "#!/bin/sh\necho 'STATUS Installed \"nkata\"'\necho 'Error: cannot import name nkata_shared' >&2\necho 'STATUS Done'\nexit 1\n",
         )
         .unwrap();
         std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
-        let err = install_blender_addon(&fake, &repo_root().join("blender-addon"), tmp.path())
-            .unwrap_err();
+        let err = install_blender_addon(
+            &fake,
+            &repo_root().join("blender-addon"),
+            Some(&shared_py()),
+            tmp.path(),
+        )
+        .unwrap_err();
         assert!(
-            err.to_string()
-                .contains("repository \"user_default\" not found"),
+            err.to_string().contains(
+                "Blender could not install the add-on: Error: cannot import name nkata_shared"
+            ),
             "{err}"
         );
     }
