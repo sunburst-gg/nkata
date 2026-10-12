@@ -2,6 +2,7 @@
 // Fastify: https://fastify.dev/docs/latest/
 // Zod type provider: https://github.com/turkerdev/fastify-type-provider-zod
 import Fastify, { type FastifyInstance } from "fastify";
+import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
 import { hasZodFastifySchemaValidationErrors, serializerCompiler, validatorCompiler, type ZodTypeProvider } from "fastify-type-provider-zod";
 import type { Config } from "./config.js";
@@ -97,6 +98,14 @@ export async function buildApp(deps: AppDeps): Promise<App> {
   app.decorateRequest("principal", null as unknown as Principal);
   app.decorateRequest("account", null as unknown as Session);
 
+  // The desktop window is another origin: tauri://localhost on macOS and Linux,
+  // http://tauri.localhost on Windows, the Vite dev server while developing.
+  // https://github.com/fastify/fastify-cors
+  await app.register(cors, {
+    origin: ["tauri://localhost", "http://tauri.localhost", "https://tauri.localhost", "http://localhost:1420", "http://127.0.0.1:1420", ...deps.config.CORS_ORIGINS],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["authorization", "content-type"],
+  });
   await app.register(websocket);
 
   app.setErrorHandler((err: unknown, req, reply) => {
@@ -118,7 +127,7 @@ export async function buildApp(deps: AppDeps): Promise<App> {
 
   app.addHook("onRequest", async (req) => {
     const path = req.url.split("?")[0] ?? req.url;
-    if (PUBLIC.has(path) || path === "/ws") return;
+    if (PUBLIC.has(path) || path === "/ws" || req.method === "OPTIONS") return;
     const header = req.headers.authorization ?? "";
     if (!header.startsWith("Bearer ")) throw new AppError("unauthorized", "missing bearer token");
     const session = await resolveSession(app.db, header.slice("Bearer ".length), app.now());

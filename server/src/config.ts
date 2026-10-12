@@ -23,6 +23,9 @@ const Env = z.object({
   // Without both, only dev mode can sign anyone in.
   RESEND_API_KEY: z.string().min(1).optional(),
   MAIL_FROM: z.string().min(3).optional(),
+  // Extra origins the desktop window may call from, comma separated. The Tauri origins and the
+  // Vite dev server are always allowed.
+  CORS_ORIGINS: z.string().optional().transform((v) => (v ?? "").split(",").map((s) => s.trim()).filter(Boolean)),
 });
 
 export type Config = z.infer<typeof Env>;

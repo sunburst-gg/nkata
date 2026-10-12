@@ -17,6 +17,17 @@ describe.skipIf(!hasInfra)("server api", () => {
   });
   afterAll(async () => h?.close());
 
+  it("answers the desktop window's preflight and ignores other origins", async () => {
+    const pre = await h.app.inject({ method: "OPTIONS", url: "/auth/magic-link", headers: { origin: "tauri://localhost", "access-control-request-method": "POST", "access-control-request-headers": "content-type" } });
+    expect(pre.statusCode).toBe(204);
+    expect(pre.headers["access-control-allow-origin"]).toBe("tauri://localhost");
+    expect(String(pre.headers["access-control-allow-headers"])).toContain("content-type");
+    const dev = await h.app.inject({ method: "GET", url: "/projects", headers: { origin: "http://localhost:1420", ...h.as(ARTIST).headers } });
+    expect(dev.headers["access-control-allow-origin"]).toBe("http://localhost:1420");
+    const other = await h.app.inject({ method: "GET", url: "/health", headers: { origin: "https://evil.example" } });
+    expect(other.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+
   it("rejects requests without a session", async () => {
     const res = await h.app.inject({ method: "GET", url: "/projects" });
     expect(res.statusCode).toBe(401);
