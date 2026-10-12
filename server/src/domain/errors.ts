@@ -9,7 +9,8 @@ export type ErrorCode =
   | "lock_held"
   | "invalid_state"
   | "rights_required"
-  | "chunks_missing";
+  | "chunks_missing"
+  | "mail_failed";
 
 const STATUS: Record<ErrorCode, number> = {
   bad_request: 400,
@@ -22,6 +23,7 @@ const STATUS: Record<ErrorCode, number> = {
   invalid_state: 409,
   rights_required: 409,
   chunks_missing: 422,
+  mail_failed: 502,
 };
 
 export class AppError extends Error {

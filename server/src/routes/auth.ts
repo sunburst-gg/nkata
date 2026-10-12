@@ -26,8 +26,14 @@ export async function authRoutes(app: TypedApp): Promise<void> {
     const token = await issueToken(app.db, { user_id: row!.id, studio_id: studios[0]?.id ?? null, kind: "magic", now, code });
     const link = `${app.config.PUBLIC_URL}/auth/callback?token=${token}`;
     if (app.mailer.configured) {
-      await app.mailer.send(signInCodeEmail({ to: email, code }));
-      req.log.info({ user_id: row!.id }, "sign-in code sent");
+      try {
+        await app.mailer.send(signInCodeEmail({ to: email, code }));
+        req.log.info({ user_id: row!.id }, "sign-in code sent");
+      } catch (err) {
+        // Dev mode hands the code back anyway, so a mail problem never blocks a sign in there.
+        req.log.warn({ err, user_id: row!.id }, "sign-in code not sent");
+        if (!app.config.NKATA_DEV) throw new AppError("mail_failed", `The code could not be sent: ${err instanceof Error ? err.message : String(err)}. Check MAIL_FROM is on a domain verified in Resend.`);
+      }
     } else if (!app.config.NKATA_DEV) {
       throw new AppError("bad_request", "this server cannot send email yet. Set RESEND_API_KEY and MAIL_FROM, or run with NKATA_DEV=1.");
     }

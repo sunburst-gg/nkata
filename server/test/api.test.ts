@@ -65,6 +65,18 @@ describe.skipIf(!hasInfra)("server api", () => {
     expect((await h.app.inject({ method: "POST", url: "/auth/code", payload: { email: "ghost@example.com", code: "000000" } })).statusCode).toBe(401);
   });
 
+  it("in dev mode a mail failure still hands the code back", async () => {
+    const real = h.app.mailer.send;
+    h.app.mailer.send = async () => { throw new Error("the mail service answered 403: domain not verified"); };
+    try {
+      const res = await h.app.inject({ method: "POST", url: "/auth/magic-link", payload: { email: ARTIST } });
+      expect(res.statusCode).toBe(200);
+      expect((res.json() as { code: string }).code).toMatch(/^\d{6}$/);
+    } finally {
+      h.app.mailer.send = real;
+    }
+  });
+
   it("signs up an unknown email: no name, no studio, then Create studio makes a producer", async () => {
     const link = await h.app.inject({ method: "POST", url: "/auth/magic-link", payload: { email: "Nobody@Example.com" } });
     const token = new URL((link.json() as { link: string }).link).searchParams.get("token")!;

@@ -58,7 +58,7 @@ describe("mailer", () => {
     const body = JSON.parse(String(calls[0]!.init.body)) as { from: string; to: string[]; subject: string; html: string; text: string };
     expect(body).toMatchObject({ from: "Nkata <code@nkata.app>", to: ["ada@sunburst.gg"], subject: "482910 is your Nkata code" });
     expect(body.html).toContain("482910");
-    const failing = createMailer(loadConfig({ ...base, RESEND_API_KEY: "re_x", MAIL_FROM: "x@y.z" }), (async () => new Response("no", { status: 422 })) as typeof fetch);
-    await expect(failing.send(signInCodeEmail({ to: "a@b.c", code: "1" }))).rejects.toThrow("422");
+    const failing = createMailer(loadConfig({ ...base, RESEND_API_KEY: "re_x", MAIL_FROM: "x@y.z" }), (async () => new Response(JSON.stringify({ message: "The nkata.app domain is not verified." }), { status: 403 })) as typeof fetch);
+    await expect(failing.send(signInCodeEmail({ to: "a@b.c", code: "1" }))).rejects.toThrow("403: The nkata.app domain is not verified.");
   });
 });

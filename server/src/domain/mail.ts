@@ -22,7 +22,16 @@ export function createMailer(config: Config, fetchImpl: typeof fetch = fetch): M
         headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
         body: JSON.stringify({ from, to: [email.to], subject: email.subject, html: email.html, text: email.text }),
       });
-      if (!res.ok) throw new Error(`the mail service answered ${res.status}`);
+      if (!res.ok) {
+        // Resend answers with {message}: an unverified domain, a key without send rights.
+        let why = "";
+        try {
+          why = String(((await res.json()) as { message?: string }).message ?? "");
+        } catch {
+          why = "";
+        }
+        throw new Error(`the mail service answered ${res.status}${why ? `: ${why}` : ""}`);
+      }
     },
   };
 }
