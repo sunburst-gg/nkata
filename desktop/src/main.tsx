@@ -4,6 +4,7 @@ import "./styles/app.css";
 import { App } from "./App";
 import { useStore } from "./store";
 import { connect, readSession, routeFor, setErrorSink, useMock, writeSession } from "./data/boot";
+import { reasonOf } from "@/lib/reason";
 
 // A write the server refuses reverts on the reload and says why here.
 setErrorSink((message) => useStore.getState().toast(message, "failed"));
@@ -26,7 +27,7 @@ const saved = useMock() ? null : readSession();
 if (saved) {
   connect(saved, useStore.getState().theme)
     .then((source) => { useStore.getState().useSource(source); if (!location.hash || location.hash === "#/" || location.hash === "#/signin") location.hash = `#${routeFor(source)}`; })
-    .catch((err: unknown) => { writeSession(null); useStore.getState().toast(err instanceof Error ? err.message : "Sign in again.", "failed"); });
+    .catch((err: unknown) => { writeSession(null); useStore.getState().toast(reasonOf(err, "Sign in again."), "failed"); });
 }
 
 createRoot(document.getElementById("root")!).render(

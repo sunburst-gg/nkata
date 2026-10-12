@@ -7,6 +7,7 @@ import { createServerStudio, routeFor } from "@/data/boot";
 import type { Training } from "@/data/types";
 import { useGo } from "@/lib/hooks";
 import { SetupFrame, Title } from "./Shell";
+import { reasonOf } from "@/lib/reason";
 
 export const TRAINING_LINE: Record<Training, string> = {
   on: "Nkata is free. Your team's work in Blender and Unreal teaches Nok how experts build games.",
@@ -49,7 +50,7 @@ export function CreateStudio() {
         go.welcome();
       }
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Could not create the studio.", "failed");
+      toast(reasonOf(err, "Could not create the studio."), "failed");
     } finally {
       setBusy(false);
     }

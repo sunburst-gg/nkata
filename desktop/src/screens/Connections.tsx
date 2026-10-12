@@ -6,6 +6,7 @@ import { Button } from "@/components/Button";
 import { ToolLogo } from "@/components/Logo";
 import type { Connection } from "@/data/types";
 import { Title } from "./Shell";
+import { reasonOf } from "@/lib/reason";
 
 export function ConnectionGrid() {
   const connections = useStore((s) => s.db.connections);
@@ -19,7 +20,7 @@ export function ConnectionGrid() {
       await source.connect(c.id);
       toast(`${c.name} connected.`);
     } catch (err) {
-      toast(err instanceof Error ? err.message : `${c.name} did not connect.`, "failed");
+      toast(reasonOf(err, `${c.name} did not connect.`), "failed");
     } finally {
       setBusy(null);
     }

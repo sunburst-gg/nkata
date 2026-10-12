@@ -15,6 +15,7 @@ import { useGo, type SettingsTab } from "@/lib/hooks";
 import { ConnectionGrid } from "./Connections";
 import { TrainingCard } from "./CreateStudio";
 import { Title, useAppKeys } from "./Shell";
+import { reasonOf } from "@/lib/reason";
 
 const LINES: Record<SettingsTab, string> = {
   account: "Your name and email. One account, many studios.",
@@ -105,14 +106,14 @@ function General() {
   useEffect(() => setName(studio.name), [studio.name]);
   useEffect(() => {
     if (!source.deletedProjects || !can("deleteProject")) return;
-    source.deletedProjects().then(setDeleted).catch((err: unknown) => toast(err instanceof Error ? err.message : "Could not list deleted projects.", "failed"));
+    source.deletedProjects().then(setDeleted).catch((err: unknown) => toast(reasonOf(err, "Could not list deleted projects."), "failed"));
   }, [source, can, toast, studio.projects.length]);
   const restore = async (p: { id: string; name: string }) => {
     try {
       await source.restoreProject?.(p.id);
       setDeleted((list) => (list ?? []).filter((x) => x.id !== p.id));
       toast(`${p.name} is back.`);
-    } catch (err) { toast(err instanceof Error ? err.message : "Could not restore the project.", "failed"); }
+    } catch (err) { toast(reasonOf(err, "Could not restore the project."), "failed"); }
   };
   return (
     <div className="flex flex-col gap-5">
@@ -170,7 +171,7 @@ function TrainingTab() {
     try {
       await source.setTraining(t);
       toast(t === "on" ? "Training on. Nothing to pay." : "Training off. Billing starts 1 Nov.");
-    } catch (err) { toast(err instanceof Error ? err.message : "Could not change training.", "failed"); }
+    } catch (err) { toast(reasonOf(err, "Could not change training."), "failed"); }
   };
   const last = log[0];
   return (

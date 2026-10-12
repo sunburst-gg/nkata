@@ -6,6 +6,7 @@ import { ROLE_WORDS } from "@/auth/permissions";
 import type { ActivityItem, Asset, AssetKind, AssetState, AvatarTone, Check, Comment, Connection, ConnectionId, DataSource, Digest, DigestMove, Mention, Part, PartState, Person, Project, Session, Snapshot, Studio, StudioRef, Template, Version } from "./types";
 import { agent } from "@/lib/tauri";
 import { askAbout, slugOf as slugOfName } from "./ask";
+import { reasonOf } from "@/lib/reason";
 
 export type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -297,7 +298,7 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
   }
   /** A refused write: tell the person, then reload so the screen shows what the server has. */
   function refused(err: unknown): void {
-    config.onError?.(err instanceof Error ? err.message : "The server refused that change.");
+    config.onError?.(reasonOf(err, "The server refused that change."));
     scheduleReload();
   }
 

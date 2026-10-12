@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 import { Button } from "./Button";
 import { Dialog } from "./Dialog";
 import { CONTROL, Field, Select } from "./Field";
+import { reasonOf } from "@/lib/reason";
 
 export function CreateAssetDialog() {
   const open = useStore((s) => s.createAssetOpen);
@@ -29,7 +30,7 @@ export function CreateAssetDialog() {
       await source.createAsset(project.slug, name.trim(), chosen.name, parts);
       setOpen(false);
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Could not create the asset.", "failed");
+      toast(reasonOf(err, "Could not create the asset."), "failed");
     } finally {
       setBusy(false);
     }

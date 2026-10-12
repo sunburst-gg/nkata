@@ -10,6 +10,7 @@ import { Mark } from "@/components/Mark";
 import { DEFAULT_SERVER_URL, enterAccount, redeemCode, requestCode, routeFor, useMock } from "@/data/boot";
 import { cn } from "@/lib/cn";
 import { useGo } from "@/lib/hooks";
+import { reasonOf } from "@/lib/reason";
 
 export function SignIn() {
   const mock = useMock();
@@ -24,7 +25,7 @@ export function SignIn() {
   const [step, setStep] = useState<"email" | "code">("email");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
-  const fail = (err: unknown) => toast(err instanceof Error ? err.message : "Something went wrong.", "failed");
+  const fail = (err: unknown) => toast(reasonOf(err, "Something went wrong."), "failed");
 
   const send = async () => {
     const value = email.trim().toLowerCase();

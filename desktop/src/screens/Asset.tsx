@@ -12,6 +12,7 @@ import { renderStyle } from "@/lib/renders";
 import { STATE_WORD } from "@/lib/state";
 import { useViewerSession } from "@/lib/viewer";
 import { agent } from "@/lib/tauri";
+import { reasonOf } from "@/lib/reason";
 
 /** Leaving a model screen ends pinning and drops an unposted pin. */
 export function useResetViewer(key: string) {
@@ -41,7 +42,7 @@ function AssetScreen({ asset, onPart }: { asset: AssetModel; onPart: (p: Part) =
     try {
       const json = source.exportAsset ? await source.exportAsset(asset.slug) : null;
       if (json) { const path = await agent.writeExport("", asset.slug, json); toast(`Exported to ${path}`); } else toast(`${asset.name} exported.`);
-    } catch (err) { toast(err instanceof Error ? err.message : "Export failed.", "failed"); }
+    } catch (err) { toast(reasonOf(err, "Export failed."), "failed"); }
   };
   const gated = asset.parts.find((p) => p.gate.length > 0);
   return (

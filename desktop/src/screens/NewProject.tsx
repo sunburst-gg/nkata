@@ -9,6 +9,7 @@ import { createServerProject } from "@/data/boot";
 import { useGo } from "@/lib/hooks";
 import { inTauri } from "@/lib/tauri";
 import { Title } from "./Shell";
+import { reasonOf } from "@/lib/reason";
 
 const BLENDER_VERSIONS = ["5.0.4", "4.5 LTS"];
 const UNREAL_VERSIONS = ["5.7.2", "5.6.1"];
@@ -53,7 +54,7 @@ export function NewProject() {
       }
       toast("Project created. Templates are in the folder.");
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Could not create the project.", "failed");
+      toast(reasonOf(err, "Could not create the project."), "failed");
     } finally {
       setBusy(false);
     }

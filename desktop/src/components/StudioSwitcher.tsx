@@ -9,6 +9,7 @@ import { cn } from "@/lib/cn";
 import { useGo } from "@/lib/hooks";
 import { Button } from "./Button";
 import { Dialog } from "./Dialog";
+import { reasonOf } from "@/lib/reason";
 
 export function StudioSwitcher({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const studios = useStore((s) => s.db.session.studios);
@@ -35,7 +36,7 @@ export function StudioSwitcher({ open, onOpenChange }: { open: boolean; onOpenCh
       }
       onOpenChange(false);
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Could not switch studio.", "failed");
+      toast(reasonOf(err, "Could not switch studio."), "failed");
     } finally {
       setBusy(null);
     }
