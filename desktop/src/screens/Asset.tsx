@@ -1,7 +1,9 @@
 // Asset. Parts across the top, the model with Pin a comment and Full screen, comments on the right.
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useCan, useStore } from "@/store";
 import { Button } from "@/components/Button";
+import { Dialog } from "@/components/Dialog";
+import { Select } from "@/components/Field";
 import { CommentRail } from "@/components/CommentRail";
 import { PinRow, Stage } from "@/components/ModelStage";
 import { PresenceAvatar } from "@/components/PresenceAvatar";
@@ -34,6 +36,7 @@ function AssetScreen({ asset, onPart }: { asset: AssetModel; onPart: (p: Part) =
   const source = useStore((s) => s.source);
   const setFullScreen = useStore((s) => s.setFullScreen);
   const { by } = usePeople();
+  const [assigning, setAssigning] = useState(false);
   const session = useViewerSession(asset);
   const top = asset.parts[0]?.versions[0];
   const caption = top ? `Last publish · v${top.n} · ${top.when}` : "No publish yet";
@@ -53,7 +56,7 @@ function AssetScreen({ asset, onPart }: { asset: AssetModel; onPart: (p: Part) =
         <div className="ml-auto flex gap-2">
           {can("openEditors") ? <><Button onClick={() => open("Blender")}>Open in Blender</Button><Button onClick={() => open("Unreal")}>Open in Unreal</Button></> : null}
           {can("exportAsset") && !can("openEditors") ? null : can("exportAsset") ? <Button onClick={() => void exportAsset()}>Export</Button> : null}
-          {can("assign") ? <Button onClick={() => toast("Assign opens in the next release. Owners come from the template for now.", "muted")}>Assign</Button> : null}
+          {can("assign") ? <Button onClick={() => setAssigning(true)}>Assign</Button> : null}
           {can("removeGate") ? <Button onClick={() => { if (gated) { source.removeGate(asset.slug, gated.name); toast(`Gate removed on ${asset.name} / ${gated.name}.`); } else toast("No gate on this asset.", "muted"); }}>Remove gate</Button> : null}
           {can("downloadImages") && !can("openEditors") ? <Button onClick={() => toast("Images download in the desktop app.", "muted")}>Download images</Button> : null}
         </div>
@@ -82,6 +85,43 @@ function AssetScreen({ asset, onPart }: { asset: AssetModel; onPart: (p: Part) =
         </div>
         <CommentRail session={session} />
       </div>
+      <AssignDialog asset={asset} open={assigning} onOpenChange={setAssigning} />
     </div>
+  );
+}
+
+/** Who owns each part. The owner is who Blender lists the part for, and who can mark it Ready. */
+function AssignDialog({ asset, open, onOpenChange }: { asset: AssetModel; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { people } = usePeople();
+  const source = useStore((s) => s.source);
+  const toast = useStore((s) => s.toast);
+  const [busy, setBusy] = useState<string | null>(null);
+  const assign = async (p: Part, personId: string) => {
+    setBusy(p.name);
+    try {
+      await source.assignOwner(asset.slug, p.name, personId || null);
+      const who = people.find((x) => x.id === personId);
+      toast(who ? `${asset.name} / ${p.name} is ${who.name.split(" ")[0]}'s.` : `${asset.name} / ${p.name} has no owner.`);
+    } catch (err) {
+      toast(reasonOf(err, "Could not assign the part."), "failed");
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange} title="Assign" description="Who owns each part. Blender lists a part for its owner, and the owner marks it Ready." width={480}>
+      <div className="flex flex-col gap-3">
+        {asset.parts.map((p) => (
+          <label key={p.id} className="grid items-center gap-3" style={{ gridTemplateColumns: "120px minmax(0, 1fr)" }}>
+            <span className="truncate text-14 font-medium text-heading">{p.name}</span>
+            <Select value={p.ownerId} disabled={busy === p.name} onChange={(e) => void assign(p, e.target.value)}>
+              <option value="">No owner</option>
+              {people.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+            </Select>
+          </label>
+        ))}
+        <div className="flex justify-end"><Button variant="outline" onClick={() => onOpenChange(false)}>Done</Button></div>
+      </div>
+    </Dialog>
   );
 }

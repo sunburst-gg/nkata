@@ -301,6 +301,8 @@ export interface DataSource {
   fixChecks(assetSlug: string, partName: string): { ok: true } | { ok: false; reason: string };
   rollBack(assetSlug: string, partName: string, toVersion: number): Version;
   removeGate(assetSlug: string, partName: string): void;
+  /** Who owns a part. Null clears it. An art director or producer only. */
+  assignOwner(assetSlug: string, partName: string, personId: string | null): Promise<void> | void;
   addComment(assetSlug: string, partName: string, text: string, pos?: [number, number, number]): Comment;
   /** Invite to the studio, or through a project with a note: the project invite email carries it. */
   invite(email: string, role: Role, options?: { projectSlug?: string; note?: string }): void;

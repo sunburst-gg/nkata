@@ -357,6 +357,11 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
       emit();
       void call("POST", `/parts/${p.id}/gate/remove`).then(scheduleReload).catch(refused);
     },
+    assignOwner: async (assetSlug, partName, personId) => {
+      const { p } = findPart(assetSlug, partName);
+      await call("PATCH", `/parts/${p.id}`, { owner_id: personId });
+      await load();
+    },
     addComment: (assetSlug, partName, text, pos) => {
       const { p } = findPart(assetSlug, partName);
       const n = Math.max(0, ...p.comments.map((c) => c.n)) + 1;

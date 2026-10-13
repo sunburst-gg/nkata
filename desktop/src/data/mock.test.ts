@@ -57,6 +57,19 @@ describe("mock data source", () => {
     expect(src.snapshot().assets.find((a) => a.slug === "ojukwu")!.parts[0]!.comments.map((c) => c.text)).toContain("Too deep.");
   });
 
+  it("assigns a part to a person and clears it", () => {
+    const src = createMockSource({ stage: "connected" });
+    src.createAsset("nkatatest", "Market stall", "Environment prop", "one");
+    const asset = src.snapshot().assets.find((a) => a.slug === "market-stall")!;
+    const part = asset.parts[0]!;
+    const other = src.snapshot().people.find((p) => p.id !== part.ownerId)!;
+    src.assignOwner(asset.slug, part.name, other.id);
+    expect(src.snapshot().assets.find((a) => a.slug === asset.slug)!.parts[0]!.ownerId).toBe(other.id);
+    expect(src.snapshot().activity[0]?.text).toBe(`assigned ${asset.name} / ${part.name} to ${other.name.split(" ")[0]}`);
+    src.assignOwner(asset.slug, part.name, null);
+    expect(src.snapshot().assets.find((a) => a.slug === asset.slug)!.parts[0]!.ownerId).toBe("");
+  });
+
   describe("the first asset", () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());

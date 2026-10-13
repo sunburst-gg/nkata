@@ -317,6 +317,14 @@ export function createMockSource(initial: MockOptions | "artist" | "viewer" = {}
       touch();
       return made;
     },
+    assignOwner: (assetSlug, partName, personId) => {
+      const { a, p } = findPart(assetSlug, partName);
+      p.ownerId = personId ?? "";
+      if (a.parts[0] === p) a.ownerId = p.ownerId;
+      const who = people.find((x) => x.id === personId);
+      log(who ? `assigned ${a.name} / ${p.name} to ${who.name.split(" ")[0]}` : `cleared the owner of ${a.name} / ${p.name}`, `${a.name} / ${p.name}`, "draft", assetSlug, partName);
+      touch();
+    },
     removeGate: (assetSlug, partName) => {
       const { a, p } = findPart(assetSlug, partName);
       p.gate = [];
