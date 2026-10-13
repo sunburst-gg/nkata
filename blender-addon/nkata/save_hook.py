@@ -190,6 +190,22 @@ def handle_save(filepath: str) -> dict[str, Any]:
     return {"part_id": part["id"], "version_id": res.version_id, "changed": changed, "export_ms": export_ms, "total_ms": total_ms, "refused": refused}
 
 
+def ensure_collection(name: str) -> Any:
+    """The part's collection: the existing one, else the file's only collection renamed, else a
+    new one linked to the scene. A fresh file has one collection, so its objects join the part.
+    A file brought in from the folder gets the same treatment on open, so its objects mirror."""
+    col = bpy.data.collections.get(name)
+    if col is not None:
+        return col
+    if len(bpy.data.collections) == 1:
+        col = next(iter(bpy.data.collections.values()))
+        col.name = name
+        return col
+    col = bpy.data.collections.new(name)
+    bpy.context.scene.collection.children.link(col)
+    return col
+
+
 def handle_open(filepath: str) -> dict[str, Any]:
     """On file load: find the part, ask for the lock, say where the user is. The panel shows the
     holder when someone else has it. docs/product.md, R4."""
@@ -211,6 +227,7 @@ def handle_open(filepath: str) -> dict[str, Any]:
         STATE.opened_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     if part is None:
         return {"skipped": f"no part maps to {rel}"}
+    ensure_collection(str(part["mapping"]["collection"]))
     granted = False
     holder = None
     if True:

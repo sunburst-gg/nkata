@@ -276,6 +276,26 @@ class PanelTest(unittest.TestCase):
         self.state.apply_event({"kind": "lock.requested", "part_id": ID, "requester": HOLDER, "holder_id": ID2})
         self.assertIn("Chidi asked to open this part", self.state.publish_line)
 
+    def test_open_of_a_file_brought_in_from_the_folder_names_its_only_collection(self) -> None:
+        """An asset made from an existing .blend: the file's one collection is not named after the
+        part yet. Open renames it, so the save hook finds the objects to hash and export."""
+        self.collection.name = "Collection"
+        self.bpy = bpy_stub.install({"Collection": self.collection}, str(self.blend))
+        out = self.save_hook.handle_open(str(self.blend))
+        self.assertTrue(out["granted"])
+        self.assertEqual(self.collection.name, "face")
+        self.assertIs(self.bpy.data.collections.get("face"), self.collection)
+
+    def test_open_of_a_file_with_many_collections_adds_the_part_collection(self) -> None:
+        other = bpy_stub.FakeCollection("Props", [])
+        self.collection.name = "Collection"
+        self.bpy = bpy_stub.install({"Collection": self.collection, "Props": other}, str(self.blend))
+        self.save_hook.handle_open(str(self.blend))
+        self.assertEqual(self.collection.name, "Collection")
+        made = self.bpy.data.collections.get("face")
+        self.assertIsNotNone(made)
+        self.assertIn(made, self.bpy.context.scene.collection.children.linked)
+
     def test_start_a_part_names_the_collection_and_saves_where_the_part_lives(self) -> None:
         """A new project: no file yet. The panel lists my parts from the agent's pointer, and one
         click names the collection and saves the file at the mapped path, which takes the lock."""

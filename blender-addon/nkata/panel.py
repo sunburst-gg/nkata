@@ -200,7 +200,7 @@ class NKATA_OT_start_part(bpy.types.Operator):
             self.report({"WARNING"}, "Press Find my parts first")
             return {"CANCELLED"}
         name = str(part["mapping"]["collection"])
-        ensure_collection(name)
+        save_hook.ensure_collection(name)
         target = root / str(part["mapping"]["file"])
         target.parent.mkdir(parents=True, exist_ok=True)
         result = bpy.ops.wm.save_as_mainfile(filepath=str(target))
@@ -217,21 +217,6 @@ class NKATA_OT_start_part(bpy.types.Operator):
             STATE.dirty = True
         log("part.started", part_id=part["id"], file=str(part["mapping"]["file"]))
         return {"FINISHED"}
-
-
-def ensure_collection(name: str) -> Any:
-    """The part's collection: the existing one, else the file's only collection renamed, else a
-    new one linked to the scene. A fresh file has one collection, so its objects join the part."""
-    col = bpy.data.collections.get(name)
-    if col is not None:
-        return col
-    if len(bpy.data.collections) == 1:
-        col = next(iter(bpy.data.collections.values()))
-        col.name = name
-        return col
-    col = bpy.data.collections.new(name)
-    bpy.context.scene.collection.children.link(col)
-    return col
 
 
 class NKATA_OT_run_checks(bpy.types.Operator):
