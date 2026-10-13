@@ -58,6 +58,15 @@ class ChecksTest(unittest.TestCase):
         self.assertEqual((unfixed[0]["passed"], unfixed[0]["auto_fixed"]), (False, False))
         self.assertIn("0.01", unfixed[0]["message"])
 
+    def test_pivot_moves_to_the_base_and_reports_it(self) -> None:
+        bad = facts(objects=(ObjectFacts("SM_Crate", 12, ("UVMap",), (-1.0, -1.0, 0.5), (0.0, 0.0, 1.0)),))
+        results, after = checks.run_checks(["pivot_at_base"], {}, SEV, bad)
+        self.assertEqual((results[0]["passed"], results[0]["auto_fixed"]), (True, True))
+        self.assertEqual(after.objects[0].origin, (0.0, 0.0, 0.5))
+        unfixed, _ = checks.run_checks(["pivot_at_base"], {}, SEV, bad, fix=False)
+        self.assertFalse(unfixed[0]["passed"])
+        self.assertIn("SM_Crate", unfixed[0]["message"])
+
     def test_blocking_failures_and_warnings(self) -> None:
         bad = facts(
             objects=(ObjectFacts("SM_Big", 20000, (), (-1, -1, 0.0), (0, 0, 0.5)),),
@@ -69,6 +78,7 @@ class ChecksTest(unittest.TestCase):
             {"triangle_budget": {"max": 15000}, "rig_bone_names": {"skeleton": "SK_Human"}, "rig_bone_count": {"max": 2}, "texture_size": {"max": 4096}},
             SEV,
             bad,
+            fix=False,
         )
         by_id = {r["check_id"]: r for r in results}
         self.assertFalse(by_id["triangle_budget"]["passed"])

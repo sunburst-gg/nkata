@@ -229,6 +229,25 @@ class PanelTest(unittest.TestCase):
         self.assertTrue(all(r["passed"] for r in self.state.checks[ID]))
         self.assertIn("label:Scale: pass (fixed)", "\n".join(self.draw()))
 
+    def test_fix_moves_the_origin_to_the_base_and_leaves_the_mesh_where_it_was(self) -> None:
+        """A cube whose origin sits half a metre under its base: Fix moves the origin to the base
+        and the mesh the other way in object space, so nothing in the viewport moves."""
+        crate = bpy_stub.FakeObject("SM_Crate", coords=[0.0, 0.0, 0.5, 1.0, 0.0, 0.5, 0.0, 1.0, 1.5], location=(2.0, 0.0, 1.0))
+        self.collection.all_objects = [crate]
+        self.state.part = {**PART, "checks": [{"id": "pivot_at_base", "severity": "block", "params": {}}]}
+        self.save_hook.handle_open(str(self.blend))
+        self.state.part = {**self.state.part, "checks": [{"id": "pivot_at_base", "severity": "block", "params": {}}]}
+        results = self.panel.run_checks(self.state.part, fix=False)
+        self.assertFalse(results[0]["passed"])
+        self.assertEqual(self.panel.NKATA_OT_fix_checks().execute(None), {"FINISHED"})
+        # Origin was at z 1.0 with the mesh base at z 1.5 in the world: the origin rises to the
+        # base and the mesh drops by the same half metre in object space.
+        self.assertEqual(crate.matrix_world[2][3], 1.5)
+        self.assertEqual(crate.data.vertices.flat[2], 0.0)
+        self.assertEqual(crate.data.vertices.flat[8], 1.0)
+        self.assertTrue(self.state.checks[ID][0]["passed"])
+        self.assertTrue(self.state.checks[ID][0]["auto_fixed"])
+
     def test_publish_is_blocked_then_passes_and_marks_ready(self) -> None:
         self.save_hook.handle_open(str(self.blend))
         self.face.name = "SK_Face"

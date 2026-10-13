@@ -33,6 +33,10 @@ class FakeAttr:
         for i, v in enumerate(self.flat):
             out[i] = v
 
+    def foreach_set(self, _attr: str, values: Any) -> None:
+        for i in range(len(self.flat)):
+            self.flat[i] = values[i]
+
 
 class FakePolygon:
     def __init__(self, n: int) -> None:

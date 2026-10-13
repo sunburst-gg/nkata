@@ -18,6 +18,7 @@ bar). Operators call the agent and update STATE."""
 
 from __future__ import annotations
 
+import array
 import os
 import subprocess
 import sys
@@ -82,13 +83,51 @@ def run_checks(part: dict[str, Any], fix: bool) -> list[dict[str, Any]]:
 
 
 def apply_fixes(collection: Any, before: checks.SceneFacts, after: checks.SceneFacts) -> None:
-    """Writes the fixers' results back into the scene: unit scale and object names."""
+    """Writes the fixers' results back into the scene: unit scale, object names, and origins."""
     if before.unit_scale != after.unit_scale:
         bpy.context.scene.unit_settings.scale_length = after.unit_scale
     renames = {b.name: a.name for b, a in zip(before.objects, after.objects, strict=True) if b.name != a.name}
+    drops = {b.name: b.origin[2] - a.origin[2] for b, a in zip(before.objects, after.objects, strict=True) if b.origin[2] != a.origin[2]}
     for obj in collection.all_objects:
+        if obj.name in drops:
+            move_origin_down(obj, drops[obj.name])
         if obj.name in renames:
             obj.name = renames[obj.name]
+
+
+def move_origin_down(obj: Any, delta: float) -> None:
+    """Moves the object's origin down by `delta` metres in world space and its mesh up by the
+    same amount, so the geometry stays where the artist left it. The mesh shift is the world
+    vector brought into object space through the inverse of the world matrix's 3x3.
+    https://docs.blender.org/api/current/bpy.types.Object.html#bpy.types.Object.matrix_world"""
+    m = obj.matrix_world
+    local = _solve3([[float(m[r][c]) for c in range(3)] for r in range(3)], (0.0, 0.0, delta))
+    mesh = obj.data
+    n = len(mesh.vertices)
+    co = array.array("f", [0.0] * (n * 3))
+    mesh.vertices.foreach_get("co", co)
+    for i in range(n):
+        co[i * 3] += local[0]
+        co[i * 3 + 1] += local[1]
+        co[i * 3 + 2] += local[2]
+    mesh.vertices.foreach_set("co", co)
+    m[2][3] = float(m[2][3]) - delta
+
+
+def _solve3(m: list[list[float]], v: tuple[float, float, float]) -> tuple[float, float, float]:
+    """x with m @ x = v, by the adjugate. A singular matrix (a zero scale) leaves the mesh put."""
+    a, b, c = m[0]
+    d, e, f = m[1]
+    g, h, i = m[2]
+    det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
+    if abs(det) < 1e-12:
+        return (0.0, 0.0, 0.0)
+    inv = [
+        [(e * i - f * h) / det, (c * h - b * i) / det, (b * f - c * e) / det],
+        [(f * g - d * i) / det, (a * i - c * g) / det, (c * d - a * f) / det],
+        [(d * h - e * g) / det, (b * g - a * h) / det, (a * e - b * d) / det],
+    ]
+    return tuple(sum(inv[r][k] * v[k] for k in range(3)) for r in range(3))  # type: ignore[return-value]
 
 
 class NKATA_OT_retry_mirror(bpy.types.Operator):

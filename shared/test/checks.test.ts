@@ -26,12 +26,12 @@ describe("shipped checks", () => {
     }
   });
 
-  it("only unit_scale and name_pattern auto fix", () => {
+  it("unit_scale, name_pattern, and pivot_at_base auto fix", () => {
     const fixers = files
       .map((f) => CheckContract.parse(JSON.parse(readFileSync(join(CHECKS_DIR, f), "utf8"))))
       .filter((c) => c.auto_fix)
       .map((c) => c.id)
       .sort();
-    expect(fixers).toEqual(["name_pattern", "unit_scale"]);
+    expect(fixers).toEqual(["name_pattern", "pivot_at_base", "unit_scale"]);
   });
 });

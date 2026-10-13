@@ -3,7 +3,7 @@ save_hook gathers the facts. Contracts: shared/checks/<id>.json. Results: shared
 See docs/engineering.md, Checks.
 
 Each check returns (passed, message, fixed). A fixer returns the new facts after the fix, so the
-check runs again and reports auto_fixed. Only unit_scale and name_pattern fix."""
+check runs again and reports auto_fixed. unit_scale, name_pattern, and pivot_at_base fix."""
 
 from __future__ import annotations
 
@@ -139,6 +139,18 @@ def _pivot_at_base(facts: SceneFacts, params: dict[str, Any]) -> Outcome:
     return not high, "" if not high else f"origin is not at the base of {', '.join(high[:5])}"
 
 
+def _fix_pivot_at_base(facts: SceneFacts, params: dict[str, Any]) -> SceneFacts:
+    """The origin moves to the base of the bounds. panel.apply_fixes moves the mesh the other way,
+    so nothing in the scene moves (docs/decisions.md, 2026-10-13)."""
+    return replace(
+        facts,
+        objects=tuple(
+            replace(o, origin=(o.origin[0], o.origin[1], o.bounds_min[2])) if abs(o.origin[2] - o.bounds_min[2]) > PIVOT_TOLERANCE_M else o
+            for o in facts.objects
+        ),
+    )
+
+
 CHECKS: dict[str, Callable[[SceneFacts, dict[str, Any]], Outcome]] = {
     "unit_scale": _unit_scale,
     "name_pattern": _name_pattern,
@@ -150,7 +162,7 @@ CHECKS: dict[str, Callable[[SceneFacts, dict[str, Any]], Outcome]] = {
     "pivot_at_base": _pivot_at_base,
 }
 
-FIXERS: dict[str, Fixer] = {"unit_scale": _fix_unit_scale, "name_pattern": _fix_name_pattern}
+FIXERS: dict[str, Fixer] = {"unit_scale": _fix_unit_scale, "name_pattern": _fix_name_pattern, "pivot_at_base": _fix_pivot_at_base}
 
 
 def run_checks(
