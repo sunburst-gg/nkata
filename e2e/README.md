@@ -7,6 +7,7 @@ Scripts that need Blender and UE5 on one machine. Each is marked `@needs_editor`
 - `quality.py`: the quality bar (docs/product.md, Quality bar). Mirror p95 for a character and a prop, lost save, broken links, placed copies, panel open time. One JSON line per measure, exit 1 on a miss. Runs on `fixtures/` or on real assets through `NKATA_FIXTURES`.
 - `blender_driver.py`: runs inside Blender for the save loops. `panel_probe.py`: runs inside Blender for the panel open time.
 - `needs_editor.py`: the marker and the reachability check.
+- `model_chain.sh`: Blender headless saves a prop into a folder the agent serves, and the version on the server must carry a GLB. Set `NKATA_BLENDER`. First green with Blender 5.2.2 on 2026-10-13.
 
 The parts of the quality bar that need no editor run in `make test`: lost save and queue drain (`desktop/src-tauri/tests/lost_save.rs`), role refusals (`server/test/api.test.ts`), cache eviction (`desktop/src-tauri/src/stream.rs` and `tests/stream_mode.rs`).
 
