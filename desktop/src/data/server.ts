@@ -32,6 +32,7 @@ type PartWire = {
   state: PartState | "locked"; owner: UserRef | null; owner_id: string | null;
   lock: { holder: UserRef; granted_at: string } | null; gate: { after: string[] }; waiting_on: string[];
   checks: { id: string; severity: "block" | "warn"; params: Record<string, unknown> }[]; reference_files: string[];
+  mapping: { kind: string; file?: string };
   updated_at: string;
 };
 type AssetWire = { id: string; name: string; template_id: string; state: string; updated_at: string };
@@ -215,7 +216,7 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
       call<{ members: { user: UserRef; email: string; roles: string[] }[] }>("GET", "/studio/members"),
       scoped ? call<{ online: { user: UserRef; part_id: string | null; last_seen: string }[] }>("GET", `/presence?project_id=${config.projectId}`) : Promise.resolve({ online: [] }),
       scoped ? call<{ assets: AssetWire[] }>("GET", `/assets?project_id=${config.projectId}`) : Promise.resolve({ assets: [] }),
-      scoped ? call<{ templates: { id: string; name: string; schema: { kind: string; parts: { name: string; gate?: string[]; checks: string[] }[] } }[] }>("GET", `/projects/${config.projectId}/templates`) : Promise.resolve({ templates: [] }),
+      scoped ? call<{ templates: { id: string; name: string; schema: { kind: "character" | "prop" | "level_area"; parts: { name: string; gate?: string[]; checks: string[] }[] } }[] }>("GET", `/projects/${config.projectId}/templates`) : Promise.resolve({ templates: [] }),
       scoped ? call<{ events: EventWire[] }>("GET", `/events?project_id=${config.projectId}&limit=1000`) : Promise.resolve({ events: [] }),
     ]);
     const presenceById = new Map(online.online.map((o) => [o.user.id, o]));
@@ -243,7 +244,7 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
         const checks: Check[] = current ? (await call<{ results: CheckWire[] }>("GET", `/parts/${pw.id}/versions/${current.id}/checks`)).results.map(checkOf) : [];
         const comments: Comment[] = commentsRes.comments.map((c, n) => ({ id: c.id, n: n + 1, authorId: c.author.id, partName: pw.name, when: ago(c.created_at, t), text: c.body, resolved: c.resolved_at !== null, kind: c.kind ?? "pin", source: "Nkata", ...((c.point ?? []).some((x) => x !== 0) ? { pos: [c.point?.[0] ?? 0, c.point?.[1] ?? 0, c.point?.[2] ?? 0] as [number, number, number] } : {}) }));
         const mirror = !current ? { state: "offline" as const, seconds: 0 } : current.mirror_status === "failed" ? { state: "failed" as const, seconds: 0 } : current.mirror_status === "synced" || current.mirror_status === "skipped" ? { state: "synced" as const, seconds: Math.round((current.mirror_ms ?? 0) / 1000) } : { state: "syncing" as const, seconds: 0 };
-        return { id: pw.id, name: pw.name, state: partState(pw), ownerId: pw.owner_id ?? "", render: versions.find((x) => x.render)?.render ?? null, lock: pw.lock ? { holderId: pw.lock.holder.id, since: ago(pw.lock.granted_at, t) } : null, gate: pw.waiting_on, versions, checks, comments, mirror, refs: current?.refs ?? [] };
+        return { id: pw.id, name: pw.name, state: partState(pw), ownerId: pw.owner_id ?? "", render: versions.find((x) => x.render)?.render ?? null, lock: pw.lock ? { holderId: pw.lock.holder.id, since: ago(pw.lock.granted_at, t) } : null, gate: pw.waiting_on, versions, checks, comments, mirror, refs: current?.refs ?? [], file: pw.mapping.kind === "blend_collection" ? pw.mapping.file ?? null : null };
       }));
       const usedIn = [...new Set(parts.flatMap((p) => p.refs.map((r) => r.level.split("/").pop() ?? r.level)))];
       const present = online.online.filter((o) => o.part_id && partsWire.some((p) => p.id === o.part_id)).map((o) => o.user.id);
@@ -262,7 +263,7 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
     }
     const activity = eventsWire.events.slice().sort((a, b) => b.event.at.localeCompare(a.event.at)).map((e) => activityOf(e, peopleById, partIndex, t)).filter((x): x is ActivityItem => x !== null).slice(0, 60);
     const templates: Template[] = templatesWire.templates.map((tp) => ({
-      id: tp.id, name: tp.name, usedBy: assetsWire.assets.filter((a) => a.template_id === tp.id).length, tools: `${KIND_WORD[tp.schema.kind] ?? tp.schema.kind}`,
+      id: tp.id, name: tp.name, kind: tp.schema.kind, usedBy: assetsWire.assets.filter((a) => a.template_id === tp.id).length, tools: `${KIND_WORD[tp.schema.kind] ?? tp.schema.kind}`,
       parts: tp.schema.parts.map((p, i) => ({ id: `${tp.id}-${i}`, name: p.name, gate: p.gate ?? [], checks: p.checks.map((c) => CHECK_WORDS[c] ?? c), refs: 0 })),
     }));
     const projectWire = projects.projects.find((p) => p["id"] === config.projectId) ?? projects.projects[0] ?? {};
@@ -396,12 +397,23 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
       emit();
       if (target) void call("DELETE", `/projects/${target.id}`).then(scheduleReload).catch(refused);
     },
-    createAsset: async (_projectSlug, name, template, parts) => {
+    createAsset: async (_projectSlug, name, template, parts, options) => {
       const tpl = snapshot.templates.find((t) => t.name === template);
-      const chosen = parts === "one" ? [tpl?.parts.find((p) => p.name === "model")?.name ?? tpl?.parts[0]?.name ?? "model"] : undefined;
-      await call("POST", "/assets", { project_id: config.projectId, template_name: template, name, owners: {}, ...(chosen ? { parts: chosen } : {}) });
+      if (!tpl) throw new Error(`The project has no template named ${template}.`);
+      const blenderPart = tpl.parts.find((p) => p.name === "model") ?? tpl.parts[0];
+      const chosen = parts === "one" ? [blenderPart?.name ?? "model"] : undefined;
+      // The person creating the asset owns its parts until someone assigns them. The Blender
+      // panel lists the parts you own, so a fresh asset shows up there at once.
+      const owners = Object.fromEntries((chosen ?? tpl.parts.map((p) => p.name)).map((n) => [n, snapshot.session.user.id]));
+      const files = options?.file && blenderPart ? { [blenderPart.name]: options.file } : {};
+      await call("POST", "/assets", { project_id: config.projectId, template_name: template, name, owners, files, ...(chosen ? { parts: chosen } : {}) });
       await load();
       return snapshot.assets.find((a) => a.name === name) ?? snapshot.assets[0]!;
+    },
+    freeBlendFiles: async () => {
+      if (!config.folder) return [];
+      const taken = new Set(snapshot.assets.flatMap((a) => a.parts.map((p) => p.file)).filter((f): f is string => f !== null));
+      return (await agent.listBlendFiles(config.folder)).filter((f) => !taken.has(f));
     },
     setMemberRole: (personId, role) => {
       snapshot = { ...snapshot, people: snapshot.people.map((p) => (p.id === personId ? { ...p, role, title: ROLE_WORDS[role] } : p)) };

@@ -94,6 +94,8 @@ export interface Part {
   mirror: { state: MirrorState; seconds: number };
   /** Where a prop is placed after its last mirror: levels and actor counts. */
   refs: { level: string; actors: number }[];
+  /** The .blend this part lives in, project-relative. Null for parts outside Blender. */
+  file: string | null;
 }
 
 export interface Asset {
@@ -145,6 +147,8 @@ export interface TemplatePart {
 export interface Template {
   id: string;
   name: string;
+  /** Which editor the parts live in. A level area has no Blender part to start from a file. */
+  kind: "character" | "prop" | "level_area";
   parts: TemplatePart[];
   usedBy: number;
   tools: string;
@@ -315,8 +319,11 @@ export interface DataSource {
   removeMember(personId: string): void;
   /** Connect a tool: installs the add-on or plugin, or the Discord hook. */
   connect(id: ConnectionId): Promise<void> | void;
-  /** Creates an asset from a template: every part, or one (the default for a prop). */
-  createAsset(projectSlug: string, name: string, template: string, parts: "all" | "one"): Promise<Asset> | Asset;
+  /** Creates an asset from a template: every part, or one (the default for a prop). With `file`, the
+   * one Blender part lives in that existing .blend from the project folder instead of a new one. */
+  createAsset(projectSlug: string, name: string, template: string, parts: "all" | "one", options?: { file?: string }): Promise<Asset> | Asset;
+  /** The .blend files in the project folder that no part lives in yet. Empty outside the desktop app. */
+  freeBlendFiles(): Promise<string[]>;
   /** Cmd K. One question, one answer with the gate, the owner, the last comment, and a link. */
   ask(question: string): AskAnswer;
   setDigestIndex(i: number): void;

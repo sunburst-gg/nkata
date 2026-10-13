@@ -59,6 +59,7 @@ const part = (name: string, state: Part["state"], ownerId: string, render: Rende
   comments: [],
   mirror: { state: "synced", seconds: 4 },
   refs: [],
+  file: null,
   ...extra,
 });
 
@@ -114,15 +115,15 @@ const MENTIONS: Mention[] = [
 ];
 
 const TEMPLATES: Template[] = [
-  { id: "character", name: "Character", usedBy: 2, tools: "Blender · Unreal · skeletal mesh", parts: [
+  { id: "character", name: "Character", kind: "character", usedBy: 2, tools: "Blender · Unreal · skeletal mesh", parts: [
     { id: "t1", name: "face", gate: [], checks: ["Scale", "Naming", "Triangles"], refs: 0 }, { id: "t2", name: "cloth", gate: [], checks: ["Scale", "Naming"], refs: 0 }, { id: "t3", name: "hair", gate: [], checks: ["Scale", "Naming"], refs: 0 },
     { id: "t4", name: "textures", gate: ["face", "cloth", "hair"], checks: ["Texture size"], refs: 0 }, { id: "t5", name: "rig", gate: ["textures"], checks: ["Rig names"], refs: 0 }, { id: "t6", name: "lookdev", gate: ["rig"], checks: [], refs: 0 },
   ] },
-  { id: "prop", name: "Environment prop", usedBy: 2, tools: "Blender · Unreal · static mesh", parts: [
+  { id: "prop", name: "Environment prop", kind: "prop", usedBy: 2, tools: "Blender · Unreal · static mesh", parts: [
     { id: "p1", name: "concept", gate: [], checks: [], refs: 0 }, { id: "p2", name: "model", gate: [], checks: ["Scale", "Naming", "Triangles", "Pivot at base"], refs: 0 }, { id: "p3", name: "uvs", gate: [], checks: ["UV set"], refs: 0 },
     { id: "p4", name: "textures", gate: [], checks: ["Texture size"], refs: 0 }, { id: "p5", name: "lods", gate: [], checks: ["LODs"], refs: 0 }, { id: "p6", name: "collision", gate: [], checks: ["Collision"], refs: 0 },
   ] },
-  { id: "level", name: "Level area", usedBy: 2, tools: "Unreal · One File Per Actor", parts: [
+  { id: "level", name: "Level area", kind: "level_area", usedBy: 2, tools: "Unreal · One File Per Actor", parts: [
     { id: "l1", name: "blockout", gate: [], checks: ["Scale"], refs: 0 }, { id: "l2", name: "layout", gate: [], checks: ["Naming"], refs: 0 }, { id: "l3", name: "set_dressing", gate: [], checks: ["Naming"], refs: 0 }, { id: "l4", name: "lighting", gate: [], checks: [], refs: 0 },
   ] },
 ];
@@ -260,14 +261,15 @@ export function createMockSource(initial: MockOptions | "artist" | "viewer" = {}
       assetList = assetList.filter((a) => a.projectSlug !== slug);
       emit();
     },
-    createAsset: (projectSlug, name, template, parts) => {
+    freeBlendFiles: () => Promise.resolve([]),
+    createAsset: (projectSlug, name, template, parts, options) => {
       const tpl = TEMPLATES.find((t) => t.name === template) ?? TEMPLATES[1]!;
       const kind: Asset["kind"] = tpl.id === "character" ? "Characters" : tpl.id === "level" ? "Levels" : "Props";
       const chosen = parts === "one" ? [tpl.parts.find((p) => p.name === "model") ?? tpl.parts[0]!] : tpl.parts;
       const made: Asset = {
         id: slugOf(name), slug: slugOf(name), projectSlug, name, kind, state: "draft", render: null, noRenderText: chosen.map((p) => p.name).join(" · "), meta: `${kind.replace(/s$/, "")} · ${chosen.length} part${chosen.length > 1 ? "s" : ""} · ${me.name.split(" ")[0]}`,
         ownerId: me.id, present: [], template: tpl.name, usedIn: [], changedOrder: 0, when: "Just now",
-        parts: chosen.map((tp) => ({ id: tp.name, name: tp.name, state: tp.gate.some((g) => chosen.some((c) => c.name === g)) ? "waiting" : "draft", ownerId: me.id, render: null, lock: null, gate: tp.gate.filter((g) => chosen.some((c) => c.name === g)), versions: [], checks: [], comments: [], mirror: { state: "offline", seconds: 0 }, refs: [] })),
+        parts: chosen.map((tp) => ({ id: tp.name, name: tp.name, state: tp.gate.some((g) => chosen.some((c) => c.name === g)) ? "waiting" : "draft", ownerId: me.id, render: null, lock: null, gate: tp.gate.filter((g) => chosen.some((c) => c.name === g)), versions: [], checks: [], comments: [], mirror: { state: "offline", seconds: 0 }, refs: [], file: options?.file ?? `${name}/${tp.name}.blend` })),
       };
       assetList = [made, ...assetList];
       countAssets();
