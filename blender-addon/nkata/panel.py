@@ -72,6 +72,10 @@ def run_checks(part: dict[str, Any], fix: bool) -> list[dict[str, Any]]:
     ids = [c["id"] for c in specs]
     params = {c["id"]: dict(c.get("params") or {}) for c in specs}
     severities = {c["id"]: c["severity"] for c in specs}
+    if fix and bpy.context.mode != "OBJECT":
+        # Edit mode keeps the mesh in its own buffer: writes to mesh.vertices are dropped, and
+        # the origin move would shift the object instead. Leave it first.
+        bpy.ops.object.mode_set(mode="OBJECT")
     facts = save_hook.gather_facts(col)
     results, after = checks.run_checks(ids, params, severities, facts, fix=fix)
     if fix:
@@ -111,7 +115,9 @@ def move_origin_down(obj: Any, delta: float) -> None:
         co[i * 3 + 1] += local[1]
         co[i * 3 + 2] += local[2]
     mesh.vertices.foreach_set("co", co)
+    mesh.update()
     m[2][3] = float(m[2][3]) - delta
+    bpy.context.view_layer.update()
 
 
 def _solve3(m: list[list[float]], v: tuple[float, float, float]) -> tuple[float, float, float]:

@@ -50,6 +50,9 @@ class FakeMesh:
         self.loops = FakeAttr(loop_indices, 1)
         self.polygons = [FakePolygon(n) for n in polygon_sizes]
 
+    def update(self) -> None:
+        return
+
 
 class FakeSlot:
     def __init__(self, name: str | None) -> None:
@@ -173,12 +176,26 @@ def install(collections: dict[str, FakeCollection], filepath: str) -> types.Modu
                 handler(None)
             return {"FINISHED"}
 
+    class ObjectOps:
+        """bpy.ops.object.mode_set: records the call and sets the context mode."""
+
+        @staticmethod
+        def mode_set(mode: str = "OBJECT") -> set[str]:
+            ops.calls.append(("object.mode_set", {"mode": mode}))
+            Context.mode = "OBJECT" if mode == "OBJECT" else "EDIT_MESH"
+            return {"FINISHED"}
+
     class Context:
         _override: dict[str, Any] = {}
+        mode = "OBJECT"
         scene = types.SimpleNamespace(unit_settings=types.SimpleNamespace(scale_length=1.0))
 
         class view_layer:  # noqa: N801
             active_layer_collection = None
+
+            @staticmethod
+            def update() -> None:
+                return
 
             class layer_collection:  # noqa: N801
                 collection = types.SimpleNamespace(name="Scene Collection")
@@ -195,7 +212,7 @@ def install(collections: dict[str, FakeCollection], filepath: str) -> types.Modu
 
             return _Ctx()
 
-    bpy.ops = types.SimpleNamespace(collection=CollectionOps, export_scene=ExportSceneOps, wm=WmOps, render=RenderOps)
+    bpy.ops = types.SimpleNamespace(collection=CollectionOps, export_scene=ExportSceneOps, wm=WmOps, render=RenderOps, object=ObjectOps)
     Context.scene.render = types.SimpleNamespace(filepath="", image_settings=types.SimpleNamespace(file_format="PNG"))
     bpy.context = Context
     linked: list[Any] = []

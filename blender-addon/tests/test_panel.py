@@ -248,6 +248,16 @@ class PanelTest(unittest.TestCase):
         self.assertTrue(self.state.checks[ID][0]["passed"])
         self.assertTrue(self.state.checks[ID][0]["auto_fixed"])
 
+    def test_fix_leaves_edit_mode_first(self) -> None:
+        """In edit mode a mesh write is dropped and the origin move would shift the object."""
+        self.bpy.context.mode = "EDIT_MESH"
+        self.state.part = {**PART, "checks": [{"id": "pivot_at_base", "severity": "block", "params": {}}]}
+        self.save_hook.handle_open(str(self.blend))
+        self.state.part = {**self.state.part, "checks": [{"id": "pivot_at_base", "severity": "block", "params": {}}]}
+        self.assertEqual(self.panel.NKATA_OT_fix_checks().execute(None), {"FINISHED"})
+        self.assertIn(("object.mode_set", {"mode": "OBJECT"}), self.bpy._ops.calls)
+        self.assertEqual(self.bpy.context.mode, "OBJECT")
+
     def test_publish_is_blocked_then_passes_and_marks_ready(self) -> None:
         self.save_hook.handle_open(str(self.blend))
         self.face.name = "SK_Face"
