@@ -35,7 +35,7 @@ type PartWire = {
   mapping: { kind: string; file?: string };
   updated_at: string;
 };
-type AssetWire = { id: string; name: string; template_id: string; state: string; updated_at: string };
+type AssetWire = { id: string; name: string; template_id: string; state: string; updated_at: string; rights: { statement: string; confirmed_by: string; confirmed_at: string } | null };
 type ManifestWire = { objects: { name: string; triangles: number; materials: string[]; hash: string }[]; bone_count?: number | null } | null;
 type VersionWire = { id: string; part_id: string; author_id: string; mirror_status: string; mirror_ms: number | null; refs: { level: string; actors: number }[] | null; published: boolean; note: string; created_at: string; render_url?: string | null; model_url?: string | null; manifest?: ManifestWire };
 type CommentWire = { id: string; part_id: string; author: UserRef; body: string; kind: "pin" | "take_a_look"; point: number[]; resolved_at: string | null; created_at: string };
@@ -253,7 +253,7 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
       // The asset's picture and model: the newest render and GLB across its parts.
       const shown = parts.map((p) => p.versions.find((v) => v.render || v.model)).find(Boolean);
       const model = parts.map((p) => p.versions.find((v) => v.model)?.model).find(Boolean);
-      assets.push({ id: a.id, slug, projectSlug: projectSlugOf, name: a.name, kind: KIND_TAB[kind] ?? "Props", state: assetState(parts), render: shown?.render ?? null, ...(model ? { model } : {}), noRenderText: parts.map((p) => p.name).join(" · "), meta: `${KIND_WORD[kind] ?? kind} · ${parts.length} part${parts.length === 1 ? "" : "s"}${ownerName ? ` · ${ownerName}` : ""}`, ownerId: parts[0]?.ownerId ?? "", present, parts, template: templateName.get(a.template_id) ?? "", usedIn, changedOrder: i, when: `${ago(latest, t)} ago`, syncIssue: parts.some((p) => p.mirror.state === "failed") });
+      assets.push({ id: a.id, slug, projectSlug: projectSlugOf, name: a.name, kind: KIND_TAB[kind] ?? "Props", state: assetState(parts), render: shown?.render ?? null, ...(model ? { model } : {}), noRenderText: parts.map((p) => p.name).join(" · "), meta: `${KIND_WORD[kind] ?? kind} · ${parts.length} part${parts.length === 1 ? "" : "s"}${ownerName ? ` · ${ownerName}` : ""}`, ownerId: parts[0]?.ownerId ?? "", present, parts, template: templateName.get(a.template_id) ?? "", usedIn, changedOrder: i, when: `${ago(latest, t)} ago`, syncIssue: parts.some((p) => p.mirror.state === "failed"), rights: a.rights ? { statement: a.rights.statement, confirmedById: a.rights.confirmed_by } : null });
     }
     assets.sort((x, y) => (y.parts.map((p) => p.versions[0]?.when ?? "").join("") > x.parts.map((p) => p.versions[0]?.when ?? "").join("") ? 1 : -1));
     for (const o of online.online) {
@@ -356,6 +356,12 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
       if (p.state === "waiting") p.state = "draft";
       emit();
       void call("POST", `/parts/${p.id}/gate/remove`).then(scheduleReload).catch(refused);
+    },
+    confirmRights: async (assetSlug, statement) => {
+      const a = snapshot.assets.find((x) => x.slug === assetSlug);
+      if (!a) throw new Error(`no asset ${assetSlug}`);
+      await call("PUT", `/assets/${a.id}/rights`, { statement });
+      await load();
     },
     assignOwner: async (assetSlug, partName, personId) => {
       const { p } = findPart(assetSlug, partName);

@@ -93,7 +93,7 @@ function seedAssets(projectSlug: string, stage: DemoStage): Asset[] {
   const picked = stage === "populated" ? all : stage === "firstAsset" ? [stall] : [];
   return picked.map((a, i) => ({
     id: slugOf(a.name), slug: slugOf(a.name), projectSlug, name: a.name, kind: a.kind, state: a.state, render: r(a.img), meta: a.meta, ownerId: a.parts[0]?.ownerId ?? "ada",
-    present: a.who, parts: a.parts, template: a.kind === "Characters" ? "Character" : a.kind === "Props" ? "Environment prop" : "Level area", usedIn: [], changedOrder: i, when: a.when, syncIssue: a.syncIssue, model: SAMPLE_MODEL,
+    present: a.who, parts: a.parts, template: a.kind === "Characters" ? "Character" : a.kind === "Props" ? "Environment prop" : "Level area", usedIn: [], changedOrder: i, when: a.when, syncIssue: a.syncIssue, model: SAMPLE_MODEL, rights: { statement: "Sunburst owns this asset outright.", confirmedById: "emmanuel" },
   }));
 }
 
@@ -268,7 +268,7 @@ export function createMockSource(initial: MockOptions | "artist" | "viewer" = {}
       const chosen = parts === "one" ? [tpl.parts.find((p) => p.name === "model") ?? tpl.parts[0]!] : tpl.parts;
       const made: Asset = {
         id: slugOf(name), slug: slugOf(name), projectSlug, name, kind, state: "draft", render: null, noRenderText: chosen.map((p) => p.name).join(" · "), meta: `${kind.replace(/s$/, "")} · ${chosen.length} part${chosen.length > 1 ? "s" : ""} · ${me.name.split(" ")[0]}`,
-        ownerId: me.id, present: [], template: tpl.name, usedIn: [], changedOrder: 0, when: "Just now",
+        ownerId: me.id, present: [], template: tpl.name, usedIn: [], changedOrder: 0, when: "Just now", rights: null,
         parts: chosen.map((tp) => ({ id: tp.name, name: tp.name, state: tp.gate.some((g) => chosen.some((c) => c.name === g)) ? "waiting" : "draft", ownerId: me.id, render: null, lock: null, gate: tp.gate.filter((g) => chosen.some((c) => c.name === g)), versions: [], checks: [], comments: [], mirror: { state: "offline", seconds: 0 }, refs: [], file: options?.file ?? `${name}/${tp.name}.blend` })),
       };
       assetList = [made, ...assetList];
@@ -316,6 +316,13 @@ export function createMockSource(initial: MockOptions | "artist" | "viewer" = {}
       p.versions = [made, ...p.versions.map((v) => ({ ...v, note: v.note === "current" ? "" : v.note }))];
       touch();
       return made;
+    },
+    confirmRights: (assetSlug, statement) => {
+      const a = assetList.find((x) => x.slug === assetSlug);
+      if (!a) throw new Error(`no asset ${assetSlug}`);
+      a.rights = { statement, confirmedById: me.id };
+      log(`confirmed the rights to ${a.name}`, a.name, "draft", assetSlug);
+      touch();
     },
     assignOwner: (assetSlug, partName, personId) => {
       const { a, p } = findPart(assetSlug, partName);

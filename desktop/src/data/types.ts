@@ -123,6 +123,8 @@ export interface Asset {
   syncIssue?: boolean;
   /** The GLB the Blender add-on exported for the latest version. Absent: the poster only. */
   model?: string;
+  /** Who holds the rights, confirmed by a reviewer. Required to Publish while the studio trains. */
+  rights: { statement: string; confirmedById: string } | null;
 }
 
 export interface ActivityItem {
@@ -301,6 +303,8 @@ export interface DataSource {
   fixChecks(assetSlug: string, partName: string): { ok: true } | { ok: false; reason: string };
   rollBack(assetSlug: string, partName: string, toVersion: number): Version;
   removeGate(assetSlug: string, partName: string): void;
+  /** Confirms who holds the rights to an asset, in one line. An art director or producer only. */
+  confirmRights(assetSlug: string, statement: string): Promise<void> | void;
   /** Who owns a part. Null clears it. An art director or producer only. */
   assignOwner(assetSlug: string, partName: string, personId: string | null): Promise<void> | void;
   addComment(assetSlug: string, partName: string, text: string, pos?: [number, number, number]): Comment;

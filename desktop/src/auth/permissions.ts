@@ -15,6 +15,7 @@ export type Action =
   | "rollBack"
   | "removeGate"
   | "assign"
+  | "confirmRights"
   | "exportProject"
   | "exportAsset"
   | "downloadImages"
@@ -44,7 +45,7 @@ const VIEWER: ReadonlySet<Action> = new Set<Action>(["comment", "pin", "download
 const REVIEWERS: ReadonlySet<Role> = new Set<Role>(["art_director", "producer"]);
 const PRODUCER_ONLY: ReadonlySet<Action> = new Set<Action>(["invite", "manageMembers", "setTraining", "viewBilling", "createStudio", "deleteProject", "renameProject"]);
 // review is the Ready filter on the project screen, not the act of approving.
-const REVIEWER_ONLY: ReadonlySet<Action> = new Set<Action>(["approve", "sendBack", "removeGate", "assign", "editTemplates", "createAsset"]);
+const REVIEWER_ONLY: ReadonlySet<Action> = new Set<Action>(["approve", "sendBack", "removeGate", "assign", "confirmRights", "editTemplates", "createAsset"]);
 
 export function can(action: Action, role: Role): boolean {
   if (role === "viewer") return VIEWER.has(action);

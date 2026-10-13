@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useCan, useStore } from "@/store";
 import { Button } from "@/components/Button";
 import { Dialog } from "@/components/Dialog";
-import { Select } from "@/components/Field";
+import { CONTROL, Field, Select } from "@/components/Field";
 import { CommentRail } from "@/components/CommentRail";
 import { PinRow, Stage } from "@/components/ModelStage";
 import { PresenceAvatar } from "@/components/PresenceAvatar";
@@ -37,6 +37,8 @@ function AssetScreen({ asset, onPart }: { asset: AssetModel; onPart: (p: Part) =
   const setFullScreen = useStore((s) => s.setFullScreen);
   const { by } = usePeople();
   const [assigning, setAssigning] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const training = useStore((s) => s.db.session.studio.training) === "on";
   const session = useViewerSession(asset);
   const top = asset.parts[0]?.versions[0];
   const caption = top ? `Last publish · v${top.n} · ${top.when}` : "No publish yet";
@@ -57,10 +59,16 @@ function AssetScreen({ asset, onPart }: { asset: AssetModel; onPart: (p: Part) =
           {can("openEditors") ? <><Button onClick={() => open("Blender")}>Open in Blender</Button><Button onClick={() => open("Unreal")}>Open in Unreal</Button></> : null}
           {can("exportAsset") && !can("openEditors") ? null : can("exportAsset") ? <Button onClick={() => void exportAsset()}>Export</Button> : null}
           {can("assign") ? <Button onClick={() => setAssigning(true)}>Assign</Button> : null}
+          {can("confirmRights") && !asset.rights ? <Button onClick={() => setConfirming(true)}>Confirm rights</Button> : null}
           {can("removeGate") ? <Button onClick={() => { if (gated) { source.removeGate(asset.slug, gated.name); toast(`Gate removed on ${asset.name} / ${gated.name}.`); } else toast("No gate on this asset.", "muted"); }}>Remove gate</Button> : null}
           {can("downloadImages") && !can("openEditors") ? <Button onClick={() => toast("Images download in the desktop app.", "muted")}>Download images</Button> : null}
         </div>
       </div>
+      {asset.rights ? (
+        <span className="text-13 text-secondary">{`Rights: ${asset.rights.statement} Confirmed by ${by(asset.rights.confirmedById).name}.`}</span>
+      ) : training ? (
+        <span className="text-13 text-secondary">{can("confirmRights") ? "Rights not confirmed. Publish waits until you confirm who holds them." : "Rights not confirmed. Publish waits on an art director or producer."}</span>
+      ) : null}
       <div className="flex gap-4 overflow-x-auto pb-1">
         {asset.parts.map((p) => {
           const owner = by(p.ownerId);
@@ -86,6 +94,7 @@ function AssetScreen({ asset, onPart }: { asset: AssetModel; onPart: (p: Part) =
         <CommentRail session={session} />
       </div>
       <AssignDialog asset={asset} open={assigning} onOpenChange={setAssigning} />
+      <RightsDialog asset={asset} open={confirming} onOpenChange={setConfirming} />
     </div>
   );
 }
@@ -122,6 +131,37 @@ function AssignDialog({ asset, open, onOpenChange }: { asset: AssetModel; open: 
         ))}
         <div className="flex justify-end"><Button variant="outline" onClick={() => onOpenChange(false)}>Done</Button></div>
       </div>
+    </Dialog>
+  );
+}
+
+/** One line on who holds the rights. While the studio trains, Publish waits on it. */
+function RightsDialog({ asset, open, onOpenChange }: { asset: AssetModel; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const source = useStore((s) => s.source);
+  const toast = useStore((s) => s.toast);
+  const studioName = useStore((s) => s.db.session.studio.name);
+  const [statement, setStatement] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (open) setStatement(""); }, [open]);
+  const confirm = async () => {
+    if (!statement.trim()) return;
+    setBusy(true);
+    try {
+      await source.confirmRights(asset.slug, statement.trim());
+      toast(`Rights to ${asset.name} confirmed.`);
+      onOpenChange(false);
+    } catch (err) {
+      toast(reasonOf(err, "Could not confirm the rights."), "failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange} title="Confirm rights" description="Who holds the rights to this asset. One line, kept with the asset." width={480}>
+      <form className="flex flex-col gap-5" onSubmit={(e) => { e.preventDefault(); void confirm(); }}>
+        <Field label="Who holds the rights"><input autoFocus value={statement} onChange={(e) => setStatement(e.target.value)} placeholder={`${studioName || "The studio"} owns this asset outright.`} className={CONTROL} /></Field>
+        <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button><Button type="submit" variant="primary" loading={busy} disabled={!statement.trim()}>Confirm</Button></div>
+      </form>
     </Dialog>
   );
 }

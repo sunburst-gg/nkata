@@ -57,6 +57,16 @@ describe("mock data source", () => {
     expect(src.snapshot().assets.find((a) => a.slug === "ojukwu")!.parts[0]!.comments.map((c) => c.text)).toContain("Too deep.");
   });
 
+  it("confirms the rights to an asset in one line", () => {
+    const src = createMockSource({ stage: "connected" });
+    src.createAsset("nkatatest", "Market stall", "Environment prop", "one");
+    expect(src.snapshot().assets.find((a) => a.slug === "market-stall")!.rights).toBeNull();
+    src.confirmRights("market-stall", "Sunburst owns this asset outright.");
+    const after = src.snapshot().assets.find((a) => a.slug === "market-stall")!;
+    expect(after.rights?.statement).toBe("Sunburst owns this asset outright.");
+    expect(src.snapshot().activity[0]?.text).toBe("confirmed the rights to Market stall");
+  });
+
   it("assigns a part to a person and clears it", () => {
     const src = createMockSource({ stage: "connected" });
     src.createAsset("nkatatest", "Market stall", "Environment prop", "one");
