@@ -2,7 +2,7 @@
 // Parts are created in template order, all of them or the ones named. A part whose gate names
 // a created part starts Locked, the rest Draft. Rights are set by a reviewer and are required
 // to Publish while the studio trains (docs/decisions.md, 2026-10-10).
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { AssetRights, Template, Ulid, type Gate, type PartMapping, type TemplatePart } from "@nkata/shared";
 import { asset, part, template } from "../db/schema.js";
@@ -10,6 +10,13 @@ import { AppError, notFound } from "../domain/errors.js";
 import { initialState } from "../domain/gates.js";
 import { newId } from "../domain/ids.js";
 import { assetState, currentLock, IdParam, loadAsset, loadProject, partContext, partWire, requireRole, userRefs, type TypedApp } from "./_shared.js";
+
+/** A path inside the project folder: relative, forward slashes, no step up, a .blend file. */
+export const ProjectFile = z
+  .string()
+  .min(1)
+  .max(1024)
+  .regex(/^(?!\/)(?!.*(^|\/)\.\.(\/|$))[^\\\0]+\.blend$/, "a .blend path inside the project folder");
 
 const AssetBody = z.object({
   id: Ulid.optional(),
@@ -20,6 +27,9 @@ const AssetBody = z.object({
   reference_files: z.array(z.string()).default([]),
   /** Template part names to create. Absent: every part. */
   parts: z.array(z.string().min(1)).min(1).optional(),
+  /** An existing .blend in the project folder per blend_collection part, project-relative with
+   * forward slashes. The part maps to that file instead of the template's layout. */
+  files: z.record(z.string(), ProjectFile).default({}),
 });
 
 const RightsBody = z.object({ statement: z.string().min(1) });
@@ -32,7 +42,7 @@ export function levelAndArea(assetName: string, partName: string): { level: stri
 }
 
 /** Where a part lives on disk and in the engine, from the template rules. See docs/decisions.md. */
-export function mappingFor(tpl: Template, tp: TemplatePart, assetName: string): PartMapping {
+export function mappingFor(tpl: Template, tp: TemplatePart, assetName: string, file?: string): PartMapping {
   const fill = (s: string) => s.replaceAll("{asset}", assetName).replaceAll("{part}", tp.name);
   switch (tp.mapping) {
     case "ue_area": {
@@ -40,7 +50,7 @@ export function mappingFor(tpl: Template, tp: TemplatePart, assetName: string): 
       return { kind: "ue_area", level, area };
     }
     case "blend_collection":
-      return { kind: "blend_collection", file: tpl.blend_layout === "one_file_per_part" ? `${assetName}/${tp.name}.blend` : `${assetName}/${assetName}.blend`, collection: tp.name };
+      return { kind: "blend_collection", file: file ?? (tpl.blend_layout === "one_file_per_part" ? `${assetName}/${tp.name}.blend` : `${assetName}/${assetName}.blend`), collection: tp.name };
     case "ue_asset":
       return { kind: "ue_asset", path: fill(tpl.export.ue_path) };
     case "ue_actor":
@@ -75,6 +85,13 @@ export async function assetRoutes(app: TypedApp): Promise<void> {
     }
     const chosen = req.body.parts ? tpl.parts.filter((tp) => req.body.parts!.includes(tp.name)) : tpl.parts;
     const chosenNames = chosen.map((tp) => tp.name);
+    for (const [name, file] of Object.entries(req.body.files)) {
+      const tp = chosen.find((p) => p.name === name);
+      if (!tp) throw new AppError("bad_request", `file given for a part not being created: "${name}"`, { template: tpl.name });
+      if (tp.mapping !== "blend_collection") throw new AppError("bad_request", `part "${name}" is not a Blender part, so it takes no file`, { template: tpl.name });
+      const taken = await app.db.select({ id: part.id }).from(part).innerJoin(asset, eq(part.asset_id, asset.id)).where(and(eq(asset.project_id, proj.id), sql`${part.mapping}->>'file' = ${file}`)).limit(1);
+      if (taken[0]) throw new AppError("conflict", `${file} already belongs to a part`, { part_id: taken[0].id });
+    }
 
     const now = app.now();
     const created = await app.db.transaction(async (tx) => {
@@ -87,7 +104,7 @@ export async function assetRoutes(app: TypedApp): Promise<void> {
         const state = initialState(gate, chosenNames);
         return {
           id: newId(), studio_id: proj.studio_id, asset_id: id, name: tp.name, position,
-          owner_id: req.body.owners[tp.name] ?? null, state, gate, mapping: mappingFor(tpl, tp, req.body.name), created_at: now, updated_at: now,
+          owner_id: req.body.owners[tp.name] ?? null, state, gate, mapping: mappingFor(tpl, tp, req.body.name, req.body.files[tp.name]), created_at: now, updated_at: now,
         };
       });
       const parts = await tx.insert(part).values(partRows).returning();
