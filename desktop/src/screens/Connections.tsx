@@ -38,7 +38,7 @@ export function ConnectionGrid() {
             </div>
             <span className="text-13 leading-[1.5] text-secondary">{c.line}</span>
           </div>
-          {!c.soon && !c.connected && can("connectTools") ? <Button size="sm" variant="outline" className="self-start" loading={busy === c.id} onClick={() => void connect(c)}>Connect</Button> : null}
+          {!c.soon && can("connectTools") ? <Button size="sm" variant="outline" className="self-start" loading={busy === c.id} onClick={() => void connect(c)}>{c.connected ? "Install again" : "Connect"}</Button> : null}
         </div>
       ))}
     </div>
