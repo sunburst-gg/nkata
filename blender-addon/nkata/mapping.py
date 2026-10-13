@@ -63,20 +63,32 @@ def relative_file(root: Path, file_path: Path) -> str:
 
 
 def startable_parts(parts: list[dict[str, Any]], root: Path, me_id: str | None) -> list[dict[str, Any]]:
-    """My Blender parts whose file is not on disk yet, in asset order. What the panel offers to
-    start when no part is open."""
+    """My Blender parts, and the ones nobody owns yet, whose file is not on disk. In asset order.
+    What the panel offers to start when no part is open. A part with no owner is free to start;
+    Mark Ready still needs an owner or a reviewer (server, domain/state.ts)."""
     out = []
     for part in parts:
         mapping = part.get("mapping") or {}
         if mapping.get("kind") != "blend_collection":
             continue
         owner = (part.get("owner") or {}).get("id")
-        if me_id is not None and owner != me_id:
+        if owner is not None and me_id is not None and owner != me_id:
             continue
         if (root / str(mapping.get("file"))).exists():
             continue
         out.append(part)
     return out
+
+
+def no_part_line(parts: list[dict[str, Any]], me_id: str) -> str:
+    """Why the start list is empty: no Blender parts at all, none yours or free, or all on disk."""
+    blender = [p for p in parts if (p.get("mapping") or {}).get("kind") == "blend_collection"]
+    if not blender:
+        return "No parts yet. Create an asset in Nkata."
+    mine = [p for p in blender if (p.get("owner") or {}).get("id") in (None, me_id)]
+    if not mine:
+        return "No part is yours or free. Ask for one in Nkata."
+    return "Every part of yours has a file. Open one."
 
 
 def part_for_file(parts: list[dict[str, Any]], rel_file: str) -> dict[str, Any] | None:

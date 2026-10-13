@@ -22,6 +22,7 @@ ID2 = "01BX5ZZKBKACTAV9WEVGEMMVRZ"
 class FakeAgent(BaseHTTPRequestHandler):
     spool_dir = ""
     saved: list[dict[str, Any]] = []
+    opened: list[str] = []
     parts: list[dict[str, Any]] = []
 
     def log_message(self, *_a: Any) -> None:
@@ -55,6 +56,12 @@ class FakeAgent(BaseHTTPRequestHandler):
         if self.path.endswith("/saved"):
             FakeAgent.saved.append(body)
             return self._json(201, {"v": 1, "version_id": ID2, "mirror": "pending" if body["changed"] else "skipped"})
+        if self.path.endswith("/open"):
+            FakeAgent.opened.append(self.path)
+            at = "2026-10-05T12:00:00.000Z"
+            return self._json(200, {"v": 1, "granted": True, "lock": {"holder": {"id": ID2, "name": "Ada", "avatar_url": None}, "granted_at": at, "heartbeat_at": at, "expires_at": at, "stale": False}})
+        if self.path == "/presence":
+            return self._json(200, {"v": 1, "online": []})
         return self._json(404, {"v": 1, "error": {"code": "not_found", "message": self.path}})
 
 
@@ -69,6 +76,7 @@ class SaveHookTest(unittest.TestCase):
         self.blend.write_bytes(b"")
         FakeAgent.spool_dir = str(root / ".nkata-agent" / "spool")
         FakeAgent.saved = []
+        FakeAgent.opened = []
         FakeAgent.parts = [{"id": ID, "asset_id": ID2, "asset_name": "Ojukwu", "name": "face", "state": "draft", "owner": None, "lock": None, "gate": {"after": []}, "mapping": {"kind": "blend_collection", "file": "Ojukwu/face.blend", "collection": "face"}, "kind": "character", "checks": [{"id": "unit_scale", "severity": "block", "params": {}}, {"id": "triangle_budget", "severity": "block", "params": {"max": 60000}}], "reference_files": ["Ojukwu/ref/concept.png"], "waiting_on": []}]
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), FakeAgent)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
@@ -125,6 +133,20 @@ class SaveHookTest(unittest.TestCase):
         third = self.save_hook.handle_save(str(self.blend))
         self.assertTrue(third["changed"])
         self.assertEqual(len(self.bpy._ops.calls), 2)
+
+    def test_a_file_that_became_a_part_while_open_is_named_and_locked_on_save(self) -> None:
+        """Create asset, From files in the folder, on a file Blender already has open: no open
+        event ran. The first save names the only collection after the part and takes the lock."""
+        self.collection.name = "Collection"
+        self.bpy = bpy_stub.install({"Collection": self.collection}, str(self.blend))
+        first = self.save_hook.handle_save(str(self.blend))
+        self.assertTrue(first["changed"])
+        self.assertEqual(self.collection.name, "face")
+        self.assertEqual(FakeAgent.opened, [f"/parts/{ID}/open"])
+        self.assertEqual(self.state.part["lock"]["holder"]["name"], "Ada")
+        # The next save of the same part asks for no second lock.
+        self.save_hook.handle_save(str(self.blend))
+        self.assertEqual(len(FakeAgent.opened), 1)
 
     def test_fallback_export_without_an_attached_exporter(self) -> None:
         self.collection.exporters = []

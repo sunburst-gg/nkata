@@ -135,14 +135,17 @@ def handle_save(filepath: str) -> dict[str, Any]:
     rel = mapping.relative_file(root, path)
     part = mapping.part_for_file(client.parts(rel), rel)
     with STATE.lock:
+        previous = STATE.part
         STATE.part = part
         STATE.rel_file = rel
         STATE.error = ""
     if part is None:
         return {"skipped": f"no part maps to {rel}"}
-    collection = bpy.data.collections.get(part["mapping"]["collection"])
-    if collection is None:
-        raise RuntimeError(f"collection {part['mapping']['collection']!r} not in this file")
+    # A file that became a part while open (Create asset, From files in the folder) has had no
+    # open event: name its collection now, and take the lock after the save.
+    collection = ensure_collection(str(part["mapping"]["collection"]))
+    if previous is None or previous.get("id") != part["id"]:
+        handle_open(filepath)
     kind = str(part.get("kind") or "character")
     got = collect(collection)
     hashes, infos = got.hashes, got.infos

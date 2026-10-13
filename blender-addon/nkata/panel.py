@@ -179,12 +179,14 @@ class NKATA_OT_find_parts(bpy.types.Operator):
         except AgentError as e:
             self.report({"ERROR"}, e.message)
             return {"CANCELLED"}
+        startable = mapping.startable_parts(parts, root, me.user.id)
         with STATE.lock:
             STATE.me = me.user.to_dict()
-            STATE.startable = mapping.startable_parts(parts, root, me.user.id)
-            STATE.error = "" if STATE.startable else "Every part of yours has a file. Open one."
+            STATE.startable = startable
+            STATE.error = "" if startable else mapping.no_part_line(parts, me.user.id)
             STATE.dirty = True
         return {"FINISHED"}
+
 
 
 class NKATA_OT_start_part(bpy.types.Operator):

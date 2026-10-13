@@ -66,6 +66,35 @@ class ManifestTest(unittest.TestCase):
         self.assertEqual(manifest.bounds_of([]), ((0.0, 0.0, 0.0), (0.0, 0.0, 0.0)))
 
 
+class StartableTest(unittest.TestCase):
+    def parts(self) -> list[dict]:
+        def blend(name: str, owner: dict | None) -> dict:
+            return {"id": name, "name": name, "mapping": {"kind": "blend_collection", "file": f"A/{name}.blend", "collection": name}, "owner": owner}
+
+        return [
+            blend("mine", {"id": "me"}),
+            blend("free", None),
+            blend("theirs", {"id": "them"}),
+            blend("ondisk", {"id": "me"}),
+            {"id": "ue", "name": "ue", "mapping": {"kind": "ue_asset", "path": "/Game/A"}, "owner": None},
+        ]
+
+    def test_mine_and_free_parts_without_a_file_are_startable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "A").mkdir()
+            (root / "A" / "ondisk.blend").write_bytes(b"")
+            names = [p["name"] for p in mapping.startable_parts(self.parts(), root, "me")]
+        self.assertEqual(names, ["mine", "free"])
+
+    def test_the_empty_line_says_why(self) -> None:
+        no_part_line = mapping.no_part_line
+        self.assertEqual(no_part_line([], "me"), "No parts yet. Create an asset in Nkata.")
+        theirs = [p for p in self.parts() if p["name"] in ("theirs", "ue")]
+        self.assertEqual(no_part_line(theirs, "me"), "No part is yours or free. Ask for one in Nkata.")
+        self.assertEqual(no_part_line(self.parts(), "me"), "Every part of yours has a file. Open one.")
+
+
 class MappingTest(unittest.TestCase):
     def test_finds_root_token_and_relative_file(self) -> None:
         with tempfile.TemporaryDirectory() as d:
