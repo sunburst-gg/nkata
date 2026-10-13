@@ -34,6 +34,9 @@ export const agent = {
   /** Blender on this machine and the Unreal projects inside the folder. */
   toolsDetect: (folder: string): Promise<ToolsReport> =>
     inTauri() ? invoke<ToolsReport>("tools_detect", { folder }) : Promise.resolve({ blender: null, uprojects: [], addon_shipped: false, plugin_shipped: false }),
+  /** The .blend files inside the project folder, project-relative with forward slashes. */
+  listBlendFiles: (folder: string): Promise<string[]> =>
+    inTauri() ? invoke<string[]>("list_blend_files", { folder }) : Promise.resolve([]),
   /** Installs and enables the add-on through Blender. Resolves to Blender's last line. */
   toolsInstallBlender: (): Promise<string> =>
     inTauri() ? invoke<string>("tools_install_blender") : Promise.reject(new Error("Only the desktop app installs tools.")),

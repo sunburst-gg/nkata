@@ -229,6 +229,28 @@ pub fn install_blender_addon(
     Ok(last)
 }
 
+/// Blender files inside the project folder, as project-relative paths with forward slashes,
+/// sorted. Hidden folders (the agent's own among them) are not entered. What the Create asset
+/// dialog offers under "From a file in the folder".
+pub fn find_blend_files(folder: &Path) -> Vec<String> {
+    let mut out: Vec<String> = WalkDir::new(folder)
+        .into_iter()
+        .filter_entry(|e| {
+            e.depth() == 0 || !e.file_name().to_str().is_some_and(|n| n.starts_with('.'))
+        })
+        .flatten()
+        .filter(|e| e.path().extension().is_some_and(|x| x == "blend"))
+        .filter_map(|e| {
+            e.path()
+                .strip_prefix(folder)
+                .ok()
+                .map(|rel| rel.to_string_lossy().replace('\\', "/"))
+        })
+        .collect();
+    out.sort();
+    out
+}
+
 /// Unreal projects inside the project folder, three levels deep at most. Engine output folders
 /// are not entered.
 pub fn find_uprojects(folder: &Path) -> Vec<PathBuf> {
@@ -553,6 +575,25 @@ mod tests {
                 "Blender could not install the add-on: Error: cannot import name nkata_shared"
             ),
             "{err}"
+        );
+    }
+
+    #[test]
+    fn blend_files_are_listed_relative_sorted_and_not_from_hidden_folders() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        std::fs::create_dir_all(root.join("props/lamp")).unwrap();
+        std::fs::write(root.join("props/lamp/lamp.blend"), "").unwrap();
+        std::fs::write(root.join("props/lamp/lamp.blend1"), "").unwrap();
+        std::fs::write(root.join("Ojukwu.blend"), "").unwrap();
+        std::fs::create_dir_all(root.join(".nkata-agent/spool")).unwrap();
+        std::fs::write(root.join(".nkata-agent/spool/x.blend"), "").unwrap();
+        assert_eq!(
+            find_blend_files(root),
+            vec![
+                "Ojukwu.blend".to_string(),
+                "props/lamp/lamp.blend".to_string()
+            ]
         );
     }
 

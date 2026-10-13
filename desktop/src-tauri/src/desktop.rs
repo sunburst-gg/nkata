@@ -114,6 +114,16 @@ async fn tools_detect(folder: String) -> Result<ToolsReport, String> {
     .map_err(|e| e.to_string())
 }
 
+/// The .blend files inside the project folder, project-relative. For Create asset, From a file.
+#[tauri::command]
+async fn list_blend_files(folder: String) -> Result<Vec<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        nkata_agent::tools::find_blend_files(&nkata_agent::runtime::expand_home(Path::new(&folder)))
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 /// Installs and enables the add-on through Blender's command line. Returns Blender's last line.
 #[tauri::command]
 async fn tools_install_blender() -> Result<String, String> {
@@ -220,6 +230,7 @@ fn main() {
             agent_stop,
             write_export,
             tools_detect,
+            list_blend_files,
             tools_install_blender,
             tools_install_ue
         ])
