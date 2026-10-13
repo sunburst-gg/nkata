@@ -6,6 +6,7 @@ import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
 import { hasZodFastifySchemaValidationErrors, serializerCompiler, validatorCompiler, type ZodTypeProvider } from "fastify-type-provider-zod";
 import type { Config } from "./config.js";
+import { createLinks, type Links } from "./domain/links.js";
 import type { Db } from "./db/client.js";
 import { AppError } from "./domain/errors.js";
 import { createEventBus, type EventBus } from "./events.js";
@@ -34,6 +35,7 @@ declare module "fastify" {
     db: Db;
     store: Store;
     config: Config;
+    links: Links;
     bus: EventBus;
     presence: PresenceMap;
     discord: DiscordPoster;
@@ -89,6 +91,7 @@ export async function buildApp(deps: AppDeps): Promise<App> {
   app.decorate("db", deps.db);
   app.decorate("store", deps.store);
   app.decorate("config", deps.config);
+  app.decorate("links", createLinks(deps.config.PUBLIC_URL, deps.config.LINK_SECRET));
   app.decorate("bus", createEventBus(deps.db));
   app.decorate("presence", createPresence());
   app.decorate("discord", deps.discord ?? createDiscordPoster(deps.db, deps.config.DISCORD_SECRET));
@@ -127,7 +130,8 @@ export async function buildApp(deps: AppDeps): Promise<App> {
 
   app.addHook("onRequest", async (req) => {
     const path = req.url.split("?")[0] ?? req.url;
-    if (PUBLIC.has(path) || path === "/ws" || req.method === "OPTIONS") return;
+    // /models/<id>.glb carries its own signature (domain/links.ts): the app loads it with no header.
+    if (PUBLIC.has(path) || path === "/ws" || path.startsWith("/models/") || req.method === "OPTIONS") return;
     const header = req.headers.authorization ?? "";
     if (!header.startsWith("Bearer ")) throw new AppError("unauthorized", "missing bearer token");
     const session = await resolveSession(app.db, header.slice("Bearer ".length), app.now());

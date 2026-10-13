@@ -69,8 +69,10 @@ for _ in $(seq 1 60); do
 done
 echo "versions: $(curl -s -H "Authorization: Bearer $TOKEN" "$SERVER/parts/$PART/versions" | jq -c '.versions[0] | {id, published, mirror_status, has_model: (.model_url != null), has_render: (.render_url != null), objects: (.manifest.objects | length)}')"
 if [ -n "$MODEL_URL" ]; then
-  curl -s "$MODEL_URL" -o $E/model.glb
-  echo "model bytes $(stat -c %s $E/model.glb) magic $(head -c 4 $E/model.glb)"
+  # The app fetches this cross-origin, so the answer must carry CORS for the app's origin.
+  curl -s -D $E/model.headers -H "Origin: http://localhost:1420" "$MODEL_URL" -o $E/model.glb
+  echo "model bytes $(stat -c %s $E/model.glb) magic $(head -c 4 $E/model.glb) cors $(grep -i '^access-control-allow-origin' $E/model.headers | tr -d '\r' | cut -d' ' -f2)"
+  grep -qi '^access-control-allow-origin: http://localhost:1420' $E/model.headers || { echo "the model link answers no CORS for the app"; exit 1; }
 else
   echo "NO MODEL URL"; grep -i "model\|saved\|mirror" $E/agent.log | cut -c1-240 | tail -8; exit 1
 fi

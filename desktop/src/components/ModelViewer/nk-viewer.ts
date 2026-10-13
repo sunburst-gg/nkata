@@ -286,8 +286,10 @@ export class NkViewer extends HTMLElement {
       (p) => {
         if (p.total) this._loading.textContent = `Loading model · ${Math.round((p.loaded / p.total) * 100)}%`;
       },
-      () => {
-        this._loading.textContent = "Model did not load. Showing the last render.";
+      (err) => {
+        // The reason stays on screen: a blocked fetch and a bad file read differently.
+        const why = err instanceof Error && err.message ? err.message : "";
+        this._loading.textContent = `Model did not load${why ? `: ${why}` : ""}. Showing the last render.`;
       },
     );
   }

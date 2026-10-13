@@ -52,14 +52,23 @@ function versionWire(row: typeof version.$inferSelect) {
   return { ...row, created_at: row.created_at.toISOString(), updated_at: row.updated_at.toISOString() };
 }
 
-/** The wire plus signed links to the render and the model, so the app never asks per version. */
+/** The wire plus links to the render and the model, so the app never asks per version. The
+ * render is an <img>, so the store's own signed URL serves it. The model is fetched by the
+ * viewer, which needs CORS, so this server serves it under its own signed link. */
 async function versionWithUrls(app: TypedApp, row: typeof version.$inferSelect) {
   return {
     ...versionWire(row),
     render_url: row.render_key ? await app.store.signGet(row.render_key) : null,
-    model_url: row.model_key ? await app.store.signGet(row.model_key) : null,
+    model_url: row.model_key ? app.links.sign(modelPath(row.id), app.now()) : null,
   };
 }
+
+export function modelPath(versionId: string): string {
+  return `/models/${versionId}.glb`;
+}
+
+const ModelParams = z.object({ vid: Ulid });
+const LinkQuery = z.object({ exp: z.string().min(1), sig: z.string().min(1) });
 
 type Artifact = { kind: "render" | "model"; folder: string; ext: string; column: "render_key" | "model_key" };
 const RENDER: Artifact = { kind: "render", folder: "renders", ext: "png", column: "render_key" };
@@ -227,6 +236,22 @@ export async function versionRoutes(app: TypedApp): Promise<void> {
       return { v: 1, version_id: ver.id, url: await app.store.signGet(key) };
     });
   }
+
+  // The model bytes, under the link versionWithUrls hands out. No session: the signature is the
+  // credential, as with a store URL. The auth hook lets /models/ through (app.ts).
+  app.get("/models/:vid.glb", { schema: { params: ModelParams, querystring: LinkQuery } }, async (req, reply) => {
+    const path = modelPath(req.params.vid);
+    if (!app.links.verify(path, req.query.exp, req.query.sig, app.now())) throw new AppError("forbidden", "this model link is not valid or has expired");
+    const ver = (await app.db.select({ id: version.id, model_key: version.model_key }).from(version).where(eq(version.id, req.params.vid)).limit(1))[0];
+    if (!ver?.model_key) throw notFound("model", req.params.vid);
+    const object = await app.store.get(ver.model_key);
+    if (!object) throw notFound("model", req.params.vid);
+    return reply
+      .header("content-type", "model/gltf-binary")
+      .header("content-length", String(object.size))
+      .header("cache-control", "private, max-age=3600")
+      .send(object.body);
+  });
 
   // Roll back: a new version that points at an older file_version. One click, nothing deleted.
   app.post("/parts/:id/rollback", { schema: { params: IdParam, body: RollbackBody } }, async (req, reply) => {

@@ -21,6 +21,8 @@ export type Store = {
   signGet(key: string): Promise<string>;
   /** Size in bytes when the object exists, null otherwise. */
   head(key: string): Promise<number | null>;
+  /** The object's bytes as a stream with its size, or null when it does not exist. */
+  get(key: string): Promise<{ body: NodeJS.ReadableStream; size: number } | null>;
   ensureBucket(): Promise<void>;
 };
 
@@ -41,6 +43,19 @@ export function createStore(config: Pick<Config, "S3_ENDPOINT" | "S3_REGION" | "
       try {
         const out = await client.send(new HeadObjectCommand({ Bucket, Key }));
         return out.ContentLength ?? 0;
+      } catch (err) {
+        if (err instanceof Error && (err.name === "NotFound" || err.name === "NoSuchKey" || (err as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode === 404)) {
+          return null;
+        }
+        throw err;
+      }
+    },
+    async get(Key) {
+      try {
+        const out = await client.send(new GetObjectCommand({ Bucket, Key }));
+        const body = out.Body as unknown;
+        if (!body || typeof (body as { pipe?: unknown }).pipe !== "function") return null;
+        return { body: body as NodeJS.ReadableStream, size: out.ContentLength ?? 0 };
       } catch (err) {
         if (err instanceof Error && (err.name === "NotFound" || err.name === "NoSuchKey" || (err as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode === 404)) {
           return null;

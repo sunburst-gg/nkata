@@ -486,10 +486,20 @@ describe.skipIf(!hasInfra)("server api", () => {
       expect((await h.app.inject({ method: "PUT", url: `/parts/${face}/versions/${faceVersion}/model`, ...h.as(VIEWER), payload: { key } })).statusCode).toBe(403);
       const done = (await h.app.inject({ method: "PUT", url: `/parts/${face}/versions/${faceVersion}/model`, ...h.as(ARTIST), payload: { key } })).json() as { version: { model_key: string; model_url: string; render_url: string } };
       expect(done.version.model_key).toBe(key);
-      expect(await (await fetch(done.version.model_url)).text()).toBe("glTF");
+      // The model link is this server's, signed, and answers the bytes with CORS for the app's
+      // origin and no session. The store's own URL would need CORS the stores do not all give.
+      expect(done.version.model_url.startsWith(`${h.app.config.PUBLIC_URL}/models/${faceVersion}.glb?exp=`)).toBe(true);
+      const link = new URL(done.version.model_url);
+      const served = await h.app.inject({ method: "GET", url: `${link.pathname}${link.search}`, headers: { origin: "http://localhost:1420" } });
+      expect(served.statusCode).toBe(200);
+      expect(served.headers["content-type"]).toBe("model/gltf-binary");
+      expect(served.headers["access-control-allow-origin"]).toBe("http://localhost:1420");
+      expect(served.body).toBe("glTF");
+      expect((await h.app.inject({ method: "GET", url: `${link.pathname}?exp=${link.searchParams.get("exp")}&sig=00` })).statusCode).toBe(403);
+      expect((await h.app.inject({ method: "GET", url: `${link.pathname}?exp=1&sig=${link.searchParams.get("sig")}` })).statusCode).toBe(403);
       const list = (await h.app.inject({ method: "GET", url: `/parts/${face}/versions`, ...h.as(VIEWER) })).json() as { versions: { id: string; model_url: string | null; render_url: string | null }[] };
       const v = list.versions.find((x) => x.id === faceVersion)!;
-      expect(v.model_url).toContain("models/");
+      expect(v.model_url).toContain("/models/");
       expect(v.render_url).toContain("renders/");
       expect(list.versions.filter((x) => x.id !== faceVersion).every((x) => x.model_url === null)).toBe(true);
     });

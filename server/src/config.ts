@@ -17,6 +17,9 @@ const Env = z.object({
   HOST: z.string().default("127.0.0.1"),
   PUBLIC_URL: z.url().default("http://localhost:7400"),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).default("info"),
+  // Signs the model links the app loads. Optional: without it each server process makes its own
+  // key at start. Set it when more than one process answers for PUBLIC_URL.
+  LINK_SECRET: z.string().min(16).optional(),
   // Encrypts the Discord webhook URL at rest. Without it no webhook can be stored.
   DISCORD_SECRET: z.string().min(16).optional(),
   // Sends the sign-in code. Resend's HTTPS API (https://resend.com/docs/api-reference/emails/send-email).
