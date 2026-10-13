@@ -2,65 +2,13 @@
 // the Ojukwu character, three props, and one level area.
 // Idempotent: finds by name before inserting. Run: pnpm --filter @nkata/server seed
 import { and, eq } from "drizzle-orm";
-import { Template, type Role } from "@nkata/shared";
+import type { Role } from "@nkata/shared";
 import { createDb, type Db } from "./db/client.js";
 import { runMigrations } from "./db/migrate.js";
 import { asset, membership, part, project, studio, template, user } from "./db/schema.js";
 import { newId } from "./domain/ids.js";
 import { mappingFor } from "./routes/assets.js";
-
-// docs/engineering.md, Templates. Two templates, three kinds: character, prop, level_area.
-export const CHARACTER_TEMPLATE: Template = {
-  v: 1,
-  name: "Character",
-  kind: "character",
-  parts: [
-    { name: "concept", mapping: "file", checks: ["texture_size"] },
-    { name: "face", mapping: "blend_collection", gate: [], checks: ["unit_scale", "name_pattern", "triangle_budget", "uv_set_present"], params: { triangle_budget: { max: 60000 }, name_pattern: { pattern: "SK_.*" } } },
-    { name: "cloth", mapping: "blend_collection", gate: [], checks: ["unit_scale", "name_pattern", "triangle_budget"], params: { triangle_budget: { max: 30000 }, name_pattern: { pattern: "SK_.*" } } },
-    { name: "hair", mapping: "blend_collection", gate: [], checks: ["unit_scale", "name_pattern"], params: { name_pattern: { pattern: "SK_.*" } } },
-    { name: "textures", mapping: "file", gate: ["face", "cloth", "hair"], checks: ["texture_size", "name_pattern"], params: { name_pattern: { pattern: "T_.*" } } },
-    { name: "rig", mapping: "blend_collection", gate: ["textures"], checks: ["rig_bone_names", "rig_bone_count", "metahuman_dna_present"] },
-    { name: "lookdev", mapping: "ue_asset", gate: ["rig"], checks: ["texture_size"] },
-  ],
-  reference_slots: ["concept_sheet", "style_guide", "color_scheme"],
-  export: { ue_path: "/Game/Characters/{asset}/{part}", name: "SK_{asset}_{part}" },
-  blend_layout: "one_file_per_part",
-};
-
-export const PROP_TEMPLATE: Template = {
-  v: 1,
-  name: "Environment prop",
-  kind: "prop",
-  parts: [
-    { name: "concept", mapping: "file", checks: ["texture_size"] },
-    { name: "model", mapping: "blend_collection", gate: [], checks: ["unit_scale", "name_pattern", "triangle_budget", "pivot_at_base"], params: { triangle_budget: { max: 15000 }, name_pattern: { pattern: "SM_.*" } } },
-    { name: "uvs", mapping: "blend_collection", gate: [], checks: ["uv_set_present", "name_pattern"] },
-    { name: "textures", mapping: "file", gate: [], checks: ["texture_size", "name_pattern"] },
-    { name: "lods", mapping: "ue_asset", gate: [], checks: ["lod_count"], params: { lod_count: { min: 3 } } },
-    { name: "collision", mapping: "ue_asset", gate: [], checks: ["collision_present"] },
-  ],
-  reference_slots: ["concept_sheet", "style_guide"],
-  export: { ue_path: "/Game/Props/{asset}", name: "SM_{asset}" },
-  blend_layout: "one_file_per_part",
-};
-
-export const LEVEL_AREA_TEMPLATE: Template = {
-  v: 1,
-  name: "Level area",
-  kind: "level_area",
-  parts: [
-    { name: "blockout", mapping: "ue_area", gate: [], checks: ["unit_scale"] },
-    { name: "layout", mapping: "ue_area", gate: [], checks: ["name_pattern"] },
-    { name: "set_dressing", mapping: "ue_area", gate: [], checks: ["name_pattern"] },
-    { name: "lighting", mapping: "ue_area", gate: [], checks: [] },
-  ],
-  reference_slots: ["concept_sheet", "layout_sketch"],
-  export: { ue_path: "/Game/Levels/{asset}", name: "{asset}" },
-  blend_layout: "one_file_per_asset",
-};
-
-export const TEMPLATES: Template[] = [CHARACTER_TEMPLATE, PROP_TEMPLATE, LEVEL_AREA_TEMPLATE];
+import { TEMPLATES, templateFilePath, type Template } from "./domain/templates.js";
 
 export const SEED_USERS: { email: string; name: string; roles: Role[] }[] = [
   { email: "artist@sunburst.gg", name: "Rising Sun artist", roles: ["artist"] },
@@ -111,7 +59,7 @@ export async function seed(db: Db): Promise<Seeded> {
     if (!tpl) {
       [tpl] = await db
         .insert(template)
-        .values({ id: newId(), studio_id: studioId, project_id: projectId, name: schema.name, file_path: `.nkata/templates/${schema.name}.json`, schema, created_at: now, updated_at: now })
+        .values({ id: newId(), studio_id: studioId, project_id: projectId, name: schema.name, file_path: templateFilePath(schema.name), schema, created_at: now, updated_at: now })
         .returning();
     }
     templates[schema.name] = { id: tpl!.id, schema };

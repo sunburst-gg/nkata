@@ -233,6 +233,31 @@ describe.skipIf(!hasInfra)("server api", () => {
     expect(bad.statusCode).toBe(400);
   });
 
+  it("a new project starts with the three standard templates", async () => {
+    const made = (await h.app.inject({ method: "POST", url: "/projects", ...h.as(PRODUCER), payload: { name: "Fresh", folder_name: "fresh", blender_version: "4.2", ue_version: "5.4", package_version: "0.1.0" } })).json() as { project: { id: string } };
+    const res = (await h.app.inject({ method: "GET", url: `/projects/${made.project.id}/templates`, ...h.as(ARTIST) })).json() as { templates: { name: string; file_path: string }[] };
+    expect(res.templates.map((tp) => tp.name).sort()).toEqual(["Character", "Environment prop", "Level area"]);
+    expect(res.templates.find((tp) => tp.name === "Character")?.file_path).toBe(".nkata/templates/Character.json");
+  });
+
+  it("creates an asset from an existing .blend in the folder", async () => {
+    const make = (name: string, files: Record<string, string>, parts = ["model"]) =>
+      h.app.inject({ method: "POST", url: "/assets", ...h.as(AD), payload: { project_id: h.seeded.project_id, template_name: "Environment prop", name, parts, files } });
+    const res = await make("Old lamp", { model: "props/old_lamp.blend" });
+    expect(res.statusCode).toBe(201);
+    const body = res.json() as { parts: { name: string; mapping: { kind: string; file: string; collection: string } }[] };
+    expect(body.parts[0]?.mapping).toEqual({ kind: "blend_collection", file: "props/old_lamp.blend", collection: "model" });
+    // One file, one part.
+    expect((await make("Old lamp again", { model: "props/old_lamp.blend" })).statusCode).toBe(409);
+    // Only Blender parts take a file, and only parts being created.
+    expect((await make("Lamp textures", { textures: "props/t.blend" }, ["textures"])).statusCode).toBe(400);
+    expect((await make("Lamp uvs", { uvs: "props/uvs.blend" }, ["model"])).statusCode).toBe(400);
+    // The path stays inside the project folder and names a .blend.
+    for (const bad of ["../out.blend", "/abs/x.blend", "a/../../x.blend", "props/lamp.fbx"]) {
+      expect((await make("Bad path", { model: bad })).statusCode, bad).toBe(400);
+    }
+  });
+
   it("creates an asset with one part, and a gate naming an absent part is met", async () => {
     const one = await h.app.inject({ method: "POST", url: "/assets", ...h.as(AD), payload: { project_id: h.seeded.project_id, template_name: "Character", name: "Hat", parts: ["rig"] } });
     expect(one.statusCode).toBe(201);

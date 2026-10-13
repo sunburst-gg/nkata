@@ -7,6 +7,7 @@ import { projectInviteEmail, studioInviteEmail } from "../domain/emails.js";
 import { AppError } from "../domain/errors.js";
 import { encryptWebhook, isWebhookUrl } from "../domain/discord.js";
 import { newId } from "../domain/ids.js";
+import { TEMPLATES, templateFilePath } from "../domain/templates.js";
 import { IdParam, loadProject, requireRole, userRef, type TypedApp } from "./_shared.js";
 
 /** True when someone other than `userId` is a producer of the studio. */
@@ -222,15 +223,23 @@ export async function projectRoutes(app: TypedApp): Promise<void> {
     const id = req.body.id ?? newId();
     const existing = await app.db.select().from(project).where(eq(project.id, id)).limit(1);
     if (existing[0]) return { v: 1, project: projectWire(existing[0]) };
-    const [row] = await app.db
-      .insert(project)
-      .values({ ...req.body, id, studio_id: req.principal.studio_id })
-      .returning();
+    const now = app.now();
+    // A project starts with the standard templates, so Create asset has something to pick from.
+    const row = await app.db.transaction(async (tx) => {
+      const [made] = await tx
+        .insert(project)
+        .values({ ...req.body, id, studio_id: req.principal.studio_id })
+        .returning();
+      await tx.insert(template).values(
+        TEMPLATES.map((schema) => ({ id: newId(), studio_id: req.principal.studio_id, project_id: id, name: schema.name, file_path: templateFilePath(schema.name), schema, created_at: now, updated_at: now })),
+      );
+      return made!;
+    });
     await app.bus.audit({
       studio_id: req.principal.studio_id, project_id: id, actor_id: req.principal.user_id,
       kind: "audit.project_created", target_kind: "project", target_id: id, payload: { name: req.body.name },
     });
-    return reply.status(201).send({ v: 1, project: projectWire(row!) });
+    return reply.status(201).send({ v: 1, project: projectWire(row) });
   });
 
   app.get("/projects/:id", { schema: { params: IdParam } }, async (req) => {
