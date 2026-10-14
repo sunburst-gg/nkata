@@ -62,7 +62,18 @@ function PartScreen({ asset, part }: { asset: Asset; part: PartModel }) {
     if (!on && params.has("compare")) { params.delete("compare"); setParams(params, { replace: true }); }
   };
   const unrealOn = useFeatures().unreal;
-  const open = (where: "Blender" | "Unreal") => toast(`Opening in ${where}.`, "locked");
+  const open = async (where: "Blender" | "Unreal") => {
+    if (where === "Blender" && source.openInBlender) {
+      try { await source.openInBlender(asset.slug, part.name); toast("Opening in Blender."); } catch (err) { toast(reasonOf(err, "Could not open Blender."), "failed"); }
+      return;
+    }
+    toast(`Opening in ${where}.`, "locked");
+  };
+  // Open previous version: Blender opens the .blend as it was, as its own file, nothing locks.
+  const openVersion = async (n: number) => {
+    if (!source.openVersion) { toast("Versions open in Blender from the desktop app.", "muted"); return; }
+    try { await source.openVersion(asset.slug, part.name, n); toast(`Opening v${n} in Blender as its own file.`); } catch (err) { toast(reasonOf(err, `Could not open v${n}.`), "failed"); }
+  };
   // The engineer's download: the file lands with the name the engine expects.
   const download = async (url: string, ext: "glb" | "fbx") => {
     const name = `${part.exportName || `${asset.name}_${part.name}`}.${ext}`;
@@ -96,8 +107,8 @@ function PartScreen({ asset, part }: { asset: Asset; part: PartModel }) {
         <div className="ml-auto flex gap-2">
           {can("exportAsset") && shownVersion?.model ? <Button onClick={() => void download(shownVersion.model!, "glb")}>Download GLB</Button> : null}
           {can("exportAsset") && shownVersion?.fbx ? <Button onClick={() => void download(shownVersion.fbx!, "fbx")}>Download FBX</Button> : null}
-          {can("openEditors") ? <Button onClick={() => open("Blender")}>Open in Blender</Button> : null}
-          {can("openEditors") && unrealOn ? <Button onClick={() => open("Unreal")}>Open in Unreal</Button> : null}
+          {can("openEditors") ? <Button onClick={() => void open("Blender")}>Open in Blender</Button> : null}
+          {can("openEditors") && unrealOn ? <Button onClick={() => void open("Unreal")}>Open in Unreal</Button> : null}
         </div>
       </div>
       {shownVersion ? (
@@ -143,6 +154,13 @@ function PartScreen({ asset, part }: { asset: Asset; part: PartModel }) {
               </div>
             </button>
           ))}
+          {can("openEditors") && part.versions.length > 0 ? (
+            <div className="flex flex-col gap-1">
+              {part.versions.slice(0, 6).map((v) => (
+                <Button key={`open-${v.id}`} size="xs" variant="outline" onClick={() => void openVersion(v.n)}>{`Open v${v.n}`}</Button>
+              ))}
+            </div>
+          ) : null}
         </div>
         <div className="flex flex-col gap-3">
           {older && older.render && top?.render ? (

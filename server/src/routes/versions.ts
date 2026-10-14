@@ -3,7 +3,7 @@
 // there is no delete route and no delete statement in this file. capture_eligible is stamped
 // from studio.training at insert and never updated. The render is the viewport capture taken
 // on Mark Ready, kept in the store under the version (docs/decisions.md, 2026-10-10).
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lt } from "drizzle-orm";
 import { z } from "zod";
 import { CheckResult, MirrorStatus, ObjectManifest, Timestamp, Ulid } from "@nkata/shared";
 import { check_run, file_version, version } from "../db/schema.js";
@@ -266,6 +266,22 @@ export async function versionRoutes(app: TypedApp): Promise<void> {
         .send(object.body);
     });
   }
+
+  // The .blend as it was for this version: the file version of the part's file recorded by the
+  // sync right after the save (the first one at or after the version), else the last one before.
+  // Open previous version fetches it into the agent's folder and launches Blender on it.
+  app.get("/parts/:id/versions/:vid/file", { schema: { params: VersionParams } }, async (req) => {
+    const { part: row, asset: a } = await loadPart(app.db, req.principal, req.params.id);
+    const ver = (await app.db.select().from(version).where(and(eq(version.id, req.params.vid), eq(version.part_id, row.id))).limit(1))[0];
+    if (!ver) throw notFound("version", req.params.vid);
+    if (row.mapping.kind !== "blend_collection") throw new AppError("bad_request", "this part has no Blender file", { part_id: row.id });
+    const path = row.mapping.file;
+    const after = (await app.db.select().from(file_version).where(and(eq(file_version.project_id, a.project_id), eq(file_version.path, path), gte(file_version.created_at, ver.created_at))).orderBy(asc(file_version.created_at)).limit(1))[0];
+    const before = after ? undefined : (await app.db.select().from(file_version).where(and(eq(file_version.project_id, a.project_id), eq(file_version.path, path), lt(file_version.created_at, ver.created_at))).orderBy(desc(file_version.created_at)).limit(1))[0];
+    const found = after ?? before;
+    if (!found) throw notFound("file_version", path);
+    return { v: 1, file_version: found, exact: !!after };
+  });
 
   // Roll back: a new version that points at an older file_version. One click, nothing deleted.
   app.post("/parts/:id/rollback", { schema: { params: IdParam, body: RollbackBody } }, async (req, reply) => {

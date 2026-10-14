@@ -114,6 +114,29 @@ async fn tools_detect(folder: String) -> Result<ToolsReport, String> {
     .map_err(|e| e.to_string())
 }
 
+/// Open previous version: the .blend behind a version, fetched and opened in Blender as its own file.
+#[tauri::command]
+async fn open_version(
+    rt: State<'_, Runtime>,
+    part_id: String,
+    version_id: String,
+    file_name: String,
+) -> Result<String, String> {
+    rt.open_version(&part_id, &version_id, &file_name)
+        .await
+        .map(|p| p.display().to_string())
+        .map_err(|e| e.to_string())
+}
+
+/// Open in Blender: the part's own file in the project folder.
+#[tauri::command]
+async fn open_in_blender(rt: State<'_, Runtime>, rel_file: String) -> Result<String, String> {
+    rt.open_file(&rel_file)
+        .await
+        .map(|p| p.display().to_string())
+        .map_err(|e| e.to_string())
+}
+
 /// Fetches a file the server serves under a signed link and writes it where the person chose:
 /// the GLB or the FBX of a version. The webview cannot save a cross-origin download itself.
 #[tauri::command]
@@ -250,6 +273,8 @@ fn main() {
             tools_detect,
             list_blend_files,
             download_file,
+            open_version,
+            open_in_blender,
             tools_install_blender,
             tools_install_ue
         ])

@@ -461,6 +461,18 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
         : call("POST", "/studio/members", { email, roles: [role] });
       void req.then(scheduleReload).catch(refused);
     },
+    openVersion: async (assetSlug, partName, versionN) => {
+      const { a, p } = findPart(assetSlug, partName);
+      const v = p.versions.find((x) => x.n === versionN);
+      if (!v) throw new Error(`no version v${versionN}`);
+      const stem = `${a.name}_${p.name}_v${v.n}`.replace(/[^A-Za-z0-9_.-]+/g, "_");
+      return agent.openVersion(p.id, v.id, `${stem}.blend`);
+    },
+    openInBlender: async (assetSlug, partName) => {
+      const { p } = findPart(assetSlug, partName);
+      if (!p.file) throw new Error("This part has no Blender file.");
+      return agent.openInBlender(p.file);
+    },
     setDiscordWebhook: async (url) => { await call("PUT", `/projects/${config.projectId}/discord`, { webhook_url: url }); },
     setTraining: async (training) => { await call("PUT", "/studio/training", { training }); await load(); },
     exportAsset: async (assetSlug) => {

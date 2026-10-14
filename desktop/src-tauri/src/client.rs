@@ -623,6 +623,14 @@ impl ServerClient {
         Ok(w.file_version)
     }
 
+    /// The .blend behind a version, for Open previous version.
+    pub async fn version_file(&self, part_id: &str, version_id: &str) -> Result<FileVersion> {
+        let res: FileVersionEnvelope = self
+            .get(&format!("/parts/{part_id}/versions/{version_id}/file"))
+            .await?;
+        Ok(res.file_version)
+    }
+
     pub async fn get_file_version(&self, id: &str) -> Result<FileVersion> {
         let res: FileVersionEnvelope = self
             .get(&format!("/projects/{}/file-versions/{id}", self.project_id))

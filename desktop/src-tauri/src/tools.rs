@@ -229,6 +229,15 @@ pub fn install_blender_addon(
     Ok(last)
 }
 
+/// Opens a .blend in Blender as its own window. The process is not waited on.
+pub fn launch_blender(exe: &Path, file: &Path) -> Result<()> {
+    Command::new(exe)
+        .arg(file)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| AgentError::io(exe, e))
+}
+
 /// Blender files inside the project folder, as project-relative paths with forward slashes,
 /// sorted. Hidden folders (the agent's own among them) are not entered. What the Create asset
 /// dialog offers under "From a file in the folder".

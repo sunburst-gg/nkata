@@ -14,6 +14,7 @@ use crate::agent::{Agent, AgentConfig};
 use crate::api::{self, ServeOptions};
 use crate::client::ServerClient;
 use crate::error::{AgentError, Result};
+use crate::ignore::AGENT_DIR;
 use crate::protocol::AgentMode;
 use crate::stream::{StreamCache, StreamConfig, DEFAULT_CAP_BYTES};
 
@@ -53,7 +54,14 @@ pub struct StartStream {
 struct Running {
     stop: watch::Sender<bool>,
     status: Status,
+    /// The server as this agent talks to it, for Open previous version. None in stream mode.
+    server: Option<ServerClient>,
+    folder: Option<PathBuf>,
 }
+
+/// Where fetched versions and opened copies live inside the agent's folder, which the sync skips.
+const VERSIONS_DIR: &str = "versions";
+const OPEN_DIR: &str = "open";
 
 /// Owns the running agent. Clone it into the Tauri state; stop replaces nothing until start.
 #[derive(Clone, Default)]
@@ -87,6 +95,8 @@ impl Runtime {
         let wanted = expand_home(&opts.folder);
         std::fs::create_dir_all(&wanted).map_err(|e| AgentError::io(&wanted, e))?;
         let folder = std::fs::canonicalize(&wanted).map_err(|e| AgentError::io(&wanted, e))?;
+        let folder_for_open = folder.clone();
+        let server_for_open = ServerClient::new(&opts.server_url, &opts.token, &opts.project_id)?;
         let config = AgentConfig {
             index_path: AgentConfig::default_index_path(&folder),
             folder: folder.clone(),
@@ -153,6 +163,8 @@ impl Runtime {
         *self.inner.lock().await = Some(Running {
             stop,
             status: status.clone(),
+            server: Some(server_for_open),
+            folder: Some(folder_for_open),
         });
         Ok(status)
     }
@@ -206,8 +218,70 @@ impl Runtime {
         *self.inner.lock().await = Some(Running {
             stop,
             status: status.clone(),
+            server: None,
+            folder: None,
         });
         Ok(status)
+    }
+
+    /// Open previous version: fetches the .blend behind `version_id` into the agent's folder,
+    /// copies it to a file named for the version outside any part mapping, and launches
+    /// Blender on it. The add-on sees a plain file there: nothing locks, nothing publishes.
+    pub async fn open_version(
+        &self,
+        part_id: &str,
+        version_id: &str,
+        file_name: &str,
+    ) -> Result<PathBuf> {
+        let (server, folder) = {
+            let guard = self.inner.lock().await;
+            let running = guard
+                .as_ref()
+                .ok_or_else(|| AgentError::Config("the agent is not running".into()))?;
+            match (&running.server, &running.folder) {
+                (Some(s), Some(f)) => (s.clone(), f.clone()),
+                _ => {
+                    return Err(AgentError::Config(
+                        "open a project folder first: a viewer streams, it does not open files"
+                            .into(),
+                    ))
+                }
+            }
+        };
+        let fv = server.version_file(part_id, version_id).await?;
+        let cache_root = folder.join(AGENT_DIR).join(VERSIONS_DIR);
+        let cache = StreamCache::open(&cache_root, DEFAULT_CAP_BYTES)?;
+        let fetched = cache.fetch(&server, &fv).await?;
+        let open_dir = folder.join(AGENT_DIR).join(OPEN_DIR);
+        std::fs::create_dir_all(&open_dir).map_err(|e| AgentError::io(&open_dir, e))?;
+        let target = open_dir.join(file_name);
+        std::fs::copy(&fetched.path, &target).map_err(|e| AgentError::io(&target, e))?;
+        let blender = crate::tools::find_blender()
+            .ok_or_else(|| AgentError::Config("Blender was not found on this computer".into()))?;
+        crate::tools::launch_blender(&blender.exe, &target)?;
+        Ok(target)
+    }
+
+    /// Open in Blender: the part's own file, inside the project folder.
+    pub async fn open_file(&self, rel: &str) -> Result<PathBuf> {
+        let folder = {
+            let guard = self.inner.lock().await;
+            guard
+                .as_ref()
+                .and_then(|r| r.folder.clone())
+                .ok_or_else(|| AgentError::Config("open a project folder first".into()))?
+        };
+        let path = folder.join(rel);
+        if !path.is_file() {
+            return Err(AgentError::Config(format!(
+                "{} is not in the folder yet",
+                rel
+            )));
+        }
+        let blender = crate::tools::find_blender()
+            .ok_or_else(|| AgentError::Config("Blender was not found on this computer".into()))?;
+        crate::tools::launch_blender(&blender.exe, &path)?;
+        Ok(path)
     }
 
     pub async fn stop(&self) {

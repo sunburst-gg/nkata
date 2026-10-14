@@ -356,6 +356,10 @@ export interface DataSource {
   setDiscordWebhook?(url: string | null): Promise<void>;
   /** Server only: the export manifest of one asset as JSON text. */
   exportAsset?(assetSlug: string): Promise<string>;
+  /** Desktop only: opens the .blend behind a version in Blender as its own file. Resolves to the path. */
+  openVersion?(assetSlug: string, partName: string, versionN: number): Promise<string>;
+  /** Desktop only: opens the part's own file in Blender. Resolves to the path. */
+  openInBlender?(assetSlug: string, partName: string): Promise<string>;
   /** Server only: projects deleted from this studio, oldest first, and the way back. */
   deletedProjects?(): Promise<{ id: string; name: string; deletedAt: string }[]>;
   restoreProject?(id: string): Promise<void>;

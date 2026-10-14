@@ -520,6 +520,21 @@ describe.skipIf(!hasInfra)("server api", () => {
       expect(list.parts.find((p) => p.asset_name === "Market stall" && p.name === "model")?.export_name).toBe("SM_Market_stall");
     });
 
+    it("finds the .blend behind a version: the sync's file version right after the save, else the last before", async () => {
+      const face = parts["face"]!;
+      const ver = (await h.app.inject({ method: "GET", url: `/parts/${face}/versions`, ...h.as(VIEWER) })).json() as { versions: { id: string; created_at: string }[] };
+      const at = new Date(ver.versions.find((x) => x.id === faceVersion)!.created_at);
+      const { file_version } = await import("../src/db/schema.js");
+      const row = (offset: number, id: string) => ({ id, studio_id: h.seeded.studio_id, project_id: h.seeded.project_id, path: "Ojukwu/face.blend", size: 4, blake3: `b${id}`, chunk_hashes: [`c${id}`], created_at: new Date(at.getTime() + offset), updated_at: new Date(at.getTime() + offset) });
+      await h.app.db.insert(file_version).values([row(-60_000, "01FVBEFORE000000000000000A"), row(2_000, "01FVAFTER0000000000000000B"), row(90_000, "01FVLATER0000000000000000C")]);
+      const found = (await h.app.inject({ method: "GET", url: `/parts/${face}/versions/${faceVersion}/file`, ...h.as(VIEWER) })).json() as { file_version: { id: string; path: string }; exact: boolean };
+      expect(found).toMatchObject({ file_version: { id: "01FVAFTER0000000000000000B", path: "Ojukwu/face.blend" }, exact: true });
+      await h.app.db.delete(file_version).where((await import("drizzle-orm")).eq(file_version.id, "01FVAFTER0000000000000000B"));
+      await h.app.db.delete(file_version).where((await import("drizzle-orm")).eq(file_version.id, "01FVLATER0000000000000000C"));
+      const fallback = (await h.app.inject({ method: "GET", url: `/parts/${face}/versions/${faceVersion}/file`, ...h.as(VIEWER) })).json() as { file_version: { id: string }; exact: boolean };
+      expect(fallback).toMatchObject({ file_version: { id: "01FVBEFORE000000000000000A" }, exact: false });
+    });
+
     it("stores the FBX the add-on exports on Publish and serves it under a signed link", async () => {
       const face = parts["face"]!;
       const { key, url: put } = (await h.app.inject({ method: "POST", url: `/parts/${face}/versions/${faceVersion}/fbx-url`, ...h.as(ARTIST), payload: { size: 7 } })).json() as { key: string; url: string };

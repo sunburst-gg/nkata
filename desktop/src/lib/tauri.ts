@@ -34,6 +34,12 @@ export const agent = {
   /** Blender on this machine and the Unreal projects inside the folder. */
   toolsDetect: (folder: string): Promise<ToolsReport> =>
     inTauri() ? invoke<ToolsReport>("tools_detect", { folder }) : Promise.resolve({ blender: null, uprojects: [], addon_shipped: false, plugin_shipped: false }),
+  /** Open previous version: fetches the .blend behind a version and opens it in Blender as its own file. */
+  openVersion: (partId: string, versionId: string, fileName: string): Promise<string> =>
+    inTauri() ? invoke<string>("open_version", { partId, versionId, fileName }) : Promise.reject(new Error("Versions open in Blender from the desktop app.")),
+  /** Open in Blender: the part's own file in the project folder. */
+  openInBlender: (relFile: string): Promise<string> =>
+    inTauri() ? invoke<string>("open_in_blender", { relFile }) : Promise.reject(new Error("Files open in Blender from the desktop app.")),
   /** Fetches a file the server serves and writes it where the person chose. Resolves to the path. */
   downloadFile: (url: string, path: string): Promise<string> =>
     inTauri() ? invoke<string>("download_file", { url, path }) : Promise.reject(new Error("Downloads save from the desktop app.")),
