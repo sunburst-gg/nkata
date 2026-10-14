@@ -250,12 +250,23 @@ impl Runtime {
         };
         let fv = server.version_file(part_id, version_id).await?;
         let cache_root = folder.join(AGENT_DIR).join(VERSIONS_DIR);
-        let cache = StreamCache::open(&cache_root, DEFAULT_CAP_BYTES)?;
-        let fetched = cache.fetch(&server, &fv).await?;
+        // The cache holds a SQLite connection, which is not Sync, so a fetch that awaits with
+        // the cache borrowed is not a Send future. Tauri commands must be Send, so the fetch
+        // runs on its own thread with its own runtime, as the watcher does.
+        let fetched = tokio::task::spawn_blocking(move || -> Result<PathBuf> {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(|e| AgentError::io("fetch runtime", e))?;
+            let cache = StreamCache::open(&cache_root, DEFAULT_CAP_BYTES)?;
+            Ok(rt.block_on(cache.fetch(&server, &fv))?.path)
+        })
+        .await
+        .map_err(|e| AgentError::Config(format!("fetch thread stopped: {e}")))??;
         let open_dir = folder.join(AGENT_DIR).join(OPEN_DIR);
         std::fs::create_dir_all(&open_dir).map_err(|e| AgentError::io(&open_dir, e))?;
         let target = open_dir.join(file_name);
-        std::fs::copy(&fetched.path, &target).map_err(|e| AgentError::io(&target, e))?;
+        std::fs::copy(&fetched, &target).map_err(|e| AgentError::io(&target, e))?;
         let blender = crate::tools::find_blender()
             .ok_or_else(|| AgentError::Config("Blender was not found on this computer".into()))?;
         crate::tools::launch_blender(&blender.exe, &target)?;
@@ -327,6 +338,16 @@ mod tests {
             expand_home(std::path::Path::new("rel/x")),
             PathBuf::from("rel/x")
         );
+    }
+
+    /// Tauri commands await these from a Send future; the desktop build fails otherwise.
+    #[test]
+    fn open_version_and_open_file_are_send_futures() {
+        fn check<T: Send>(_: T) {}
+        let rt = Runtime::new();
+        check(rt.open_version("part", "version", "file.blend"));
+        check(rt.open_file("Kettle/model.blend"));
+        check(rt.stop());
     }
 
     #[tokio::test]
