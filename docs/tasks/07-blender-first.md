@@ -98,3 +98,7 @@ Small is under a day. Medium is one to two days. Slices 1 and 2 go first because
 - Part view: the receiver knows what changed without opening the file.
 - Project list: a new project with one asset does not look empty.
 - Tools: nobody asks why Unreal does not work.
+
+## Status, Oct 14, 2026
+
+Slices 1 to 11 are code complete and green in `make test`. The measured day runs in `e2e/model_chain.sh` with a real Blender (`NKATA_BLENDER`). The last box on the gate, the run on two real machines, is the studio's.

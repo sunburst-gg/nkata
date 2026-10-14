@@ -6,6 +6,8 @@ Oct 1, 2026 · @Emmanuel Njoku. Refocused Oct 3, 2026: four people.
 
 This doc is the build plan for Nkata v1 as the product doc defines it: a character artist, an environment artist, a reviewer, and a viewer. One engineer plus Claude. Desktop only. Blender 4.2+ and Unreal Engine 5.4+. Own storage. The product doc owns what. This doc owns how.
 
+**The flag.** `UNREAL_ENABLED` in the server config, default false, comes back on `/auth/me` as `features.unreal` and on the agent's `/me` as `unreal`, so the app, the agent, and the add-on read one value. Off: the agent enqueues no mirror and runs no mirror loop, Mark Ready keeps the Blender render instead of the Unreal capture, the area export is skipped, the panel hides the mirror line, the export is not refused on the pivot, and the Tools and Connections screens show Unreal as Coming soon with no detect and no install. The Unreal code stays and its editor gates skip on the flag (`e2e/needs_editor.py`). The test server runs with the flag on so the agent gates still cover the mirror.
+
 ## Decisions from research
 
 | Risk | Finding | Decision |
@@ -105,7 +107,8 @@ All JSON. All versioned with a `v` field. Defined once in `shared/` and generate
 | POST | `/parts/:id/open` | editors | Requests the lock. Returns granted or holder |
 | POST | `/parts/:id/close` | editors | Releases the lock if held |
 | POST | `/parts/:id/saved` | Blender | `{changed, spool_path, manifest}`. Creates the version, starts the mirror |
-| POST | `/parts/:id/publish` | editors | `{check_results, ready}`. Marks published, sets Ready if asked |
+| POST | `/parts/:id/publish` | editors | `{check_results, ready, note, note_engineering?}`. The note is required, one line. Marks published, sets Ready if asked |
+| POST | `/parts/:id/export` | Blender | `{path}` of the FBX the add-on exported on Publish; the agent stores it as the version's third artifact |
 | POST | `/parts/:id/checks` | editors | Reports check results for the current version |
 | GET | `/parts/:id/comments` | editors | Pins for the current version |
 | POST | `/parts/:id/comments` | editors | New pin `{point, normal, body}` |
@@ -121,7 +124,7 @@ One call: `PUT /remote/object/call` on the Python command subsystem with a snipp
 
 **Server REST, `https://api.<domain>`**
 
-`/auth/magic-link` (any email: an unknown one gets an account; emails a six digit code with the link), `/auth/code` (the code signs in), `/auth/callback` (the link signs in), `/auth/me`, `/auth/switch` (a session for another studio of the account), `/studios` (GET the account's, POST creates one with the caller as producer), `/me` (PUT name and email), `/studio` (GET, PUT name), `/studio/training`, `/studio/members` (GET, POST invite, PUT and DELETE by user id; a new membership emails the studio invite, and `POST /projects/:id/members` with an optional `note` emails the project invite), `/join` (where the invite button lands), `/projects` (GET, POST, PUT name, DELETE, `/deleted`, `/:id/restore`), `/projects/:id/templates`, `/parts/:id/versions/:vid/render` and `/model` (POST `-url` for a signed PUT, PUT with the key, GET a signed link), `/assets`, `/parts`, `/parts/:id/versions`, `/parts/:id/lock` (POST acquire, DELETE release, PUT heartbeat), `/comments`, `/reviews`, `/events?since=`, `/files/upload-urls` (returns signed PUT URLs for missing chunk hashes), `/files/download-urls`, `/export/:asset_id`.
+`/auth/magic-link` (any email: an unknown one gets an account; emails a six digit code with the link), `/auth/code` (the code signs in), `/auth/callback` (the link signs in), `/auth/me`, `/auth/switch` (a session for another studio of the account), `/studios` (GET the account's, POST creates one with the caller as producer), `/me` (PUT name and email), `/studio` (GET, PUT name), `/studio/training`, `/studio/members` (GET, POST invite, PUT and DELETE by user id; a new membership emails the studio invite, and `POST /projects/:id/members` with an optional `note` emails the project invite), `/join` (where the invite button lands), `/projects` (GET, POST, PUT name, DELETE, `/deleted`, `/:id/restore`), `/projects/:id/templates`, `/parts/:id/versions/:vid/render`, `/model`, and `/fbx` (POST `-url` for a signed PUT, PUT with the key, GET a signed link; the model and the FBX are served through `/models/:vid.glb` and `.fbx`, server signed links with CORS, because the S3 store in dev sends none), `/parts/:id/versions/:vid/file` (the .blend behind a version, for Open previous version), `/assets/:id` (PUT `folder`), `/assets`, `/parts`, `/parts/:id/versions`, `/parts/:id/lock` (POST acquire, DELETE release, PUT heartbeat), `/comments`, `/reviews`, `/events?since=`, `/files/upload-urls` (returns signed PUT URLs for missing chunk hashes), `/files/download-urls`, `/export/:asset_id`.
 
 The server enforces the role on every mutating route. A viewer gets 403 on lock, publish, mark ready, review, rollback, gate removal, template edit, asset creation, and project export routes. Comments are allowed. A single asset export as images and glTF is allowed. One test per refused route.
 
@@ -211,6 +214,14 @@ The Environment template ships as two files, one per kind:
 
 `blend_layout: one_file_per_part` means `face.blend`, `cloth.blend`, and so on, each with its part as the top collection with a glTF collection exporter attached. The published `<asset>.blend` is assembled by the Asset Pipeline merge model, run by the agent on Approve.
 
+**Artifacts.** A version carries up to three: the render (PNG, on Mark Ready, from Unreal with the flag on, else from Blender), the model (GLB, on every save, the collection exporter's output), and the FBX (on Publish only, named from the template's export rule, so saves stay fast). All three go agent to store on signed PUT URLs through one three step route; the keys sit on the version row.
+
+**The publish note and the card.** `version.note` (one line, 200 characters, required) and `version.note_engineering` (optional). The card is computed in the app from the manifest the add-on writes on save: per object triangles, materials, hash, and `uv_sets`; `textures` by name and size; `unit_scale`. `desktop/src/lib/card.ts` makes the rows and `diff.ts` the delta from the previous publish. No server work.
+
+**The board.** `desktop/src/lib/board.ts` turns the loaded assets into rows: part under its asset with the template tag and folder, owner, state, the blocking checks as dots, whose move (from the state alone), waiting since the last `part.state` event, the last note, published when. Three counts on top. Filters and Waiting on me are pure functions over the rows, tested without a DOM. A `GET /projects/:id/board` route with the same shape arrives when a project outgrows loading everything.
+
+**Folders.** `asset.folder` is a name, not a path and not a row. A folder exists while an asset carries it. `PUT /assets/:id` with `folder` moves one; the list reads folder names off the assets.
+
 ## Fixture corpus
 
 `fixtures/build.py` writes the corpus with no dependency beyond Python: one rigged character (a skinned mesh with 20 bones, two materials, a 1024 texture), three props (Kettle, Wooden stool, Market stall, each with origin at the base, two LODs, a collision box), and one level area (a JSON description of eight actors tagged `nkata.area=square`). Each is a `.glb` plus a manifest in the shape the add-on writes. The corpus is checked in; the script is the record of how it was made and rebuilds it byte for byte.
@@ -244,6 +255,8 @@ No dates. Order is fixed. Nothing starts until the gate before it passes.
 | 3. Parts and locks | Templates with kinds, asset creation, part mapping, locks, presence, Publish, checks in both editors, viewer refusals on the server. Code complete Oct 5, 2026 | Second artist installs and opens the project in under 5 minutes. Two parts on one asset, no overwrite: green in make test |
 | 4. Review | Ready queue, pins in UE5 widget and Blender overlay and app preview, score, approve, send back, gates, one Discord message. Code complete Oct 5, 2026 | Ojukwu goes from template to Approved: the chain is green in make test, the pins need the editors |
 | 5. Project view and viewer mode | Project, asset, part, review queue, person, settings, setup screens. Stream mode with the 5 GB cache. Export. Code complete Oct 5, 2026 | A viewer answers who, what, and what is stuck from one screen with no folder on disk: stream mode and the viewer DOM test are green, the window flow needs a built app |
+
+| 7. Blender first | The flag, four blocking checks, publish note and card, FBX download, open any version, flat list with folders, the board, review on the part view, the measured day. Code complete Oct 14, 2026 | Two artists, two folders, one asset, publish to Approve under sixty seconds: `e2e/model_chain.sh` with a real Blender, then the run on two machines |
 
 Later, in no order: Asset Pipeline merge on Approve, C++ pin module, and the items under Later in docs/product.md.
 

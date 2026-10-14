@@ -1,6 +1,6 @@
 # Nkata
 
-Nkata is a desktop app plus a Blender add-on and a UE5 plugin. Game teams work on one project as assets made of parts. Every Blender save mirrors into UE5 in seconds. Presence, locks, checks, review on the model in the engine, one project view. Real files you keep.
+Nkata is a desktop app plus a Blender add-on and a UE5 plugin. Game teams work on one project as assets made of parts. Every Blender save is a version the team can see, review, and open. Presence, locks, four checks, a note on every publish, review on the model, one board. Real files you keep. The Blender to Unreal mirror is built behind `UNREAL_ENABLED` and shows as Coming soon until it ships.
 
 ## Read first
 
@@ -50,5 +50,5 @@ The app opens on Sign in. Any email gets an account: the first run is Sign in, t
 
 ## Status
 
-Steps 2 to 5 are code complete and green in `make test` without an editor. What still needs a machine with Blender 4.2 and UE 5.4: the mirror gates (`e2e/mirror.py`, `e2e/environment.py`), the quality bar (`e2e/quality.py`), the Editor Utility Widget asset (`ue5-plugin/README.md`), and the install time. See docs/decisions.md, open questions.
+Steps 2 to 5 and step 7 (Blender first: docs/tasks/07-blender-first.md) are code complete and green in `make test` without an editor. `e2e/model_chain.sh` runs the measured day with a real Blender: save, publish with a note, pull on a second folder, send back with a pin, publish again, approve, timed under sixty seconds. What still needs a machine with Blender 4.2 and UE 5.4: the mirror gates (`e2e/mirror.py`, `e2e/environment.py`), the quality bar (`e2e/quality.py`), the Editor Utility Widget asset (`ue5-plugin/README.md`), and the install time. Those run with `UNREAL_ENABLED=1`. See docs/decisions.md, open questions.
 

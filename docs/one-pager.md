@@ -6,7 +6,7 @@ Sep 28, 2026 · @Emmanuel Njoku
 
 Nkata is Igbo for a conversation. The product is one desktop app that lets a whole game team work on one project together, in the editors they already use. It is the first shared system for the Sunburst team.
 
-One line: Figma for game development. Real files you keep. No commits. No conflicts you have to think about.
+One line: Figma for game development. Real files you keep. No commits. No conflicts you have to think about. v1 is Blender first: the Unreal mirror ships next and shows as Coming soon until it does.
 
 ## Problem
 
@@ -23,9 +23,10 @@ The team cannot onboard a second artist. Perforce is the industry standard and i
 5. **No commits.** Every save goes to a timeline. Every save in Blender updates the part in UE5, automatically, in seconds. No export, no import, no button. The only action is Publish. Rollback is one click, per part.
 6. **Presence and locks you never think about.** The team sees who is in which part. A lock starts on first edit and ends on Publish. A conflict is a face and a name, not an error.
 7. **The reference inside the editor.** Concept sheet, topology rules, color scheme, and budgets are pinned to the asset. Every part opens with them.
-8. **Checks before Publish.** Scale, naming, triangle budget, LODs, collision, rig names, texture size. Nkata fixes what it can and lists the rest. The rules live in the template.
-9. **Review on the model.** In the engine, where the game is. Every part goes into UE5 on Publish. The artist checks it under real lighting and animation first. Then the art director rotates it, pins comments on the mesh, and scores it. Approve, or send back. Approved parts lock.
-10. **The board.** One screen: online now, changed today, locked, ready for review, failed checks, idle assets, where each asset is used.
+8. **Four checks before Publish.** Texture names, scale, UV set, triangle budget block. Naming, pivot, LODs, collision, rig names, texture size inform. Nkata fixes what it can and lists the rest. The rules live in the template.
+9. **A note on every Publish.** One line: what you did, what they get. The next person reads the note, the card (triangles, textures, scale, UV sets) and what changed since the last publish before opening the file. Every version opens in Blender with one click.
+10. **Review on the model.** In the app, on the published model. The art director rotates it, pins comments on the mesh, scores it. Approve, or send back with the note pinned where it matters. Approved parts lock. With Unreal on, the review moves into the engine under real lighting.
+11. **The board.** One screen: every part with its owner, state, four dots, whose move it is, and for how long. In work, waiting on review, approved. Nothing on it is typed.
 
 ## How it works by role
 
@@ -66,9 +67,9 @@ The parts are the files. The state changes when the file publishes, not when som
 ## Month one
 
 1. Model. Server, Postgres, S3-compatible store, content-addressed chunks, auth. Project, asset, part, owner, state, gate, reference, version, comment, check. Tauri shell with the board and the asset view.
-2. Blender to UE5. Add-on with presence, object locks, Publish, manifest, render preview, checks. Every save mirrors into UE5 in under 10 seconds.
-3. UE5. Plugin with presence, locks, Publish, in-engine review, reference scan.
-4. The board. Online now, changed today, locked, ready for review, asset library, comments, timeline, rollback. The team moves on.
+2. Blender. Add-on with presence, locks, four checks, the note, Publish, the card, GLB and FBX. Two artists on one asset with no message outside Nkata.
+3. Review and the board. Pins on the model, Approve and Send back on the part view, the board with whose move and for how long. Review round trip under one minute, measured.
+4. Unreal. Plugin with presence, locks, in-engine review, reference scan. Every save mirrors into UE5 in under 10 seconds. Built, behind a flag, Coming soon until the Blender loop has run for a week.
 
 Gate: one character built through the parts flow by the Rising Sun artist. A second artist set up in under 5 minutes.
 

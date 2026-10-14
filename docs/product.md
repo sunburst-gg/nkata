@@ -1,6 +1,6 @@
 # Nkata product doc (v1)
 
-Oct 1, 2026 · @Emmanuel Njoku. Refocused Oct 3, 2026: four people.
+Oct 1, 2026 · @Emmanuel Njoku. Refocused Oct 3, 2026: four people. Refocused Oct 14, 2026: Blender first, Unreal as Coming soon (docs/tasks/07-blender-first.md).
 
 ## Problem
 
@@ -10,15 +10,17 @@ The cost: work is lost, versions are mixed, review happens in chat with screensh
 
 **Who it is for.** Game studios of 2 to 30 people on Blender and Unreal Engine 5. First customer: Sunburst Interactive, building Rising Sun. First users: one character artist, one environment artist, the art director who reviews, and one viewer.
 
-**One line.** Figma for game development. Every save in Blender shows up in Unreal in seconds. Presence, locks, checks, review in the engine, and one project view. Real files you keep.
+**One line.** Figma for game development. Every Blender save is a version the team can see, review, and open. Presence, locks, four checks, a note on every publish, review on the model, and one board. Real files you keep. The Blender to Unreal mirror ships next and shows as Coming soon until it does.
+
+**Blender first.** v1 is Blender collaboration: two artists on one asset with no message outside Nkata, a reviewer deciding on the model in the app, a viewer reading the board. Every Unreal feature below stays in the code behind `UNREAL_ENABLED`, off by default, and the Tools screen says Coming soon. Level areas are an Unreal part, so levels are out of v1: a level is one shared file in Blender, and the lock model is per part, not per object.
 
 ## Four people
 
 Nkata v1 serves four people. Every feature in this doc exists for one of them. Anything that serves nobody on this list is in Later.
 
-1. **Character artist.** Works in Blender, lands in UE5. A character is a skeletal mesh with a rig and textures, MetaHuman or not. Every save mirrors into the engine in place. Materials, skeleton, and physics are kept.
-2. **Environment artist.** Builds props and level areas. A prop is a static mesh with material instances, LODs, and collision. A level area is a set of actors in one level. When a prop changes, every placed copy updates. Two artists build two areas of one level at once.
-3. **Reviewer.** The art director. Reviews in UE5 under real lighting, pins comments on the mesh, scores, approves, or sends back. Removes a gate when work needs to loop.
+1. **Character artist.** Works in Blender. A character is a skeletal mesh with a rig and textures, MetaHuman or not. Every save is a version with a GLB the app shows; Publish adds a note, the card, and an FBX for engineers. With Unreal on, every save mirrors into the engine in place with materials, skeleton, and physics kept.
+2. **Environment artist.** Builds props. A prop is a static mesh with material instances, LODs, and collision. Four checks block a publish: texture names, unit scale, UV set, triangle budget. Level areas return with Unreal.
+3. **Reviewer.** The art director. Reviews on the model in the app, pins comments on the mesh, scores, approves, or sends back from the part view. Removes a gate when work needs to loop. Review under real lighting in UE5 returns with Unreal.
 4. **Viewer.** Sees the whole project without Blender, UE5, or a synced folder. Rotates models, reads what changed, comments. Changes nothing.
 
 The producer is an admin role, not a fifth person: invites, sets roles, assigns owners, and reads the project view like a viewer with write rights.
@@ -26,14 +28,17 @@ The producer is an admin role, not a fifth person: invites, sets roles, assigns 
 ## Goals for v1
 
 1. A second artist joins a project in under 5 minutes: install, sign in, open. No server setup.
-2. A Blender save shows in UE5 in under 10 seconds for a character part and under 5 seconds for a prop, with no action by the artist.
-3. A prop changes and every placed copy in every level updates. No level breaks.
-4. Every review happens in Nkata or in the engine, with comments pinned on the model. Zero reviews by Discord screenshot after week four.
-5. One character (Ojukwu) and one level area (Enugu Market / square) go from template to approved through the parts flow, with the art director reviewing in UE5.
-6. A viewer answers "what changed this week, what is stuck, who is on what" from one screen, with no question in Discord.
+2. Two artists, two machines, one asset: publish and pull with no message outside Nkata. The next person sees the note, the card, and what changed before opening the file.
+3. Every version opens in Blender with one click, as its own file.
+4. Every review happens in Nkata, with comments pinned on the model. The round trip from Publish to Approve is under one minute, measured by `e2e/model_chain.sh`, not promised.
+5. One character (Ojukwu) and one prop (Kettle) go from template to Approved through the parts flow, with the art director reviewing on the part view.
+6. A viewer answers "what changed this week, what is stuck, who is on what" from the board, with no question in Discord. Nothing on the board is typed.
+7. With Unreal on: a Blender save shows in UE5 in under 10 seconds for a character part and under 5 seconds for a prop, and every placed copy updates. These two wait behind the flag.
 
 ## Non-goals for v1
 
+- **Unreal in v1.** The mirror, the UE5 panel, the Unreal capture, and level areas are built and tested behind `UNREAL_ENABLED`. They ship as Coming soon until the Blender loop has run at a studio for a week.
+- **Levels in v1.** A level area is an Unreal part. In Blender a level is one shared file, and v1 locks per part, so levels wait for the Unreal mirror.
 - **Web app.** Desktop only. A web viewer comes later when outside reviewers need it.
 - **Live co-editing of one object in Blender.** Object-level locks are v1. Live cursors on one mesh are later and the riskiest piece.
 - **Code version control.** Code stays in Git. Nkata does not touch it.
@@ -139,7 +144,7 @@ Ordered by priority inside each person.
 - [ ] A new member installs, signs in, picks the project, and the folder fills. Under 5 minutes to first open on a 50 Mbps line for a 20 GB project, excluding the first full download, which shows progress and can run in the background.
 - [ ] Offline saves queue and sync on reconnect with no action.
 
-**R2. Blender to UE5 mirror**
+**R2. Blender to UE5 mirror.** Behind `UNREAL_ENABLED`, off by default. The Tools and Connections screens show Unreal as Coming soon with one line, "Blender to Unreal mirror ships next". With the flag off the agent skips the mirror, Mark Ready renders from Blender, and the level area template is not offered.
 
 - [ ] On every Blender save of a part, the add-on exports only the changed collection and the UE5 plugin imports it in place. Under 10 seconds for a character part under 100k triangles with 4K textures. Under 5 seconds for a prop.
 - [ ] A character reimport keeps the path, name, skeleton, physics asset, materials, and MetaHuman data. Nothing in the level breaks.
@@ -170,16 +175,24 @@ Ordered by priority inside each person.
 
 **R6. Checks**
 
-- [ ] Character checks: unit scale, name pattern, triangle budget, UV set present, texture size, rig bone names, rig bone count, MetaHuman DNA present.
-- [ ] Environment checks: unit scale, name pattern, triangle budget, LOD count, collision present, UV set present, texture size, pivot at base.
-- [ ] Each check has a severity (block or warn) and an auto-fix (yes or no), set in the template.
-- [ ] Check results show in the editor panel and on the part in the app.
+- [x] Four checks block a Blender part: texture names (pattern `T_.*`, fix renames), unit scale (fix), UV set present, triangle budget. Every other check informs: name pattern (fix), pivot at base (fix), and the texture, LOD, collision, and rig checks.
+- [x] The panel shows the four blocking checks as four lines, each with its number and a five word fix when red. The app shows them as four dots on the part and on the board.
+- [ ] Character checks also: texture size, rig bone names, rig bone count, MetaHuman DNA present. Environment checks also: LOD count, collision present, texture size.
+- [x] Each check has a severity (block or warn) and an auto-fix (yes or no), set in the template.
+- [x] Check results show in the editor panel and on the part in the app.
+
+**R6b. Publish note and card**
+
+- [x] Publish needs a note: one line, 200 characters, "What did you do, what will they get". Publish and Mark Ready are disabled in Blender until the note has text. Details for engineers is optional free text.
+- [x] The add-on writes the card on every save: triangles, textures by name, scale, UV sets. The part view puts the note first, the card under it with the delta from the previous publish beside each value, then the four dots, then the model.
+- [x] Publish also exports an FBX named from the template (`SM_{asset}`, `SK_{asset}_{part}`). The part view has Download GLB and Download FBX.
+- [x] Every version opens in Blender with one click, as its own file outside the part mapping, so nothing locks and nothing publishes from it.
 
 **R7. Review**
 
-- [ ] A Ready part shows in the art director's queue.
-- [ ] In UE5 and in the app, the reviewer can pin a comment on a point of the mesh. The comment shows in Blender, in UE5, and in the app at the same point.
-- [ ] Score and Approve or Send back. Approve locks the part read-only. Send back sets Draft and notifies the owner.
+- [x] A Ready part shows in the Ready filter of the project list and on the board as the reviewers' move.
+- [x] In the app, the reviewer pins a comment on a point of the mesh. The comment shows in Blender and in the app at the same point. UE5 joins with the flag.
+- [x] Score and Approve or Send back, at the bottom of the part view. Approve locks the part read-only. Send back pins the note on the mesh, sets Draft, and notifies the owner. There is no separate review screen.
 - [ ] Approve and Send back post one message to Discord. Nothing else posts to Discord.
 
 **R8. Gates**
@@ -190,8 +203,8 @@ Ordered by priority inside each person.
 
 **R9. The project view**
 
-- [ ] One screen: online now, changed today, locked and by whom, Ready for review, failed checks, idle assets over 14 days, assets by state.
-- [ ] Tabs: All, Characters, Props, Levels. Filters: person, asset, level, state, date range.
+- [x] The project list: one flat list, newest change first. Folders are names the team gives (drag an asset onto one). The template is a tag on the tile and the search matches it. The Ready filter is the review inbox.
+- [x] The board: one row per part with the template tag, owner, state, the blocking checks as dots, whose move, waiting for how long, the last note, published when. Three numbers on top: In work, Waiting on review, Approved. Filters: owner, state, template, folder, Waiting on me. Leads land on it; artists land on it with Waiting on me on. Nothing on it is typed and nothing changes state from it.
 - [ ] Any asset opens to its parts, timeline, comments, and a 3D preview from the last published render, with no editor.
 - [ ] A prop shows where it is placed: levels and actor counts from the last mirror.
 
@@ -260,10 +273,10 @@ Three surfaces. Same data, same words, same state colors everywhere.
 
 | Screen | Shows | Actions |
 | --- | --- | --- |
-| Project | Assets as tiles with tabs All, Characters, Props, Levels. Online now, changed today, locked, Ready, failed checks, idle 14 days | Filter, open asset, open person |
-| Asset | Parts as rows with owner, state, gate, last change. 3D preview of the last published render. Reference strip. Comments. For a prop, where it is placed | Open part, assign owner, remove gate, export |
-| Part | Timeline of versions with who and mirror result. Checks. Comments pinned on the preview | Roll back, mark Ready, open in Blender or UE5 |
-| Review queue | Ready parts, oldest first | Open in UE5, score, approve, send back |
+| Project | One flat list of assets, newest change first, with folder chips, a template tag per tile, search, and the Ready filter | Filter, drag onto a folder, open asset, Board |
+| Board | Every part: owner, state, four dots, whose move, waiting for how long, last note, published when. In work, Waiting on review, Approved | Filter by owner, state, template, folder, Waiting on me. Open the part |
+| Asset | Parts as rows with owner, state, gate, last change. The model from the last publish. Reference strip. Comments. For a prop, where it is placed | Open part, assign owner, Move to folder, remove gate, export |
+| Part | The note first, the card with the delta, four dots, the model. Versions down the side with their notes. Checks. Comments pinned on the model | Roll back, open in Blender, open any version, Download GLB or FBX, Approve or Send back for reviewers |
 | Person | Their parts, locks, recent activity | Assign |
 | Templates | The project's templates | Edit in the app (P1); open the file (v1) |
 | Project settings | Members, roles, pinned tool versions, Discord channel | Invite, set roles, pin versions |
@@ -273,13 +286,13 @@ For a viewer the desktop app hides every write action: no lock, Publish, Mark Re
 
 **Blender panel (add-on, N-panel)**
 
-1. Part header: asset, part, owner, state, lock. One line.
-2. Mirror status: synced 4s ago, syncing, or failed with one line.
-3. Reference strip: thumbnails that open full size.
-4. Checks: live list, pass or fail, with Fix buttons.
-5. Comments: pins in the viewport, list in the panel, reply inline.
-6. One button: Publish. A second, smaller: Mark Ready.
-7. Presence: who else is in this asset.
+1. Part header: asset, part, owner, state, lock. One line. With no file open, the list of parts to start.
+2. The four checks: texture names, unit scale, UV set, triangle budget, each with its number and a five word fix when red. Fix fixes names, scale, and pivot. Every other check informs below them.
+3. Note: "What did you do, what will they get". One line. Details for engineers, collapsed.
+4. Publish, with the card under it: triangles, textures, scale, UV sets. A second, smaller: Mark Ready. Both disabled until the note has text.
+5. Reference strip: thumbnails that open full size.
+6. Comments: pins in the viewport, list in the panel, reply inline.
+7. Presence: who else is in this asset. Mirror status joins when Unreal is on.
 
 The panel opens in under 1 second. Everything it shows comes from the agent on `localhost:7420`, never from the server.
 
@@ -368,5 +381,6 @@ No dates. Order is fixed. Each step has a gate.
 4. **3. Parts and locks.** Templates, assets, parts, presence, locks, versions, Publish, checks. Gate: a second artist joins in under 5 minutes and both work on one asset with no overwrite.
 5. **4. Review.** UE5 panel with pins, score, approve, send back. Comments in Blender and the app. Gates. One Discord message. Gate: Ojukwu through the Character template to Approved.
 6. **5. Project view and viewer mode.** Project, asset, part, review queue, person, settings screens. Stream mode. Export. Gate: a viewer answers who, what, and what is stuck from one screen with no folder on disk.
+7. **7. Blender first.** The flag, four checks, the publish note and card, FBX download, open any version, the flat list with folders, the board, review on the part view, the measured day. Gate: docs/tasks/07-blender-first.md. Code complete Oct 14, 2026; the two machine run is the last box.
 
-If step 1a misses its gate, nothing else starts. The mirror is the product.
+Steps 1a and 1b wait behind `UNREAL_ENABLED`. The Blender loop is the product until a studio has run it for a week.
