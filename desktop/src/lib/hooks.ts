@@ -2,6 +2,11 @@ import { useNavigate, useParams } from "react-router";
 import { useStore } from "@/store";
 import type { Asset, Part, Person, Project } from "@/data/types";
 
+/** The server's switches. `unreal` false means Unreal is Coming soon: no mirror, no Unreal words. */
+export function useFeatures(): { unreal: boolean } {
+  return useStore((s) => s.db.session.features);
+}
+
 export function usePeople() {
   const people = useStore((s) => s.db.people);
   const me = useStore((s) => s.db.session.user);

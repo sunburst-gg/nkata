@@ -78,7 +78,8 @@ describe("viewer role", () => {
     expect(render(`${RS}/a/ojukwu`)).not.toContain(">Walk<");
     useStore.getState().setStage("connected");
     expect(render("/connections")).toContain(">Connect<");
-    expect(render("/connections")).toContain("Soon");
+    expect(render("/connections")).toContain("Coming soon");
+    expect(render("/connections")).toContain("Blender to Unreal mirror ships next.");
   });
 
   it("the first run reaches every empty state", () => {

@@ -99,6 +99,8 @@ describe.skipIf(!hasInfra)("server api", () => {
     expect(inside.roles).toEqual(["producer"]);
     expect(inside.studios.map((x) => x.name)).toEqual(["Sunburst"]);
     const mine = { headers: { authorization: `Bearer ${inside.token}` } };
+    // Unreal is Coming soon: the one flag the app, the agent, and the add-on read.
+    expect(((await h.app.inject({ method: "GET", url: "/auth/me", ...mine })).json() as { features: { unreal: boolean } }).features).toEqual({ unreal: false });
     const studio = (await h.app.inject({ method: "GET", url: "/studio", ...mine })).json() as { studio: { name: string; training: string; billing: { line: string } } };
     // A new studio starts with training off and pays nothing while Nkata is in testing.
     expect(studio.studio).toMatchObject({ name: "Sunburst", training: "off", billing: { line: "Free while Nkata is in testing" } });

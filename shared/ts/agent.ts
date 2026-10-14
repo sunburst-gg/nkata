@@ -27,6 +27,7 @@ export const MeResponse = z.strictObject({
   "spool_dir": z.string().min(1),
   "mode": AgentMode,
   "mirror_paused": z.boolean(),
+  "unreal": z.boolean(),
 });
 export type MeResponse = z.infer<typeof MeResponse>;
 

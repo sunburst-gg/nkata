@@ -29,6 +29,7 @@ PART = {
 
 
 class FakeAgent(BaseHTTPRequestHandler):
+    unreal = True
     calls: list[tuple[str, str, Any]] = []
     held_by: dict[str, Any] | None = None
     comments: list[dict[str, Any]] = []
@@ -48,7 +49,7 @@ class FakeAgent(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         FakeAgent.calls.append(("GET", self.path, None))
         if self.path == "/me":
-            return self._json(200, {"v": 1, "user": USER, "project": {"id": ID, "name": "P", "folder_name": "p"}, "package_version": "0.1.0", "online": True, "spool_dir": "/tmp/spool", "mode": "sync", "mirror_paused": False})
+            return self._json(200, {"v": 1, "user": USER, "project": {"id": ID, "name": "P", "folder_name": "p"}, "package_version": "0.1.0", "online": True, "spool_dir": "/tmp/spool", "mode": "sync", "mirror_paused": False, "unreal": FakeAgent.unreal})
         if self.path == "/parts" or self.path.startswith("/parts?"):
             return self._json(200, {"v": 1, "parts": [PART]})
         if self.path.endswith("/comments"):
@@ -126,6 +127,7 @@ class PanelTest(unittest.TestCase):
         FakeAgent.held_by = None
         FakeAgent.comments = []
         FakeAgent.on_save = True
+        FakeAgent.unreal = True
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), FakeAgent)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
         self.face = bpy_stub.FakeObject("face body", coords=[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0], materials=["M_Skin"])
@@ -187,6 +189,17 @@ class PanelTest(unittest.TestCase):
         self.assertIn("label:Here: Chidi", text)
         order = [lines.index(x) for x in ("label:Ojukwu / face · Draft · Ada · Open by Ada", "label:Not mirrored yet", "label:Reference", "label:Checks", "label:Comments", "op:nkata.publish:Publish", "label:Here: Chidi")]
         self.assertEqual(order, sorted(order), "the seven elements keep their order")
+
+    def test_with_unreal_off_the_panel_has_no_mirror_line(self) -> None:
+        """Unreal is Coming soon: the mirror row and its toggle are not drawn. Six elements stay."""
+        FakeAgent.unreal = False
+        self.save_hook.handle_open(str(self.blend))
+        lines = self.draw()
+        text = "\n".join(lines)
+        self.assertNotIn("Not mirrored yet", text)
+        self.assertNotIn("nkata.mirror_on_save", text)
+        self.assertIn("label:Reference", text)
+        self.assertIn("op:nkata.publish:Publish", text)
 
     def test_mirror_on_save_toggles_from_the_panel_and_the_line_says_why(self) -> None:
         self.save_hook.handle_open(str(self.blend))

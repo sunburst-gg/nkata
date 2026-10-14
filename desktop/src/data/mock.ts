@@ -195,7 +195,8 @@ export function createMockSource(initial: MockOptions | "artist" | "viewer" = {}
     id: studioId, name: studioName, initial: (studioName || "S").charAt(0).toUpperCase(), peopleCount: people.length, projects,
     training, billing: { line: "Free while Nkata is in testing", seats: people.length },
   });
-  const connections = (): Connection[] => CONNECTION_DEFS.map((c) => ({ id: c.id, name: c.name, soon: c.soon, connected: connected[c.id], version: c.version, line: connected[c.id] ? c.connected : c.found }));
+  // Unreal is Coming soon in v1: its card says so and nothing connects it.
+  const connections = (): Connection[] => CONNECTION_DEFS.map((c) => (c.id === "unreal" ? { id: c.id, name: c.name, soon: true, connected: false, line: "Blender to Unreal mirror ships next." } : { id: c.id, name: c.name, soon: c.soon, connected: connected[c.id], version: c.version, line: connected[c.id] ? c.connected : c.found }));
   const findPart = (assetSlug: string, partName: string) => {
     const a = assetList.find((x) => x.slug === assetSlug);
     const p = a?.parts.find((x) => x.name === partName);
@@ -212,7 +213,7 @@ export function createMockSource(initial: MockOptions | "artist" | "viewer" = {}
     stage: () => stage,
     setStage: (next) => { applyStage(next); emit(); },
     snapshot: (): Snapshot => ({
-      session: { user: me, studio: studio(), studios: studios.map((s) => ({ id: s.id, name: s.name, roles: [me.role] })), theme, digestHome: false },
+      session: { user: me, studio: studio(), studios: studios.map((s) => ({ id: s.id, name: s.name, roles: [me.role] })), theme, digestHome: false, features: { unreal: false } },
       people, assets: assetList, activity, templates: TEMPLATES, digests: [], digestIndex: 0, connections: connections(), mentions, trainingLog,
       online: people.filter((p) => p.presence === "online" && p.role !== "viewer").length, changedToday: stage === "populated" ? 12 : assetList.length, changedThisWeek: stage === "populated" ? 12 : assetList.length,
     }),

@@ -33,7 +33,7 @@ export function ConnectionGrid() {
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
               <span className="font-medium text-heading">{c.name}</span>
-              {c.soon ? <span className="rounded-[5px] bg-raised px-1.5 text-12 text-secondary">Soon</span> : null}
+              {c.soon ? <span className="rounded-[5px] bg-raised px-1.5 text-12 text-secondary">Coming soon</span> : null}
               {c.connected ? <span className="ml-auto inline-flex items-center gap-1.5 text-13 text-secondary"><span aria-hidden="true" className="size-[7px] rounded-full bg-state-approved" />Connected</span> : null}
             </div>
             <span className="text-13 leading-[1.5] text-secondary">{c.line}</span>

@@ -62,6 +62,10 @@
         "mirror_paused": {
           "type": "boolean",
           "description": "True while every mirror waits. Saves still version."
+        },
+        "unreal": {
+          "type": "boolean",
+          "description": "False while Unreal is Coming soon (UNREAL_ENABLED on the server): no mirror, no capture, and the panel hides the mirror line."
         }
       },
       "required": [
@@ -72,7 +76,7 @@
         "online",
         "spool_dir",
         "mode",
-        "mirror_paused"
+        "mirror_paused", "unreal"
       ],
       "additionalProperties": false
     },

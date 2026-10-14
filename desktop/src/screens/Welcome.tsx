@@ -2,7 +2,7 @@
 // with a cursor that moves to the control on hover. Styles in src/styles/welcome.css.
 import { useCan, useStore } from "@/store";
 import { PresenceAvatar } from "@/components/PresenceAvatar";
-import { firstName, useGo } from "@/lib/hooks";
+import { firstName, useFeatures, useGo } from "@/lib/hooks";
 import { renderUrl } from "@/lib/renders";
 import blenderLogo from "@/assets/logos/blender.svg";
 import unrealLogo from "@/assets/logos/unreal.svg";
@@ -29,9 +29,14 @@ export function Welcome() {
   const go = useGo();
   const blender = connections.find((c) => c.id === "blender");
   const unreal = connections.find((c) => c.id === "unreal");
-  const both = !!blender?.connected && !!unreal?.connected;
-  const found = blender?.version && unreal?.version ? `Blender ${short(blender.version)} and Unreal ${short(unreal.version)}` : null;
-  const connectLine = both && found ? `${found} are connected. The panels are in both.` : found ? `Nkata found ${found}. Confirm and the panels appear in both.` : "Install Blender and Unreal on this computer, then connect them here.";
+  const unrealOn = useFeatures().unreal;
+  const both = !!blender?.connected && (!unrealOn || !!unreal?.connected);
+  const found = blender?.version && (!unrealOn || unreal?.version) ? (unrealOn && unreal?.version ? `Blender ${short(blender.version)} and Unreal ${short(unreal.version)}` : `Blender ${short(blender.version)}`) : null;
+  const connectLine = both && found
+    ? (unrealOn ? `${found} are connected. The panels are in both.` : `${found} is connected. The panel is in the sidebar, press N.`)
+    : found
+      ? (unrealOn ? `Nkata found ${found}. Confirm and the panels appear in both.` : `Nkata found ${found}. Confirm and the panel appears.`)
+      : (unrealOn ? "Install Blender and Unreal on this computer, then connect them here." : "Install Blender on this computer, then connect it here. Unreal is coming soon.");
   const newProject = () => { if (can("createProject")) go.newProject(); else if (studio.projects[0]) go.project(studio.projects[0].slug); };
   return (
     <div className="mx-auto flex max-w-[1120px] flex-col gap-10 pt-6">
@@ -61,7 +66,7 @@ export function Welcome() {
               <span className="wc-serif">Connections</span>
               <div className="wc-grid">
                 <div className="wc-tool"><span className="wc-tool-mark blender"><img src={blenderLogo} alt="" width={14} height={14} draggable={false} /></span><span className="wc-tool-name">Blender</span><span className="wc-tool-line">{blender?.version ?? "5.1.2"} found</span><span className="wc-tool-btn">Connect</span></div>
-                <div className="wc-tool"><span className="wc-tool-mark unreal"><img src={unrealLogo} alt="" width={14} height={14} draggable={false} /></span><span className="wc-tool-name">Unreal Engine</span><span className="wc-tool-line">{unreal?.version ?? "5.8.1"} found</span><span className="wc-tool-on">Connected</span></div>
+                <div className="wc-tool"><span className="wc-tool-mark unreal"><img src={unrealLogo} alt="" width={14} height={14} draggable={false} /></span><span className="wc-tool-name">Unreal Engine</span><span className="wc-tool-line">{unrealOn ? `${unreal?.version ?? "5.8.1"} found` : "Mirror ships next"}</span>{unrealOn ? <span className="wc-tool-on">Connected</span> : <span className="wc-tool-line">Coming soon</span>}</div>
               </div>
               <Cursor className="wc-cursor" />
             </div>

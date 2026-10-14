@@ -40,6 +40,8 @@ class AddonState:
     part: dict[str, Any] | None = None
     rel_file: str | None = None
     me: dict[str, Any] | None = None
+    # UNREAL_ENABLED on the server, from the agent's /me. Off: the panel hides the mirror line.
+    unreal: bool = False
     last_hashes: dict[str, dict[str, str]] = field(default_factory=dict)
     mirror: dict[str, MirrorView] = field(default_factory=dict)
     checks: dict[str, list[dict[str, Any]]] = field(default_factory=dict)

@@ -46,6 +46,8 @@ pub struct ApiState {
     pub package_version: String,
     pub spool_dir: PathBuf,
     pub mode: AgentMode,
+    /// UNREAL_ENABLED on the server. Off: no mirror job, no capture, no area export.
+    pub unreal: bool,
 }
 
 type Shared = Arc<ApiState>;
@@ -209,6 +211,7 @@ async fn me(State(s): State<Shared>, headers: HeaderMap) -> Result<Json<MeRespon
         spool_dir: s.spool_dir.display().to_string(),
         mode: s.mode,
         mirror_paused: s.mirror.is_paused(),
+        unreal: s.unreal,
     }))
 }
 
@@ -315,8 +318,9 @@ async fn saved(
     }
     let part = s.server.part(&id).await?;
     let version_id = new_id();
-    // A level area has no export: its actor files sync like any other file.
-    let mirrors = body.changed && crate::mirror::script_for(part.kind).is_some();
+    // A level area has no export: its actor files sync like any other file. With Unreal off
+    // nothing mirrors: the save still versions and the GLB still reaches the app.
+    let mirrors = body.changed && s.unreal && crate::mirror::script_for(part.kind).is_some();
     let mirror = if mirrors {
         MirrorStatus::Pending
     } else {
@@ -504,7 +508,7 @@ async fn publish(
         "publish"
     );
     // Mark Ready on a level area: the editor exports the tagged actors as the version's model.
-    if out.published && body.ready {
+    if out.published && body.ready && s.unreal {
         if let Ok(part) = s.server.part(&id).await {
             if let crate::protocol::PartMapping::UeArea { level, area } = &part.mapping {
                 match s
@@ -531,9 +535,14 @@ async fn publish(
             }
         }
     }
-    // Mark Ready: the engine's viewport becomes the version's render. No capture: Blender's turn.
+    // Mark Ready: the engine's viewport becomes the version's render. No capture, or no Unreal:
+    // Blender's turn.
     if out.published && body.ready {
-        let captured = match s.mirror.capture(&id, &version_id, &s.spool_dir).await {
+        let captured = match if s.unreal {
+            s.mirror.capture(&id, &version_id, &s.spool_dir).await
+        } else {
+            None
+        } {
             Some(path) => match s.server.store_render(&id, &version_id, &path).await {
                 Ok(()) => {
                     tracing::info!(
@@ -690,8 +699,8 @@ pub async fn serve_with_addr(
         .local_addr()
         .map_err(|e| AgentError::io("listener", e))?;
     let _ = ready.send(addr);
-    // Stream mode has no spool and nothing to mirror.
-    if state.mode == AgentMode::Sync {
+    // Stream mode has no spool and nothing to mirror. With Unreal off there is no editor to run.
+    if state.mode == AgentMode::Sync && state.unreal {
         let mirror = Arc::clone(&state.mirror);
         tokio::spawn(mirror.run());
     }
@@ -741,6 +750,7 @@ pub async fn bind(
         package_version: crate::PACKAGE_VERSION.to_string(),
         spool_dir,
         mode: opts.mode,
+        unreal: me.features.unreal,
     });
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", opts.port))
         .await

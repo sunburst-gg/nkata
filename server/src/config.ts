@@ -17,6 +17,12 @@ const Env = z.object({
   HOST: z.string().default("127.0.0.1"),
   PUBLIC_URL: z.url().default("http://localhost:7400"),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).default("info"),
+  // Unreal is Coming soon in v1 (docs/tasks/07-blender-first.md). Off: the agent does not mirror,
+  // Mark Ready renders from Blender, and the app shows Unreal as Coming soon. The code stays.
+  UNREAL_ENABLED: z
+    .string()
+    .optional()
+    .transform((v) => v === "1" || v === "true"),
   // Signs the model links the app loads. Optional: without it each server process makes its own
   // key at start. Set it when more than one process answers for PUBLIC_URL.
   LINK_SECRET: z.string().min(16).optional(),

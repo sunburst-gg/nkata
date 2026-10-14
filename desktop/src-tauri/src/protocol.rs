@@ -134,6 +134,8 @@ pub struct MeResponse {
     pub mode: AgentMode,
     /// True while every mirror waits. Saves still version.
     pub mirror_paused: bool,
+    /// False while Unreal is Coming soon: no mirror, no capture, the panel hides the mirror line.
+    pub unreal: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

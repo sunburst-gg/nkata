@@ -6,7 +6,7 @@ import { useCan, useStore } from "@/store";
 import { Button } from "@/components/Button";
 import { CONTROL, Field, Select } from "@/components/Field";
 import { createServerProject } from "@/data/boot";
-import { useGo } from "@/lib/hooks";
+import { useFeatures, useGo } from "@/lib/hooks";
 import { inTauri } from "@/lib/tauri";
 import { Title } from "./Shell";
 import { reasonOf } from "@/lib/reason";
@@ -22,6 +22,7 @@ export function NewProject() {
   const theme = useStore((s) => s.theme);
   const toast = useStore((s) => s.toast);
   const go = useGo();
+  const unrealOn = useFeatures().unreal;
   const can = useCan();
   const foundBlender = connections.find((c) => c.id === "blender")?.version;
   const foundUnreal = connections.find((c) => c.id === "unreal")?.version;
@@ -69,9 +70,9 @@ export function NewProject() {
           <Button size="sm" variant="outline" onClick={() => void choose()}>Choose</Button>
         </span>
       </Field>
-      <div className="grid grid-cols-2 gap-4">
+      <div className={unrealOn ? "grid grid-cols-2 gap-4" : "grid grid-cols-1 gap-4"}>
         <Field label="Blender"><Select value={blender} onChange={(e) => setBlender(e.target.value)} aria-label="Blender">{foundBlender ? <option value={foundBlender}>{foundBlender} (found)</option> : null}{BLENDER_VERSIONS.filter((v) => v !== foundBlender).map((v) => <option key={v} value={v}>{v}</option>)}</Select></Field>
-        <Field label="Unreal"><Select value={unreal} onChange={(e) => setUnreal(e.target.value)} aria-label="Unreal">{foundUnreal ? <option value={foundUnreal}>{foundUnreal} (found)</option> : null}{UNREAL_VERSIONS.filter((v) => v !== foundUnreal).map((v) => <option key={v} value={v}>{v}</option>)}</Select></Field>
+        {unrealOn ? <Field label="Unreal"><Select value={unreal} onChange={(e) => setUnreal(e.target.value)} aria-label="Unreal">{foundUnreal ? <option value={foundUnreal}>{foundUnreal} (found)</option> : null}{UNREAL_VERSIONS.filter((v) => v !== foundUnreal).map((v) => <option key={v} value={v}>{v}</option>)}</Select></Field> : null}
       </div>
       <Button type="submit" size="lg" variant="primary" className="self-start" loading={busy}>Create project</Button>
     </form>

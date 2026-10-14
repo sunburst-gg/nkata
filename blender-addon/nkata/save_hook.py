@@ -223,6 +223,7 @@ def handle_open(filepath: str) -> dict[str, Any]:
     part = mapping.part_for_file(client.parts(rel), rel)
     with STATE.lock:
         STATE.me = me.user.to_dict()
+        STATE.unreal = bool(me.unreal)
         STATE.part = part
         STATE.rel_file = rel
         STATE.error = ""

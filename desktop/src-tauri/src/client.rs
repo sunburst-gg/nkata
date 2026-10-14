@@ -101,6 +101,16 @@ pub struct ServerMe {
     /// None for an account that has not created or joined a studio yet.
     pub studio_id: Option<String>,
     pub roles: Vec<String>,
+    /// What the server has switched on. Absent on an older server: nothing is.
+    #[serde(default)]
+    pub features: ServerFeatures,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct ServerFeatures {
+    /// UNREAL_ENABLED on the server. Off: Unreal is Coming soon.
+    #[serde(default)]
+    pub unreal: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]

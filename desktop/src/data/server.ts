@@ -198,13 +198,14 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
 
   async function load(): Promise<void> {
     const t = now();
-    const me = await call<{ user: UserRef; email: string; studio_id: string | null; roles: string[]; studios: { id: string; name: string; roles: string[] }[] }>("GET", "/auth/me");
+    const me = await call<{ user: UserRef; email: string; studio_id: string | null; roles: string[]; studios: { id: string; name: string; roles: string[] }[]; features?: { unreal?: boolean } }>("GET", "/auth/me");
+    const features = { unreal: me.features?.unreal === true };
     const studios: StudioRef[] = me.studios.map((s) => ({ id: s.id, name: s.name, roles: [primaryRole(s.roles)] }));
     if (!me.studio_id) {
       // An account with no studio yet: the Name and Create studio screens read this.
       const role = primaryRole(me.roles);
       const user: Person = { id: me.user.id, name: me.user.name, initial: me.user.name.charAt(0).toUpperCase(), tone: toneOf(me.user.id), title: ROLE_WORDS[role], role, email: me.email, presence: "online", where: "", seen: "now" };
-      snapshot = { ...emptySnapshot(snapshot.session.theme), session: { user, studio: emptySnapshot(snapshot.session.theme).session.studio, studios, theme: snapshot.session.theme, digestHome }, people: [user], connections };
+      snapshot = { ...emptySnapshot(snapshot.session.theme), session: { user, studio: emptySnapshot(snapshot.session.theme).session.studio, studios, theme: snapshot.session.theme, digestHome, features }, people: [user], connections: connections.map((c) => (c.id === "unreal" && !features.unreal ? comingSoon(c) : c)) };
       emit();
       return;
     }
@@ -276,7 +277,8 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
     const studioOut: Studio = { id: studio.studio.id, name: studio.studio.name, initial: studio.studio.name.charAt(0).toUpperCase(), peopleCount: people.length, training: studio.studio.training, billing: studio.studio.billing, projects: projectList.sort((a, b) => (a.id === config.projectId ? -1 : b.id === config.projectId ? 1 : 0)) };
     const role = primaryRole(me.roles);
     const user: Person = peopleById.get(me.user.id) ?? { id: me.user.id, name: me.user.name, initial: me.user.name.charAt(0), tone: toneOf(me.user.id), title: ROLE_WORDS[role], role, email: me.email, presence: "online", where: "", seen: "now" };
-    const session: Session = { user: { ...user, role }, studio: studioOut, studios, theme: snapshot.session.theme, digestHome };
+    const session: Session = { user: { ...user, role }, studio: studioOut, studios, theme: snapshot.session.theme, digestHome, features };
+    connections = connections.map((c) => (c.id === "unreal" && !features.unreal ? comingSoon(c) : c));
     const dayAgo = t.getTime() - 86_400_000;
     const weekAgo = t.getTime() - WEEK_MS;
     const saves = eventsWire.events.filter((e) => e.event.kind === "version.created");
@@ -474,7 +476,7 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
 function emptySnapshot(theme: "dark" | "light"): Snapshot {
   const studio: Studio = { id: "", name: "", initial: "", peopleCount: 0, projects: [], training: "off", billing: { line: "", seats: 0 } };
   const user: Person = { id: "", name: "", initial: "", tone: 1, title: "", role: "viewer", email: "", presence: "offline", where: "", seen: "" };
-  return { session: { user, studio, studios: [], theme, digestHome: true }, people: [], assets: [], activity: [], templates: [], digests: [], digestIndex: 0, connections: [], mentions: [], trainingLog: [], online: 0, changedToday: 0, changedThisWeek: 0 };
+  return { session: { user, studio, studios: [], theme, digestHome: true, features: { unreal: false } }, people: [], assets: [], activity: [], templates: [], digests: [], digestIndex: 0, connections: [], mentions: [], trainingLog: [], online: 0, changedToday: 0, changedThisWeek: 0 };
 }
 
 /** "10 Oct 2026" from an ISO instant. */
@@ -485,6 +487,11 @@ export function dateLabel(iso: string): string {
 }
 
 /** The Connections cards from what the agent found. The rest are Soon. */
+/** Unreal while it is Coming soon: no detect, no install, no error, one line. */
+export function comingSoon(c: Connection): Connection {
+  return { ...c, soon: true, connected: false, version: undefined, line: "Blender to Unreal mirror ships next." };
+}
+
 export function connectionsOf(found: { blender: string | null; unreal: string | null; blenderConnected: boolean; unrealConnected: boolean }): Connection[] {
   return [
     { id: "blender", name: "Blender", soon: false, connected: found.blenderConnected, version: found.blender ?? undefined, line: found.blender ? (found.blenderConnected ? `Blender ${found.blender}. The Nkata panel is in the sidebar, press N.` : `Blender ${found.blender} is on this computer. Connect adds the Nkata panel.`) : "Not found. Install Blender 4.2 or newer, then come back." },

@@ -88,7 +88,8 @@ fn samples() -> Vec<(&'static str, Value)> {
                 online: true,
                 spool_dir: "/x".into(),
                 mode: AgentMode::Stream,
-                mirror_paused: false
+                mirror_paused: false,
+                unreal: false
             }),
         ),
         (

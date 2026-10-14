@@ -58,7 +58,7 @@ export async function authRoutes(app: TypedApp): Promise<void> {
     if (!u) throw new Error("user vanished between redeem and lookup");
     const studios = await studiosOf(app.db, userId);
     const current = studios.find((s) => s.id === studioId) ?? null;
-    return { v: 1, token, user: { id: u.id, name: u.name, avatar_url: u.avatar_url }, email: u.email, studio_id: current?.id ?? null, roles: current?.roles ?? [], studios: studios.map((s) => ({ id: s.id, name: s.name, roles: s.roles })) };
+    return { v: 1, token, user: { id: u.id, name: u.name, avatar_url: u.avatar_url }, email: u.email, studio_id: current?.id ?? null, roles: current?.roles ?? [], studios: studios.map((s) => ({ id: s.id, name: s.name, roles: s.roles })), features: { unreal: app.config.UNREAL_ENABLED } };
   };
 
   app.post("/auth/callback", { schema: { body: z.object({ token: z.string().min(1) }) } }, async (req) => {

@@ -99,7 +99,7 @@ export const fixtures: Fixtures = {
   },
   agent: {
     ProjectRef: { valid: [{ id, name: "Rising Sun", folder_name: "rising-sun" }], invalid: [{ id, name: "Rising Sun" }] },
-    MeResponse: { valid: [{ v: 1, user, project: { id, name: "Rising Sun", folder_name: "rising-sun" }, package_version: "0.1.0", online: true, spool_dir: "/home/ada/rising-sun/.nkata-agent/spool", mode: "sync", mirror_paused: false }], invalid: [{ v: 1, user }] },
+    MeResponse: { valid: [{ v: 1, user, project: { id, name: "Rising Sun", folder_name: "rising-sun" }, package_version: "0.1.0", online: true, spool_dir: "/home/ada/rising-sun/.nkata-agent/spool", mode: "sync", mirror_paused: false, unreal: false }], invalid: [{ v: 1, user }] },
     AgentMode: { valid: ["sync", "stream"], invalid: ["viewer"] },
     CheckSpec: { valid: [checkSpec, { id: "unit_scale", severity: "warn", params: {} }], invalid: [{ id: "Unit", severity: "block", params: {} }] },
     PartSummary: { valid: [partSummary, { ...partSummary, owner: null, lock: null }], invalid: [{ ...partSummary, state: "open" }] },

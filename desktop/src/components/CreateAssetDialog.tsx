@@ -4,7 +4,7 @@
 // existing work in without redoing it (docs/decisions.md, 2026-10-13).
 import { useEffect, useState } from "react";
 import { useStore } from "@/store";
-import { useProject } from "@/lib/hooks";
+import { useFeatures, useProject } from "@/lib/hooks";
 import { cn } from "@/lib/cn";
 import { Button } from "./Button";
 import { Dialog } from "./Dialog";
@@ -34,7 +34,9 @@ export function CreateAssetDialog() {
   const [files, setFiles] = useState<string[] | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
-  const usable = mode === "files" ? templates.filter((t) => t.kind !== "level_area") : templates;
+  const unrealOn = useFeatures().unreal;
+  // A level area is an Unreal part. From a file, only templates with a Blender part apply.
+  const usable = templates.filter((t) => t.kind !== "level_area" || (unrealOn && mode !== "files"));
   const chosen = usable.find((t) => t.name === template) ?? usable[0];
   useEffect(() => {
     if (!open) return;

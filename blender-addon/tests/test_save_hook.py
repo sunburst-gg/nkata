@@ -20,6 +20,7 @@ ID2 = "01BX5ZZKBKACTAV9WEVGEMMVRZ"
 
 
 class FakeAgent(BaseHTTPRequestHandler):
+    unreal = True
     spool_dir = ""
     saved: list[dict[str, Any]] = []
     opened: list[str] = []
@@ -40,7 +41,7 @@ class FakeAgent(BaseHTTPRequestHandler):
         if self.headers.get("Authorization") != "Bearer tok":
             return self._json(401, {"v": 1, "error": {"code": "unauthorized", "message": "no"}})
         if self.path == "/me":
-            return self._json(200, {"v": 1, "user": {"id": ID, "name": "Ada", "avatar_url": None}, "project": {"id": ID, "name": "P", "folder_name": "p"}, "package_version": "0.1.0", "online": True, "spool_dir": self.spool_dir, "mode": "sync", "mirror_paused": False})
+            return self._json(200, {"v": 1, "user": {"id": ID, "name": "Ada", "avatar_url": None}, "project": {"id": ID, "name": "P", "folder_name": "p"}, "package_version": "0.1.0", "online": True, "spool_dir": self.spool_dir, "mode": "sync", "mirror_paused": False, "unreal": FakeAgent.unreal})
         if self.path.startswith("/parts?"):
             return self._json(200, {"v": 1, "parts": self.parts})
         if self.path == "/events":

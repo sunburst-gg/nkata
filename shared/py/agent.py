@@ -32,6 +32,7 @@ class MeResponse:
     spool_dir: str
     mode: AgentMode
     mirror_paused: bool
+    unreal: bool
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -368,8 +369,11 @@ def _v_MeResponse_spool_dir(value: object, path: str) -> str:
 def _v_MeResponse_mirror_paused(value: object, path: str) -> bool:
     return _rt.check_bool(value, path)
 
+def _v_MeResponse_unreal(value: object, path: str) -> bool:
+    return _rt.check_bool(value, path)
+
 def validate_MeResponse(value: object, path: str = "$") -> MeResponse:
-    obj = _rt.check_object(value, path, required=("v", "user", "project", "package_version", "online", "spool_dir", "mode", "mirror_paused",), allowed=("v", "user", "project", "package_version", "online", "spool_dir", "mode", "mirror_paused",))
+    obj = _rt.check_object(value, path, required=("v", "user", "project", "package_version", "online", "spool_dir", "mode", "mirror_paused", "unreal",), allowed=("v", "user", "project", "package_version", "online", "spool_dir", "mode", "mirror_paused", "unreal",))
     return MeResponse(
         v=_v_MeResponse_v(obj["v"], path + ".v"),
         user=validate_UserRef(obj["user"], path + ".user"),
@@ -379,6 +383,7 @@ def validate_MeResponse(value: object, path: str = "$") -> MeResponse:
         spool_dir=_v_MeResponse_spool_dir(obj["spool_dir"], path + ".spool_dir"),
         mode=validate_AgentMode(obj["mode"], path + ".mode"),
         mirror_paused=_v_MeResponse_mirror_paused(obj["mirror_paused"], path + ".mirror_paused"),
+        unreal=_v_MeResponse_unreal(obj["unreal"], path + ".unreal"),
     )
 
 def _v_CheckSpec_id(value: object, path: str) -> str:

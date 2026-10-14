@@ -33,6 +33,9 @@ python3 e2e/quality.py --project "$ROOT/fixtures"
 # The gate test needs a live server over the same Postgres and store, seeded from a clean schema.
 # The server tests leave their last fixtures behind and the seed finds rows by name.
 export NKATA_DEV=1
+# The agent gates cover the mirror, so the test server runs with Unreal on. The off path is
+# covered by the server, add-on, and app tests (docs/tasks/07-blender-first.md, slice 1).
+export UNREAL_ENABLED=1
 export PORT="${TEST_SERVER_PORT:-7401}"
 export PUBLIC_URL="http://127.0.0.1:$PORT"
 export LOG_LEVEL=warn

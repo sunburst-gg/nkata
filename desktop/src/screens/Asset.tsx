@@ -9,7 +9,7 @@ import { PinRow, Stage } from "@/components/ModelStage";
 import { PresenceAvatar } from "@/components/PresenceAvatar";
 import { StateDot } from "@/components/StateBadge";
 import type { Asset as AssetModel, Part } from "@/data/types";
-import { useAsset, useGo, usePeople } from "@/lib/hooks";
+import { useAsset, useFeatures, useGo, usePeople } from "@/lib/hooks";
 import { renderStyle } from "@/lib/renders";
 import { STATE_WORD } from "@/lib/state";
 import { useViewerSession } from "@/lib/viewer";
@@ -42,6 +42,7 @@ function AssetScreen({ asset, onPart }: { asset: AssetModel; onPart: (p: Part) =
   const session = useViewerSession(asset);
   const top = asset.parts[0]?.versions[0];
   const caption = top ? `Last publish · v${top.n} · ${top.when}` : "No publish yet";
+  const unrealOn = useFeatures().unreal;
   const open = (where: "Blender" | "Unreal") => toast(`Opening in ${where}.`, "locked");
   const exportAsset = async () => {
     try {
@@ -56,7 +57,7 @@ function AssetScreen({ asset, onPart }: { asset: AssetModel; onPart: (p: Part) =
         <h1 className="role-moment m-0 leading-[1.1] text-heading">{asset.name}</h1>
         <span className="text-13 text-secondary">{asset.meta}</span>
         <div className="ml-auto flex gap-2">
-          {can("openEditors") ? <><Button onClick={() => open("Blender")}>Open in Blender</Button><Button onClick={() => open("Unreal")}>Open in Unreal</Button></> : null}
+          {can("openEditors") ? <><Button onClick={() => open("Blender")}>Open in Blender</Button>{unrealOn ? <Button onClick={() => open("Unreal")}>Open in Unreal</Button> : null}</> : null}
           {can("exportAsset") && !can("openEditors") ? null : can("exportAsset") ? <Button onClick={() => void exportAsset()}>Export</Button> : null}
           {can("assign") ? <Button onClick={() => setAssigning(true)}>Assign</Button> : null}
           {can("confirmRights") && training && !asset.rights ? <Button onClick={() => setConfirming(true)}>Confirm rights</Button> : null}

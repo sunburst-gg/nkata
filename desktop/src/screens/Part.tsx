@@ -12,7 +12,7 @@ import { StateDot } from "@/components/StateBadge";
 import type { Asset, Check as CheckModel, Part as PartModel } from "@/data/types";
 import { cn } from "@/lib/cn";
 import { diffLines, diffManifests } from "@/lib/diff";
-import { firstName, usePart, usePeople } from "@/lib/hooks";
+import { firstName, useFeatures, usePart, usePeople } from "@/lib/hooks";
 import { renderSrc, renderStyle } from "@/lib/renders";
 import { STATE_WORD } from "@/lib/state";
 import { useViewerSession } from "@/lib/viewer";
@@ -51,6 +51,7 @@ function PartScreen({ asset, part }: { asset: Asset; part: PartModel }) {
     setPicked(on ? (part.versions[1]?.n ?? null) : null);
     if (!on && params.has("compare")) { params.delete("compare"); setParams(params, { replace: true }); }
   };
+  const unrealOn = useFeatures().unreal;
   const open = (where: "Blender" | "Unreal") => toast(`Opening in ${where}.`, "locked");
   const rollBack = () => {
     if (!picked) return;
@@ -67,7 +68,7 @@ function PartScreen({ asset, part }: { asset: Asset; part: PartModel }) {
       <div className="flex items-center gap-4">
         <h1 className="role-moment m-0 leading-[1.1] text-heading">{`${asset.name} / ${part.name}`}</h1>
         <span className="inline-flex items-center gap-1.5 text-13 text-secondary"><StateDot state={part.state} size={7} />{`${STATE_WORD[part.state]} · ${owner}${top ? ` · v${current}` : ""}`}</span>
-        {can("openEditors") ? <div className="ml-auto flex gap-2"><Button onClick={() => open("Blender")}>Open in Blender</Button><Button onClick={() => open("Unreal")}>Open in Unreal</Button></div> : null}
+        {can("openEditors") ? <div className="ml-auto flex gap-2"><Button onClick={() => open("Blender")}>Open in Blender</Button>{unrealOn ? <Button onClick={() => open("Unreal")}>Open in Unreal</Button> : null}</div> : null}
       </div>
       <div className="grid items-start gap-6" style={{ gridTemplateColumns: "112px minmax(0, 1fr) 320px" }}>
         <div className="flex flex-col gap-3">
@@ -84,7 +85,7 @@ function PartScreen({ asset, part }: { asset: Asset; part: PartModel }) {
           {older && older.render && top?.render ? (
             <RenderWipe before={renderSrc(older.render)} after={renderSrc(top.render)} labels={[`v${older.n}`, `v${top.n}`]} className="aspect-[16/10]" />
           ) : (
-            <Stage session={session} caption={top ? `v${preview} · ${owner} · in Unreal` : "No publish yet"} aspect="16/10" />
+            <Stage session={session} caption={top ? (unrealOn ? `v${preview} · ${owner} · in Unreal` : `v${preview} · ${owner}`) : "No publish yet"} aspect="16/10" />
           )}
           <PinRow onFull={() => setFullScreen({ assetSlug: asset.slug, partName: part.name })} walkable={asset.kind === "Levels"} />
           {picked && !compare && can("rollBack") ? (

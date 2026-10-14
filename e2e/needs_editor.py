@@ -20,8 +20,15 @@ from typing import Any
 DEFAULT_UE5_URL = "http://127.0.0.1:30010"
 
 
+def unreal_enabled() -> bool:
+    """UNREAL_ENABLED, the same flag the server reads. Unreal is Coming soon in v1."""
+    return os.environ.get("UNREAL_ENABLED", "") in ("1", "true")
+
+
 def editors_available() -> str | None:
     """None when both editors are reachable, else the reason they are not."""
+    if not unreal_enabled():
+        return "Unreal is Coming soon in v1: set UNREAL_ENABLED=1 to run the editor tests"
     blender = os.environ.get("NKATA_BLENDER") or shutil.which("blender")
     if not blender or not os.path.exists(blender):
         return "Blender not found: set NKATA_BLENDER to the Blender 4.2+ binary"

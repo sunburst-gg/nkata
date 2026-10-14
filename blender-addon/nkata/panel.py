@@ -227,6 +227,7 @@ class NKATA_OT_find_parts(bpy.types.Operator):
         startable = mapping.startable_parts(parts, root, me.user.id)
         with STATE.lock:
             STATE.me = me.user.to_dict()
+            STATE.unreal = bool(me.unreal)
             STATE.startable = startable
             STATE.error = "" if startable else mapping.no_part_line(parts, me.user.id)
             STATE.dirty = True
@@ -535,7 +536,8 @@ class NKATA_PT_panel(bpy.types.Panel):
         if STATE.error:
             layout.label(text=STATE.error, icon="ERROR")
         draw_header(layout, part)
-        draw_mirror(layout, part)
+        if STATE.unreal:
+            draw_mirror(layout, part)
         draw_reference(layout, part)
         draw_checks(layout, part)
         draw_comments(layout, part)

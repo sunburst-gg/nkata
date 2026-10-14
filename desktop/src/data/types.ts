@@ -275,6 +275,8 @@ export interface Session {
   studios: StudioRef[];
   theme: "dark" | "light";
   digestHome: boolean;
+  /** What the server has switched on. Unreal is Coming soon in v1 (UNREAL_ENABLED). */
+  features: { unreal: boolean };
 }
 
 export interface Snapshot {

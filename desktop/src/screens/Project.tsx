@@ -10,7 +10,7 @@ import { PresenceAvatar } from "@/components/PresenceAvatar";
 import { StateDot } from "@/components/StateBadge";
 import type { Asset, AssetKind } from "@/data/types";
 import { cn } from "@/lib/cn";
-import { useGo, usePeople, useProject } from "@/lib/hooks";
+import { useFeatures, useGo, usePeople, useProject } from "@/lib/hooks";
 import { renderStyle } from "@/lib/renders";
 import { STATE_WORD } from "@/lib/state";
 import { inTauri } from "@/lib/tauri";
@@ -29,6 +29,7 @@ export function Project() {
   const setDeleteProject = useStore((s) => s.setDeleteProject);
   const setCreateAsset = useStore((s) => s.setCreateAsset);
   const source = useStore((s) => s.source);
+  const unrealOn = useFeatures().unreal;
   const can = useCan();
   const go = useGo();
   const { by } = usePeople();
@@ -39,7 +40,7 @@ export function Project() {
   useEffect(() => {
     for (const a of assets) {
       const had = seen.current.get(a.slug);
-      if (had === false && a.render) { pulse(a.slug); toast(`${a.name} / ${a.parts[0]?.name ?? "model"} synced to Unreal`, "synced"); }
+      if (had === false && a.render) { pulse(a.slug); toast(unrealOn ? `${a.name} / ${a.parts[0]?.name ?? "model"} synced to Unreal` : `${a.name} / ${a.parts[0]?.name ?? "model"} published`, "synced"); }
       seen.current.set(a.slug, !!a.render);
     }
   }, [assets, pulse, toast]);
@@ -48,13 +49,13 @@ export function Project() {
   const filtered = assets.filter((a) => tab === "All" || (tab === "Ready" ? a.state === "ready" : a.kind === tab));
   const blender = db.connections.find((c) => c.id === "blender")?.connected;
   const unreal = db.connections.find((c) => c.id === "unreal")?.connected;
-  const connected = !!blender && !!unreal;
+  const connected = !!blender && (!unrealOn || !!unreal);
   const owner = by(project.ownerId);
   const empty = assets.length
     ? { title: tab === "Ready" ? "Nothing to review" : `No ${tab.toLowerCase()} yet`, line: "Save a part in Blender and it appears here", button: "Create asset", run: () => setCreateAsset(true) }
     : connected
       ? { title: "No assets yet", line: "Save a part in Blender and it appears here", button: "Create asset", run: () => setCreateAsset(true) }
-      : { title: "Connect Blender and Unreal to start", line: db.connections.some((c) => c.version) ? "Nkata found both on this computer." : "Install both, then connect them here.", button: "Connections", run: go.connections };
+      : { title: unrealOn ? "Connect Blender and Unreal to start" : "Connect Blender to start", line: db.connections.some((c) => c.version) ? (unrealOn ? "Nkata found both on this computer." : "Nkata found it on this computer.") : (unrealOn ? "Install both, then connect them here." : "Install Blender, then connect it here."), button: "Connections", run: go.connections };
   const openFolder = () => toast(inTauri() ? `Opening ${project.folder}` : `The folder opens in the desktop app: ${project.folder}`, "muted");
   const exportProject = async () => {
     if (!source.exportAsset) { toast("Export writes the manifest in the desktop app.", "muted"); return; }

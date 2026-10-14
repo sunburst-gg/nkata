@@ -9,7 +9,9 @@ describe("mock data source", () => {
     expect(src.snapshot().connections.find((c) => c.id === "blender")?.connected).toBe(false);
     src.setStage("connected");
     expect(src.snapshot().session.studio.projects.map((p) => p.name)).toEqual(["NkataTest"]);
-    expect(src.snapshot().connections.filter((c) => c.connected).map((c) => c.id)).toEqual(["blender", "unreal"]);
+    // Unreal is Coming soon: Blender alone connects, the Unreal card says mirror ships next.
+    expect(src.snapshot().connections.filter((c) => c.connected).map((c) => c.id)).toEqual(["blender"]);
+    expect(src.snapshot().connections.find((c) => c.id === "unreal")).toMatchObject({ soon: true, connected: false });
     src.setStage("populated");
     const db = src.snapshot();
     expect(db.session.studio.projects.map((p) => p.name)).toEqual(["NkataTest", "Rising Sun"]);
