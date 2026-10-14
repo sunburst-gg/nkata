@@ -1,5 +1,7 @@
-// Part. Versions down the left, the model in the middle, checks and comments on the right.
-// Click a version to preview it; the Roll back bar appears. Roll back creates a new version.
+// Part. The note first, then the card with the delta from the last publish, the four dots, and
+// the model. Versions down the left with their notes, checks and comments on the right. Click a
+// version to preview it; the Roll back bar appears. Roll back creates a new version.
+// The receiver knows what changed without opening the file (docs/tasks/07-blender-first.md).
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Check, Minus, Plus, X } from "lucide-react";
@@ -11,6 +13,7 @@ import { RenderWipe } from "@/components/RenderWipe";
 import { StateDot } from "@/components/StateBadge";
 import type { Asset, Check as CheckModel, Part as PartModel } from "@/data/types";
 import { cn } from "@/lib/cn";
+import { publishCard } from "@/lib/card";
 import { diffLines, diffManifests } from "@/lib/diff";
 import { firstName, useFeatures, usePart, usePeople } from "@/lib/hooks";
 import { renderSrc, renderStyle } from "@/lib/renders";
@@ -45,6 +48,11 @@ function PartScreen({ asset, part }: { asset: Asset; part: PartModel }) {
   // Compare: the picked (older) version against the current one.
   const older = compare && picked && picked !== current ? part.versions.find((v) => v.n === picked) : undefined;
   const diff = older && top ? diffManifests(older.manifest, top.manifest) : null;
+  // The card for the shown version, with the delta from the publish before it.
+  const shownAt = shownVersion ? part.versions.findIndex((v) => v.id === shownVersion.id) : -1;
+  const previous = shownAt >= 0 ? part.versions.slice(shownAt + 1).find((v) => v.manifest && v.published !== false) : undefined;
+  const card = publishCard(shownVersion?.manifest, previous?.manifest);
+  const dots = part.checks.filter((c) => c.severity === "block");
   const toggleCompare = () => {
     const on = !compare;
     setCompare(on);
@@ -70,14 +78,47 @@ function PartScreen({ asset, part }: { asset: Asset; part: PartModel }) {
         <span className="inline-flex items-center gap-1.5 text-13 text-secondary"><StateDot state={part.state} size={7} />{`${STATE_WORD[part.state]} · ${owner}${top ? ` · v${current}` : ""}`}</span>
         {can("openEditors") ? <div className="ml-auto flex gap-2"><Button onClick={() => open("Blender")}>Open in Blender</Button>{unrealOn ? <Button onClick={() => open("Unreal")}>Open in Unreal</Button> : null}</div> : null}
       </div>
-      <div className="grid items-start gap-6" style={{ gridTemplateColumns: "112px minmax(0, 1fr) 320px" }}>
+      {shownVersion ? (
+        <div className="flex flex-col gap-4 rounded-xl border border-hairline bg-panel p-5">
+          <p className="role-moment-md m-0 text-heading">{shownVersion.note || "No note yet. The artist writes one on Publish."}</p>
+          <span className="text-13 text-secondary">{`v${shownVersion.n} · ${firstName(by(shownVersion.authorId).name)} · ${shownVersion.when}${previous ? ` · changes since v${previous.n}` : ""}`}</span>
+          {shownVersion.noteEngineering ? (
+            <details className="text-14 text-body">
+              <summary className="cursor-pointer text-13 text-secondary">Details for engineers</summary>
+              <p className="m-0 mt-2 whitespace-pre-wrap">{shownVersion.noteEngineering}</p>
+            </details>
+          ) : null}
+          {card ? (
+            <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}>
+              {card.rows.map((r) => (
+                <div key={r.label} className="flex flex-col gap-0.5">
+                  <span className="text-12 text-secondary">{r.label}</span>
+                  <span className="role-mono text-16 text-heading">{r.value}</span>
+                  {r.delta ? <span className="role-mono text-12 text-secondary">{r.delta}</span> : null}
+                </div>
+              ))}
+            </div>
+          ) : <span className="text-13 text-secondary">No card yet. The first save in Blender writes it.</span>}
+          {card && card.textureNames.length > 0 ? <span className="role-mono text-12 text-secondary">{card.textureNames.join(" · ")}</span> : null}
+          {dots.length > 0 ? (
+            <div className="flex items-center gap-2" aria-label="Blocking checks">
+              {dots.map((c) => <span key={c.id} role="img" aria-label={`${c.name}: ${c.detail}`} title={`${c.name}: ${c.detail}`} className="size-2.5 rounded-full" style={{ background: c.status === "pass" ? "var(--state-approved)" : c.status === "warn" ? "var(--state-syncing)" : "var(--state-failed)" }} />)}
+              <span className="text-12 text-secondary">{dots.every((c) => c.status === "pass") ? `${dots.length} checks green` : `${dots.filter((c) => c.status !== "pass").length} of ${dots.length} checks block`}</span>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="grid items-start gap-6" style={{ gridTemplateColumns: "148px minmax(0, 1fr) 320px" }}>
         <div className="flex flex-col gap-3">
           {part.versions.length > 1 ? <Button size="xs" variant="outline" aria-pressed={compare} onClick={toggleCompare} className={cn("self-start", compare && "border-accent bg-active")}>Compare</Button> : null}
           {part.versions.length === 0 ? <span className="text-12 text-secondary">No versions yet.</span> : null}
-          {part.versions.slice(0, 4).map((v) => (
+          {part.versions.slice(0, 6).map((v) => (
             <button key={v.id} type="button" aria-pressed={picked === v.n} onClick={() => setPicked(picked === v.n || v.n === current ? null : v.n)} className={cn("cursor-pointer overflow-hidden rounded-[10px] border-2 bg-panel p-0 text-left transition-colors duration-150", picked === v.n ? "border-accent" : "border-hairline")}>
               <div className="aspect-[4/3] bg-[var(--preview-bg)]" style={v.render ? renderStyle(v.render, "tile") : undefined} />
-              <div className="flex justify-between px-2 py-1.5 text-12"><span className="font-mono text-heading">v{v.n}</span><span className="text-muted">{v.when}</span></div>
+              <div className="flex flex-col gap-0.5 px-2 py-1.5 text-12">
+                <div className="flex justify-between"><span className="font-mono text-heading">v{v.n}</span><span className="text-muted">{v.when}</span></div>
+                {v.note ? <span className="line-clamp-2 text-12 text-secondary">{v.note}</span> : null}
+              </div>
             </button>
           ))}
         </div>

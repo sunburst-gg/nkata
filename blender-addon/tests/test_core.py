@@ -36,9 +36,12 @@ class HashingTest(unittest.TestCase):
 
 class ManifestTest(unittest.TestCase):
     def test_builds_a_valid_manifest_and_writes_it(self) -> None:
-        info = manifest.ObjectInfo("Face", 1200, ["M_Skin"], (-1.0, -1.0, 0.0), (1.0, 1.0, 2.0), "h")
-        data = manifest.build_manifest([info], "Armature", "/Game/Characters/Ojukwu/face")
+        info = manifest.ObjectInfo("Face", 1200, ["M_Skin"], (-1.0, -1.0, 0.0), (1.0, 1.0, 2.0), "h", uv_sets=("UVMap", "Lightmap"))
+        data = manifest.build_manifest([info], "Armature", "/Game/Characters/Ojukwu/face", textures=[("T_Face_D", 2048, 2048)], unit_scale=1.0)
         self.assertEqual(data["objects"][0]["triangles"], 1200)
+        self.assertEqual(data["objects"][0]["uv_sets"], ["UVMap", "Lightmap"])
+        self.assertEqual(data["textures"], [{"name": "T_Face_D", "width": 2048, "height": 2048}])
+        self.assertEqual(data["unit_scale"], 1.0)
         self.assertEqual(data["armature"], "Armature")
         with tempfile.TemporaryDirectory() as d:
             p = Path(d) / "m.json"

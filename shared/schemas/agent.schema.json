@@ -250,6 +250,29 @@
       ],
       "additionalProperties": false
     },
+    "ManifestTexture": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "name",
+        "width",
+        "height"
+      ],
+      "additionalProperties": false
+    },
     "ManifestObject": {
       "type": "object",
       "properties": {
@@ -284,6 +307,13 @@
         "scale": {
           "$ref": "common.schema.json#/$defs/Vec3",
           "description": "Object scale. A prop exports at 1, 1, 1."
+        },
+        "uv_sets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "UV map names on the mesh. The publish card lists them."
         }
       },
       "required": [
@@ -346,6 +376,17 @@
             }
           ],
           "description": "Destination path in the engine, from the part mapping."
+        },
+        "textures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ManifestTexture"
+          },
+          "description": "The images the part's materials use. The publish card lists them by name."
+        },
+        "unit_scale": {
+          "type": "number",
+          "description": "The scene's unit scale at export. 1 is metres."
         }
       },
       "required": [

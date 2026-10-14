@@ -23,6 +23,7 @@ class ObjectInfo:
     hash: str
     origin: Vec3 = (0.0, 0.0, 0.0)
     scale: Vec3 = (1.0, 1.0, 1.0)
+    uv_sets: tuple[str, ...] = ()
 
 
 def build_manifest(
@@ -31,9 +32,12 @@ def build_manifest(
     mirror_target: str | None,
     kind: str = "character",
     bone_count: int | None = None,
+    textures: list[tuple[str, int, int]] | None = None,
+    unit_scale: float | None = None,
 ) -> dict[str, Any]:
-    """Validated against the shared schema before it leaves the add-on."""
-    data = {
+    """Validated against the shared schema before it leaves the add-on. Textures and the unit
+    scale feed the publish card (docs/tasks/07-blender-first.md, slice 4)."""
+    data: dict[str, Any] = {
         "v": 1,
         "kind": kind,
         "objects": [
@@ -46,13 +50,17 @@ def build_manifest(
                 "hash": o.hash,
                 "origin": [float(x) for x in o.origin],
                 "scale": [float(x) for x in o.scale],
+                "uv_sets": list(o.uv_sets),
             }
             for o in objects
         ],
         "bone_count": bone_count,
         "armature": armature,
         "mirror_target": mirror_target,
+        "textures": [{"name": n, "width": int(w), "height": int(h)} for n, w, h in (textures or [])],
     }
+    if unit_scale is not None:
+        data["unit_scale"] = float(unit_scale)
     return shared.validate_ObjectManifest(data).to_dict()
 
 

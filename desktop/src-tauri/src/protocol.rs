@@ -167,6 +167,16 @@ pub struct ManifestObject {
     pub hash: String,
     pub origin: [f64; 3],
     pub scale: [f64; 3],
+    /// UV map names on the mesh. The publish card lists them. Absent on older manifests.
+    #[serde(default)]
+    pub uv_sets: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ManifestTexture {
+    pub name: String,
+    pub width: u64,
+    pub height: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -177,6 +187,12 @@ pub struct ObjectManifest {
     pub bone_count: Option<u64>,
     pub armature: Option<String>,
     pub mirror_target: Option<String>,
+    /// The images the part's materials use. Absent on older manifests.
+    #[serde(default)]
+    pub textures: Vec<ManifestTexture>,
+    /// The scene's unit scale at export. Absent on older manifests.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unit_scale: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

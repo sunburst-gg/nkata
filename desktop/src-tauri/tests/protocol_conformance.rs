@@ -35,10 +35,13 @@ fn samples() -> Vec<(&'static str, Value)> {
             hash: "h".into(),
             origin: [0.0, 0.0, 0.0],
             scale: [1.0, 1.0, 1.0],
+            uv_sets: vec!["UVMap".into()],
         }],
         bone_count: None,
         armature: None,
         mirror_target: Some("/Game/X".into()),
+        textures: vec![],
+        unit_scale: Some(1.0),
     };
     let summary = PartSummary {
         id: id.into(),

@@ -11,6 +11,9 @@ export interface ManifestDiff {
   triangles: { before: number; after: number };
   materials: { added: string[]; removed: string[] };
   bones: { before: number | null; after: number | null };
+  /** Textures by name. A removed and an added one of the same size reads as a rename. */
+  textures: { added: string[]; removed: string[]; renamed: { from: string; to: string }[] };
+  uvSets: { before: string[]; after: string[] };
 }
 
 export function diffManifests(before: VersionManifest | undefined, after: VersionManifest | undefined): ManifestDiff | null {
@@ -25,11 +28,24 @@ export function diffManifests(before: VersionManifest | undefined, after: Versio
   const mats = (m: VersionManifest) => new Set(m.objects.flatMap((o) => o.materials));
   const ma = mats(before);
   const mb = mats(after);
+  const ta = new Map((before.textures ?? []).map((t) => [t.name, t]));
+  const tb = new Map((after.textures ?? []).map((t) => [t.name, t]));
+  const gone = [...ta.keys()].filter((n) => !tb.has(n));
+  const fresh = [...tb.keys()].filter((n) => !ta.has(n));
+  const renamed: { from: string; to: string }[] = [];
+  for (const from of [...gone]) {
+    const size = ta.get(from)!;
+    const to = fresh.find((n) => tb.get(n)!.width === size.width && tb.get(n)!.height === size.height && !renamed.some((r) => r.to === n));
+    if (to) renamed.push({ from, to });
+  }
+  const uv = (m: VersionManifest) => [...new Set(m.objects.flatMap((o) => o.uvSets ?? []))].sort();
   return {
     added, removed, touched, same,
     triangles: { before: sum(before), after: sum(after) },
     materials: { added: [...mb].filter((x) => !ma.has(x)), removed: [...ma].filter((x) => !mb.has(x)) },
     bones: { before: before.bones, after: after.bones },
+    textures: { added: fresh.filter((n) => !renamed.some((r) => r.to === n)), removed: gone.filter((n) => !renamed.some((r) => r.from === n)), renamed },
+    uvSets: { before: uv(before), after: uv(after) },
   };
 }
 
@@ -44,6 +60,10 @@ export function diffLines(d: ManifestDiff): { text: string; tone: "added" | "rem
   for (const m of d.materials.added) out.push({ text: `Material ${m} added`, tone: "added" });
   for (const m of d.materials.removed) out.push({ text: `Material ${m} removed`, tone: "removed" });
   if (d.bones.before !== d.bones.after && (d.bones.before !== null || d.bones.after !== null)) out.push({ text: `Bones ${d.bones.before ?? 0} to ${d.bones.after ?? 0}`, tone: "touched" });
+  for (const r of d.textures.renamed) out.push({ text: `Texture ${r.from} renamed to ${r.to}`, tone: "touched" });
+  for (const t of d.textures.added) out.push({ text: `Texture ${t} added`, tone: "added" });
+  for (const t of d.textures.removed) out.push({ text: `Texture ${t} removed`, tone: "removed" });
+  if (d.uvSets.before.join() !== d.uvSets.after.join()) out.push({ text: `UV sets ${d.uvSets.before.join(", ") || "none"} to ${d.uvSets.after.join(", ") || "none"}`, tone: "touched" });
   if (out.length === 0) out.push({ text: `Nothing changed. ${d.same} object${d.same === 1 ? "" : "s"} are the same.`, tone: "same" });
   else if (d.same > 0) out.push({ text: `${d.same} object${d.same === 1 ? "" : "s"} unchanged`, tone: "same" });
   return out;

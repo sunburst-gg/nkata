@@ -57,7 +57,7 @@ describe("server source helpers", () => {
     expect(ago("2026-10-05T09:00:00.000Z", NOW)).toBe("3 h");
     expect(ago("2026-10-01T09:00:00.000Z", NOW)).toBe("4 d");
     expect(toneOf("abc")).toBeGreaterThanOrEqual(1);
-    expect(checkOf({ check_id: "triangle_budget", severity: "block", passed: false, auto_fixed: false, message: "48,200 of 30,000" })).toEqual({ id: "triangle_budget", name: "Triangle budget", detail: "48,200 of 30,000", status: "fail", blocks: true, fixable: false });
+    expect(checkOf({ check_id: "triangle_budget", severity: "block", passed: false, auto_fixed: false, message: "48,200 of 30,000" })).toEqual({ id: "triangle_budget", name: "Triangle budget", detail: "48,200 of 30,000", status: "fail", blocks: true, severity: "block", fixable: false });
     expect(checkOf({ check_id: "unit_scale", severity: "block", passed: false, auto_fixed: false, message: "0.01" }).fixable).toBe(true);
     expect(checkOf({ check_id: "texture_size", severity: "warn", passed: false, auto_fixed: false, message: "3 over" }).status).toBe("warn");
   });

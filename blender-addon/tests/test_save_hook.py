@@ -119,6 +119,10 @@ class SaveHookTest(unittest.TestCase):
         self.assertEqual(req["manifest"]["bone_count"], 42)
         self.assertEqual(req["manifest"]["objects"][0]["origin"], [0.0, 0.0, 0.0])
         self.assertEqual(req["manifest"]["objects"][0]["scale"], [1.0, 1.0, 1.0])
+        # The card reads these: UV sets per object, the textures, the unit scale.
+        self.assertEqual(req["manifest"]["objects"][0]["uv_sets"], ["UVMap"])
+        self.assertEqual(req["manifest"]["textures"], [{"name": "T_Face_D", "width": 2048, "height": 2048}])
+        self.assertEqual(req["manifest"]["unit_scale"], 1.0)
         self.assertEqual(req["source_file"], "Ojukwu/face.blend")
         self.assertEqual(self.bpy._ops.calls[0][0], "collection.exporter_export")
         self.assertTrue(any(p.name.endswith(".manifest.json") for p in Path(req["spool_path"]).parent.iterdir()))

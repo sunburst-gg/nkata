@@ -53,6 +53,11 @@ describe("viewer role", () => {
     const part = render(`${RS}/a/ojukwu/face`);
     expect(part).toContain("Open in Blender");
     expect(part).toContain(">Fix<");
+    // The note leads, the card carries the numbers and the delta from the publish before.
+    expect(part).toContain("Roof reworked, cloth softer. Textures final.");
+    expect(part).toContain(">Triangles<");
+    expect(part).toContain("+1,200");
+    expect(part).toContain("checks block");
     expect(part).toContain("Ojukwu / face");
     const project = render(RS);
     expect(project).toContain("3 online · 12 changed today · 2 ready for review");

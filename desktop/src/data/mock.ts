@@ -24,25 +24,29 @@ const RENDERS: RenderKey[] = ["ground", "courtyard", "tree", "interior"];
 /** A manifest per version so What changed has something to say: v3 reworks the main object and
  *  adds a material, v2 added a second object, v1 is the first block. */
 function manifestFor(part: string, n: number): VersionManifest {
-  const main = { name: `${part}_mesh`, triangles: 9000 + n * 1200, materials: n >= 3 ? [`M_${part}`, `M_${part}_detail`] : [`M_${part}`], hash: `${part}-${n >= 3 ? "c" : "a"}` };
-  const second = { name: `${part}_trim`, triangles: 2400, materials: ["M_trim"], hash: `${part}-trim` };
-  return { objects: n >= 2 ? [main, second] : [main], bones: part === "face" || part === "rig" ? 42 : null };
+  const main = { name: `${part}_mesh`, triangles: 9000 + n * 1200, materials: n >= 3 ? [`M_${part}`, `M_${part}_detail`] : [`M_${part}`], hash: `${part}-${n >= 3 ? "c" : "a"}`, uvSets: n >= 3 ? ["UVMap", "Lightmap"] : ["UVMap"] };
+  const second = { name: `${part}_trim`, triangles: 2400, materials: ["M_trim"], hash: `${part}-trim`, uvSets: ["UVMap"] };
+  const textures = [{ name: `T_${part}_D`, width: 2048, height: 2048 }, { name: `T_${part}_N`, width: 2048, height: 2048 }, ...(n >= 3 ? [{ name: `T_${part}_R`, width: 1024, height: 1024 }] : [])];
+  return { objects: n >= 2 ? [main, second] : [main], bones: part === "face" || part === "rig" ? 42 : null, textures, unitScale: 1 };
 }
+
+const NOTES = ["Roof reworked, cloth softer. Textures final.", "Base done, cloth roof still rough.", "Blocked in at scale.", "First pass."];
 
 function versions(part: string, top: number, author: string): Version[] {
   const out: Version[] = [];
   for (let n = top, i = 0; n >= 1 && i < 4; n--, i++) {
-    out.push({ id: `${part}-v${n}`, n, note: i === 0 ? "current" : "", render: r(RENDERS[i]!), authorId: author, when: WHEN[i]!, mirror: "synced", model: SAMPLE_MODEL, manifest: manifestFor(part, n) });
+    out.push({ id: `${part}-v${n}`, n, note: NOTES[i] ?? "", published: true, render: r(RENDERS[i]!), authorId: author, when: WHEN[i]!, mirror: "synced", model: SAMPLE_MODEL, manifest: manifestFor(part, n) });
   }
   return out;
 }
 
 function checks(): Check[] {
   return [
-    { id: "scale", name: "Scale", detail: "Applied, 1.0", status: "pass", blocks: false, fixable: false },
-    { id: "tris", name: "Triangles", detail: "18,400 of 30,000", status: "pass", blocks: false, fixable: false },
-    { id: "tex", name: "Textures", detail: "1 texture over 2048. Nkata can resize it.", status: "fail", blocks: true, fixable: true, fixedDetail: "Resized to 2048." },
-    { id: "naming", name: "Naming", detail: "market_stall_model", status: "pass", blocks: false, fixable: false },
+    { id: "texture_names", name: "Texture names", detail: "1 texture not T_: stall diffuse", status: "fail", blocks: true, severity: "block", fixable: true, fixedDetail: "Renamed to T_stall_diffuse." },
+    { id: "unit_scale", name: "Scale", detail: "1.0", status: "pass", blocks: false, severity: "block", fixable: false },
+    { id: "uv_set_present", name: "UV set", detail: "2 sets", status: "pass", blocks: false, severity: "block", fixable: false },
+    { id: "triangle_budget", name: "Triangle budget", detail: "18,400 of 30,000", status: "pass", blocks: false, severity: "block", fixable: false },
+    { id: "name_pattern", name: "Naming", detail: "SM_market_stall", status: "pass", blocks: false, severity: "warn", fixable: false },
   ];
 }
 

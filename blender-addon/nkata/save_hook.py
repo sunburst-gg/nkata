@@ -70,7 +70,8 @@ def collect(collection: Any) -> Collected:
         triangles = sum(max(0, len(p.vertices) - 2) for p in obj.data.polygons)
         origin = (float(matrix[3]), float(matrix[7]), float(matrix[11]))
         scale = tuple(float(v) for v in getattr(obj, "scale", (1.0, 1.0, 1.0)))
-        infos.append(manifest.ObjectInfo(obj.name, triangles, [m for m in materials if m], lo, hi, h, origin, (scale[0], scale[1], scale[2])))
+        uv_sets = tuple(str(u.name) for u in getattr(obj.data, "uv_layers", []) or [])
+        infos.append(manifest.ObjectInfo(obj.name, triangles, [m for m in materials if m], lo, hi, h, origin, (scale[0], scale[1], scale[2]), uv_sets))
     return Collected(hashes, infos, armature, bone_count)
 
 
@@ -89,13 +90,20 @@ def gather_facts(collection: Any, skeletons: dict[str, tuple[str, ...]] | None =
         triangles = sum(max(0, len(p.vertices) - 2) for p in obj.data.polygons)
         uv_layers = tuple(str(u.name) for u in getattr(obj.data, "uv_layers", []) or [])
         objects.append(checks.ObjectFacts(obj.name, triangles, uv_layers, lo, (float(matrix[3]), float(matrix[7]), float(matrix[11]))))
-    textures = tuple(
+    return checks.SceneFacts(unit_scale=unit_scale_now(), objects=tuple(objects), textures=texture_facts(), bone_names=bone_names, skeletons=dict(skeletons or {}))
+
+
+def texture_facts() -> tuple[checks.TextureFacts, ...]:
+    """The images in the file with pixels: what the texture checks and the card read."""
+    return tuple(
         checks.TextureFacts(str(img.name), int(img.size[0]), int(img.size[1]))
         for img in getattr(bpy.data, "images", []) or []
         if getattr(img, "size", None) and int(img.size[0]) > 0
     )
-    unit_scale = float(getattr(getattr(bpy.context.scene, "unit_settings", None), "scale_length", 1.0))
-    return checks.SceneFacts(unit_scale=unit_scale, objects=tuple(objects), textures=textures, bone_names=bone_names, skeletons=dict(skeletons or {}))
+
+
+def unit_scale_now() -> float:
+    return float(getattr(getattr(bpy.context.scene, "unit_settings", None), "scale_length", 1.0))
 
 
 def run_part_checks(part: dict[str, Any], collection: Any) -> list[dict[str, Any]]:
@@ -169,7 +177,10 @@ def handle_save(filepath: str) -> dict[str, Any]:
         t = time.monotonic()
         how = export.export_collection(collection, spool, kind)
         export_ms = int((time.monotonic() - t) * 1000)
-        manifest_data = manifest.build_manifest(infos, got.armature, part.get("mapping", {}).get("path"), kind, got.bone_count)
+        manifest_data = manifest.build_manifest(
+            infos, got.armature, part.get("mapping", {}).get("path"), kind, got.bone_count,
+            textures=[(t.name, t.width, t.height) for t in texture_facts()], unit_scale=unit_scale_now(),
+        )
         manifest.write_manifest(spool.with_name(f"{version_name}.manifest.json"), manifest_data)
         spool_path = str(spool)
         log("export.done", part_id=part["id"], kind=kind, how=how, export_ms=export_ms, objects=len(infos))

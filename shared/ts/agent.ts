@@ -78,6 +78,13 @@ export const PartCloseResponse = z.strictObject({
 });
 export type PartCloseResponse = z.infer<typeof PartCloseResponse>;
 
+export const ManifestTexture = z.strictObject({
+  "name": z.string().min(1),
+  "width": z.number().int().min(0),
+  "height": z.number().int().min(0),
+});
+export type ManifestTexture = z.infer<typeof ManifestTexture>;
+
 export const ManifestObject = z.strictObject({
   "name": z.string().min(1),
   "triangles": z.number().int().min(0),
@@ -87,6 +94,7 @@ export const ManifestObject = z.strictObject({
   "hash": z.string(),
   "origin": Vec3,
   "scale": Vec3,
+  "uv_sets": z.array(z.string()).optional(),
 });
 export type ManifestObject = z.infer<typeof ManifestObject>;
 
@@ -98,6 +106,8 @@ export const ObjectManifest = z.strictObject({
   "bone_count": z.number().int().min(0).nullable(),
   "armature": z.string().nullable(),
   "mirror_target": z.string().nullable(),
+  "textures": z.array(ManifestTexture).optional(),
+  "unit_scale": z.number().optional(),
 });
 export type ObjectManifest = z.infer<typeof ObjectManifest>;
 

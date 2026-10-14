@@ -95,6 +95,15 @@ class PartCloseResponse:
         return _rt.to_dict(self)
 
 @dataclass(frozen=True)
+class ManifestTexture:
+    name: str
+    width: int
+    height: int
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
+@dataclass(frozen=True)
 class ManifestObject:
     name: str
     triangles: int
@@ -104,6 +113,7 @@ class ManifestObject:
     hash: str
     origin: Vec3
     scale: Vec3
+    uv_sets: list[str] | None = field(default=None, metadata={"optional": True})
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -117,6 +127,8 @@ class ObjectManifest:
     bone_count: int | None
     armature: str | None
     mirror_target: str | None
+    textures: list[ManifestTexture] | None = field(default=None, metadata={"optional": True})
+    unit_scale: float | None = field(default=None, metadata={"optional": True})
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -491,6 +503,23 @@ def validate_PartCloseResponse(value: object, path: str = "$") -> PartCloseRespo
         released=_v_PartCloseResponse_released(obj["released"], path + ".released"),
     )
 
+def _v_ManifestTexture_name(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
+
+def _v_ManifestTexture_width(value: object, path: str) -> int:
+    return _rt.check_int(value, path, minimum=0, maximum=None)
+
+def _v_ManifestTexture_height(value: object, path: str) -> int:
+    return _rt.check_int(value, path, minimum=0, maximum=None)
+
+def validate_ManifestTexture(value: object, path: str = "$") -> ManifestTexture:
+    obj = _rt.check_object(value, path, required=("name", "width", "height",), allowed=("name", "width", "height",))
+    return ManifestTexture(
+        name=_v_ManifestTexture_name(obj["name"], path + ".name"),
+        width=_v_ManifestTexture_width(obj["width"], path + ".width"),
+        height=_v_ManifestTexture_height(obj["height"], path + ".height"),
+    )
+
 def _v_ManifestObject_name(value: object, path: str) -> str:
     return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
 
@@ -506,8 +535,14 @@ def _v_ManifestObject_materials(value: object, path: str) -> list[Any]:
 def _v_ManifestObject_hash(value: object, path: str) -> str:
     return _rt.check_str(value, path, min_length=0, pattern=None, fmt=None)
 
+def _v_ManifestObject_uv_sets_item(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=0, pattern=None, fmt=None)
+
+def _v_ManifestObject_uv_sets(value: object, path: str) -> list[Any]:
+    return _rt.check_list(value, path, _v_ManifestObject_uv_sets_item, min_items=None, max_items=None)
+
 def validate_ManifestObject(value: object, path: str = "$") -> ManifestObject:
-    obj = _rt.check_object(value, path, required=("name", "triangles", "materials", "bounds_min", "bounds_max", "hash", "origin", "scale",), allowed=("name", "triangles", "materials", "bounds_min", "bounds_max", "hash", "origin", "scale",))
+    obj = _rt.check_object(value, path, required=("name", "triangles", "materials", "bounds_min", "bounds_max", "hash", "origin", "scale",), allowed=("name", "triangles", "materials", "bounds_min", "bounds_max", "hash", "origin", "scale", "uv_sets",))
     return ManifestObject(
         name=_v_ManifestObject_name(obj["name"], path + ".name"),
         triangles=_v_ManifestObject_triangles(obj["triangles"], path + ".triangles"),
@@ -517,6 +552,7 @@ def validate_ManifestObject(value: object, path: str = "$") -> ManifestObject:
         hash=_v_ManifestObject_hash(obj["hash"], path + ".hash"),
         origin=validate_Vec3(obj["origin"], path + ".origin"),
         scale=validate_Vec3(obj["scale"], path + ".scale"),
+        uv_sets=_v_ManifestObject_uv_sets(obj["uv_sets"], path + ".uv_sets") if "uv_sets" in obj else None,
     )
 
 def _v_ObjectManifest_v(value: object, path: str) -> Any:
@@ -549,8 +585,14 @@ def _v_ObjectManifest_mirror_target(value: object, path: str) -> Any:
         return None
     return _v_ObjectManifest_mirror_target_inner(value, path)
 
+def _v_ObjectManifest_textures(value: object, path: str) -> list[Any]:
+    return _rt.check_list(value, path, validate_ManifestTexture, min_items=None, max_items=None)
+
+def _v_ObjectManifest_unit_scale(value: object, path: str) -> float:
+    return _rt.check_float(value, path, minimum=None, maximum=None)
+
 def validate_ObjectManifest(value: object, path: str = "$") -> ObjectManifest:
-    obj = _rt.check_object(value, path, required=("v", "kind", "objects", "bone_count", "armature", "mirror_target",), allowed=("v", "kind", "objects", "bone_count", "armature", "mirror_target",))
+    obj = _rt.check_object(value, path, required=("v", "kind", "objects", "bone_count", "armature", "mirror_target",), allowed=("v", "kind", "objects", "bone_count", "armature", "mirror_target", "textures", "unit_scale",))
     return ObjectManifest(
         v=_v_ObjectManifest_v(obj["v"], path + ".v"),
         kind=validate_TemplateKind(obj["kind"], path + ".kind"),
@@ -558,6 +600,8 @@ def validate_ObjectManifest(value: object, path: str = "$") -> ObjectManifest:
         bone_count=_v_ObjectManifest_bone_count(obj["bone_count"], path + ".bone_count"),
         armature=_v_ObjectManifest_armature(obj["armature"], path + ".armature"),
         mirror_target=_v_ObjectManifest_mirror_target(obj["mirror_target"], path + ".mirror_target"),
+        textures=_v_ObjectManifest_textures(obj["textures"], path + ".textures") if "textures" in obj else None,
+        unit_scale=_v_ObjectManifest_unit_scale(obj["unit_scale"], path + ".unit_scale") if "unit_scale" in obj else None,
     )
 
 def _v_PartSavedRequest_v(value: object, path: str) -> Any:

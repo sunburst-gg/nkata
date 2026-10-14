@@ -34,8 +34,12 @@ export type Render = { key: RenderKey; pos: string; url?: undefined } | { url: s
 
 /** What the add-on wrote next to the export: enough to say what changed between two versions. */
 export interface VersionManifest {
-  objects: { name: string; triangles: number; materials: string[]; hash: string }[];
+  objects: { name: string; triangles: number; materials: string[]; hash: string; uvSets: string[] }[];
   bones: number | null;
+  /** The images the part's materials use, by name. Empty on manifests from before step 7. */
+  textures: { name: string; width: number; height: number }[];
+  /** The scene's unit scale at export. Null on manifests from before step 7. */
+  unitScale: number | null;
 }
 
 export interface Version {
@@ -63,7 +67,10 @@ export interface Check {
   name: string;
   detail: string;
   status: CheckStatus;
+  /** Failing and blocking right now. */
   blocks: boolean;
+  /** The template's severity: a blocking check is one of the four dots. */
+  severity: "block" | "warn";
   fixable: boolean;
   /** After a fix. */
   fixedDetail?: string;
