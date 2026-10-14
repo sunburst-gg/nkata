@@ -1,5 +1,5 @@
-// Settings. Its own shell: Back to app, then Personal (Account), Studio (General, Members, Billing,
-// Training), Tools (Connections, MCP soon, Agents soon). Only producers change training; every
+// Settings. Its own shell: Back to app, then Personal (Account), Studio (General, Members, Billing),
+// Tools (Connections, MCP soon, Agents soon). Only producers change training; every
 // change is logged.
 import { useEffect, useState } from "react";
 import { ChevronLeft } from "lucide-react";
@@ -21,7 +21,7 @@ const LINES: Record<SettingsTab, string> = {
   account: "Your name and email. One account, many studios.",
   general: "The studio name and how Nkata looks.",
   members: "Who can open this studio's projects.",
-  billing: "Nkata is free while training is on. Turn it off and your studio is billed per seat.",
+  billing: "Nkata is free while studios test it. Nothing to pay, no card to add.",
   training: "Training on means your team's process teaches Nok, and Nkata costs nothing. Training off means you pay, and nothing leaves your studio.",
   connections: "Nkata connects to the tools on this computer. More tools arrive over time.",
   mcp: "Connect agents to this studio.",
@@ -37,7 +37,7 @@ export function Settings() {
   const projects = useStore((s) => s.db.session.studio.projects);
   const groups: { group: string; items: SettingsTab[] }[] = [
     { group: "Personal", items: ["account"] },
-    { group: "Studio", items: (["general", "members", "billing", "training"] as SettingsTab[]).filter((t) => (t === "billing" ? can("viewBilling") : t === "training" ? can("setTraining") : t === "members" ? can("viewPeople") : true)) },
+    { group: "Studio", items: (["general", "members", "billing"] as SettingsTab[]).filter((t) => (t === "billing" ? can("viewBilling") : t === "members" ? can("viewPeople") : true)) },
     { group: "Tools", items: ["connections", "mcp", "agents"] },
   ];
   const allowed = groups.flatMap((g) => g.items);
@@ -143,17 +143,14 @@ function General() {
 
 function Billing() {
   const studio = useStore((s) => s.db.session.studio);
-  const go = useGo();
-  const on = studio.training === "on";
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-4 rounded-xl border border-hairline bg-panel p-4">
-        <div className="flex flex-1 flex-col gap-0.5"><span className="font-medium text-heading">{studio.billing.line}</span><span className="text-13 text-secondary">{on ? "Training is on. Your team's process pays for Nkata." : "Training is off. Your first invoice arrives on 1 Nov 2026."}</span></div>
-        <button type="button" onClick={() => go.settings("training")} className="cursor-pointer border-0 bg-transparent p-0 text-13 text-secondary underline underline-offset-[3px] hover:text-heading">Change in Training</button>
+        <div className="flex flex-1 flex-col gap-0.5"><span className="font-medium text-heading">{studio.billing.line}</span><span className="text-13 text-secondary">Your studio pays nothing while Nkata is in testing. We will say so here before that changes.</span></div>
       </div>
       <div className="grid gap-x-6 gap-y-3 text-14 leading-[1.5]" style={{ gridTemplateColumns: "140px 1fr" }}>
         <span className="text-secondary">Seats</span><span className="text-heading">{studio.billing.seats} people in {studio.name}</span>
-        <span className="text-secondary">Payment method</span><span className="text-heading">{on ? "Not needed while training is on." : "Add a card before 1 Nov 2026."}</span>
+        <span className="text-secondary">Payment method</span><span className="text-heading">Not needed during testing.</span>
         <span className="text-secondary">Invoices</span><span className="text-heading">None yet.</span>
       </div>
     </div>

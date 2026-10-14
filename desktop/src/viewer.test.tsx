@@ -57,15 +57,16 @@ describe("viewer role", () => {
     const project = render(RS);
     expect(project).toContain("3 online · 12 changed today · 2 ready for review");
     expect(project).toContain(">Review<");
-    expect(project).toContain("Training on");
+    expect(project).not.toContain("Training");
     expect(project).toContain("~/Documents/Nkata/Rising Sun");
     expect(render("/welcome")).toContain("New project");
     expect(render("/welcome")).toContain("Welcome, Emmanuel");
     expect(render(`${RS}/a/ojukwu`)).toContain(">Export<");
     expect(render(`${RS}/a/ojukwu`)).toContain(">Remove gate<");
     expect(render(`${RS}/a/ojukwu`)).not.toContain("Download images");
-    expect(render("/settings/billing")).toContain("Nothing to pay");
-    expect(render("/settings/training")).toContain("Every change is logged");
+    expect(render("/settings/billing")).toContain("Free while Nkata is in testing");
+    expect(render("/settings/billing")).not.toContain("Training");
+    expect(render("/welcome")).not.toContain("Training");
     expect(render("/mentions")).toContain("remove the gate on textures");
     // Compare: the facts from the two manifests and the renders under a wipe.
     const compare = render(`${RS}/a/ojukwu/face?compare=2`);

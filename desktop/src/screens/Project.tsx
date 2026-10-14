@@ -1,4 +1,4 @@
-// Project. The header with the folder, the owner and the Training badge; tabs with counts; the
+// Project. The header with the folder and the owner; tabs with counts; the
 // empty state or the tiles. A tile pulses once in the accent when its first mirror lands.
 import { useEffect, useRef, useState } from "react";
 import { useCan, useStore } from "@/store";
@@ -71,7 +71,6 @@ export function Project() {
             <span className="font-mono text-12">{project.folder}</span>
             <span>{project.createdLabel}</span>
             <span className="inline-flex items-center gap-1.5"><PresenceAvatar initial={owner.initial} tone={owner.tone} size={18} />{owner.name}</span>
-            {db.session.studio.training === "on" ? <span className="rounded-md border border-border px-2 text-12 leading-[20px]">Training on</span> : null}
           </div>
         </div>
         {can("openEditors") ? (

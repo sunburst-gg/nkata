@@ -25,9 +25,11 @@ const ProjectBody = z.object({
   package_version: z.string().min(1),
 });
 
-/** The billing line. No payment code yet: a stub with the seat count only (docs/decisions.md, 2026-10-10). */
-export function billingFor(training: Training, seats: number): { line: string; seats: number } {
-  return { line: training === "on" ? "Nothing to pay" : "Billed per seat", seats };
+/** The billing line. Nkata is free while studios test it, whatever the training setting, and no
+ * payment code exists yet: the seat count only (docs/decisions.md, 2026-10-10 and 2026-10-14). */
+export const FREE_LINE = "Free while Nkata is in testing";
+export function billingFor(_training: Training, seats: number): { line: string; seats: number } {
+  return { line: FREE_LINE, seats };
 }
 
 /** A project on the wire: the webhook stays in the row. */

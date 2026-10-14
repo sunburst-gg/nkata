@@ -165,8 +165,8 @@ export function createMockSource(initial: MockOptions | "artist" | "viewer" = {}
   let activity: ActivityItem[] = [];
   let mentions: Mention[] = [];
   let connected: Record<ConnectionId, boolean> = { blender: false, unreal: false, discord: false, linear: false, substance: false, maya: false, houdini: false, unity: false, godot: false };
-  let training: Training = "on";
-  let trainingLog: TrainingEntry[] = [{ when: "10 Oct 2026", text: "Training on. Studio created by Emmanuel Njoku" }];
+  let training: Training = "off";
+  let trainingLog: TrainingEntry[] = [{ when: "10 Oct 2026", text: "Training off. Studio created by Emmanuel Njoku" }];
   let studioName = "Sunburst";
   let studios: { id: string; name: string }[] = [{ id: "sunburst", name: "Sunburst" }];
   let studioId = "sunburst";
@@ -193,7 +193,7 @@ export function createMockSource(initial: MockOptions | "artist" | "viewer" = {}
 
   const studio = (): Studio => ({
     id: studioId, name: studioName, initial: (studioName || "S").charAt(0).toUpperCase(), peopleCount: people.length, projects,
-    training, billing: { line: training === "on" ? "Nothing to pay" : "Billed per seat", seats: people.length },
+    training, billing: { line: "Free while Nkata is in testing", seats: people.length },
   });
   const connections = (): Connection[] => CONNECTION_DEFS.map((c) => ({ id: c.id, name: c.name, soon: c.soon, connected: connected[c.id], version: c.version, line: connected[c.id] ? c.connected : c.found }));
   const findPart = (assetSlug: string, partName: string) => {

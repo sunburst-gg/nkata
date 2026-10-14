@@ -93,14 +93,15 @@ describe.skipIf(!hasInfra)("server api", () => {
     expect((named.json() as { user: { name: string } }).user.name).toBe("Emmanuel Njoku");
     const taken = await h.app.inject({ method: "PUT", url: "/me", ...as, payload: { name: "Emmanuel Njoku", email: ARTIST } });
     expect(taken.statusCode).toBe(409);
-    const made = await h.app.inject({ method: "POST", url: "/studios", ...as, payload: { name: "Sunburst", training: "on" } });
+    const made = await h.app.inject({ method: "POST", url: "/studios", ...as, payload: { name: "Sunburst" } });
     expect(made.statusCode).toBe(201);
     const inside = made.json() as { token: string; studio_id: string; roles: string[]; studios: { name: string }[] };
     expect(inside.roles).toEqual(["producer"]);
     expect(inside.studios.map((x) => x.name)).toEqual(["Sunburst"]);
     const mine = { headers: { authorization: `Bearer ${inside.token}` } };
     const studio = (await h.app.inject({ method: "GET", url: "/studio", ...mine })).json() as { studio: { name: string; training: string; billing: { line: string } } };
-    expect(studio.studio).toMatchObject({ name: "Sunburst", training: "on", billing: { line: "Nothing to pay" } });
+    // A new studio starts with training off and pays nothing while Nkata is in testing.
+    expect(studio.studio).toMatchObject({ name: "Sunburst", training: "off", billing: { line: "Free while Nkata is in testing" } });
     expect((await h.app.inject({ method: "GET", url: "/projects", ...mine })).json()).toEqual({ v: 1, projects: [] });
     // The old session still has no studio; a switch issues one inside it.
     const switched = await h.app.inject({ method: "POST", url: "/auth/switch", ...as, payload: { studio_id: inside.studio_id } });
@@ -422,7 +423,7 @@ describe.skipIf(!hasInfra)("server api", () => {
     it("a producer turns training on, which pays nothing, stamps new rows, and requires rights to Publish", async () => {
       expect((await h.app.inject({ method: "PUT", url: "/studio/training", ...h.as(ARTIST), payload: { training: "on" } })).statusCode).toBe(403);
       const on = await h.app.inject({ method: "PUT", url: "/studio/training", ...h.as(PRODUCER), payload: { training: "on" } });
-      expect(on.json()).toMatchObject({ studio: { training: "on", billing: { line: "Nothing to pay", seats: 5 } } });
+      expect(on.json()).toMatchObject({ studio: { training: "on", billing: { line: "Free while Nkata is in testing", seats: 5 } } });
       const events = await h.app.inject({ method: "GET", url: `/events?project_id=${h.seeded.project_id}`, ...h.as(PRODUCER) });
       expect((events.json() as { events: { event: { kind: string } }[] }).events.some((e) => e.event.kind === "studio.training")).toBe(false);
       // A new version is eligible; the old one stays as it was.
@@ -531,7 +532,7 @@ describe.skipIf(!hasInfra)("server api", () => {
 
     it("names the studio and counts its members", async () => {
       const res = await h.app.inject({ method: "GET", url: "/studio", ...h.as(VIEWER) });
-      expect(res.json()).toEqual({ v: 1, studio: { id: h.seeded.studio_id, name: "Sunburst Interactive", member_count: 5, training: "off", billing: { line: "Billed per seat", seats: 5 } } });
+      expect(res.json()).toEqual({ v: 1, studio: { id: h.seeded.studio_id, name: "Sunburst Interactive", member_count: 5, training: "off", billing: { line: "Free while Nkata is in testing", seats: 5 } } });
     });
 
     it("lists members and lets a producer invite and set roles", async () => {

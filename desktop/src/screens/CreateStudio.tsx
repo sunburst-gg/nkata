@@ -1,4 +1,5 @@
-// Create your studio: the name and the one Training toggle, on by default. No plans anywhere.
+// Create your studio: the name. Training is off and out of sight while studios test Nkata
+// (docs/decisions.md, 2026-10-14); TrainingCard stays for the day it comes back.
 import { useState } from "react";
 import { useStore } from "@/store";
 import { Button } from "@/components/Button";
@@ -34,7 +35,7 @@ export function CreateStudio() {
   const toast = useStore((s) => s.toast);
   const go = useGo();
   const [name, setName] = useState("");
-  const [training, setTraining] = useState<Training>("on");
+  const training: Training = "off";
   const [busy, setBusy] = useState(false);
   const submit = async () => {
     const value = name.trim();
@@ -60,11 +61,6 @@ export function CreateStudio() {
       <form className="flex flex-col gap-7" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
         <div className="flex flex-col gap-2"><Title>Create your studio</Title><span className="text-secondary">A shared space for your team's games.</span></div>
         <Field label="Studio name"><input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Sunburst" aria-label="Studio name" className={CONTROL} /></Field>
-        <div className="flex flex-col gap-2">
-          <span className="text-13 text-secondary">Training</span>
-          <TrainingCard training={training} onChange={setTraining} />
-          <span className="text-13 text-muted">Same features either way. Change it any time in Settings.</span>
-        </div>
         <Button type="submit" size="lg" variant="primary" className="self-start" loading={busy}>Create studio</Button>
       </form>
     </SetupFrame>

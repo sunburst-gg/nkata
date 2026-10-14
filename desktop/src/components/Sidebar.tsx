@@ -1,4 +1,4 @@
-// The v3 sidebar: studio menu with the Training badge, Get started, New project, Mentions, the
+// The v3 sidebar: studio menu, Get started, New project, Mentions, the
 // projects list, and at the bottom Invite members, Connections, Billing. 260 wide, hairline right.
 import { AtSign, ChevronDown, Plus, Sparkles } from "lucide-react";
 import { useLocation } from "react-router";
@@ -28,7 +28,6 @@ export function Sidebar() {
   const current = useProject();
   const { pathname } = useLocation();
   const onProject = pathname.startsWith("/p/");
-  const trainingOn = studio.training === "on";
 
   return (
     <aside className="flex w-[260px] shrink-0 flex-col gap-1 border-r border-hairline px-4 py-5">
@@ -39,9 +38,6 @@ export function Sidebar() {
               <span aria-hidden="true" className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-[var(--avatar-9)] text-12 font-semibold text-[var(--avatar-fg)]">{studio.initial}</span>
               <span className="truncate text-14 font-medium text-heading">{studio.name}</span>
               <ChevronDown size={12} strokeWidth={1.5} aria-hidden="true" className="shrink-0 text-muted" />
-              <span title={trainingOn ? "Training on" : "Training off"} className="ml-auto inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-border px-2 text-12 leading-[18px] text-secondary">
-                <span aria-hidden="true" className="size-1.5 rounded-full" style={{ background: trainingOn ? "var(--state-approved)" : "var(--fg-disabled)" }} />Training
-              </span>
             </button>
           </MenuTrigger>
           <MenuContent width={240}>

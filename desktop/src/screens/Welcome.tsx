@@ -45,7 +45,7 @@ export function Welcome() {
             <div className="wc-blur" style={{ backgroundImage: `url(${renderUrl("tree")})` }} /><div className="wc-glow" />
             <div className="wc-window">
               <div className="wc-side">
-                <div className="wc-studio"><span className="wc-studio-mark">{studio.initial}</span><span className="font-medium">{studio.name}</span><span className="wc-badge">Training</span></div>
+                <div className="wc-studio"><span className="wc-studio-mark">{studio.initial}</span><span className="font-medium">{studio.name}</span></div>
                 <span className="wc-nav">Get started</span><span className="wc-nav-hl">+ New project</span><span className="wc-nav">@ Mentions</span><span className="wc-label">Projects</span><span className="wc-none">No projects yet.</span>
               </div>
               <div className="wc-main"><span className="wc-serif">New project</span><span className="wc-field" /><span className="wc-field" /></div>

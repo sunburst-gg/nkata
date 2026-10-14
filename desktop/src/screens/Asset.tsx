@@ -59,12 +59,12 @@ function AssetScreen({ asset, onPart }: { asset: AssetModel; onPart: (p: Part) =
           {can("openEditors") ? <><Button onClick={() => open("Blender")}>Open in Blender</Button><Button onClick={() => open("Unreal")}>Open in Unreal</Button></> : null}
           {can("exportAsset") && !can("openEditors") ? null : can("exportAsset") ? <Button onClick={() => void exportAsset()}>Export</Button> : null}
           {can("assign") ? <Button onClick={() => setAssigning(true)}>Assign</Button> : null}
-          {can("confirmRights") && !asset.rights ? <Button onClick={() => setConfirming(true)}>Confirm rights</Button> : null}
+          {can("confirmRights") && training && !asset.rights ? <Button onClick={() => setConfirming(true)}>Confirm rights</Button> : null}
           {can("removeGate") ? <Button onClick={() => { if (gated) { source.removeGate(asset.slug, gated.name); toast(`Gate removed on ${asset.name} / ${gated.name}.`); } else toast("No gate on this asset.", "muted"); }}>Remove gate</Button> : null}
           {can("downloadImages") && !can("openEditors") ? <Button onClick={() => toast("Images download in the desktop app.", "muted")}>Download images</Button> : null}
         </div>
       </div>
-      {asset.rights ? (
+      {asset.rights && training ? (
         <span className="text-13 text-secondary">{`Rights: ${asset.rights.statement} Confirmed by ${by(asset.rights.confirmedById).name}.`}</span>
       ) : training ? (
         <span className="text-13 text-secondary">{can("confirmRights") ? "Rights not confirmed. Publish waits until you confirm who holds them." : "Rights not confirmed. Publish waits on an art director or producer."}</span>

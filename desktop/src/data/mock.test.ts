@@ -16,8 +16,8 @@ describe("mock data source", () => {
     expect(db.assets.filter((a) => a.projectSlug === "rising-sun").map((a) => a.name)).toEqual(["Market stall", "Ojukwu", "Enugu Market", "Compound", "Kettle", "Ngozi"]);
     expect(db.people.map((p) => p.name.split(" ")[0])).toEqual(["Emmanuel", "Ada", "Chidi", "Ngozi", "Emeka", "Tobe", "Ify"]);
     expect(db.session.user.role).toBe("producer");
-    expect(db.session.studio.training).toBe("on");
-    expect(db.session.studio.billing).toEqual({ line: "Nothing to pay", seats: 7 });
+    expect(db.session.studio.training).toBe("off");
+    expect(db.session.studio.billing).toEqual({ line: "Free while Nkata is in testing", seats: 7 });
     expect(db.mentions).toHaveLength(2);
     for (const a of db.assets) for (const p of a.parts) expect(db.people.some((x) => x.id === p.ownerId), `${a.name}/${p.name} owner`).toBe(true);
     for (const a of db.assets) expect(a.model).toBe("/models/Duck.glb");
@@ -104,10 +104,11 @@ describe("mock data source", () => {
     expect(a.link).toEqual({ label: "Open Ojukwu / face", assetSlug: "ojukwu", partName: "face" });
   });
 
-  it("training off changes the billing line and logs who did it", async () => {
+  it("training can still change underneath, and billing stays free while Nkata is in testing", async () => {
     const src = createMockSource({ stage: "populated" });
-    await src.setTraining("off");
-    expect(src.snapshot().session.studio.billing.line).toBe("Billed per seat");
-    expect(src.snapshot().trainingLog[0]?.text).toContain("Training off");
+    await src.setTraining("on");
+    expect(src.snapshot().session.studio.training).toBe("on");
+    expect(src.snapshot().session.studio.billing.line).toBe("Free while Nkata is in testing");
+    expect(src.snapshot().trainingLog[0]?.text).toContain("Training on");
   });
 });

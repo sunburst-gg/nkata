@@ -94,7 +94,7 @@ export async function authRoutes(app: TypedApp): Promise<void> {
   });
 
   // Create your studio. The creator is its first producer and gets a session inside it.
-  app.post("/studios", { schema: { body: z.object({ name: z.string().trim().min(1), training: Training.default("on") }) } }, async (req, reply) => {
+  app.post("/studios", { schema: { body: z.object({ name: z.string().trim().min(1), training: Training.default("off") }) } }, async (req, reply) => {
     const now = app.now();
     const [st] = await app.db.insert(studio).values({ id: newId(), name: req.body.name, training: req.body.training, created_at: now, updated_at: now }).returning();
     await app.db.insert(membership).values({ id: newId(), studio_id: st!.id, user_id: req.account.user_id, roles: ["producer"], created_at: now, updated_at: now });
