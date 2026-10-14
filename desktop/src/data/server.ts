@@ -37,7 +37,7 @@ type PartWire = {
 };
 type AssetWire = { id: string; name: string; template_id: string; state: string; updated_at: string; rights: { statement: string; confirmed_by: string; confirmed_at: string } | null };
 type ManifestWire = { objects: { name: string; triangles: number; materials: string[]; hash: string }[]; bone_count?: number | null } | null;
-type VersionWire = { id: string; part_id: string; author_id: string; mirror_status: string; mirror_ms: number | null; refs: { level: string; actors: number }[] | null; published: boolean; note: string; created_at: string; render_url?: string | null; model_url?: string | null; manifest?: ManifestWire };
+type VersionWire = { id: string; part_id: string; author_id: string; mirror_status: string; mirror_ms: number | null; refs: { level: string; actors: number }[] | null; published: boolean; note: string; note_engineering?: string; created_at: string; render_url?: string | null; model_url?: string | null; manifest?: ManifestWire };
 type CommentWire = { id: string; part_id: string; author: UserRef; body: string; kind: "pin" | "take_a_look"; point: number[]; resolved_at: string | null; created_at: string };
 type CheckWire = { check_id: string; severity: "block" | "warn"; passed: boolean; auto_fixed: boolean; message: string };
 type EventWire = { id: string; event: Wire & { kind: string; actor_id: string; at: string; part_id?: string } };
@@ -104,7 +104,7 @@ export function checkOf(c: CheckWire): Check {
 
 export function versionOf(v: VersionWire, n: number, now: Date): Version {
   return {
-    id: v.id, n, note: v.published ? "published" : v.note, render: v.render_url ? { url: v.render_url } : null, authorId: v.author_id, when: ago(v.created_at, now), mirror: v.mirror_status === "failed" ? "failed" : "synced",
+    id: v.id, n, note: v.note, noteEngineering: v.note_engineering ?? "", published: v.published, render: v.render_url ? { url: v.render_url } : null, authorId: v.author_id, when: ago(v.created_at, now), mirror: v.mirror_status === "failed" ? "failed" : "synced",
     ...(v.model_url ? { model: v.model_url } : {}),
     ...(v.manifest ? { manifest: { objects: v.manifest.objects.map((o) => ({ name: o.name, triangles: o.triangles, materials: [...o.materials], hash: o.hash })), bones: v.manifest.bone_count ?? null } } : {}),
   };

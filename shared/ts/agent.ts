@@ -124,6 +124,8 @@ export const PublishRequest = z.strictObject({
   "v": z.literal(1),
   "check_results": z.array(CheckResult),
   "ready": z.boolean(),
+  "note": z.string().min(1),
+  "note_engineering": z.string().optional(),
 });
 export type PublishRequest = z.infer<typeof PublishRequest>;
 

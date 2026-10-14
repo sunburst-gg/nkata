@@ -113,7 +113,7 @@ export const fixtures: Fixtures = {
       invalid: [{ v: 1, changed: true }],
     },
     PartSavedResponse: { valid: [{ v: 1, version_id: id, mirror: "pending" }], invalid: [{ v: 1, version_id: id, mirror: "ok" }] },
-    PublishRequest: { valid: [{ v: 1, check_results: [checkResult], ready: true }], invalid: [{ v: 1, ready: true }] },
+    PublishRequest: { valid: [{ v: 1, check_results: [checkResult], ready: true, note: "Stall base done, roof rough" }, { v: 1, check_results: [], ready: false, note: "Roof reworked", note_engineering: "Pivot at the base, 2 UV sets." }], invalid: [{ v: 1, ready: true }, { v: 1, check_results: [], ready: true }, { v: 1, check_results: [], ready: true, note: "" }] },
     PublishResponse: { valid: [{ v: 1, published: false, version_id: id, state: "draft", blocked_by: [checkResult], render_needed: false }], invalid: [{ v: 1, published: true }] },
     ChecksRequest: { valid: [{ v: 1, results: [] }], invalid: [{ v: 1, results: [{}] }] },
     ChecksResponse: { valid: [{ v: 1, version_id: id, recorded: 3 }], invalid: [{ v: 1, version_id: id, recorded: -1 }] },

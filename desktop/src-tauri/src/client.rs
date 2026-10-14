@@ -358,10 +358,12 @@ impl ServerClient {
         version_id: &str,
         check_results: &[CheckResult],
         ready: bool,
+        note: &str,
+        note_engineering: &str,
     ) -> Result<PublishResponse> {
         self.post(
             &format!("/parts/{part_id}/publish"),
-            &serde_json::json!({ "version_id": version_id, "check_results": check_results, "ready": ready }),
+            &serde_json::json!({ "version_id": version_id, "check_results": check_results, "ready": ready, "note": note, "note_engineering": note_engineering }),
         )
         .await
     }

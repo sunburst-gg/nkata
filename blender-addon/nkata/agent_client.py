@@ -77,8 +77,11 @@ class AgentClient:
         body = shared.validate_PartSavedRequest({"v": 1, "changed": changed, "spool_path": spool_path, "manifest": manifest, "source_file": source_file, "opened_at": opened_at}).to_dict()
         return shared.validate_PartSavedResponse(self._call("POST", f"/parts/{part_id}/saved", body))
 
-    def publish(self, part_id: str, check_results: list[dict[str, Any]], ready: bool) -> Any:
-        body = shared.validate_PublishRequest({"v": 1, "check_results": check_results, "ready": ready}).to_dict()
+    def publish(self, part_id: str, check_results: list[dict[str, Any]], ready: bool, note: str, note_engineering: str = "") -> Any:
+        body = {"v": 1, "check_results": check_results, "ready": ready, "note": note}
+        if note_engineering:
+            body["note_engineering"] = note_engineering
+        body = shared.validate_PublishRequest(body).to_dict()
         return shared.validate_PublishResponse(self._call("POST", f"/parts/{part_id}/publish", body))
 
     def record_checks(self, part_id: str, results: list[dict[str, Any]]) -> Any:

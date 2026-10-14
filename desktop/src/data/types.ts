@@ -41,7 +41,11 @@ export interface VersionManifest {
 export interface Version {
   id: string;
   n: number;
+  /** The publish note. Empty on a save that was never published. */
   note: string;
+  /** Details for engineers, optional. */
+  noteEngineering?: string;
+  published?: boolean;
   /** The published render, or null before a render exists. */
   render: Render | null;
   authorId: string;

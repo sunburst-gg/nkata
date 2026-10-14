@@ -149,6 +149,8 @@ class PublishRequest:
     v: Literal[1]
     check_results: list[CheckResult]
     ready: bool
+    note: str
+    note_engineering: str | None = field(default=None, metadata={"optional": True})
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -616,12 +618,20 @@ def _v_PublishRequest_check_results(value: object, path: str) -> list[Any]:
 def _v_PublishRequest_ready(value: object, path: str) -> bool:
     return _rt.check_bool(value, path)
 
+def _v_PublishRequest_note(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
+
+def _v_PublishRequest_note_engineering(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=0, pattern=None, fmt=None)
+
 def validate_PublishRequest(value: object, path: str = "$") -> PublishRequest:
-    obj = _rt.check_object(value, path, required=("v", "check_results", "ready",), allowed=("v", "check_results", "ready",))
+    obj = _rt.check_object(value, path, required=("v", "check_results", "ready", "note",), allowed=("v", "check_results", "ready", "note", "note_engineering",))
     return PublishRequest(
         v=_v_PublishRequest_v(obj["v"], path + ".v"),
         check_results=_v_PublishRequest_check_results(obj["check_results"], path + ".check_results"),
         ready=_v_PublishRequest_ready(obj["ready"], path + ".ready"),
+        note=_v_PublishRequest_note(obj["note"], path + ".note"),
+        note_engineering=_v_PublishRequest_note_engineering(obj["note_engineering"], path + ".note_engineering") if "note_engineering" in obj else None,
     )
 
 def _v_PublishResponse_v(value: object, path: str) -> Any:

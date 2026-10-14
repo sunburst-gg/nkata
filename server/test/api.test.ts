@@ -350,14 +350,19 @@ describe.skipIf(!hasInfra)("server api", () => {
       const face = parts["face"]!;
       const blocked = await h.app.inject({
         method: "POST", url: `/parts/${face}/publish`, ...h.as(ARTIST),
-        payload: { version_id: faceVersion, ready: true, check_results: [{ check_id: "triangle_budget", severity: "block", passed: false, auto_fixed: false, message: "72k over 60k" }] },
+        payload: { version_id: faceVersion, ready: true, note: "Face blocked in", check_results: [{ check_id: "triangle_budget", severity: "block", passed: false, auto_fixed: false, message: "72k over 60k" }] },
       });
       expect(blocked.json()).toMatchObject({ published: false, state: "draft" });
       const ok = await h.app.inject({
         method: "POST", url: `/parts/${face}/publish`, ...h.as(ARTIST),
-        payload: { version_id: faceVersion, ready: true, check_results: [{ check_id: "unit_scale", severity: "block", passed: true, auto_fixed: true, message: "" }] },
+        payload: { version_id: faceVersion, ready: true, note: "Face blocked in, eyes still rough", note_engineering: "Skin material uses the shared T_Skin set.", check_results: [{ check_id: "unit_scale", severity: "block", passed: true, auto_fixed: true, message: "" }] },
       });
       expect(ok.json()).toMatchObject({ published: true, state: "ready", blocked_by: [] });
+      // The note is required and travels with the version; the engineering details are optional.
+      const noNote = await h.app.inject({ method: "POST", url: `/parts/${face}/publish`, ...h.as(ARTIST), payload: { version_id: faceVersion, ready: false, note: "   " } });
+      expect(noNote.statusCode).toBe(400);
+      const listed = (await h.app.inject({ method: "GET", url: `/parts/${face}/versions`, ...h.as(VIEWER) })).json() as { versions: { id: string; note: string; note_engineering: string }[] };
+      expect(listed.versions.find((x) => x.id === faceVersion)).toMatchObject({ note: "Face blocked in, eyes still rough", note_engineering: "Skin material uses the shared T_Skin set." });
     });
 
     it("only reviewers approve, and approving opens gates down the chain", async () => {
@@ -438,13 +443,13 @@ describe.skipIf(!hasInfra)("server api", () => {
       const old = await h.app.inject({ method: "GET", url: `/parts/${parts["face"]}/versions`, ...h.as(ARTIST) });
       expect((old.json() as { versions: { id: string; capture_eligible: boolean }[] }).versions.find((v) => v.id === faceVersion)?.capture_eligible).toBe(false);
       // No rights yet: Publish refuses. A reviewer confirms them, then it goes through.
-      const refused = await h.app.inject({ method: "POST", url: `/parts/${hair}/publish`, ...h.as(ARTIST), payload: { version_id: ver.id, ready: false } });
+      const refused = await h.app.inject({ method: "POST", url: `/parts/${hair}/publish`, ...h.as(ARTIST), payload: { version_id: ver.id, ready: false, note: "Hair pass one" } });
       expect(refused.statusCode).toBe(409);
       expect((refused.json() as { error: { code: string } }).error.code).toBe("rights_required");
       const rights = await h.app.inject({ method: "PUT", url: `/assets/${h.seeded.assets["Ojukwu"]}/rights`, ...h.as(AD), payload: { statement: "Sunburst Interactive owns Ojukwu outright." } });
       expect((rights.json() as { asset: { rights: { statement: string; confirmed_by: string } } }).asset.rights).toMatchObject({ statement: "Sunburst Interactive owns Ojukwu outright.", confirmed_by: h.seeded.users[AD] });
       expect((await h.app.inject({ method: "PUT", url: `/assets/${h.seeded.assets["Ojukwu"]}/rights`, ...h.as(ARTIST), payload: { statement: "x" } })).statusCode).toBe(403);
-      const published = await h.app.inject({ method: "POST", url: `/parts/${hair}/publish`, ...h.as(ARTIST), payload: { version_id: ver.id, ready: false } });
+      const published = await h.app.inject({ method: "POST", url: `/parts/${hair}/publish`, ...h.as(ARTIST), payload: { version_id: ver.id, ready: false, note: "Hair pass one" } });
       expect(published.json()).toMatchObject({ published: true });
       // Off again: the stamped rows keep their value.
       await h.app.inject({ method: "PUT", url: "/studio/training", ...h.as(PRODUCER), payload: { training: "off" } });

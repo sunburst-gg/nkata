@@ -312,10 +312,16 @@ class NKATA_OT_publish(bpy.types.Operator):
     ready: bpy.props.BoolProperty(default=False)  # type: ignore[valid-type]
 
     def execute(self, _context: bpy.types.Context) -> set[str]:
+        wm = bpy.context.window_manager
+        note = str(getattr(wm, "nkata_note", "")).strip()
+        details = str(getattr(wm, "nkata_note_engineering", "")).strip()
+        if not note:
+            self.report({"WARNING"}, "Write one line on what you did before Publish")
+            return {"CANCELLED"}
         try:
             client, part = _client_and_part()
             results = run_checks(part, fix=True)
-            res = client.publish(part["id"], results, self.ready)
+            res = client.publish(part["id"], results, self.ready, note, details)
         except AgentError as e:
             self.report({"ERROR"}, e.message)
             return {"CANCELLED"}
@@ -323,6 +329,8 @@ class NKATA_OT_publish(bpy.types.Operator):
             if res.published:
                 STATE.part = {**part, "state": res.state}
                 STATE.publish_line = "Published" + (" and marked Ready" if res.state == "ready" else "")
+                wm.nkata_note = ""
+                wm.nkata_note_engineering = ""
             else:
                 names = ", ".join(CHECK_WORDS.get(b.check_id, b.check_id) for b in res.blocked_by)
                 STATE.publish_line = f"{len(res.blocked_by)} checks block: {names}"
@@ -524,16 +532,35 @@ def draw_comments(layout: Any, part: dict[str, Any]) -> None:
 
 
 def draw_publish(layout: Any, part: dict[str, Any]) -> None:
+    """The note, the details for engineers, Publish, and the card the next person will see.
+    The four checks sit in their own box above (draw_checks). Publish waits for the note."""
+    wm = bpy.context.window_manager
+    note = str(getattr(wm, "nkata_note", "")).strip()
+    layout.prop(wm, "nkata_note", text="", placeholder="What did you do, what will they get")
+    details = layout.row()
+    details.prop(wm, "nkata_details_open", text="Details for engineers", icon="TRIA_DOWN" if getattr(wm, "nkata_details_open", False) else "TRIA_RIGHT", emboss=False)
+    if getattr(wm, "nkata_details_open", False):
+        layout.prop(wm, "nkata_note_engineering", text="", placeholder="Names, pivots, anything they need")
     row = layout.row()
     row.scale_y = 1.4
+    row.enabled = bool(note)
     op = row.operator(NKATA_OT_publish.bl_idname, text="Publish")
     op.ready = False
     small = layout.row()
+    small.enabled = bool(note) and part.get("state") == "draft"
     op2 = small.operator(NKATA_OT_publish.bl_idname, text="Mark Ready")
     op2.ready = True
-    small.enabled = part.get("state") == "draft"
+    card = STATE.card.get(part["id"])
+    if card:
+        layout.label(text=card_line(card), icon="INFO")
     if STATE.publish_line:
         layout.label(text=STATE.publish_line)
+
+
+def card_line(card: dict[str, Any]) -> str:
+    """What the next person sees: tris, textures, scale, UV sets. The artist sees it first."""
+    sets = len(card.get("uv_sets", []))
+    return f"{card.get('triangles', 0):,} tris · {len(card.get('textures', []))} textures · scale {card.get('unit_scale', 1.0):g} · {sets} UV set{'' if sets == 1 else 's'}"
 
 
 def draw_presence(layout: Any, part: dict[str, Any]) -> None:
@@ -592,10 +619,18 @@ CLASSES = (
 def register() -> None:
     for cls in CLASSES:
         bpy.utils.register_class(cls)
+    # The publish note lives on the window manager: it survives a redraw and clears on Publish.
+    # https://docs.blender.org/api/current/bpy.props.html
+    bpy.types.WindowManager.nkata_note = bpy.props.StringProperty(name="Note", maxlen=200, options={"TEXTEDIT_UPDATE"})
+    bpy.types.WindowManager.nkata_note_engineering = bpy.props.StringProperty(name="Details for engineers", maxlen=2000)
+    bpy.types.WindowManager.nkata_details_open = bpy.props.BoolProperty(name="Details for engineers", default=False)
     pins.register()
 
 
 def unregister() -> None:
     pins.unregister()
+    for name in ("nkata_note", "nkata_note_engineering", "nkata_details_open"):
+        if hasattr(bpy.types.WindowManager, name):
+            delattr(bpy.types.WindowManager, name)
     for cls in reversed(CLASSES):
         bpy.utils.unregister_class(cls)

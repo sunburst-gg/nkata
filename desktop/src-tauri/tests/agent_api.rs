@@ -437,7 +437,7 @@ async fn editors_publish_comment_review_and_hear_each_other() {
     let (st, body) = artist
         .post(
             &format!("/parts/{model}/publish"),
-            Some(json!({"v": 1, "check_results": [], "ready": false})),
+            Some(json!({"v": 1, "check_results": [], "ready": false, "note": "Stall base done"})),
         )
         .await;
     assert_eq!(st, 409, "{body}");
@@ -461,7 +461,7 @@ async fn editors_publish_comment_review_and_hear_each_other() {
     let (st, blocked) = artist
         .post(
             &format!("/parts/{model}/publish"),
-            Some(json!({"v": 1, "check_results": [failing], "ready": true})),
+            Some(json!({"v": 1, "check_results": [failing], "ready": true, "note": "Stall base done"})),
         )
         .await;
     assert_eq!(st, 200, "{blocked}");
@@ -471,7 +471,9 @@ async fn editors_publish_comment_review_and_hear_each_other() {
     let (_, published) = artist
         .post(
             &format!("/parts/{model}/publish"),
-            Some(json!({"v": 1, "check_results": [passing], "ready": true})),
+            Some(
+                json!({"v": 1, "check_results": [passing], "ready": true, "note": "Roof reworked"}),
+            ),
         )
         .await;
     assert_eq!(published["published"], true);
@@ -805,7 +807,7 @@ async fn mirror_holds_on_pause_or_off_and_mark_ready_stores_a_render() {
     let (st, published) = h
         .post(
             &format!("/parts/{uvs}/publish"),
-            Some(json!({"v": 1, "check_results": [], "ready": true})),
+            Some(json!({"v": 1, "check_results": [], "ready": true, "note": "Ready for review"})),
         )
         .await;
     assert_eq!(st, 200, "{published}");
@@ -857,7 +859,7 @@ async fn mirror_holds_on_pause_or_off_and_mark_ready_stores_a_render() {
     let (_, again) = h
         .post(
             &format!("/parts/{uvs}/publish"),
-            Some(json!({"v": 1, "check_results": [], "ready": true})),
+            Some(json!({"v": 1, "check_results": [], "ready": true, "note": "Ready for review"})),
         )
         .await;
     assert_eq!(again["render_needed"], true, "{again}");

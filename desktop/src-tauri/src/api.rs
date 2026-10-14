@@ -497,7 +497,14 @@ async fn publish(
     let version_id = s.server.current_version(&id).await?;
     let mut out = s
         .server
-        .publish(&id, &version_id, &body.check_results, body.ready)
+        .publish(
+            &id,
+            &version_id,
+            &body.check_results,
+            body.ready,
+            &body.note,
+            body.note_engineering.as_deref().unwrap_or(""),
+        )
         .await?;
     tracing::info!(
         project_id = s.project.id,

@@ -299,6 +299,11 @@ pub struct PublishRequest {
     pub v: u8,
     pub check_results: Vec<CheckResult>,
     pub ready: bool,
+    /// The publish note: what you did, what they get. One line, required.
+    pub note: String,
+    /// Details for engineers. Optional.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note_engineering: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

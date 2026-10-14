@@ -44,6 +44,10 @@ const PublishBody = z.object({
   version_id: Ulid,
   check_results: z.array(CheckResult).default([]),
   ready: z.boolean().default(false),
+  /** The publish note: what you did, what they get. One line, required. */
+  note: z.string().trim().min(1, "write one line on what changed").max(200),
+  /** Details for engineers. Optional. */
+  note_engineering: z.string().trim().max(2000).default(""),
 });
 
 const RollbackBody = z.object({ id: Ulid.optional(), version_id: Ulid });
@@ -181,7 +185,7 @@ export async function versionRoutes(app: TypedApp): Promise<void> {
     if (training && !a.rights) {
       throw new AppError("rights_required", "confirm who holds the rights to this asset before Publish", { asset_id: a.id });
     }
-    await app.db.update(version).set({ published: true, updated_at: now }).where(eq(version.id, ver.id));
+    await app.db.update(version).set({ published: true, note: req.body.note, note_engineering: req.body.note_engineering, updated_at: now }).where(eq(version.id, ver.id));
     await app.bus.emit({
       studio_id: a.studio_id, target_kind: "version", target_id: ver.id,
       message: { v: 1, kind: "version.created", project_id: a.project_id, actor_id: req.principal.user_id, at: now.toISOString(), part_id: row.id, version_id: ver.id, published: true },

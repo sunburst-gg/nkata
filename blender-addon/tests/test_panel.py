@@ -102,8 +102,11 @@ class FakeLayout:
         self.lines.append(f"label:{text}")
 
     def operator(self, idname: str, text: str = "", icon: str = "") -> Any:
-        self.lines.append(f"op:{idname}:{text}")
+        self.lines.append(f"{'op' if self.enabled else 'op-off'}:{idname}:{text}")
         return mock.MagicMock()
+
+    def prop(self, data: Any, name: str, text: str = "", **_kw: Any) -> None:
+        self.lines.append(f"prop:{name}:{getattr(data, name, '')}")
 
     def row(self) -> FakeLayout:
         return FakeLayout(self.lines)
@@ -146,6 +149,9 @@ class PanelTest(unittest.TestCase):
         state.STATE.startable = []
         state.STATE.error = ""
         state.STATE.publish_line = ""
+        state.STATE.card.clear()
+        self.bpy.context.window_manager.nkata_note = ""
+        self.bpy.context.window_manager.nkata_note_engineering = ""
         self.panel = panel
         self.save_hook = save_hook
         self.state = state.STATE
@@ -185,10 +191,12 @@ class PanelTest(unittest.TestCase):
         self.assertIn("label:Checks run on save and on Publish", text)
         self.assertIn("label:No comments yet", text)
         self.assertIn("op:nkata.reply:Reply", text)
-        self.assertIn("op:nkata.publish:Publish", text)
-        self.assertIn("op:nkata.publish:Mark Ready", text)
+        # No note yet: the note field is drawn and Publish waits for it.
+        self.assertIn("prop:nkata_note:", text)
+        self.assertIn("op-off:nkata.publish:Publish", text)
+        self.assertIn("op-off:nkata.publish:Mark Ready", text)
         self.assertIn("label:Here: Chidi", text)
-        order = [lines.index(x) for x in ("label:Ojukwu / face · Draft · Ada · Open by Ada", "label:Not mirrored yet", "label:Reference", "label:Checks", "label:Comments", "op:nkata.publish:Publish", "label:Here: Chidi")]
+        order = [lines.index(x) for x in ("label:Ojukwu / face · Draft · Ada · Open by Ada", "label:Not mirrored yet", "label:Reference", "label:Checks", "label:Comments", "op-off:nkata.publish:Publish", "label:Here: Chidi")]
         self.assertEqual(order, sorted(order), "the seven elements keep their order")
 
     def test_with_unreal_off_the_panel_has_no_mirror_line(self) -> None:
@@ -200,7 +208,7 @@ class PanelTest(unittest.TestCase):
         self.assertNotIn("Not mirrored yet", text)
         self.assertNotIn("nkata.mirror_on_save", text)
         self.assertIn("label:Reference", text)
-        self.assertIn("op:nkata.publish:Publish", text)
+        self.assertIn("op-off:nkata.publish:Publish", text)
 
     def test_mirror_on_save_toggles_from_the_panel_and_the_line_says_why(self) -> None:
         self.save_hook.handle_open(str(self.blend))
@@ -303,12 +311,21 @@ class PanelTest(unittest.TestCase):
         self.face.name = "SK_Face"
         op = self.panel.NKATA_OT_publish()
         op.ready = True
+        # No note: nothing publishes, the artist is told what to write.
+        self.assertEqual(op.execute(None), {"CANCELLED"})
+        self.assertIn("Write one line on what you did before Publish", bpy_stub.FakeOps.reports[-1])
+        self.bpy.context.window_manager.nkata_note = "Face blocked in, eyes still rough"
+        self.bpy.context.window_manager.nkata_note_engineering = "Skin uses the shared T_Skin set."
+        self.assertIn("op:nkata.publish:Publish", self.draw())
         # Fix is part of Publish: the scale fixes itself, so this publishes and marks Ready.
         self.assertEqual(op.execute(None), {"FINISHED"})
+        self.assertEqual(self.bpy.context.window_manager.nkata_note, "", "the note clears after Publish")
         self.assertEqual(self.state.part["state"], "ready")
         self.assertEqual(self.state.publish_line, "Published and marked Ready")
         published = [c for c in FakeAgent.calls if c[1] == f"/parts/{ID}/publish"]
         self.assertEqual(published[-1][2]["ready"], True)
+        self.assertEqual(published[-1][2]["note"], "Face blocked in, eyes still rough")
+        self.assertEqual(published[-1][2]["note_engineering"], "Skin uses the shared T_Skin set.")
         self.assertTrue(all(r["passed"] for r in published[-1][2]["check_results"]))
         # The fake agent says UE5 gave no capture, so Blender's viewport render is posted.
         rendered = [c for c in FakeAgent.calls if c[1] == f"/parts/{ID}/render"]
@@ -319,6 +336,7 @@ class PanelTest(unittest.TestCase):
         self.assertEqual(self.bpy.context.scene.render.filepath, "")
         # A failure Nkata cannot fix blocks.
         self.state.part = {**PART, "checks": [{"id": "triangle_budget", "severity": "block", "params": {"max": 0}}]}
+        self.bpy.context.window_manager.nkata_note = "Too many tris, trying anyway"
         op2 = self.panel.NKATA_OT_publish()
         op2.ready = False
         self.assertEqual(op2.execute(None), {"CANCELLED"})

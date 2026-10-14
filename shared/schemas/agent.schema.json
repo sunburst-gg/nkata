@@ -442,12 +442,24 @@
         },
         "ready": {
           "type": "boolean"
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "The publish note: what you did, what they get. One line, required."
+        },
+        "note_engineering": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Details for engineers. Optional."
         }
       },
       "required": [
         "v",
         "check_results",
-        "ready"
+        "ready",
+        "note"
       ],
       "additionalProperties": false
     },

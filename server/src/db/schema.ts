@@ -101,6 +101,8 @@ export const asset = pgTable(
     reference_files: jsonb("reference_files").$type<string[]>().notNull(),
     // Who holds the rights. Required to Publish while studio.training is on.
     rights: jsonb("rights").$type<AssetRights>(),
+    // A folder the team named. Empty: the project's root list.
+    folder: text("folder").notNull().default(""),
   },
   (t) => [uniqueIndex("asset_project_name_idx").on(t.project_id, t.name)],
 );
@@ -149,7 +151,10 @@ export const version = pgTable(
     // Where a static mesh is placed after this mirror: [{level, actors}]. Null for other kinds.
     refs: jsonb("refs"),
     published: boolean("published").notNull().default(false),
+    // The publish note: one line, required to Publish (docs/tasks/07-blender-first.md).
     note: text("note").notNull().default(""),
+    // Details for engineers. Optional, free text.
+    note_engineering: text("note_engineering").notNull().default(""),
     // Stamped from studio.training at insert and never updated. Rows are never deleted.
     capture_eligible: boolean("capture_eligible").notNull().default(false),
     // When the editor opened the file and when it saved, from the editor's clock.
