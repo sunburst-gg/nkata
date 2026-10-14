@@ -23,12 +23,12 @@ use crate::ignore::AGENT_DIR;
 use crate::mirror::{MirrorJob, MirrorRunner};
 use crate::protocol::{
     iso_now, AgentEvent, AgentMode, ChecksRequest, ChecksResponse, CommentCreateRequest,
-    CommentCreateResponse, CommentsResponse, ErrorBody, ErrorDetail, LockReleaseReason, MeResponse,
-    MirrorOnSaveRequest, MirrorPauseRequest, MirrorPauseResponse, MirrorRetryResponse,
-    MirrorStateResponse, MirrorStatus, PartCloseResponse, PartOpenResponse, PartSavedRequest,
-    PartSavedResponse, PartsResponse, PresenceRequest, PresenceResponse, ProjectRef,
-    PublishRequest, PublishResponse, RenderRequest, RenderResponse, ReviewRequest, ReviewResponse,
-    UserRef,
+    CommentCreateResponse, CommentsResponse, ErrorBody, ErrorDetail, ExportRequest, ExportResponse,
+    LockReleaseReason, MeResponse, MirrorOnSaveRequest, MirrorPauseRequest, MirrorPauseResponse,
+    MirrorRetryResponse, MirrorStateResponse, MirrorStatus, PartCloseResponse, PartOpenResponse,
+    PartSavedRequest, PartSavedResponse, PartsResponse, PresenceRequest, PresenceResponse,
+    ProjectRef, PublishRequest, PublishResponse, RenderRequest, RenderResponse, ReviewRequest,
+    ReviewResponse, UserRef,
 };
 
 pub const DEFAULT_PORT: u16 = 7420;
@@ -190,6 +190,7 @@ pub fn router(state: Shared) -> Router {
         .route("/parts/{id}/mirror/on-save", post(mirror_on_save))
         .route("/mirror/pause", post(mirror_pause))
         .route("/parts/{id}/render", post(render))
+        .route("/parts/{id}/export", post(export_file))
         .route("/parts/{id}/publish", post(publish))
         .route("/parts/{id}/checks", post(checks))
         .route("/parts/{id}/comments", get(comments).post(create_comment))
@@ -438,6 +439,37 @@ async fn mirror_pause(
     Ok(Json(MirrorPauseResponse {
         v: 1,
         paused: body.paused,
+    }))
+}
+
+/// The FBX the add-on exported on Publish: stored on the current version for the engineer.
+async fn export_file(
+    State(s): State<Shared>,
+    headers: HeaderMap,
+    UrlPath(id): UrlPath<String>,
+    Json(body): Json<ExportRequest>,
+) -> Result<Json<ExportResponse>, ApiError> {
+    check_token(&s, &headers)?;
+    let version_id = s.server.current_version(&id).await?;
+    let path = PathBuf::from(&body.path);
+    if !path.is_file() {
+        return Err(ApiError(
+            StatusCode::BAD_REQUEST,
+            "bad_request",
+            format!("no file at {}", path.display()),
+        ));
+    }
+    s.server.store_fbx(&id, &version_id, &path).await?;
+    tracing::info!(
+        project_id = s.project.id,
+        part_id = id,
+        version_id,
+        "fbx stored"
+    );
+    Ok(Json(ExportResponse {
+        v: 1,
+        version_id,
+        stored: true,
     }))
 }
 

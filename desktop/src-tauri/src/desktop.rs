@@ -114,6 +114,24 @@ async fn tools_detect(folder: String) -> Result<ToolsReport, String> {
     .map_err(|e| e.to_string())
 }
 
+/// Fetches a file the server serves under a signed link and writes it where the person chose:
+/// the GLB or the FBX of a version. The webview cannot save a cross-origin download itself.
+#[tauri::command]
+async fn download_file(url: String, path: String) -> Result<String, String> {
+    let bytes = reqwest::get(&url)
+        .await
+        .map_err(|e| e.to_string())?
+        .error_for_status()
+        .map_err(|e| e.to_string())?
+        .bytes()
+        .await
+        .map_err(|e| e.to_string())?;
+    tokio::fs::write(&path, &bytes)
+        .await
+        .map_err(|e| format!("{path}: {e}"))?;
+    Ok(path)
+}
+
 /// The .blend files inside the project folder, project-relative. For Create asset, From a file.
 #[tauri::command]
 async fn list_blend_files(folder: String) -> Result<Vec<String>, String> {
@@ -231,6 +249,7 @@ fn main() {
             write_export,
             tools_detect,
             list_blend_files,
+            download_file,
             tools_install_blender,
             tools_install_ue
         ])

@@ -23,7 +23,7 @@ USER = {"id": ID2, "name": "Ada", "avatar_url": None}
 HOLDER = {"id": "01CX5ZZKBKACTAV9WEVGEMMVRA", "name": "Chidi", "avatar_url": None}
 PART = {
     "id": ID, "asset_id": ID2, "asset_name": "Ojukwu", "name": "face", "state": "draft", "owner": USER, "lock": None, "gate": {"after": []},
-    "mapping": {"kind": "blend_collection", "file": "Ojukwu/face.blend", "collection": "face"}, "kind": "character",
+    "mapping": {"kind": "blend_collection", "file": "Ojukwu/face.blend", "collection": "face"}, "kind": "character", "export_name": "SK_Ojukwu_face",
     "checks": [{"id": "unit_scale", "severity": "block", "params": {}}, {"id": "name_pattern", "severity": "block", "params": {"pattern": "SK_.*"}}, {"id": "triangle_budget", "severity": "block", "params": {"max": 60000}}],
     "reference_files": ["Ojukwu/ref/concept.png"], "waiting_on": [],
 }
@@ -86,6 +86,8 @@ class FakeAgent(BaseHTTPRequestHandler):
             FakeAgent.on_save = bool(body["on_save"])
             return self._json(200, {"v": 1, "mirror": {"part_id": ID, "status": "pending", "version_id": ID, "at": None, "mirror_ms": None, "message": "" if FakeAgent.on_save else "Mirror on save is off", "failures": 0, "halted": False, "on_save": FakeAgent.on_save}})
         if self.path.endswith("/render"):
+            return self._json(200, {"v": 1, "version_id": ID, "stored": True})
+        if self.path.endswith("/export"):
             return self._json(200, {"v": 1, "version_id": ID, "stored": True})
         return self._json(404, {"v": 1, "error": {"code": "not_found", "message": self.path}})
 
@@ -327,6 +329,15 @@ class PanelTest(unittest.TestCase):
         self.assertEqual(published[-1][2]["note"], "Face blocked in, eyes still rough")
         self.assertEqual(published[-1][2]["note_engineering"], "Skin uses the shared T_Skin set.")
         self.assertTrue(all(r["passed"] for r in published[-1][2]["check_results"]))
+        # Publish exports the FBX for the engineer, named from the template, and posts it.
+        fbx = [c for c in self.bpy._ops.calls if c[0] == "export_scene.fbx"]
+        self.assertEqual(len(fbx), 1)
+        self.assertTrue(fbx[0][1]["filepath"].endswith(f"{ID}.SK_Ojukwu_face.fbx"), fbx[0][1]["filepath"])
+        self.assertTrue(fbx[0][1]["use_active_collection"])
+        self.assertEqual(fbx[0][1]["object_types"], {"MESH", "ARMATURE"})
+        exported = [c for c in FakeAgent.calls if c[1] == f"/parts/{ID}/export"]
+        self.assertEqual(len(exported), 1)
+        self.assertTrue(Path(exported[0][2]["path"]).is_file())
         # The fake agent says UE5 gave no capture, so Blender's viewport render is posted.
         rendered = [c for c in FakeAgent.calls if c[1] == f"/parts/{ID}/render"]
         self.assertEqual(len(rendered), 1)

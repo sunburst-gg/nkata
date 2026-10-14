@@ -89,6 +89,9 @@ pub struct PartSummary {
     pub id: String,
     pub asset_id: String,
     pub asset_name: String,
+    /// The file name the engine expects, from the template. Empty on an older server.
+    #[serde(default)]
+    pub export_name: String,
     pub name: String,
     pub state: PartState,
     pub owner: Option<UserRef>,
@@ -404,6 +407,20 @@ pub struct RenderRequest {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RenderResponse {
+    pub v: u8,
+    pub version_id: String,
+    pub stored: bool,
+}
+
+/// POST /parts/:id/export. An FBX on disk the agent stores as the current version's export.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ExportRequest {
+    pub v: u8,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ExportResponse {
     pub v: u8,
     pub version_id: String,
     pub stored: bool,

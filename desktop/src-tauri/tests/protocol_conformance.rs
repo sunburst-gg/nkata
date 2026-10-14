@@ -47,6 +47,7 @@ fn samples() -> Vec<(&'static str, Value)> {
         id: id.into(),
         asset_id: id.into(),
         asset_name: "Ojukwu".into(),
+        export_name: "SK_Ojukwu_face".into(),
         name: "face".into(),
         state: PartState::Draft,
         owner: Some(user.clone()),

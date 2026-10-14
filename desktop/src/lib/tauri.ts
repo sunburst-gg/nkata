@@ -34,6 +34,9 @@ export const agent = {
   /** Blender on this machine and the Unreal projects inside the folder. */
   toolsDetect: (folder: string): Promise<ToolsReport> =>
     inTauri() ? invoke<ToolsReport>("tools_detect", { folder }) : Promise.resolve({ blender: null, uprojects: [], addon_shipped: false, plugin_shipped: false }),
+  /** Fetches a file the server serves and writes it where the person chose. Resolves to the path. */
+  downloadFile: (url: string, path: string): Promise<string> =>
+    inTauri() ? invoke<string>("download_file", { url, path }) : Promise.reject(new Error("Downloads save from the desktop app.")),
   /** The .blend files inside the project folder, project-relative with forward slashes. */
   listBlendFiles: (folder: string): Promise<string[]> =>
     inTauri() ? invoke<string[]>("list_blend_files", { folder }) : Promise.resolve([]),

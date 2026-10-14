@@ -19,6 +19,8 @@ import { firstName, useFeatures, usePart, usePeople } from "@/lib/hooks";
 import { renderSrc, renderStyle } from "@/lib/renders";
 import { STATE_WORD } from "@/lib/state";
 import { useViewerSession } from "@/lib/viewer";
+import { agent, inTauri } from "@/lib/tauri";
+import { reasonOf } from "@/lib/reason";
 import { useResetViewer } from "./Asset";
 
 export function Part() {
@@ -61,6 +63,21 @@ function PartScreen({ asset, part }: { asset: Asset; part: PartModel }) {
   };
   const unrealOn = useFeatures().unreal;
   const open = (where: "Blender" | "Unreal") => toast(`Opening in ${where}.`, "locked");
+  // The engineer's download: the file lands with the name the engine expects.
+  const download = async (url: string, ext: "glb" | "fbx") => {
+    const name = `${part.exportName || `${asset.name}_${part.name}`}.${ext}`;
+    if (!inTauri()) { window.open(url, "_blank", "noopener"); return; }
+    try {
+      // https://v2.tauri.app/plugin/dialog/
+      const { save } = await import("@tauri-apps/plugin-dialog");
+      const path = await save({ defaultPath: name });
+      if (!path) return;
+      await agent.downloadFile(url, path);
+      toast(`Saved ${name}.`);
+    } catch (err) {
+      toast(reasonOf(err, `Could not save ${name}.`), "failed");
+    }
+  };
   const rollBack = () => {
     if (!picked) return;
     const made = source.rollBack(asset.slug, part.name, picked);
@@ -76,7 +93,12 @@ function PartScreen({ asset, part }: { asset: Asset; part: PartModel }) {
       <div className="flex items-center gap-4">
         <h1 className="role-moment m-0 leading-[1.1] text-heading">{`${asset.name} / ${part.name}`}</h1>
         <span className="inline-flex items-center gap-1.5 text-13 text-secondary"><StateDot state={part.state} size={7} />{`${STATE_WORD[part.state]} · ${owner}${top ? ` · v${current}` : ""}`}</span>
-        {can("openEditors") ? <div className="ml-auto flex gap-2"><Button onClick={() => open("Blender")}>Open in Blender</Button>{unrealOn ? <Button onClick={() => open("Unreal")}>Open in Unreal</Button> : null}</div> : null}
+        <div className="ml-auto flex gap-2">
+          {can("exportAsset") && shownVersion?.model ? <Button onClick={() => void download(shownVersion.model!, "glb")}>Download GLB</Button> : null}
+          {can("exportAsset") && shownVersion?.fbx ? <Button onClick={() => void download(shownVersion.fbx!, "fbx")}>Download FBX</Button> : null}
+          {can("openEditors") ? <Button onClick={() => open("Blender")}>Open in Blender</Button> : null}
+          {can("openEditors") && unrealOn ? <Button onClick={() => open("Unreal")}>Open in Unreal</Button> : null}
+        </div>
       </div>
       {shownVersion ? (
         <div className="flex flex-col gap-4 rounded-xl border border-hairline bg-panel p-5">

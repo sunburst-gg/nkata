@@ -33,11 +33,12 @@ type PartWire = {
   lock: { holder: UserRef; granted_at: string } | null; gate: { after: string[] }; waiting_on: string[];
   checks: { id: string; severity: "block" | "warn"; params: Record<string, unknown> }[]; reference_files: string[];
   mapping: { kind: string; file?: string };
+  export_name?: string;
   updated_at: string;
 };
 type AssetWire = { id: string; name: string; template_id: string; state: string; updated_at: string; rights: { statement: string; confirmed_by: string; confirmed_at: string } | null };
 type ManifestWire = { objects: { name: string; triangles: number; materials: string[]; hash: string; uv_sets?: string[] }[]; bone_count?: number | null; textures?: { name: string; width: number; height: number }[]; unit_scale?: number | null } | null;
-type VersionWire = { id: string; part_id: string; author_id: string; mirror_status: string; mirror_ms: number | null; refs: { level: string; actors: number }[] | null; published: boolean; note: string; note_engineering?: string; created_at: string; render_url?: string | null; model_url?: string | null; manifest?: ManifestWire };
+type VersionWire = { id: string; part_id: string; author_id: string; mirror_status: string; mirror_ms: number | null; refs: { level: string; actors: number }[] | null; published: boolean; note: string; note_engineering?: string; created_at: string; render_url?: string | null; model_url?: string | null; fbx_url?: string | null; manifest?: ManifestWire };
 type CommentWire = { id: string; part_id: string; author: UserRef; body: string; kind: "pin" | "take_a_look"; point: number[]; resolved_at: string | null; created_at: string };
 type CheckWire = { check_id: string; severity: "block" | "warn"; passed: boolean; auto_fixed: boolean; message: string };
 type EventWire = { id: string; event: Wire & { kind: string; actor_id: string; at: string; part_id?: string } };
@@ -107,6 +108,7 @@ export function versionOf(v: VersionWire, n: number, now: Date): Version {
   return {
     id: v.id, n, note: v.note, noteEngineering: v.note_engineering ?? "", published: v.published, render: v.render_url ? { url: v.render_url } : null, authorId: v.author_id, when: ago(v.created_at, now), mirror: v.mirror_status === "failed" ? "failed" : "synced",
     ...(v.model_url ? { model: v.model_url } : {}),
+    ...(v.fbx_url ? { fbx: v.fbx_url } : {}),
     ...(v.manifest ? { manifest: { objects: v.manifest.objects.map((o) => ({ name: o.name, triangles: o.triangles, materials: [...o.materials], hash: o.hash, uvSets: [...(o.uv_sets ?? [])] })), bones: v.manifest.bone_count ?? null, textures: (v.manifest.textures ?? []).map((t) => ({ name: t.name, width: t.width, height: t.height })), unitScale: v.manifest.unit_scale ?? null } } : {}),
   };
 }
@@ -246,7 +248,7 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
         const checks: Check[] = current ? (await call<{ results: CheckWire[] }>("GET", `/parts/${pw.id}/versions/${current.id}/checks`)).results.map(checkOf) : [];
         const comments: Comment[] = commentsRes.comments.map((c, n) => ({ id: c.id, n: n + 1, authorId: c.author.id, partName: pw.name, when: ago(c.created_at, t), text: c.body, resolved: c.resolved_at !== null, kind: c.kind ?? "pin", source: "Nkata", ...((c.point ?? []).some((x) => x !== 0) ? { pos: [c.point?.[0] ?? 0, c.point?.[1] ?? 0, c.point?.[2] ?? 0] as [number, number, number] } : {}) }));
         const mirror = !current ? { state: "offline" as const, seconds: 0 } : current.mirror_status === "failed" ? { state: "failed" as const, seconds: 0 } : current.mirror_status === "synced" || current.mirror_status === "skipped" ? { state: "synced" as const, seconds: Math.round((current.mirror_ms ?? 0) / 1000) } : { state: "syncing" as const, seconds: 0 };
-        return { id: pw.id, name: pw.name, state: partState(pw), ownerId: pw.owner_id ?? "", render: versions.find((x) => x.render)?.render ?? null, lock: pw.lock ? { holderId: pw.lock.holder.id, since: ago(pw.lock.granted_at, t) } : null, gate: pw.waiting_on, versions, checks, comments, mirror, refs: current?.refs ?? [], file: pw.mapping.kind === "blend_collection" ? pw.mapping.file ?? null : null };
+        return { id: pw.id, name: pw.name, state: partState(pw), ownerId: pw.owner_id ?? "", render: versions.find((x) => x.render)?.render ?? null, lock: pw.lock ? { holderId: pw.lock.holder.id, since: ago(pw.lock.granted_at, t) } : null, gate: pw.waiting_on, versions, checks, comments, mirror, refs: current?.refs ?? [], file: pw.mapping.kind === "blend_collection" ? pw.mapping.file ?? null : null, exportName: pw.export_name ?? "" };
       }));
       const usedIn = [...new Set(parts.flatMap((p) => p.refs.map((r) => r.level.split("/").pop() ?? r.level)))];
       const present = online.online.filter((o) => o.part_id && partsWire.some((p) => p.id === o.part_id)).map((o) => o.user.id);

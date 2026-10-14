@@ -114,6 +114,11 @@ class AgentClient:
         body = shared.validate_MirrorOnSaveRequest({"v": 1, "on_save": on_save}).to_dict()
         return shared.validate_MirrorStateResponse(self._call("POST", f"/parts/{part_id}/mirror/on-save", body)).mirror
 
+    def export_fbx(self, part_id: str, path: str) -> Any:
+        """The FBX exported on Publish, stored on the version for the engineer."""
+        body = shared.validate_ExportRequest({"v": 1, "path": path}).to_dict()
+        return shared.validate_ExportResponse(self._call("POST", f"/parts/{part_id}/export", body))
+
     def render(self, part_id: str, path: str) -> Any:
         """Blender's render of the current version, when UE5 gave no capture on Mark Ready."""
         body = shared.validate_RenderRequest({"v": 1, "path": path}).to_dict()

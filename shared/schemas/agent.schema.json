@@ -112,6 +112,10 @@
         "asset_id": {
           "$ref": "common.schema.json#/$defs/Ulid"
         },
+        "export_name": {
+          "type": "string",
+          "description": "The file name the engine expects, from the template: SM_{asset}, SK_{asset}_{part}. Absent on an older server."
+        },
         "asset_name": {
           "type": "string",
           "minLength": 1
@@ -911,6 +915,26 @@
       "additionalProperties": false
     },
     "RenderResponse": {
+      "type": "object",
+      "properties": {
+        "v": { "const": 1 },
+        "version_id": { "$ref": "common.schema.json#/$defs/Ulid" },
+        "stored": { "type": "boolean" }
+      },
+      "required": ["v", "version_id", "stored"],
+      "additionalProperties": false
+    },
+    "ExportRequest": {
+      "description": "POST /parts/:id/export. An FBX on disk the agent stores as the current version's export, the file an engineer takes into the engine.",
+      "type": "object",
+      "properties": {
+        "v": { "const": 1 },
+        "path": { "type": "string", "minLength": 1 }
+      },
+      "required": ["v", "path"],
+      "additionalProperties": false
+    },
+    "ExportResponse": {
       "type": "object",
       "properties": {
         "v": { "const": 1 },

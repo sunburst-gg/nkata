@@ -497,6 +497,16 @@ impl ServerClient {
     }
 
     /// Stores a GLB as the version's model: the add-on's export, or the area export from Unreal.
+    /// The FBX the add-on exported on Publish, for the engineer to take into the engine.
+    pub async fn store_fbx(
+        &self,
+        part_id: &str,
+        version_id: &str,
+        path: &std::path::Path,
+    ) -> Result<()> {
+        self.store_artifact("fbx", part_id, version_id, path).await
+    }
+
     pub async fn store_model(
         &self,
         part_id: &str,

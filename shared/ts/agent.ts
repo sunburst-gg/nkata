@@ -42,6 +42,7 @@ export type CheckSpec = z.infer<typeof CheckSpec>;
 export const PartSummary = z.strictObject({
   "id": Ulid,
   "asset_id": Ulid,
+  "export_name": z.string().optional(),
   "asset_name": z.string().min(1),
   "name": z.string().min(1),
   "state": PartState,
@@ -281,3 +282,17 @@ export const RenderResponse = z.strictObject({
   "stored": z.boolean(),
 });
 export type RenderResponse = z.infer<typeof RenderResponse>;
+
+/** POST /parts/:id/export. An FBX on disk the agent stores as the current version's export, the file an engineer takes into the engine. */
+export const ExportRequest = z.strictObject({
+  "v": z.literal(1),
+  "path": z.string().min(1),
+});
+export type ExportRequest = z.infer<typeof ExportRequest>;
+
+export const ExportResponse = z.strictObject({
+  "v": z.literal(1),
+  "version_id": Ulid,
+  "stored": z.boolean(),
+});
+export type ExportResponse = z.infer<typeof ExportResponse>;

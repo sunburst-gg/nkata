@@ -155,6 +155,12 @@ def install(collections: dict[str, FakeCollection], filepath: str) -> types.Modu
             ops._write(kwargs["filepath"])
             return {"FINISHED"}
 
+        @staticmethod
+        def fbx(**kwargs: Any) -> set[str]:
+            ops.calls.append(("export_scene.fbx", kwargs))
+            ops._write(kwargs["filepath"])
+            return {"FINISHED"}
+
     class RenderOps:
         @staticmethod
         def opengl(write_still: bool = False, view_context: bool = True) -> set[str]:

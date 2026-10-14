@@ -29,7 +29,7 @@ const mapping = { kind: "blend_collection", file: "face.blend", collection: "fac
 const mirrorState = { part_id: id, status: "synced", version_id: id2, at, mirror_ms: 4200, message: "", failures: 0, halted: false, on_save: true };
 const rights = { statement: "Sunburst Interactive owns this asset outright.", confirmed_by: id, confirmed_at: at };
 const checkSpec = { id: "triangle_budget", severity: "block", params: { max: 60000 } };
-const partSummary = { id, asset_id: id2, asset_name: "Ojukwu", name: "face", state: "draft", owner: user, lock, gate: { after: [] }, mapping, kind: "character", checks: [checkSpec], reference_files: ["Ojukwu/ref/concept.png"], waiting_on: [] };
+const partSummary = { id, asset_id: id2, asset_name: "Ojukwu", export_name: "SK_Ojukwu_face", name: "face", state: "draft", owner: user, lock, gate: { after: [] }, mapping, kind: "character", checks: [checkSpec], reference_files: ["Ojukwu/ref/concept.png"], waiting_on: [] };
 
 const events = {
   PresenceChanged: { ...head, kind: "presence.changed", online: [presenceEntry] },
@@ -134,5 +134,7 @@ export const fixtures: Fixtures = {
     MirrorPauseResponse: { valid: [{ v: 1, paused: true }], invalid: [{ v: 1 }] },
     RenderRequest: { valid: [{ v: 1, path: "/spool/x.png" }], invalid: [{ v: 1, path: "" }] },
     RenderResponse: { valid: [{ v: 1, version_id: id, stored: true }], invalid: [{ v: 1, stored: true }] },
+    ExportRequest: { valid: [{ v: 1, path: "/spool/x.fbx" }], invalid: [{ v: 1, path: "" }] },
+    ExportResponse: { valid: [{ v: 1, version_id: id, stored: true }], invalid: [{ v: 1, stored: true }] },
   },
 };

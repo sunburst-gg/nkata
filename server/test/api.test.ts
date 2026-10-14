@@ -513,6 +513,28 @@ describe.skipIf(!hasInfra)("server api", () => {
       expect(list.versions.filter((x) => x.id !== faceVersion).every((x) => x.model_url === null)).toBe(true);
     });
 
+    it("names the export file from the template: SK_{asset}_{part} for a character, SM_{asset} for a prop", async () => {
+      const face = (await h.app.inject({ method: "GET", url: `/parts/${parts["face"]}`, ...h.as(VIEWER) })).json() as { part: { export_name: string } };
+      expect(face.part.export_name).toBe("SK_Ojukwu_face");
+      const list = (await h.app.inject({ method: "GET", url: `/parts?project_id=${h.seeded.project_id}`, ...h.as(VIEWER) })).json() as { parts: { asset_name: string; name: string; export_name: string }[] };
+      expect(list.parts.find((p) => p.asset_name === "Market stall" && p.name === "model")?.export_name).toBe("SM_Market_stall");
+    });
+
+    it("stores the FBX the add-on exports on Publish and serves it under a signed link", async () => {
+      const face = parts["face"]!;
+      const { key, url: put } = (await h.app.inject({ method: "POST", url: `/parts/${face}/versions/${faceVersion}/fbx-url`, ...h.as(ARTIST), payload: { size: 7 } })).json() as { key: string; url: string };
+      expect(key).toBe(`studios/${h.seeded.studio_id}/exports/${face}/${faceVersion}.fbx`);
+      expect((await fetch(put, { method: "PUT", body: Buffer.from("Kaydara"), headers: { "content-length": "7" } })).ok).toBe(true);
+      const done = (await h.app.inject({ method: "PUT", url: `/parts/${face}/versions/${faceVersion}/fbx`, ...h.as(ARTIST), payload: { key } })).json() as { version: { fbx_key: string; fbx_url: string } };
+      expect(done.version.fbx_key).toBe(key);
+      const link = new URL(done.version.fbx_url);
+      expect(link.pathname).toBe(`/models/${faceVersion}.fbx`);
+      const served = await h.app.inject({ method: "GET", url: `${link.pathname}${link.search}`, headers: { origin: "http://localhost:1420" } });
+      expect(served.statusCode).toBe(200);
+      expect(served.headers["content-type"]).toBe("application/octet-stream");
+      expect(served.body).toBe("Kaydara");
+    });
+
     it("the event log replays in order with a cursor", async () => {
       const first = await h.app.inject({ method: "GET", url: `/events?project_id=${h.seeded.project_id}&limit=3`, ...h.as(ARTIST) });
       const page = first.json() as { events: { id: string; event: { kind: string } }[]; next: string; more: boolean };

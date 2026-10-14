@@ -57,6 +57,28 @@ def export_collection(collection: Any, filepath: Path, kind: str = "character") 
     return "fallback"
 
 
+def export_fbx(collection: Any, filepath: Path, kind: str = "character") -> None:
+    """The FBX an engineer takes into the engine by hand, exported on Publish only. Meshes and
+    the armature of the part collection, metres, no embedded textures.
+    https://docs.blender.org/api/current/bpy.ops.export_scene.html#bpy.ops.export_scene.fbx"""
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+    layer = _layer_collection(bpy.context.view_layer.layer_collection, collection.name)
+    previous = bpy.context.view_layer.active_layer_collection
+    if layer is not None:
+        bpy.context.view_layer.active_layer_collection = layer
+    try:
+        result = bpy.ops.export_scene.fbx(
+            filepath=str(filepath), use_active_collection=True, object_types={"MESH", "ARMATURE"} if kind == "character" else {"MESH"},
+            apply_unit_scale=True, apply_scale_options="FBX_SCALE_NONE", mesh_smooth_type="FACE", path_mode="STRIP", embed_textures=False,
+            bake_anim=False, add_leaf_bones=False,
+        )
+    finally:
+        if layer is not None:
+            bpy.context.view_layer.active_layer_collection = previous
+    if "FINISHED" not in result or not filepath.is_file():
+        raise RuntimeError(f"FBX export returned {result}")
+
+
 def _layer_collection(layer: Any, name: str) -> Any | None:
     if layer.collection.name == name:
         return layer

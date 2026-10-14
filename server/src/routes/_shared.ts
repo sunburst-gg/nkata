@@ -123,12 +123,19 @@ export function checkSpecs(tpl: Template, partName: string): CheckSpec[] {
   return tp.checks.map((id) => ({ id, severity: checkSeverity(id), params: (tp.params?.[id] as Record<string, unknown> | undefined) ?? {} }));
 }
 
+/** The file name the engine expects for this part, from the template: SM_{asset}, SK_{asset}_{part}. */
+export function exportName(tpl: Template, assetName: string, partName: string): string {
+  const clean = (s: string) => s.replace(/[^A-Za-z0-9_]+/g, "_").replace(/^_+|_+$/g, "");
+  return tpl.export.name.replaceAll("{asset}", clean(assetName)).replaceAll("{part}", clean(partName));
+}
+
 export function partWire(row: PartRow, ctx: PartContext, owner: UserRef | null, lockInfo: LockInfo | null) {
   return {
     id: row.id,
     asset_id: row.asset_id,
     asset_name: ctx.asset_name,
     kind: ctx.template.kind,
+    export_name: exportName(ctx.template, ctx.asset_name, row.name),
     checks: checkSpecs(ctx.template, row.name),
     reference_files: ctx.reference_files,
     waiting_on: waitingOn({ id: row.id, name: row.name, state: row.state, gate: row.gate }, ctx.siblings.map((s) => ({ id: s.name, name: s.name, state: s.state, gate: { after: [] } }))),

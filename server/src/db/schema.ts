@@ -164,6 +164,8 @@ export const version = pgTable(
     render_key: text("render_key"),
     // The GLB the add-on exported for this version, or the area export from Unreal. Null until stored.
     model_key: text("model_key"),
+    // The FBX the add-on exported on Publish, named for the engine. Null until stored.
+    fbx_key: text("fbx_key"),
   },
   (t) => [index("version_part_created_idx").on(t.part_id, sql`${t.created_at} desc`)],
 );

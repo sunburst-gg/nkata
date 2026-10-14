@@ -64,6 +64,7 @@ const part = (name: string, state: Part["state"], ownerId: string, render: Rende
   mirror: { state: "synced", seconds: 4 },
   refs: [],
   file: null,
+  exportName: `SM_${name}`,
   ...extra,
 });
 
@@ -274,7 +275,7 @@ export function createMockSource(initial: MockOptions | "artist" | "viewer" = {}
       const made: Asset = {
         id: slugOf(name), slug: slugOf(name), projectSlug, name, kind, state: "draft", render: null, noRenderText: chosen.map((p) => p.name).join(" · "), meta: `${kind.replace(/s$/, "")} · ${chosen.length} part${chosen.length > 1 ? "s" : ""} · ${me.name.split(" ")[0]}`,
         ownerId: me.id, present: [], template: tpl.name, usedIn: [], changedOrder: 0, when: "Just now", rights: null,
-        parts: chosen.map((tp) => ({ id: tp.name, name: tp.name, state: tp.gate.some((g) => chosen.some((c) => c.name === g)) ? "waiting" : "draft", ownerId: me.id, render: null, lock: null, gate: tp.gate.filter((g) => chosen.some((c) => c.name === g)), versions: [], checks: [], comments: [], mirror: { state: "offline", seconds: 0 }, refs: [], file: options?.file ?? `${name}/${tp.name}.blend` })),
+        parts: chosen.map((tp) => ({ id: tp.name, name: tp.name, state: tp.gate.some((g) => chosen.some((c) => c.name === g)) ? "waiting" : "draft", ownerId: me.id, render: null, lock: null, gate: tp.gate.filter((g) => chosen.some((c) => c.name === g)), versions: [], checks: [], comments: [], mirror: { state: "offline", seconds: 0 }, refs: [], file: options?.file ?? `${name}/${tp.name}.blend`, exportName: kind === "Characters" ? `SK_${slugOf(name)}_${tp.name}` : `SM_${slugOf(name)}` })),
       };
       assetList = [made, ...assetList];
       countAssets();

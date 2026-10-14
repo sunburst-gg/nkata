@@ -27,7 +27,7 @@ from typing import Any
 
 import bpy
 
-from . import checks, mapping, pins, save_hook
+from . import checks, export, mapping, pins, save_hook
 from .agent_client import AgentClient, AgentError
 from .log import log
 from .state import STATE
@@ -339,6 +339,13 @@ class NKATA_OT_publish(bpy.types.Operator):
             self.report({"WARNING"}, STATE.publish_line)
             return {"CANCELLED"}
         log("publish.done", part_id=part["id"], version_id=res.version_id, state=res.state)
+        # The export for the engineer: an FBX named for the engine, stored on the version.
+        try:
+            path = export_part_fbx(client, part, res.version_id)
+            log("fbx.posted", part_id=part["id"], version_id=res.version_id, path=path)
+        except (AgentError, RuntimeError, OSError) as e:
+            log("fbx.failed", part_id=part["id"], error=str(e))
+            self.report({"WARNING"}, f"Published. The FBX did not export: {e}")
         if res.render_needed:
             # UE5 gave no viewport capture: Blender's viewport is the version's render.
             try:
@@ -348,6 +355,16 @@ class NKATA_OT_publish(bpy.types.Operator):
                 log("render.failed", part_id=part["id"], error=str(e))
                 self.report({"WARNING"}, f"Marked Ready. The render did not post: {e}")
         return {"FINISHED"}
+
+
+def export_part_fbx(client: AgentClient, part: dict[str, Any], version_id: str) -> str:
+    """Exports the part collection as FBX into the spool and posts it to the agent."""
+    me = client.me()
+    name = str(part.get("export_name") or part.get("name") or "part")
+    path = Path(me.spool_dir) / part["id"] / f"{version_id}.{name}.fbx"
+    export.export_fbx(_collection(part), path, str(part.get("kind") or "character"))
+    client.export_fbx(part["id"], str(path))
+    return str(path)
 
 
 def render_viewport(client: AgentClient, part_id: str, version_id: str) -> str:

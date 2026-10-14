@@ -62,6 +62,7 @@ class PartSummary:
     checks: list[CheckSpec]
     reference_files: list[str]
     waiting_on: list[str]
+    export_name: str | None = field(default=None, metadata={"optional": True})
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -342,6 +343,24 @@ class RenderResponse:
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
 
+@dataclass(frozen=True)
+class ExportRequest:
+    """POST /parts/:id/export. An FBX on disk the agent stores as the current version's export, the file an engineer takes into the engine."""
+    v: Literal[1]
+    path: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
+@dataclass(frozen=True)
+class ExportResponse:
+    v: Literal[1]
+    version_id: Ulid
+    stored: bool
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
 # sync: a project folder with index, watcher, and upload. stream: a viewer, files fetched on demand into a capped cache. See docs/engineering.md, Stream mode.
 AgentMode = Literal["sync", "stream"]
 
@@ -414,6 +433,9 @@ def validate_CheckSpec(value: object, path: str = "$") -> CheckSpec:
         params=_v_CheckSpec_params(obj["params"], path + ".params"),
     )
 
+def _v_PartSummary_export_name(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=0, pattern=None, fmt=None)
+
 def _v_PartSummary_asset_name(value: object, path: str) -> str:
     return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
 
@@ -446,10 +468,11 @@ def _v_PartSummary_waiting_on(value: object, path: str) -> list[Any]:
     return _rt.check_list(value, path, _v_PartSummary_waiting_on_item, min_items=None, max_items=None)
 
 def validate_PartSummary(value: object, path: str = "$") -> PartSummary:
-    obj = _rt.check_object(value, path, required=("id", "asset_id", "asset_name", "name", "state", "owner", "lock", "gate", "mapping", "kind", "checks", "reference_files", "waiting_on",), allowed=("id", "asset_id", "asset_name", "name", "state", "owner", "lock", "gate", "mapping", "kind", "checks", "reference_files", "waiting_on",))
+    obj = _rt.check_object(value, path, required=("id", "asset_id", "asset_name", "name", "state", "owner", "lock", "gate", "mapping", "kind", "checks", "reference_files", "waiting_on",), allowed=("id", "asset_id", "export_name", "asset_name", "name", "state", "owner", "lock", "gate", "mapping", "kind", "checks", "reference_files", "waiting_on",))
     return PartSummary(
         id=validate_Ulid(obj["id"], path + ".id"),
         asset_id=validate_Ulid(obj["asset_id"], path + ".asset_id"),
+        export_name=_v_PartSummary_export_name(obj["export_name"], path + ".export_name") if "export_name" in obj else None,
         asset_name=_v_PartSummary_asset_name(obj["asset_name"], path + ".asset_name"),
         name=_v_PartSummary_name(obj["name"], path + ".name"),
         state=validate_PartState(obj["state"], path + ".state"),
@@ -970,4 +993,31 @@ def validate_RenderResponse(value: object, path: str = "$") -> RenderResponse:
         v=_v_RenderResponse_v(obj["v"], path + ".v"),
         version_id=validate_Ulid(obj["version_id"], path + ".version_id"),
         stored=_v_RenderResponse_stored(obj["stored"], path + ".stored"),
+    )
+
+def _v_ExportRequest_v(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, (1,))
+
+def _v_ExportRequest_path(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
+
+def validate_ExportRequest(value: object, path: str = "$") -> ExportRequest:
+    obj = _rt.check_object(value, path, required=("v", "path",), allowed=("v", "path",))
+    return ExportRequest(
+        v=_v_ExportRequest_v(obj["v"], path + ".v"),
+        path=_v_ExportRequest_path(obj["path"], path + ".path"),
+    )
+
+def _v_ExportResponse_v(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, (1,))
+
+def _v_ExportResponse_stored(value: object, path: str) -> bool:
+    return _rt.check_bool(value, path)
+
+def validate_ExportResponse(value: object, path: str = "$") -> ExportResponse:
+    obj = _rt.check_object(value, path, required=("v", "version_id", "stored",), allowed=("v", "version_id", "stored",))
+    return ExportResponse(
+        v=_v_ExportResponse_v(obj["v"], path + ".v"),
+        version_id=validate_Ulid(obj["version_id"], path + ".version_id"),
+        stored=_v_ExportResponse_stored(obj["stored"], path + ".stored"),
     )

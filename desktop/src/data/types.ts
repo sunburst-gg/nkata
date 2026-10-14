@@ -59,6 +59,8 @@ export interface Version {
   from?: number;
   /** The GLB of this version: the add-on's export, or the area export from Unreal. */
   model?: string;
+  /** The FBX exported on Publish, named for the engine. */
+  fbx?: string;
   manifest?: VersionManifest;
 }
 
@@ -107,6 +109,8 @@ export interface Part {
   refs: { level: string; actors: number }[];
   /** The .blend this part lives in, project-relative. Null for parts outside Blender. */
   file: string | null;
+  /** The file name the engine expects, from the template: SM_Market_stall, SK_Ojukwu_face. */
+  exportName: string;
 }
 
 export interface Asset {

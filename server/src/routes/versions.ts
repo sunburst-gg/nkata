@@ -63,20 +63,28 @@ async function versionWithUrls(app: TypedApp, row: typeof version.$inferSelect) 
   return {
     ...versionWire(row),
     render_url: row.render_key ? await app.store.signGet(row.render_key) : null,
-    model_url: row.model_key ? app.links.sign(modelPath(row.id), app.now()) : null,
+    model_url: row.model_key ? app.links.sign(modelPath(row.id, "glb"), app.now()) : null,
+    fbx_url: row.fbx_key ? app.links.sign(modelPath(row.id, "fbx"), app.now()) : null,
   };
 }
 
-export function modelPath(versionId: string): string {
-  return `/models/${versionId}.glb`;
+export function modelPath(versionId: string, ext: "glb" | "fbx"): string {
+  return `/models/${versionId}.${ext}`;
 }
 
 const ModelParams = z.object({ vid: Ulid });
 const LinkQuery = z.object({ exp: z.string().min(1), sig: z.string().min(1) });
+/** The files this server streams under its own signed links: the GLB for the viewer, the FBX for the engineer. */
+const SERVED: { ext: "glb" | "fbx"; column: "model_key" | "fbx_key"; type: string }[] = [
+  { ext: "glb", column: "model_key", type: "model/gltf-binary" },
+  { ext: "fbx", column: "fbx_key", type: "application/octet-stream" },
+];
 
-type Artifact = { kind: "render" | "model"; folder: string; ext: string; column: "render_key" | "model_key" };
+type Artifact = { kind: "render" | "model" | "fbx"; folder: string; ext: string; column: "render_key" | "model_key" | "fbx_key" };
 const RENDER: Artifact = { kind: "render", folder: "renders", ext: "png", column: "render_key" };
 const MODEL: Artifact = { kind: "model", folder: "models", ext: "glb", column: "model_key" };
+/** The FBX the add-on exports on Publish, the file an engineer takes into the engine by hand. */
+const FBX: Artifact = { kind: "fbx", folder: "exports", ext: "fbx", column: "fbx_key" };
 
 export async function versionRoutes(app: TypedApp): Promise<void> {
   app.get("/parts/:id/versions", { schema: { params: IdParam } }, async (req) => {
@@ -206,7 +214,7 @@ export async function versionRoutes(app: TypedApp): Promise<void> {
   // The render (a PNG the agent captures in UE5 on Mark Ready, or Blender's viewport as the
   // fallback) and the model (the GLB the add-on exported, or the area export from Unreal) store
   // the same way. Three steps: a signed PUT URL, the upload by the agent, then done with the key.
-  for (const art of [RENDER, MODEL]) {
+  for (const art of [RENDER, MODEL, FBX]) {
     const keyOf = (studioId: string, partId: string, versionId: string) => `studios/${studioId}/${art.folder}/${partId}/${versionId}.${art.ext}`;
     app.post(`/parts/:id/versions/:vid/${art.kind}-url`, { schema: { params: VersionParams, body: RenderUrlBody } }, async (req) => {
       const { part: row, asset: a } = await loadPart(app.db, req.principal, req.params.id);
@@ -243,19 +251,21 @@ export async function versionRoutes(app: TypedApp): Promise<void> {
 
   // The model bytes, under the link versionWithUrls hands out. No session: the signature is the
   // credential, as with a store URL. The auth hook lets /models/ through (app.ts).
-  app.get("/models/:vid.glb", { schema: { params: ModelParams, querystring: LinkQuery } }, async (req, reply) => {
-    const path = modelPath(req.params.vid);
-    if (!app.links.verify(path, req.query.exp, req.query.sig, app.now())) throw new AppError("forbidden", "this model link is not valid or has expired");
-    const ver = (await app.db.select({ id: version.id, model_key: version.model_key }).from(version).where(eq(version.id, req.params.vid)).limit(1))[0];
-    if (!ver?.model_key) throw notFound("model", req.params.vid);
-    const object = await app.store.get(ver.model_key);
-    if (!object) throw notFound("model", req.params.vid);
-    return reply
-      .header("content-type", "model/gltf-binary")
-      .header("content-length", String(object.size))
-      .header("cache-control", "private, max-age=3600")
-      .send(object.body);
-  });
+  for (const served of SERVED) {
+    app.get(`/models/:vid.${served.ext}`, { schema: { params: ModelParams, querystring: LinkQuery } }, async (req, reply) => {
+      const path = modelPath(req.params.vid, served.ext);
+      if (!app.links.verify(path, req.query.exp, req.query.sig, app.now())) throw new AppError("forbidden", "this link is not valid or has expired");
+      const ver = (await app.db.select({ id: version.id, key: version[served.column] }).from(version).where(eq(version.id, req.params.vid)).limit(1))[0];
+      if (!ver?.key) throw notFound(served.ext, req.params.vid);
+      const object = await app.store.get(ver.key);
+      if (!object) throw notFound(served.ext, req.params.vid);
+      return reply
+        .header("content-type", served.type)
+        .header("content-length", String(object.size))
+        .header("cache-control", "private, max-age=3600")
+        .send(object.body);
+    });
+  }
 
   // Roll back: a new version that points at an older file_version. One click, nothing deleted.
   app.post("/parts/:id/rollback", { schema: { params: IdParam, body: RollbackBody } }, async (req, reply) => {
