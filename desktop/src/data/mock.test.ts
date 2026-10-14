@@ -69,6 +69,17 @@ describe("mock data source", () => {
     expect(src.snapshot().activity[0]?.text).toBe("confirmed the rights to Market stall");
   });
 
+  it("moves an asset into a folder and back out", () => {
+    const src = createMockSource({ stage: "populated" });
+    expect(src.snapshot().assets.find((a) => a.slug === "kettle")!.folder).toBe("Market");
+    src.setAssetFolder("ojukwu", " Heroes ");
+    expect(src.snapshot().assets.find((a) => a.slug === "ojukwu")!.folder).toBe("Heroes");
+    expect(src.snapshot().activity[0]?.text).toBe("moved Ojukwu to Heroes");
+    src.setAssetFolder("ojukwu", "");
+    expect(src.snapshot().assets.find((a) => a.slug === "ojukwu")!.folder).toBe("");
+    expect(src.snapshot().activity[0]?.text).toBe("moved Ojukwu out of its folder");
+  });
+
   it("assigns a part to a person and clears it", () => {
     const src = createMockSource({ stage: "connected" });
     src.createAsset("nkatatest", "Market stall", "Environment prop", "one");

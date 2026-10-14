@@ -5,11 +5,14 @@ import { Button } from "@/components/Button";
 import { Dialog } from "@/components/Dialog";
 import { CONTROL, Field, Select } from "@/components/Field";
 import { CommentRail } from "@/components/CommentRail";
+import { FolderDialog } from "@/components/FolderDialog";
+import { MenuContent, MenuItem, MenuRoot, MenuSeparator, MenuTrigger } from "@/components/Menu";
 import { PinRow, Stage } from "@/components/ModelStage";
 import { PresenceAvatar } from "@/components/PresenceAvatar";
 import { StateDot } from "@/components/StateBadge";
 import type { Asset as AssetModel, Part } from "@/data/types";
 import { useAsset, useFeatures, useGo, usePeople } from "@/lib/hooks";
+import { folderNames } from "@/lib/list";
 import { renderStyle } from "@/lib/renders";
 import { STATE_WORD } from "@/lib/state";
 import { useViewerSession } from "@/lib/viewer";
@@ -38,6 +41,14 @@ function AssetScreen({ asset, onPart }: { asset: AssetModel; onPart: (p: Part) =
   const { by } = usePeople();
   const [assigning, setAssigning] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [newFolder, setNewFolder] = useState(false);
+  const folders = folderNames(useStore((s) => s.db.assets).filter((a) => a.projectSlug === asset.projectSlug));
+  const move = async (to: string) => {
+    try {
+      await source.setAssetFolder(asset.slug, to);
+      toast(to ? `Moved ${asset.name} to ${to}.` : `Moved ${asset.name} out of ${asset.folder}.`);
+    } catch (err) { toast(reasonOf(err, "Move failed."), "failed"); }
+  };
   const training = useStore((s) => s.db.session.studio.training) === "on";
   const session = useViewerSession(asset);
   const top = asset.parts[0]?.versions[0];
@@ -55,8 +66,19 @@ function AssetScreen({ asset, onPart }: { asset: AssetModel; onPart: (p: Part) =
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center gap-4">
         <h1 className="role-moment m-0 leading-[1.1] text-heading">{asset.name}</h1>
-        <span className="text-13 text-secondary">{asset.meta}</span>
+        <span className="text-13 text-secondary">{asset.folder ? `${asset.meta} · ${asset.folder}` : asset.meta}</span>
         <div className="ml-auto flex gap-2">
+          {can("moveAsset") ? (
+            <MenuRoot>
+              <MenuTrigger asChild><Button>Move to</Button></MenuTrigger>
+              <MenuContent width={220} align="end">
+                {folders.filter((f) => f !== asset.folder).map((f) => <MenuItem key={f} onSelect={() => void move(f)}>{f}</MenuItem>)}
+                {asset.folder ? <MenuItem onSelect={() => void move("")}>{`Out of ${asset.folder}`}</MenuItem> : null}
+                {folders.some((f) => f !== asset.folder) || asset.folder ? <MenuSeparator /> : null}
+                <MenuItem onSelect={() => setNewFolder(true)}>New folder</MenuItem>
+              </MenuContent>
+            </MenuRoot>
+          ) : null}
           {can("openEditors") ? <><Button onClick={() => open("Blender")}>Open in Blender</Button>{unrealOn ? <Button onClick={() => open("Unreal")}>Open in Unreal</Button> : null}</> : null}
           {can("exportAsset") && !can("openEditors") ? null : can("exportAsset") ? <Button onClick={() => void exportAsset()}>Export</Button> : null}
           {can("assign") ? <Button onClick={() => setAssigning(true)}>Assign</Button> : null}
@@ -96,6 +118,7 @@ function AssetScreen({ asset, onPart }: { asset: AssetModel; onPart: (p: Part) =
       </div>
       <AssignDialog asset={asset} open={assigning} onOpenChange={setAssigning} />
       <RightsDialog asset={asset} open={confirming} onOpenChange={setConfirming} />
+      <FolderDialog open={newFolder} onOpenChange={setNewFolder} assetName={asset.name} onMove={(name) => void move(name)} />
     </div>
   );
 }

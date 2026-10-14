@@ -15,7 +15,7 @@ setErrorSink((message) => useStore.getState().toast(message, "failed"));
   setStage: (stage: "fresh" | "connected" | "firstAsset" | "populated") => useStore.getState().setStage(stage),
   switchRole: (r: "artist" | "viewer") => useStore.getState().switchRole(r),
   setRail: (b: boolean) => useStore.getState().setRail(b),
-  setTab: (t: "All" | "Characters" | "Props" | "Levels" | "Ready") => useStore.getState().setTab(t),
+  setTab: (t: "All" | "Ready") => useStore.getState().setTab(t),
   setTheme: (t: "dark" | "light") => useStore.getState().setTheme(t),
   open: (what: "members" | "ask" | "createAsset") => { const s = useStore.getState(); if (what === "members") s.setMembers(true); else if (what === "ask") s.setAsk(true); else s.setCreateAsset(true); },
   createProject: (name: string) => void useStore.getState().source.createProject({ name, folder: `~/Documents/Nkata/${name}`, blender: "5.1.2", unreal: "5.8.1" }),

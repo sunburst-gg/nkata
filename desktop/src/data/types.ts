@@ -140,6 +140,10 @@ export interface Asset {
   model?: string;
   /** Who holds the rights, confirmed by a reviewer. Required to Publish while the studio trains. */
   rights: { statement: string; confirmedById: string } | null;
+  /** The folder the team put it in. Empty: the project's root list. */
+  folder: string;
+  /** When it last changed, ISO 8601. Absent on the mock, which orders by changedOrder. */
+  changedAt?: string;
 }
 
 export interface ActivityItem {
@@ -324,6 +328,8 @@ export interface DataSource {
   confirmRights(assetSlug: string, statement: string): Promise<void> | void;
   /** Who owns a part. Null clears it. An art director or producer only. */
   assignOwner(assetSlug: string, partName: string, personId: string | null): Promise<void> | void;
+  /** Moves an asset into a named folder. Empty moves it back to the root list. */
+  setAssetFolder(assetSlug: string, folder: string): Promise<void> | void;
   addComment(assetSlug: string, partName: string, text: string, pos?: [number, number, number]): Comment;
   /** Invite to the studio, or through a project with a note: the project invite email carries it. */
   invite(email: string, role: Role, options?: { projectSlug?: string; note?: string }): void;

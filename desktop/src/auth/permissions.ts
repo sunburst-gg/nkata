@@ -26,6 +26,7 @@ export type Action =
   | "renameProject"
   | "deleteProject"
   | "createAsset"
+  | "moveAsset"
   | "createStudio"
   | "invite"
   | "manageMembers"

@@ -76,7 +76,7 @@ const stallComments: Comment[] = [
   { id: "c3", n: 1, authorId: "emeka", partName: "model", when: "2 h ago", text: "Beak reads too clean for a market stall. Add wear.", resolved: false, kind: "pin", source: "Nkata", pos: [-40, 110, 20] },
 ];
 
-type AssetSeed = { name: string; kind: Asset["kind"]; state: Asset["state"]; img: RenderKey; who: string[]; when: string; syncIssue?: boolean; parts: Part[]; comments?: Comment[]; meta: string };
+type AssetSeed = { name: string; kind: Asset["kind"]; state: Asset["state"]; img: RenderKey; who: string[]; when: string; syncIssue?: boolean; parts: Part[]; comments?: Comment[]; meta: string; folder?: string };
 
 function seedAssets(projectSlug: string, stage: DemoStage): Asset[] {
   const stall: AssetSeed = { name: "Market stall", kind: "Props", state: "draft", img: "ground", who: ["ada"], when: "4 s ago", parts: [part("model", "draft", "ada", "ground", { comments: stallComments.map((c) => ({ ...c })) })], meta: "Prop · 1 part · Ada" };
@@ -90,15 +90,15 @@ function seedAssets(projectSlug: string, stage: DemoStage): Asset[] {
       part("rig", "locked", "tobe", "overview", { gate: ["textures"], versions: [] }),
       part("lookdev", "locked", "ada", "courtyard", { gate: ["rig"], versions: [] }),
     ] },
-    { name: "Enugu Market", kind: "Levels", state: "approved", img: "overview", who: [], when: "2 h ago", meta: "Level · 1 part · Tobe", parts: [part("square", "approved", "tobe", "overview")] },
+    { name: "Enugu Market", kind: "Levels", state: "approved", img: "overview", who: [], when: "2 h ago", meta: "Level · 1 part · Tobe", folder: "Market", parts: [part("square", "approved", "tobe", "overview")] },
     { name: "Compound", kind: "Levels", state: "draft", img: "interior", who: ["tobe"], when: "3 h ago", syncIssue: true, meta: "Level · 1 part · Tobe", parts: [part("interior", "draft", "tobe", "interior", { mirror: { state: "failed", seconds: 0 } })] },
-    { name: "Kettle", kind: "Props", state: "approved", img: "tree", who: [], when: "Yesterday", meta: "Prop · 1 part · Tobe", parts: [part("model", "approved", "tobe", "tree")] },
+    { name: "Kettle", kind: "Props", state: "approved", img: "tree", who: [], when: "Yesterday", meta: "Prop · 1 part · Tobe", folder: "Market", parts: [part("model", "approved", "tobe", "tree")] },
     { name: "Ngozi", kind: "Characters", state: "ready", img: "courtyard", who: ["ngozi"], when: "Yesterday", meta: "Character · 1 part · Ngozi", parts: [part("face", "ready", "ngozi", "courtyard")] },
   ];
   const picked = stage === "populated" ? all : stage === "firstAsset" ? [stall] : [];
   return picked.map((a, i) => ({
     id: slugOf(a.name), slug: slugOf(a.name), projectSlug, name: a.name, kind: a.kind, state: a.state, render: r(a.img), meta: a.meta, ownerId: a.parts[0]?.ownerId ?? "ada",
-    present: a.who, parts: a.parts, template: a.kind === "Characters" ? "Character" : a.kind === "Props" ? "Environment prop" : "Level area", usedIn: [], changedOrder: i, when: a.when, syncIssue: a.syncIssue, model: SAMPLE_MODEL, rights: { statement: "Sunburst owns this asset outright.", confirmedById: "emmanuel" },
+    present: a.who, parts: a.parts, template: a.kind === "Characters" ? "Character" : a.kind === "Props" ? "Environment prop" : "Level area", usedIn: [], changedOrder: i, when: a.when, syncIssue: a.syncIssue, model: SAMPLE_MODEL, rights: { statement: "Sunburst owns this asset outright.", confirmedById: "emmanuel" }, folder: a.folder ?? "",
   }));
 }
 
@@ -274,7 +274,7 @@ export function createMockSource(initial: MockOptions | "artist" | "viewer" = {}
       const chosen = parts === "one" ? [tpl.parts.find((p) => p.name === "model") ?? tpl.parts[0]!] : tpl.parts;
       const made: Asset = {
         id: slugOf(name), slug: slugOf(name), projectSlug, name, kind, state: "draft", render: null, noRenderText: chosen.map((p) => p.name).join(" · "), meta: `${kind.replace(/s$/, "")} · ${chosen.length} part${chosen.length > 1 ? "s" : ""} · ${me.name.split(" ")[0]}`,
-        ownerId: me.id, present: [], template: tpl.name, usedIn: [], changedOrder: 0, when: "Just now", rights: null,
+        ownerId: me.id, present: [], template: tpl.name, usedIn: [], changedOrder: 0, when: "Just now", rights: null, folder: "",
         parts: chosen.map((tp) => ({ id: tp.name, name: tp.name, state: tp.gate.some((g) => chosen.some((c) => c.name === g)) ? "waiting" : "draft", ownerId: me.id, render: null, lock: null, gate: tp.gate.filter((g) => chosen.some((c) => c.name === g)), versions: [], checks: [], comments: [], mirror: { state: "offline", seconds: 0 }, refs: [], file: options?.file ?? `${name}/${tp.name}.blend`, exportName: kind === "Characters" ? `SK_${slugOf(name)}_${tp.name}` : `SM_${slugOf(name)}` })),
       };
       assetList = [made, ...assetList];
@@ -328,6 +328,15 @@ export function createMockSource(initial: MockOptions | "artist" | "viewer" = {}
       if (!a) throw new Error(`no asset ${assetSlug}`);
       a.rights = { statement, confirmedById: me.id };
       log(`confirmed the rights to ${a.name}`, a.name, "draft", assetSlug);
+      touch();
+    },
+    setAssetFolder: (assetSlug, folder) => {
+      const a = assetList.find((x) => x.slug === assetSlug);
+      if (!a) throw new Error(`no asset ${assetSlug}`);
+      const name = folder.trim();
+      if (a.folder === name) return;
+      a.folder = name;
+      log(name ? `moved ${a.name} to ${name}` : `moved ${a.name} out of its folder`, a.name, "draft", assetSlug);
       touch();
     },
     assignOwner: (assetSlug, partName, personId) => {

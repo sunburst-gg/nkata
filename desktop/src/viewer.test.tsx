@@ -12,7 +12,7 @@ const ROUTES = ["/welcome", "/connections", "/mentions", RS, `${RS}/a/ojukwu`, `
 // The settings shell has no header, so no Viewer label there.
 const HEADERLESS = ["/settings/account", "/settings/members", "/settings/connections", "/settings/general"];
 // Control labels, as they sit inside a button, a menu item, or a nav row.
-const WRITE_WORDS = [">Publish<", ">Mark Ready<", ">Approve<", ">Send back<", ">Roll back<", ">Remove gate<", ">Assign<", ">Export<", ">Fix<", ">Open in Blender<", ">Open in Unreal<", ">New project<", ">Review<", ">Connect<", ">Add<", ">Invite members<", ">Billing<", ">Delete project<", ">Create asset<", ">Open folder<", "Studio name"];
+const WRITE_WORDS = [">Publish<", ">Mark Ready<", ">Approve<", ">Send back<", ">Roll back<", ">Remove gate<", ">Assign<", ">Export<", ">Fix<", ">Open in Blender<", ">Open in Unreal<", ">New project<", ">Review<", ">Connect<", ">Add<", ">Invite members<", ">Billing<", ">Delete project<", ">Create asset<", ">Open folder<", ">Move to<", ">New folder<", "Studio name"];
 
 function render(path: string): string {
   const html = renderToString(<TooltipProvider><MemoryRouter initialEntries={[path]}><AppRoutes /></MemoryRouter></TooltipProvider>);

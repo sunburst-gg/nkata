@@ -7,7 +7,7 @@ import { can, type Action } from "@/auth/permissions";
 import { createMockSource, type MockSource } from "@/data/mock";
 import { writeSession } from "@/data/boot";
 import { agent } from "@/lib/tauri";
-import type { AssetKind, DataSource, DemoStage, Snapshot } from "@/data/types";
+import type { DataSource, DemoStage, Snapshot } from "@/data/types";
 
 export type Theme = "dark" | "light";
 const THEME_KEY = "nkata.theme";
@@ -46,8 +46,8 @@ export interface FullScreen {
   partName?: string;
 }
 
-/** The project tabs. Ready is the Review filter from the activity rail. */
-export type Tab = "All" | AssetKind | "Ready";
+/** The project list filter. Ready is the review inbox, reached from the activity rail. */
+export type Tab = "All" | "Ready";
 
 interface UiState {
   railOpen: boolean;

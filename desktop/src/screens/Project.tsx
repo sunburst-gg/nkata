@@ -1,21 +1,26 @@
-// Project. The header with the folder and the owner; tabs with counts; the
-// empty state or the tiles. A tile pulses once in the accent when its first mirror lands.
-import { useEffect, useRef, useState } from "react";
+// Project. The header with the folder and the owner; one flat list of assets, newest change
+// first, narrowed by a team folder, a search, or the review inbox. A tile pulses once in the
+// accent when its first publish lands. Folders are names the team gives: drag a tile onto one.
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import { useCan, useStore } from "@/store";
 import { Button } from "@/components/Button";
 import { Dialog } from "@/components/Dialog";
 import { CONTROL } from "@/components/Field";
+import { FolderDialog } from "@/components/FolderDialog";
 import { MenuContent, MenuItem, MenuRoot, MenuSeparator, MenuTrigger } from "@/components/Menu";
 import { PresenceAvatar } from "@/components/PresenceAvatar";
 import { StateDot } from "@/components/StateBadge";
-import type { Asset, AssetKind } from "@/data/types";
+import type { Asset } from "@/data/types";
 import { cn } from "@/lib/cn";
 import { useFeatures, useGo, usePeople, useProject } from "@/lib/hooks";
+import { folderNames, listAssets } from "@/lib/list";
+import { reasonOf } from "@/lib/reason";
 import { renderStyle } from "@/lib/renders";
 import { STATE_WORD } from "@/lib/state";
 import { inTauri } from "@/lib/tauri";
 
-const TABS: ("All" | AssetKind)[] = ["All", "Characters", "Props", "Levels"];
+/** The drag payload: the asset's slug under this type, so only tiles drop on folders. */
+const DRAG_TYPE = "text/nkata-asset";
 
 export function Project() {
   const project = useProject();
@@ -34,6 +39,12 @@ export function Project() {
   const go = useGo();
   const { by } = usePeople();
   const [rename, setRename] = useState<string | null>(null);
+  // null: every asset. "": the root list. A name: that folder.
+  const [folder, setFolder] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  // The asset dropped on New folder, waiting for its name.
+  const [newFolderFor, setNewFolderFor] = useState<Asset | null>(null);
+  useEffect(() => { setFolder(null); setQuery(""); }, [project?.slug]);
   const assets = db.assets.filter((a) => a.projectSlug === project?.slug);
   // The first mirror of a new asset: the tile pulses and the toast says it reached Unreal.
   const seen = useRef(new Map<string, boolean>());
@@ -46,13 +57,28 @@ export function Project() {
   }, [assets, pulse, toast]);
   if (!project) return <span className="text-secondary">No projects yet.</span>;
 
-  const filtered = assets.filter((a) => tab === "All" || (tab === "Ready" ? a.state === "ready" : a.kind === tab));
+  const folders = folderNames(assets);
+  const ready = tab === "Ready";
+  const filtered = listAssets(assets, { folder, query, ready });
+  const canMove = can("moveAsset");
+  const moveTo = async (slug: string, to: string) => {
+    const a = assets.find((x) => x.slug === slug);
+    if (!a || a.folder === to) return;
+    try {
+      await source.setAssetFolder(slug, to);
+      toast(to ? `Moved ${a.name} to ${to}.` : `Moved ${a.name} out of ${a.folder}.`);
+    } catch (err) { toast(reasonOf(err, "Move failed."), "failed"); }
+  };
   const blender = db.connections.find((c) => c.id === "blender")?.connected;
   const unreal = db.connections.find((c) => c.id === "unreal")?.connected;
   const connected = !!blender && (!unrealOn || !!unreal);
   const owner = by(project.ownerId);
   const empty = assets.length
-    ? { title: tab === "Ready" ? "Nothing to review" : `No ${tab.toLowerCase()} yet`, line: "Save a part in Blender and it appears here", button: "Create asset", run: () => setCreateAsset(true) }
+    ? ready
+      ? { title: "Nothing to review", line: "Assets marked Ready land here", button: "Create asset", run: () => setCreateAsset(true) }
+      : query.trim()
+        ? { title: "No asset matches", line: "Search by name or by template", button: "Create asset", run: () => setCreateAsset(true) }
+        : { title: folder ? `Nothing in ${folder}` : "Nothing outside a folder", line: "Drag an asset onto a folder to move it", button: "Create asset", run: () => setCreateAsset(true) }
     : connected
       ? { title: "No assets yet", line: "Save a part in Blender and it appears here", button: "Create asset", run: () => setCreateAsset(true) }
       : { title: unrealOn ? "Connect Blender and Unreal to start" : "Connect Blender to start", line: db.connections.some((c) => c.version) ? (unrealOn ? "Nkata found both on this computer." : "Nkata found it on this computer.") : (unrealOn ? "Install both, then connect them here." : "Install Blender, then connect it here."), button: "Connections", run: go.connections };
@@ -92,17 +118,14 @@ export function Project() {
           </div>
         ) : null}
       </div>
-      <div role="tablist" aria-label="Assets" className="flex gap-1 border-b border-hairline">
-        {TABS.map((t) => {
-          const count = t === "All" ? assets.length : assets.filter((a) => a.kind === t).length;
-          const active = tab === t;
-          return (
-            <button key={t} type="button" role="tab" aria-selected={active} onClick={() => setTab(t)} className={cn("-mb-px inline-flex h-9 cursor-pointer items-center gap-2 border-0 border-b-2 bg-transparent px-3 text-14 transition-colors duration-150", active ? "border-heading text-heading" : "border-transparent text-secondary hover:text-heading")}>
-              {t}<span className="role-mono text-muted">{count}</span>
-            </button>
-          );
-        })}
-        {tab === "Ready" ? <button type="button" role="tab" aria-selected className="-mb-px inline-flex h-9 cursor-pointer items-center gap-2 border-0 border-b-2 border-heading bg-transparent px-3 text-14 text-heading">Ready for review<span className="role-mono text-muted">{filtered.length}</span></button> : null}
+      <div className="flex flex-wrap items-center gap-2 border-b border-hairline pb-4">
+        <div role="group" aria-label="Folders" className="flex flex-wrap items-center gap-2">
+          <Chip label="All" count={assets.length} active={folder === null && !ready} onClick={() => { setFolder(null); setTab("All"); }} onDrop={canMove ? (slug) => void moveTo(slug, "") : undefined} />
+          {folders.map((f) => <Chip key={f} label={f} count={assets.filter((a) => a.folder === f).length} active={folder === f} onClick={() => setFolder(folder === f ? null : f)} onDrop={canMove ? (slug) => void moveTo(slug, f) : undefined} />)}
+          {canMove ? <Chip label="New folder" dashed onClick={() => toast("Drag an asset here to start a folder.", "muted")} onDrop={(slug) => setNewFolderFor(assets.find((a) => a.slug === slug) ?? null)} /> : null}
+          {ready ? <Chip label="Ready for review" count={filtered.length} active onClick={() => setTab("All")} /> : null}
+        </div>
+        <input value={query} onChange={(e) => setQuery(e.target.value)} type="search" aria-label="Search assets" placeholder="Search by name or template" className={cn(CONTROL, "ml-auto h-9 w-64 max-w-full rounded-full")} />
       </div>
       <Dialog open={rename !== null} onOpenChange={(o) => { if (!o) setRename(null); }} title="Rename project">
         <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); const name = rename?.trim(); if (name && name !== project.name) { source.renameProject(project.slug, name); toast("Project renamed."); go.project(name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")); } setRename(null); }}>
@@ -118,10 +141,30 @@ export function Project() {
         </div>
       ) : (
         <div className="grid gap-6" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
-          {filtered.map((a) => <Tile key={a.id} asset={a} pulse={pulseAsset === a.slug} onOpen={() => go.asset(a.slug, project.slug)} />)}
+          {filtered.map((a) => <Tile key={a.id} asset={a} pulse={pulseAsset === a.slug} draggable={canMove} onOpen={() => go.asset(a.slug, project.slug)} />)}
         </div>
       )}
+      <FolderDialog open={newFolderFor !== null} onOpenChange={(o) => { if (!o) setNewFolderFor(null); }} assetName={newFolderFor?.name ?? ""} onMove={(name) => { if (newFolderFor) void moveTo(newFolderFor.slug, name); }} />
     </div>
+  );
+}
+
+/** A folder at the top of the list: a filter, and a drop target for a tile when onDrop is set. */
+function Chip({ label, count, active, dashed, onClick, onDrop }: { label: string; count?: number; active?: boolean; dashed?: boolean; onClick: () => void; onDrop?: (slug: string) => void }) {
+  const [over, setOver] = useState(false);
+  const accepts = (e: DragEvent<HTMLButtonElement>) => !!onDrop && e.dataTransfer.types.includes(DRAG_TYPE);
+  return (
+    <button
+      type="button"
+      aria-pressed={!!active}
+      onClick={onClick}
+      onDragOver={(e) => { if (accepts(e)) { e.preventDefault(); setOver(true); } }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => { if (!accepts(e)) return; e.preventDefault(); setOver(false); const slug = e.dataTransfer.getData(DRAG_TYPE); if (slug) onDrop?.(slug); }}
+      className={cn("inline-flex h-8 cursor-pointer items-center gap-2 rounded-full border bg-transparent px-3 text-13 transition-colors duration-150", active ? "border-heading bg-raised text-heading" : "border-hairline text-secondary hover:text-heading", dashed ? "border-dashed" : "", over ? "border-accent text-heading" : "")}
+    >
+      {label}{count !== undefined ? <span className="role-mono text-muted">{count}</span> : null}
+    </button>
   );
 }
 
@@ -136,10 +179,10 @@ function EmptyMark() {
   );
 }
 
-export function Tile({ asset, pulse, onOpen }: { asset: Asset; pulse: boolean; onOpen: () => void }) {
+export function Tile({ asset, pulse, draggable = false, onOpen }: { asset: Asset; pulse: boolean; draggable?: boolean; onOpen: () => void }) {
   const { by } = usePeople();
   return (
-    <button type="button" onClick={onOpen} className={cn("relative cursor-pointer overflow-hidden rounded-xl border bg-panel p-0 text-left transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5 hover:shadow-soft", pulse ? "nk-pulse-border border-accent" : "border-hairline")}>
+    <button type="button" onClick={onOpen} draggable={draggable} onDragStart={draggable ? (e) => { e.dataTransfer.setData(DRAG_TYPE, asset.slug); e.dataTransfer.effectAllowed = "move"; } : undefined} className={cn("relative cursor-pointer overflow-hidden rounded-xl border bg-panel p-0 text-left transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5 hover:shadow-soft", pulse ? "nk-pulse-border border-accent" : "border-hairline")}>
       <div className="relative aspect-[4/3] bg-[var(--preview-bg)]" style={asset.render ? renderStyle(asset.render, "tile") : undefined}>
         {!asset.render ? <span className="absolute inset-0 flex items-center justify-center px-4 text-center text-12 text-[var(--on-scrim)]">{asset.noRenderText ?? "No render yet"}</span> : null}
         <span className="absolute left-3 top-3 inline-flex h-5.5 items-center gap-1.5 rounded-md bg-[var(--avatar-fg)] px-2 text-12 font-medium text-[var(--accent-fg)]"><StateDot state={asset.state} size={7} />{STATE_WORD[asset.state]}</span>
@@ -150,8 +193,9 @@ export function Tile({ asset, pulse, onOpen }: { asset: Asset; pulse: boolean; o
           </div>
         ) : null}
       </div>
-      <div className="flex items-baseline gap-3 px-4 pb-3.5 pt-3">
-        <span className="flex-1 truncate text-16 font-medium text-heading">{asset.name}</span>
+      <div className="flex items-baseline gap-2 px-4 pb-3.5 pt-3">
+        <span className="min-w-0 flex-1 truncate text-16 font-medium text-heading">{asset.name}</span>
+        {asset.template ? <span className="shrink-0 rounded-md bg-raised px-1.5 py-0.5 text-11 text-secondary">{asset.template}</span> : null}
         <span className="whitespace-nowrap text-13 text-muted">{asset.when}</span>
       </div>
     </button>

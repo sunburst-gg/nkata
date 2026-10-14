@@ -34,6 +34,9 @@ const AssetBody = z.object({
 
 const RightsBody = z.object({ statement: z.string().min(1) });
 
+/** A folder the team named. Empty moves the asset back to the project's root list. */
+const FolderBody = z.object({ folder: z.string().trim().max(60).regex(/^[^/\\\0]*$/, "a folder name, no slashes") });
+
 /** A level area asset is named "<level> / <area>". Without the slash the level is the asset and the area is the part. */
 export function levelAndArea(assetName: string, partName: string): { level: string; area: string } {
   const slash = assetName.indexOf(" / ");
@@ -127,6 +130,18 @@ export async function assetRoutes(app: TypedApp): Promise<void> {
     const rights = AssetRights.parse({ statement: req.body.statement, confirmed_by: req.principal.user_id, confirmed_at: now.toISOString() });
     const [saved] = await app.db.update(asset).set({ rights, updated_at: now }).where(eq(asset.id, a.id)).returning();
     await app.bus.audit({ studio_id: a.studio_id, project_id: a.project_id, actor_id: req.principal.user_id, kind: "audit.rights_confirmed", target_kind: "asset", target_id: a.id, payload: rights });
+    return { v: 1, asset: saved };
+  });
+
+  // Folders are names the team gives, not paths: one word per asset, listed at the top of the
+  // project screen. Any member who can edit moves an asset; the same name twice is one folder.
+  app.put("/assets/:id", { schema: { params: IdParam, body: FolderBody } }, async (req) => {
+    requireRole(req.principal, ["artist", "art_director", "producer"], "moving an asset");
+    const a = await loadAsset(app.db, req.principal, req.params.id);
+    if (a.folder === req.body.folder) return { v: 1, asset: a };
+    const now = app.now();
+    const [saved] = await app.db.update(asset).set({ folder: req.body.folder, updated_at: now }).where(eq(asset.id, a.id)).returning();
+    await app.bus.audit({ studio_id: a.studio_id, project_id: a.project_id, actor_id: req.principal.user_id, kind: "audit.asset_moved", target_kind: "asset", target_id: a.id, payload: { from: a.folder, to: req.body.folder } });
     return { v: 1, asset: saved };
   });
 

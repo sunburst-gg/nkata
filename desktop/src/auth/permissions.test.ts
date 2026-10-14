@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { can, type Action } from "./permissions";
 
-const WRITE: Action[] = ["publish", "markReady", "approve", "sendBack", "rollBack", "removeGate", "assign", "confirmRights", "exportProject", "fixChecks", "lock", "openEditors", "createProject", "createStudio", "viewTemplates", "review", "invite", "createAsset", "manageMembers", "setTraining", "viewBilling", "connectTools", "renameProject", "deleteProject"];
+const WRITE: Action[] = ["publish", "markReady", "approve", "sendBack", "rollBack", "removeGate", "assign", "confirmRights", "exportProject", "fixChecks", "lock", "openEditors", "createProject", "createStudio", "viewTemplates", "review", "invite", "createAsset", "moveAsset", "manageMembers", "setTraining", "viewBilling", "connectTools", "renameProject", "deleteProject"];
 
 describe("permissions", () => {
   it("a viewer can only read, comment, and download images", () => {

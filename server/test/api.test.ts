@@ -428,7 +428,20 @@ describe.skipIf(!hasInfra)("server api", () => {
       expect(body.parts.find((p) => p.name === "face")?.versions).toHaveLength(2);
     });
 
-    it("a producer turns training on, which pays nothing, stamps new rows, and requires rights to Publish", async () => {
+    it("moves an asset into a named folder and back to the root, and a viewer cannot", async () => {
+    const id = h.seeded.assets["Kettle"]!;
+    const moved = await h.app.inject({ method: "PUT", url: `/assets/${id}`, ...h.as(ARTIST), payload: { folder: " Market set " } });
+    expect(moved.statusCode).toBe(200);
+    expect((moved.json() as { asset: { folder: string } }).asset.folder).toBe("Market set");
+    const listed = await h.app.inject({ method: "GET", url: `/assets?project_id=${h.seeded.project_id}`, ...h.as(ARTIST) });
+    expect((listed.json() as { assets: { id: string; folder: string }[] }).assets.find((a) => a.id === id)?.folder).toBe("Market set");
+    expect((await h.app.inject({ method: "PUT", url: `/assets/${id}`, ...h.as(VIEWER), payload: { folder: "x" } })).statusCode).toBe(403);
+    expect((await h.app.inject({ method: "PUT", url: `/assets/${id}`, ...h.as(ARTIST), payload: { folder: "a/b" } })).statusCode).toBe(400);
+    const back = await h.app.inject({ method: "PUT", url: `/assets/${id}`, ...h.as(ARTIST), payload: { folder: "" } });
+    expect((back.json() as { asset: { folder: string } }).asset.folder).toBe("");
+  });
+
+  it("a producer turns training on, which pays nothing, stamps new rows, and requires rights to Publish", async () => {
       expect((await h.app.inject({ method: "PUT", url: "/studio/training", ...h.as(ARTIST), payload: { training: "on" } })).statusCode).toBe(403);
       const on = await h.app.inject({ method: "PUT", url: "/studio/training", ...h.as(PRODUCER), payload: { training: "on" } });
       expect(on.json()).toMatchObject({ studio: { training: "on", billing: { line: "Free while Nkata is in testing", seats: 5 } } });
