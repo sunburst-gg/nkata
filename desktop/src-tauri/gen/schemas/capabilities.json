@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"The main window. Core APIs only; no plugins in v1.","local":true,"windows":["main"],"permissions":["core:default"]}}
+{"default":{"identifier":"default","description":"The main window. Core APIs and the folder picker.","local":true,"windows":["main"],"permissions":["core:default","dialog:default"]}}
