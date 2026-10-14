@@ -175,10 +175,10 @@ Server to client events: `presence.changed`, `lock.granted`, `lock.released`, `l
 
 Shipped v1 checks, by template:
 
-- Character: `unit_scale` (fix), `name_pattern` (fix), `triangle_budget`, `uv_set_present`, `texture_size`, `rig_bone_names`, `rig_bone_count`, `metahuman_dna_present`.
-- Environment: `unit_scale` (fix), `name_pattern` (fix), `triangle_budget`, `lod_count`, `collision_present`, `uv_set_present`, `texture_size`, `pivot_at_base` (fix).
+- Character: `texture_names` (fix), `unit_scale` (fix), `name_pattern` (fix), `triangle_budget`, `uv_set_present`, `texture_size`, `rig_bone_names`, `rig_bone_count`, `metahuman_dna_present`.
+- Environment: `texture_names` (fix), `unit_scale` (fix), `name_pattern` (fix), `triangle_budget`, `lod_count`, `collision_present`, `uv_set_present`, `texture_size`, `pivot_at_base` (fix).
 
-Nine contracts in all; the two lists share five. `pivot_at_base` blocks when the object origin is not at the lowest point of the mesh bounds, within 1 mm. Its fix moves the origin to the base and the mesh the other way, so nothing in the scene moves.
+Ten contracts in all; the two lists share six. Four checks block a Blender part: `texture_names`, `unit_scale`, `uv_set_present`, `triangle_budget`. Every other check informs (severity warn), the rig checks and the Unreal checks aside. `pivot_at_base` informs when the object origin is not at the lowest point of the mesh bounds, within 1 mm. Its fix moves the origin to the base and the mesh the other way, so nothing in the scene moves. `texture_names` reads the images the part's materials use; its fix renames them to the pattern, as `name_pattern` does for objects.
 
 **Comment pins.** `{part_id, version_id, point, normal, body}`, point and normal in the part's local space at that version. Blender draws pins with a `gpu` module overlay in the 3D viewport and a click handler on the N-panel list. UE5 draws them with a small C++ `FEditorViewportClient` extension; until that module exists, the Editor Utility Widget lists pins and frames the camera on click. The app draws them on the glTF preview with three.js. A pin on an old version still draws on new versions by point; if the point is more than 5 cm from any surface it shows as detached.
 

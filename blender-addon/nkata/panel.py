@@ -34,6 +34,7 @@ from .state import STATE
 
 STATE_WORDS = {"locked": "Locked", "draft": "Draft", "ready": "Ready", "approved": "Approved"}
 CHECK_WORDS = {
+    "texture_names": "Texture names",
     "unit_scale": "Scale",
     "name_pattern": "Naming",
     "triangle_budget": "Triangle budget",
@@ -82,6 +83,7 @@ def run_checks(part: dict[str, Any], fix: bool) -> list[dict[str, Any]]:
         apply_fixes(col, facts, after)
     with STATE.lock:
         STATE.checks[part["id"]] = results
+        STATE.card[part["id"]] = checks.summary(after)
         STATE.dirty = True
     return results
 
@@ -97,6 +99,10 @@ def apply_fixes(collection: Any, before: checks.SceneFacts, after: checks.SceneF
             move_origin_down(obj, drops[obj.name])
         if obj.name in renames:
             obj.name = renames[obj.name]
+    textures = {b.name: a.name for b, a in zip(before.textures, after.textures, strict=True) if b.name != a.name}
+    for img in getattr(bpy.data, "images", []) or []:
+        if img.name in textures:
+            img.name = textures[img.name]
 
 
 def move_origin_down(obj: Any, delta: float) -> None:
@@ -465,17 +471,39 @@ def draw_checks(layout: Any, part: dict[str, Any]) -> None:
     if results is None:
         box.label(text="Checks run on save and on Publish")
         return
+    card = STATE.card.get(part["id"], {})
     fixable = False
-    for r in results:
-        word = CHECK_WORDS.get(r["check_id"], r["check_id"])
+    # The checks that block come first, one line each with the number. The rest inform below.
+    ordered = sorted(results, key=lambda r: 0 if r["severity"] == "block" else 1)
+    for r in ordered:
         if r["passed"]:
-            box.label(text=f"{word}: pass" + (" (fixed)" if r["auto_fixed"] else ""), icon="CHECKMARK")
+            text = green_line(r["check_id"], card, part) + (" (fixed)" if r["auto_fixed"] else "")
+            box.label(text=text, icon="CHECKMARK")
         else:
+            word = CHECK_WORDS.get(r["check_id"], r["check_id"])
             icon = "ERROR" if r["severity"] == "block" else "INFO"
             box.label(text=f"{word}: {r['message']}", icon=icon)
             fixable |= r["check_id"] in checks.FIXERS
     if fixable:
         box.operator(NKATA_OT_fix_checks.bl_idname, text="Fix")
+
+
+def green_line(check_id: str, card: dict[str, Any], part: dict[str, Any]) -> str:
+    """What a passing check says, with its number: the artist reads the state, not a word."""
+    if check_id == "texture_names":
+        n = len(card.get("textures", []))
+        return f"Textures named · {n}" if n else "Textures named · none"
+    if check_id == "unit_scale":
+        return f"Scale {card.get('unit_scale', 1.0):g}"
+    if check_id == "uv_set_present":
+        sets = card.get("uv_sets", [])
+        return f"UVs present · {len(sets)} set{'' if len(sets) == 1 else 's'}"
+    if check_id == "triangle_budget":
+        spec = next((c for c in part.get("checks") or [] if c.get("id") == "triangle_budget"), None)
+        limit = (spec or {}).get("params", {}).get("max")
+        tris = card.get("triangles", 0)
+        return f"Tris within budget · {tris:,} of {int(limit):,}" if limit else f"Tris within budget · {tris:,}"
+    return f"{CHECK_WORDS.get(check_id, check_id)}: pass"
 
 
 def draw_comments(layout: Any, part: dict[str, Any]) -> None:

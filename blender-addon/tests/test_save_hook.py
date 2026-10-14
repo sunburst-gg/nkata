@@ -175,6 +175,17 @@ class SaveHookTest(unittest.TestCase):
         self.assertEqual(req["manifest"]["objects"][0]["origin"], [2.0, 3.0, 0.0])
         self.assertEqual(req["manifest"]["objects"][0]["bounds_min"], [1.5, 2.5, 0.0])
 
+    def test_with_unreal_off_a_prop_off_its_base_still_exports(self) -> None:
+        """The pivot rule guards placed copies in Unreal. Coming soon means the GLB still ships."""
+        FakeAgent.unreal = False
+        FakeAgent.parts = [{**FakeAgent.parts[0], "kind": "prop"}]
+        self.face.matrix_world[2][3] = 0.5
+        out = self.save_hook.handle_save(str(self.blend))
+        self.assertTrue(out["changed"])
+        self.assertEqual(out["refused"], [])
+        self.assertIsNotNone(FakeAgent.saved[0]["spool_path"])
+        self.assertEqual(self.state.error, "")
+
     def test_a_prop_off_its_base_or_scaled_is_refused_and_still_versions(self) -> None:
         floating = bpy_stub.FakeObject("Kettle", coords=[-0.5, -0.5, 0.2, 0.5, -0.5, 0.2, 0.0, 0.5, 0.5], scale=(2.0, 2.0, 2.0))
         self._as_prop(floating)

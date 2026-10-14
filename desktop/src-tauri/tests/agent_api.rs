@@ -426,7 +426,8 @@ async fn editors_publish_comment_review_and_hear_each_other() {
     let director = start_as(&server_url, fake(), DIRECTOR).await;
     let (_, parts) = artist.get("/parts?file=Market%20stall%2Fmodel.blend").await;
     let model = parts["parts"][0]["id"].as_str().unwrap().to_string();
-    assert_eq!(parts["parts"][0]["checks"][0]["id"], "unit_scale");
+    // The template lists the four blocking checks first; texture names lead (step 7, slice 2).
+    assert_eq!(parts["parts"][0]["checks"][0]["id"], "texture_names");
     assert_eq!(parts["parts"][0]["waiting_on"], json!([]));
 
     let artist_seen = subscribe(&artist).await;

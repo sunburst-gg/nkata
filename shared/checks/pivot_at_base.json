@@ -2,7 +2,7 @@
   "v": 1,
   "id": "pivot_at_base",
   "title": "Object origin sits at the base of the mesh",
-  "severity": "block",
+  "severity": "warn",
   "auto_fix": true,
   "params": {"type": "object", "properties": {}, "additionalProperties": false},
   "applies_to": ["blender"]

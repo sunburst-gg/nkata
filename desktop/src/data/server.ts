@@ -43,11 +43,11 @@ type CheckWire = { check_id: string; severity: "block" | "warn"; passed: boolean
 type EventWire = { id: string; event: Wire & { kind: string; actor_id: string; at: string; part_id?: string } };
 
 const CHECK_WORDS: Record<string, string> = {
-  unit_scale: "Scale", name_pattern: "Naming", triangle_budget: "Triangle budget", uv_set_present: "UV set", texture_size: "Texture size",
+  texture_names: "Texture names", unit_scale: "Scale", name_pattern: "Naming", triangle_budget: "Triangle budget", uv_set_present: "UV set", texture_size: "Texture size",
   rig_bone_names: "Rig names", rig_bone_count: "Rig bone count", metahuman_dna_present: "MetaHuman data", lod_count: "LODs",
   collision_present: "Collision", pivot_at_base: "Pivot at base",
 };
-const FIXABLE = new Set(["unit_scale", "name_pattern"]);
+const FIXABLE = new Set(["unit_scale", "name_pattern", "pivot_at_base", "texture_names"]);
 const KIND_WORD: Record<string, string> = { character: "Character", prop: "Prop", level_area: "Level area" };
 const KIND_TAB: Record<string, AssetKind> = { character: "Characters", prop: "Props", level_area: "Levels" };
 const ROLE_ORDER: Role[] = ["producer", "art_director", "artist", "viewer"];

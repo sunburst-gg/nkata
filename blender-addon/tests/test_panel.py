@@ -6,6 +6,7 @@ import json
 import os
 import tempfile
 import threading
+import types
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -240,7 +241,7 @@ class PanelTest(unittest.TestCase):
         self.assertEqual(self.bpy.context.scene.unit_settings.scale_length, 1.0)
         self.assertEqual(self.face.name, "SK_face_body")
         self.assertTrue(all(r["passed"] for r in self.state.checks[ID]))
-        self.assertIn("label:Scale: pass (fixed)", "\n".join(self.draw()))
+        self.assertIn("label:Scale 1 (fixed)", "\n".join(self.draw()))
 
     def test_fix_moves_the_origin_to_the_base_and_leaves_the_mesh_where_it_was(self) -> None:
         """A cube whose origin sits half a metre under its base: Fix moves the origin to the base
@@ -260,6 +261,32 @@ class PanelTest(unittest.TestCase):
         self.assertEqual(crate.data.vertices.flat[8], 1.0)
         self.assertTrue(self.state.checks[ID][0]["passed"])
         self.assertTrue(self.state.checks[ID][0]["auto_fixed"])
+
+    def test_the_four_blocking_checks_read_as_lines_with_numbers_and_fix_renames_textures(self) -> None:
+        """Green lines carry the number. A texture off the pattern blocks, and Fix renames the image."""
+        self.bpy.data.images = [types.SimpleNamespace(name="face diffuse", size=(2048, 2048))]
+        specs = [
+            {"id": "texture_names", "severity": "block", "params": {"pattern": "T_.*"}},
+            {"id": "unit_scale", "severity": "block", "params": {}},
+            {"id": "uv_set_present", "severity": "block", "params": {}},
+            {"id": "triangle_budget", "severity": "block", "params": {"max": 60000}},
+            {"id": "name_pattern", "severity": "warn", "params": {"pattern": "SK_.*"}},
+        ]
+        self.bpy.context.scene.unit_settings.scale_length = 1.0
+        self.save_hook.handle_open(str(self.blend))
+        self.state.part = {**self.state.part, "checks": specs}
+        self.panel.run_checks(self.state.part, fix=False)
+        lines = self.draw()
+        text = "\n".join(lines)
+        self.assertIn("label:Texture names: 1 textures not T_.*: face diffuse", text)
+        self.assertIn("label:Scale 1", text)
+        self.assertIn("label:UVs present · 1 set", text)
+        self.assertIn("label:Tris within budget · 1 of 60,000", text)
+        naming = next(line for line in lines if line.startswith("label:Naming"))
+        self.assertLess(lines.index("label:Tris within budget · 1 of 60,000"), lines.index(naming), "blocking checks come first")
+        self.assertEqual(self.panel.NKATA_OT_fix_checks().execute(None), {"FINISHED"})
+        self.assertEqual(self.bpy.data.images[0].name, "T_face_diffuse")
+        self.assertIn("label:Textures named · 1 (fixed)", "\n".join(self.draw()))
 
     def test_fix_leaves_edit_mode_first(self) -> None:
         """In edit mode a mesh write is dropped and the origin move would shift the object."""

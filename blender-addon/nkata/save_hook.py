@@ -113,6 +113,7 @@ def run_part_checks(part: dict[str, Any], collection: Any) -> list[dict[str, Any
     )
     with STATE.lock:
         STATE.checks[part["id"]] = results
+        STATE.card[part["id"]] = checks.summary(facts)
     return results
 
 
@@ -154,8 +155,9 @@ def handle_save(filepath: str) -> dict[str, Any]:
     manifest_data: dict[str, Any] | None = None
     export_ms = 0
     refused: list[str] = []
-    if changed and kind == "prop":
-        # A prop must sit on its origin at scale 1 or every placed copy lands wrong.
+    if changed and kind == "prop" and STATE.unreal:
+        # A prop must sit on its origin at scale 1 or every placed copy lands wrong in Unreal.
+        # While Unreal is Coming soon the pivot informs and the GLB still reaches the app.
         refused = manifest.static_problems(infos)
     if changed and refused:
         log("export.refused", part_id=part["id"], problems=refused)

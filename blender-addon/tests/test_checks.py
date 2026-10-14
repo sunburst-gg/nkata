@@ -40,7 +40,7 @@ class ChecksTest(unittest.TestCase):
     def test_all_pass_on_a_clean_prop(self) -> None:
         results, _ = checks.run_checks(
             list(checks.BLENDER_CHECKS),
-            {"name_pattern": {"pattern": "SM_.*"}, "triangle_budget": {"max": 15000}, "rig_bone_names": {"skeleton": "SK_Human"}, "rig_bone_count": {"max": 100}},
+            {"name_pattern": {"pattern": "SM_.*"}, "texture_names": {"pattern": "T_.*"}, "triangle_budget": {"max": 15000}, "rig_bone_names": {"skeleton": "SK_Human"}, "rig_bone_count": {"max": 100}},
             SEV,
             facts(),
         )
@@ -57,6 +57,23 @@ class ChecksTest(unittest.TestCase):
         unfixed, _ = checks.run_checks(["unit_scale"], {}, SEV, bad, fix=False)
         self.assertEqual((unfixed[0]["passed"], unfixed[0]["auto_fixed"]), (False, False))
         self.assertIn("0.01", unfixed[0]["message"])
+
+    def test_texture_names_block_and_fix_like_object_names(self) -> None:
+        bad = facts(textures=(TextureFacts("T_Kettle_D", 2048, 2048), TextureFacts("kettle normal", 1024, 1024)))
+        unfixed, _ = checks.run_checks(["texture_names"], {"texture_names": {"pattern": "T_.*"}}, SEV, bad, fix=False)
+        self.assertEqual((unfixed[0]["passed"], unfixed[0]["severity"]), (False, "block"))
+        self.assertIn("kettle normal", unfixed[0]["message"])
+        fixed, after = checks.run_checks(["texture_names"], {"texture_names": {"pattern": "T_.*"}}, SEV, bad)
+        self.assertEqual((fixed[0]["passed"], fixed[0]["auto_fixed"]), (True, True))
+        self.assertEqual([t.name for t in after.textures], ["T_Kettle_D", "T_kettle_normal"])
+        # No pattern in the template: the check fails with a reason and never fixes.
+        none, _ = checks.run_checks(["texture_names"], {}, SEV, bad)
+        self.assertFalse(none[0]["passed"])
+        self.assertFalse(none[0]["auto_fixed"])
+
+    def test_the_summary_carries_the_card_numbers(self) -> None:
+        card = checks.summary(facts())
+        self.assertEqual(card, {"triangles": 1500, "textures": ["T_Kettle_D"], "uv_sets": ["UVMap"], "unit_scale": 1.0, "objects": 2})
 
     def test_pivot_moves_to_the_base_and_reports_it(self) -> None:
         bad = facts(objects=(ObjectFacts("SM_Crate", 12, ("UVMap",), (-1.0, -1.0, 0.5), (0.0, 0.0, 1.0)),))

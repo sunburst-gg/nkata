@@ -180,10 +180,11 @@ describe.skipIf(!hasInfra)("server api", () => {
     expect(new Set(body.parts.map((p) => p.kind))).toEqual(new Set(["character"]));
     const face = body.parts.find((p) => p.name === "face")!;
     expect(face.checks).toEqual([
+      { id: "texture_names", severity: "block", params: { pattern: "T_.*" } },
       { id: "unit_scale", severity: "block", params: {} },
-      { id: "name_pattern", severity: "block", params: { pattern: "SK_.*" } },
-      { id: "triangle_budget", severity: "block", params: { max: 60000 } },
       { id: "uv_set_present", severity: "block", params: {} },
+      { id: "triangle_budget", severity: "block", params: { max: 60000 } },
+      { id: "name_pattern", severity: "warn", params: { pattern: "SK_.*" } },
     ]);
     expect(face.waiting_on).toEqual([]);
     expect(face.reference_files).toEqual([]);

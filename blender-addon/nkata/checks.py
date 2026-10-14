@@ -3,7 +3,9 @@ save_hook gathers the facts. Contracts: shared/checks/<id>.json. Results: shared
 See docs/engineering.md, Checks.
 
 Each check returns (passed, message, fixed). A fixer returns the new facts after the fix, so the
-check runs again and reports auto_fixed. unit_scale, name_pattern, and pivot_at_base fix."""
+check runs again and reports auto_fixed. unit_scale, name_pattern, pivot_at_base, and
+texture_names fix. Four checks block a Blender part: texture_names, unit_scale, uv_set_present,
+triangle_budget. The rest inform (docs/tasks/07-blender-first.md)."""
 
 from __future__ import annotations
 
@@ -16,6 +18,7 @@ from . import nkata_shared as shared
 
 # Blender runs these. lod_count, collision_present, and metahuman_dna_present run in UE5.
 BLENDER_CHECKS = (
+    "texture_names",
     "unit_scale",
     "name_pattern",
     "triangle_budget",
@@ -90,6 +93,17 @@ def _fix_name_pattern(facts: SceneFacts, params: dict[str, Any]) -> SceneFacts:
     return replace(facts, objects=tuple(replace(o, name=conform_name(o.name, pattern)) for o in facts.objects))
 
 
+def _texture_names(facts: SceneFacts, params: dict[str, Any]) -> Outcome:
+    pattern = re.compile(str(params["pattern"]))
+    bad = [t.name for t in facts.textures if not pattern.fullmatch(t.name)]
+    return not bad, "" if not bad else f"{len(bad)} textures not {pattern.pattern}: {', '.join(bad[:5])}"
+
+
+def _fix_texture_names(facts: SceneFacts, params: dict[str, Any]) -> SceneFacts:
+    pattern = str(params["pattern"])
+    return replace(facts, textures=tuple(replace(t, name=conform_name(t.name, pattern)) for t in facts.textures))
+
+
 def _triangle_budget(facts: SceneFacts, params: dict[str, Any]) -> Outcome:
     total = sum(o.triangles for o in facts.objects)
     limit = int(params["max"])
@@ -152,6 +166,7 @@ def _fix_pivot_at_base(facts: SceneFacts, params: dict[str, Any]) -> SceneFacts:
 
 
 CHECKS: dict[str, Callable[[SceneFacts, dict[str, Any]], Outcome]] = {
+    "texture_names": _texture_names,
     "unit_scale": _unit_scale,
     "name_pattern": _name_pattern,
     "triangle_budget": _triangle_budget,
@@ -162,7 +177,7 @@ CHECKS: dict[str, Callable[[SceneFacts, dict[str, Any]], Outcome]] = {
     "pivot_at_base": _pivot_at_base,
 }
 
-FIXERS: dict[str, Fixer] = {"unit_scale": _fix_unit_scale, "name_pattern": _fix_name_pattern, "pivot_at_base": _fix_pivot_at_base}
+FIXERS: dict[str, Fixer] = {"unit_scale": _fix_unit_scale, "name_pattern": _fix_name_pattern, "pivot_at_base": _fix_pivot_at_base, "texture_names": _fix_texture_names}
 
 
 def run_checks(
@@ -205,7 +220,23 @@ def _run_one(run: Callable[[SceneFacts, dict[str, Any]], Outcome], facts: SceneF
 
 
 def _has_params(check_id: str, params: dict[str, Any]) -> bool:
-    return check_id != "name_pattern" or "pattern" in params
+    return check_id not in ("name_pattern", "texture_names") or "pattern" in params
+
+
+# The four that block a Blender part, in panel order, and the short line each shows when green.
+BLOCKING = ("texture_names", "unit_scale", "uv_set_present", "triangle_budget")
+
+
+def summary(facts: SceneFacts) -> dict[str, Any]:
+    """The numbers the panel and the card show: triangles, texture names, UV sets, unit scale."""
+    uv_sets = sorted({u for o in facts.objects for u in o.uv_layers})
+    return {
+        "triangles": sum(o.triangles for o in facts.objects),
+        "textures": [t.name for t in facts.textures],
+        "uv_sets": uv_sets,
+        "unit_scale": facts.unit_scale,
+        "objects": len(facts.objects),
+    }
 
 
 def blocked_by(results: list[dict[str, Any]]) -> list[str]:

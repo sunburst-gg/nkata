@@ -1,5 +1,7 @@
 // The standard templates every new project starts with: Character, Environment prop, and
 // Level area (docs/engineering.md, Templates). Three kinds: character, prop, level_area.
+// On a Blender part the four checks that block come first: texture names, scale, UV sets,
+// triangle budget. The rest inform (docs/tasks/07-blender-first.md).
 // POST /projects writes them for the project; the seed uses the same three.
 import type { Template } from "@nkata/shared";
 
@@ -11,9 +13,9 @@ export const CHARACTER_TEMPLATE: Template = {
   kind: "character",
   parts: [
     { name: "concept", mapping: "file", checks: ["texture_size"] },
-    { name: "face", mapping: "blend_collection", gate: [], checks: ["unit_scale", "name_pattern", "triangle_budget", "uv_set_present"], params: { triangle_budget: { max: 60000 }, name_pattern: { pattern: "SK_.*" } } },
-    { name: "cloth", mapping: "blend_collection", gate: [], checks: ["unit_scale", "name_pattern", "triangle_budget"], params: { triangle_budget: { max: 30000 }, name_pattern: { pattern: "SK_.*" } } },
-    { name: "hair", mapping: "blend_collection", gate: [], checks: ["unit_scale", "name_pattern"], params: { name_pattern: { pattern: "SK_.*" } } },
+    { name: "face", mapping: "blend_collection", gate: [], checks: ["texture_names", "unit_scale", "uv_set_present", "triangle_budget", "name_pattern"], params: { triangle_budget: { max: 60000 }, name_pattern: { pattern: "SK_.*" }, texture_names: { pattern: "T_.*" } } },
+    { name: "cloth", mapping: "blend_collection", gate: [], checks: ["texture_names", "unit_scale", "uv_set_present", "triangle_budget", "name_pattern"], params: { triangle_budget: { max: 30000 }, name_pattern: { pattern: "SK_.*" }, texture_names: { pattern: "T_.*" } } },
+    { name: "hair", mapping: "blend_collection", gate: [], checks: ["texture_names", "unit_scale", "uv_set_present", "triangle_budget", "name_pattern"], params: { triangle_budget: { max: 30000 }, name_pattern: { pattern: "SK_.*" }, texture_names: { pattern: "T_.*" } } },
     { name: "textures", mapping: "file", gate: ["face", "cloth", "hair"], checks: ["texture_size", "name_pattern"], params: { name_pattern: { pattern: "T_.*" } } },
     { name: "rig", mapping: "blend_collection", gate: ["textures"], checks: ["rig_bone_names", "rig_bone_count", "metahuman_dna_present"] },
     { name: "lookdev", mapping: "ue_asset", gate: ["rig"], checks: ["texture_size"] },
@@ -29,7 +31,7 @@ export const PROP_TEMPLATE: Template = {
   kind: "prop",
   parts: [
     { name: "concept", mapping: "file", checks: ["texture_size"] },
-    { name: "model", mapping: "blend_collection", gate: [], checks: ["unit_scale", "name_pattern", "triangle_budget", "pivot_at_base"], params: { triangle_budget: { max: 15000 }, name_pattern: { pattern: "SM_.*" } } },
+    { name: "model", mapping: "blend_collection", gate: [], checks: ["texture_names", "unit_scale", "uv_set_present", "triangle_budget", "name_pattern", "pivot_at_base"], params: { triangle_budget: { max: 15000 }, name_pattern: { pattern: "SM_.*" }, texture_names: { pattern: "T_.*" } } },
     { name: "uvs", mapping: "blend_collection", gate: [], checks: ["uv_set_present", "name_pattern"] },
     { name: "textures", mapping: "file", gate: [], checks: ["texture_size", "name_pattern"] },
     { name: "lods", mapping: "ue_asset", gate: [], checks: ["lod_count"], params: { lod_count: { min: 3 } } },

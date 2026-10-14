@@ -1,0 +1,23 @@
+{
+  "v": 1,
+  "id": "texture_names",
+  "title": "Texture names match the template pattern",
+  "severity": "block",
+  "auto_fix": true,
+  "params": {
+    "type": "object",
+    "properties": {
+      "pattern": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "pattern"
+    ],
+    "additionalProperties": false
+  },
+  "applies_to": [
+    "blender",
+    "file"
+  ]
+}
