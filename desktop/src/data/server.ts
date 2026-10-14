@@ -236,6 +236,13 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
     const projectSlugOf = slugOf(String((projects.projects.find((p) => p["id"] === config.projectId) ?? {})["name"] ?? ""));
     const partIndex = new Map<string, { assetSlug: string; assetName: string; partName: string }>();
     const details = await Promise.all(assetsWire.assets.map((a) => call<{ parts: PartWire[] }>("GET", `/assets/${a.id}`)));
+    // When each part's state last changed: the newest part.state event, else the row's own time.
+    const stateSince = new Map<string, string>();
+    for (const e of eventsWire.events) {
+      if (e.event.kind !== "part.state" || !e.event.part_id) continue;
+      const had = stateSince.get(e.event.part_id);
+      if (!had || had < e.event.at) stateSince.set(e.event.part_id, e.event.at);
+    }
     for (const [i, a] of assetsWire.assets.entries()) {
       const slug = slugOf(a.name);
       const kind = templateKind.get(a.template_id) ?? "prop";
@@ -248,7 +255,7 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
         const checks: Check[] = current ? (await call<{ results: CheckWire[] }>("GET", `/parts/${pw.id}/versions/${current.id}/checks`)).results.map(checkOf) : [];
         const comments: Comment[] = commentsRes.comments.map((c, n) => ({ id: c.id, n: n + 1, authorId: c.author.id, partName: pw.name, when: ago(c.created_at, t), text: c.body, resolved: c.resolved_at !== null, kind: c.kind ?? "pin", source: "Nkata", ...((c.point ?? []).some((x) => x !== 0) ? { pos: [c.point?.[0] ?? 0, c.point?.[1] ?? 0, c.point?.[2] ?? 0] as [number, number, number] } : {}) }));
         const mirror = !current ? { state: "offline" as const, seconds: 0 } : current.mirror_status === "failed" ? { state: "failed" as const, seconds: 0 } : current.mirror_status === "synced" || current.mirror_status === "skipped" ? { state: "synced" as const, seconds: Math.round((current.mirror_ms ?? 0) / 1000) } : { state: "syncing" as const, seconds: 0 };
-        return { id: pw.id, name: pw.name, state: partState(pw), ownerId: pw.owner_id ?? "", render: versions.find((x) => x.render)?.render ?? null, lock: pw.lock ? { holderId: pw.lock.holder.id, since: ago(pw.lock.granted_at, t) } : null, gate: pw.waiting_on, versions, checks, comments, mirror, refs: current?.refs ?? [], file: pw.mapping.kind === "blend_collection" ? pw.mapping.file ?? null : null, exportName: pw.export_name ?? "" };
+        return { id: pw.id, name: pw.name, state: partState(pw), ownerId: pw.owner_id ?? "", render: versions.find((x) => x.render)?.render ?? null, lock: pw.lock ? { holderId: pw.lock.holder.id, since: ago(pw.lock.granted_at, t) } : null, gate: pw.waiting_on, versions, checks, comments, mirror, refs: current?.refs ?? [], file: pw.mapping.kind === "blend_collection" ? pw.mapping.file ?? null : null, exportName: pw.export_name ?? "", stateSince: stateSince.get(pw.id) ?? pw.updated_at };
       }));
       const usedIn = [...new Set(parts.flatMap((p) => p.refs.map((r) => r.level.split("/").pop() ?? r.level)))];
       const present = online.online.filter((o) => o.part_id && partsWire.some((p) => p.id === o.part_id)).map((o) => o.user.id);

@@ -51,7 +51,9 @@ export function AppShell() {
   const crumbs: Crumb[] = [];
   if (pathname.startsWith("/p/") && project) {
     crumbs.push({ label: "Projects", onClick: go.welcome });
-    crumbs.push({ label: project.name, current: !asset, onClick: asset ? () => go.project(project.slug) : undefined });
+    const board = pathname.endsWith("/board");
+    crumbs.push({ label: project.name, current: !asset && !board, onClick: asset || board ? () => go.project(project.slug) : undefined });
+    if (board) crumbs.push({ label: "Board", current: true });
     if (asset) crumbs.push({ label: asset.name, current: !part, onClick: part ? () => go.asset(asset.slug, project.slug) : undefined });
     if (asset && part) crumbs.push({ label: part, current: true });
   } else {
@@ -59,7 +61,7 @@ export function AppShell() {
   }
 
   const projectAssets = project ? db.assets.filter((a) => a.projectSlug === project.slug) : [];
-  const onProject = pathname.startsWith("/p/") && !asset;
+  const onProject = pathname.startsWith("/p/") && !asset && !pathname.endsWith("/board");
   // The status line and the rail belong to a project with more than a first asset in it.
   const showStatus = onProject && projectAssets.length > 1;
   const readyCount = projectAssets.filter((a) => a.state === "ready").length;

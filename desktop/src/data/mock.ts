@@ -50,11 +50,15 @@ function checks(): Check[] {
   ];
 }
 
+/** An ISO time this many minutes ago, so the board shows real waits on the mock. */
+const minutesAgo = (m: number): string => new Date(Date.now() - m * 60_000).toISOString();
+
 const part = (name: string, state: Part["state"], ownerId: string, render: RenderKey, extra: Partial<Part> = {}): Part => ({
   id: name,
   name,
   state,
   ownerId,
+  stateSince: minutesAgo(state === "ready" ? 12 : state === "approved" ? 2 * 24 * 60 : 3 * 60),
   render: r(render),
   lock: null,
   gate: [],

@@ -111,6 +111,8 @@ export interface Part {
   file: string | null;
   /** The file name the engine expects, from the template: SM_Market_stall, SK_Ojukwu_face. */
   exportName: string;
+  /** When the state last changed, ISO 8601. The board reads waiting time off it. */
+  stateSince?: string;
 }
 
 export interface Asset {

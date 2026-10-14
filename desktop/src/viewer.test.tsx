@@ -8,7 +8,7 @@ import { TooltipProvider } from "./components/Tooltip";
 import { useStore } from "./store";
 
 const RS = "/p/rising-sun";
-const ROUTES = ["/welcome", "/connections", "/mentions", RS, `${RS}/a/ojukwu`, `${RS}/a/ojukwu/face`, "/p/nkatatest/a/market-stall", "/settings/account", "/settings/members", "/settings/connections", "/settings/general"];
+const ROUTES = ["/welcome", "/connections", "/mentions", RS, `${RS}/board`, `${RS}/a/ojukwu`, `${RS}/a/ojukwu/face`, "/p/nkatatest/a/market-stall", "/settings/account", "/settings/members", "/settings/connections", "/settings/general"];
 // The settings shell has no header, so no Viewer label there.
 const HEADERLESS = ["/settings/account", "/settings/members", "/settings/connections", "/settings/general"];
 // Control labels, as they sit inside a button, a menu item, or a nav row.

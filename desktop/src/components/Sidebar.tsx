@@ -25,6 +25,10 @@ export function Sidebar() {
   const can = useCan();
   const [switching, setSwitching] = useState(false);
   const go = useGo();
+  const role = useStore((s) => s.role);
+  // Where a project opens from the sidebar: leads land on the board, artists on it with Waiting
+  // on me on, viewers on the asset list (docs/tasks/07-blender-first.md, slice 8).
+  const land = (slug: string) => { if (role === "viewer") go.project(slug); else go.board(slug, role === "artist"); };
   const current = useProject();
   const { pathname } = useLocation();
   const onProject = pathname.startsWith("/p/");
@@ -59,7 +63,7 @@ export function Sidebar() {
       <div className="mt-6 flex items-center gap-1.5 px-2.5 text-13 text-secondary">Projects<ChevronDown size={10} strokeWidth={1.5} aria-hidden="true" /></div>
       {studio.projects.length === 0 ? <span className="px-2.5 py-1.5 text-13 text-muted">No projects yet.</span> : null}
       {studio.projects.map((p) => (
-        <NavRow key={p.id} active={onProject && current?.slug === p.slug} onClick={() => go.project(p.slug)} className="h-8.5">
+        <NavRow key={p.id} active={onProject && current?.slug === p.slug} onClick={() => land(p.slug)} className="h-8.5">
           <span aria-hidden="true" className="size-4 shrink-0 rounded-sm" style={{ background: `var(--avatar-${p.tone})` }} />
           <span className="truncate">{p.name}</span>
         </NavRow>

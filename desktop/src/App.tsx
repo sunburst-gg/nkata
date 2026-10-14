@@ -13,6 +13,7 @@ import { NewProject } from "@/screens/NewProject";
 import { Part } from "@/screens/Part";
 import { Project } from "@/screens/Project";
 import { Settings } from "@/screens/Settings";
+import { Board } from "@/screens/Board";
 import { AppShell } from "@/screens/Shell";
 import { SignIn } from "@/screens/SignIn";
 import { Welcome } from "@/screens/Welcome";
@@ -37,6 +38,7 @@ export function AppRoutes() {
         <Route path="/connections" element={<Connections />} />
         <Route path="/mentions" element={<Mentions />} />
         <Route path="/p/:project" element={<Project />} />
+        <Route path="/p/:project/board" element={<Board />} />
         <Route path="/p/:project/a/:asset" element={<Asset />} />
         <Route path="/p/:project/a/:asset/:part" element={<Part />} />
       </Route>

@@ -45,6 +45,8 @@ export function useGo() {
     welcome: () => navigate("/welcome"),
     newProject: () => navigate("/new"),
     project: (slug = first) => navigate(`/p/${slug}`),
+    /** The board. With mine, Waiting on me starts on. */
+    board: (slug = first, mine = false) => navigate(`/p/${slug}/board${mine ? "?mine=1" : ""}`),
     asset: (slug: string, p = first) => navigate(`/p/${p}/a/${slug}`),
     part: (asset: string, part: string, p = first) => navigate(`/p/${p}/a/${asset}/${part}`),
     connections: () => navigate("/connections"),

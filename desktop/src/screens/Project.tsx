@@ -102,6 +102,7 @@ export function Project() {
         </div>
         {can("openEditors") ? (
           <div className="ml-auto flex shrink-0 gap-2">
+            <Button onClick={() => go.board(project.slug)}>Board</Button>
             <Button onClick={openFolder}>Open folder</Button>
             {can("manageMembers") ? <Button onClick={() => setMembers(true, project.slug)}>Members</Button> : <Button onClick={() => go.settings("members")}>Members</Button>}
             {can("renameProject") ? (
