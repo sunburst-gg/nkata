@@ -343,6 +343,19 @@ export function createMockSource(initial: MockOptions | "artist" | "viewer" = {}
       log(name ? `moved ${a.name} to ${name}` : `moved ${a.name} out of its folder`, a.name, "draft", assetSlug);
       touch();
     },
+    review: (assetSlug, partName, decision, score, note, pos) => {
+      const { a, p } = findPart(assetSlug, partName);
+      if (p.state !== "ready") throw new Error(`${a.name} / ${p.name} is not Ready`);
+      if (decision === "send_back") {
+        const n = Math.max(0, ...a.parts.flatMap((x) => x.comments.map((c) => c.n))) + 1;
+        p.comments = [...p.comments, { id: `c${nextComment++}`, n, authorId: me.id, partName, when: "Just now", text: note, resolved: false, kind: "pin", source: "Nkata", ...(pos ? { pos } : {}) }];
+      }
+      p.state = decision === "approve" ? "approved" : "draft";
+      p.stateSince = new Date().toISOString();
+      a.state = a.parts.every((x) => x.state === "approved") ? "approved" : a.parts.some((x) => x.state === "draft") ? "draft" : a.state;
+      log(decision === "approve" ? `approved ${a.name} / ${p.name}, ${score} of 5` : `sent back ${a.name} / ${p.name}, ${score} of 5`, `${a.name} / ${p.name}`, decision === "approve" ? "approved" : "failed", assetSlug, partName);
+      touch();
+    },
     assignOwner: (assetSlug, partName, personId) => {
       const { a, p } = findPart(assetSlug, partName);
       p.ownerId = personId ?? "";

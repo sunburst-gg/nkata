@@ -328,6 +328,9 @@ export interface DataSource {
   removeGate(assetSlug: string, partName: string): void;
   /** Confirms who holds the rights to an asset, in one line. An art director or producer only. */
   confirmRights(assetSlug: string, statement: string): Promise<void> | void;
+  /** Approve or Send back a Ready part with a score. Send back posts the note as a comment,
+   * pinned at `pos` when given. An art director or producer only. */
+  review(assetSlug: string, partName: string, decision: "approve" | "send_back", score: number, note: string, pos?: [number, number, number]): Promise<void> | void;
   /** Who owns a part. Null clears it. An art director or producer only. */
   assignOwner(assetSlug: string, partName: string, personId: string | null): Promise<void> | void;
   /** Moves an asset into a named folder. Empty moves it back to the root list. */

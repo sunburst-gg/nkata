@@ -8,6 +8,7 @@ import { Check, Minus, Plus, X } from "lucide-react";
 import { useCan, useStore } from "@/store";
 import { Button } from "@/components/Button";
 import { CommentRail } from "@/components/CommentRail";
+import { ReviewBar } from "@/components/ReviewBar";
 import { PinRow, Stage } from "@/components/ModelStage";
 import { RenderWipe } from "@/components/RenderWipe";
 import { StateDot } from "@/components/StateBadge";
@@ -206,6 +207,7 @@ function PartScreen({ asset, part }: { asset: Asset; part: PartModel }) {
           <CommentRail session={session} emptyText="No comments yet." />
         </div>
       </div>
+      {can("approve") && part.state === "ready" ? <ReviewBar asset={asset} part={part} /> : null}
     </div>
   );
 }

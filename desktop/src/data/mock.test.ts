@@ -69,6 +69,22 @@ describe("mock data source", () => {
     expect(src.snapshot().activity[0]?.text).toBe("confirmed the rights to Market stall");
   });
 
+  it("approves a Ready part, or sends it back with a pinned note", () => {
+    const src = createMockSource({ stage: "populated" });
+    const cloth = () => src.snapshot().assets.find((a) => a.slug === "ojukwu")!.parts.find((p) => p.name === "cloth")!;
+    expect(cloth().state).toBe("ready");
+    src.review("ojukwu", "cloth", "send_back", 2, "Deepen the left socket.", [0.1, 0.2, 0.3]);
+    expect(cloth().state).toBe("draft");
+    expect(cloth().comments.at(-1)).toMatchObject({ text: "Deepen the left socket.", pos: [0.1, 0.2, 0.3] });
+    expect(src.snapshot().activity[0]?.text).toBe("sent back Ojukwu / cloth, 2 of 5");
+    expect(() => src.review("ojukwu", "cloth", "approve", 5, "")).toThrow("not Ready");
+    src.fixChecks("ojukwu", "cloth");
+    expect(src.markReady("ojukwu", "cloth")).toEqual({ ok: true });
+    src.review("ojukwu", "cloth", "approve", 5, "");
+    expect(cloth().state).toBe("approved");
+    expect(src.snapshot().activity[0]?.text).toBe("approved Ojukwu / cloth, 5 of 5");
+  });
+
   it("moves an asset into a folder and back out", () => {
     const src = createMockSource({ stage: "populated" });
     expect(src.snapshot().assets.find((a) => a.slug === "kettle")!.folder).toBe("Market");

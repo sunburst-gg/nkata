@@ -381,6 +381,13 @@ export function createServerSource(config: ServerConfig): DataSource & { load():
       await call("PUT", `/assets/${a.id}`, { folder: folder.trim() });
       await load();
     },
+    review: async (assetSlug, partName, decision, score, note, pos) => {
+      const { p } = findPart(assetSlug, partName);
+      const vid = await currentVersion(p.id);
+      if (decision === "send_back" && note) await call("POST", "/comments", { part_id: p.id, version_id: vid, point: pos ?? [0, 0, 0], normal: [0, 0, 1], body: note });
+      await call("POST", "/reviews", { part_id: p.id, version_id: vid, score, decision, note });
+      await load();
+    },
     assignOwner: async (assetSlug, partName, personId) => {
       const { p } = findPart(assetSlug, partName);
       await call("PATCH", `/parts/${p.id}`, { owner_id: personId });
