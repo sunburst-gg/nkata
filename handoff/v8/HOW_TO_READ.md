@@ -35,6 +35,10 @@ The markup blocks are labeled with HTML comments: ARRIVAL, ZERO STATE, SHELL, WA
 
 `styles.css` is three `@import` lines for the v3 tokens, which sit in `_stale/tokens/`. The prototype does not use them: its tokens are the two `[data-theme]` blocks in its own `<style>`. The console shows three 404s for `tokens/*.css` on every load. Nothing is missing on the screen.
 
+## One known defect in the prototype
+
+`startScreen=sample` throws inside `renderVals()` for every role: "Cannot read properties of undefined (reading 'toLocaleString')". The sample asset list on the `Try Nkata` project is built with `[{ ...names.map((n, i) => i)[0] && { ... } }]`, and `[0]` is `0`, so the spread yields an empty object with no `tris`. The prototype is not edited here. Read the Market stall sample from the source (the object literal on that line) and from `goSample` in `renderVals`, and treat the Try Nkata asset page as the Radio asset page with that data. Logged in docs/decisions.md.
+
 ## What the prototype loads from the network
 
 The prototype loads three.js, the fonts (Geist, Geist Mono, Newsreader) and the sample GLBs from CDNs. The app bundles all of them and works offline (step 1 of `PROMPTS.md`).
