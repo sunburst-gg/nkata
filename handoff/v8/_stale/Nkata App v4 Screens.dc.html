@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<style>html,body{margin:0;background:#08090A;color:#EEF0F2;font-family:Geist,system-ui,sans-serif}a{color:#EEF0F2}a:hover{color:#E9A23B}</style>
+</helmet>
+<div style="padding:80px;display:flex;flex-direction:column;gap:96px;width:max-content;font:400 14px/1.5 Geist,sans-serif">
+  <div style="display:flex;flex-direction:column;gap:16px;max-width:880px"><span style="font:400 12px 'Geist Mono',monospace;color:#6B717B">Nkata App v4 · what the code grew, taken back into design</span><h1 style="margin:0;font-size:48px;font-weight:600;letter-spacing:-.03em;line-height:1.05">Code sign in, many studios, real models, Walk, Compare.</h1><p style="margin:0;font-size:17px;color:#9AA0A9;max-width:720px">Each frame is the live v4 prototype at that state. Everything is clickable. Light at 1280, dark at 1440.</p></div>
+
+  <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+    <section style="display:flex;flex-direction:column;gap:24px">
+      <div style="display:flex;align-items:baseline;gap:16px"><span style="font:400 12px 'Geist Mono',monospace;color:#6B717B">{{ r.n }}</span><span style="font-size:28px;font-weight:600;letter-spacing:-.02em">{{ r.title }}</span><span style="color:#9AA0A9;max-width:720px">{{ r.line }}</span></div>
+      <div style="display:flex;gap:40px;align-items:flex-start">
+        <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:13px;color:#9AA0A9">1280 · light · {{ r.roleLabel }}</span><div style="width:1280px;height:800px;border-radius:12px;overflow:hidden;border:1px solid #24272C"><dc-import name="Nkata App v4" start-screen="{{ r.screen }}" demo-stage="{{ r.stage }}" role="{{ r.role }}" theme="light" loading="lazy" frame-height="800px" hint-size="1280px,800px"></dc-import></div></div>
+        <div style="display:flex;flex-direction:column;gap:10px"><span style="font-size:13px;color:#9AA0A9">1440 · dark · {{ r.roleLabel }}</span><div style="width:1440px;height:900px;border-radius:12px;overflow:hidden;border:1px solid #24272C"><dc-import name="Nkata App v4" start-screen="{{ r.screen }}" demo-stage="{{ r.stage }}" role="{{ r.role }}" theme="dark" loading="lazy" frame-height="900px" hint-size="1440px,900px"></dc-import></div></div>
+      </div>
+    </section>
+  </sc-for>
+
+  <section style="display:flex;flex-direction:column;gap:20px;max-width:960px">
+    <span style="font-size:28px;font-weight:600;letter-spacing:-.02em">For later</span>
+    <div style="display:grid;grid-template-columns:200px minmax(0,1fr);gap:14px 32px;font-size:15px;line-height:1.5;color:#C9CDD3">
+      <span style="color:#6B717B">Mesh heat map</span><span>In Compare, a third mode beside the wipe: the current model in the viewer, painted. Grey where nothing moved, amber where vertices moved, brighter with distance. Added objects get a thin green outline. Removed ones are ghosted at 30 percent where they used to be. The What changed rows highlight the matching objects on hover.</span>
+      <span style="color:#6B717B">Level area diff</span><span>For level areas, What changed lists actors instead of objects: added, moved with the distance in metres, removed. Walk in Compare shows both versions and a key, V, toggles between them from the same spot.</span>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const rows = [
+      ['Sign in', 'Email only. Google is gone until the integration exists.', 'signin', 'fresh', 'producer'],
+      ['Enter the code', 'Six boxes, a real input under them so paste works. Wrong code shakes once. 482915 lets you through.', 'code', 'fresh', 'producer'],
+      ['Wrong code', 'One line, no blame. Five tries kill the code.', 'codeWrong', 'fresh', 'producer'],
+      ['Code finished', 'After five wrong tries the boxes go. One action.', 'codeDead', 'fresh', 'producer'],
+      ['The code email', 'Subject carries the code. Digits large. A link for when the app is closed. Nothing else.', 'codeEmail', 'fresh', 'producer'],
+      ['Welcome', 'Real Blender and Unreal marks on the Connections card.', 'welcome', 'fresh', 'producer'],
+      ['Switch studio', 'The account\'s studios with your role in each. Pick one and the whole app moves.', 'switchStudio', 'populated', 'producer'],
+      ['Switch studio, only one', 'Nothing to switch to. One line says why the list is short, and New studio is still there.', 'switchStudio', 'connected', 'producer'],
+      ['New studio from inside the app', 'The same form, with the sidebar. You keep the first studio.', 'newStudio', 'populated', 'producer'],
+      ['Members', 'Funmi has an invite but no name yet. Change a role from the select. Remove needs no confirmation.', 'members', 'populated', 'producer'],
+      ['A refused write', 'The server said no. The edit reverts and the toast carries the reason and the way out.', 'refused', 'populated', 'producer'],
+      ['Rename', 'A small dialog. Enter renames.', 'rename', 'populated', 'producer'],
+      ['Deleted projects', 'Settings, General. Delete keeps every version. Restore brings a project back whole.', 'deleted', 'populated', 'producer'],
+      ['Part with no model yet', 'The render stays. One line says what will make the model appear.', 'noModel', 'populated', 'producer'],
+      ['Walk', 'Level areas only. A crosshair, a hint, and the bar shows Walking. Click pins at the crosshair.', 'walk', 'populated', 'producer'],
+      ['Compare', 'Older version against current under a wipe. What changed sits above Checks. F flips.', 'compare', 'populated', 'producer'],
+      ['Compare, no manifest', 'v1 predates the manifest. The renders tell the story.', 'compareNoManifest', 'populated', 'producer'],
+      ['Compare, nothing changed', 'After a rollback the two are the same. Say so.', 'compareSame', 'populated', 'producer'],
+      ['Compare as a viewer', 'Walk and Compare stay for viewers. Nothing else new appears.', 'compare', 'populated', 'viewer']
+    ].map(([title, line, screen, stage, role], i) => ({ n: String(i + 1).padStart(2, '0'), title, line, screen, stage, role, roleLabel: role }));
+    return { rows };
+  }
+}
+</script>
+</body>
+</html>

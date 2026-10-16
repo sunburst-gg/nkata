@@ -1,0 +1,19 @@
+/* Nkata type tokens. Geist for words, Geist Mono for things. */
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap');
+:root{
+  --font-sans:Geist,system-ui,-apple-system,sans-serif;--font-mono:"Geist Mono",ui-monospace,Menlo,monospace;
+  --weight-regular:400;--weight-medium:500;--weight-semibold:600;
+  --text-11:11px;--text-12:12px;--text-13:13px;--text-14:14px;--text-16:16px;--text-20:20px;--text-24:24px;--text-32:32px;--text-48:48px;--text-72:72px;
+  --leading-11:1.4;--leading-12:1.4;--leading-13:1.4;--leading-14:1.45;--leading-16:1.5;--leading-20:1.4;--leading-24:1.25;--leading-32:1.2;--leading-48:1.05;--leading-72:1;
+  --tracking-14:0;--tracking-24:-0.02em;--tracking-32:-0.025em;--tracking-48:-0.03em;--tracking-72:-0.04em;
+  --role-caption:var(--weight-regular) var(--text-11)/var(--leading-11) var(--font-sans);
+  --role-mono:var(--weight-regular) var(--text-12)/var(--leading-12) var(--font-mono);
+  --role-panel:var(--weight-regular) var(--text-13)/var(--leading-13) var(--font-sans);
+  --role-app:var(--weight-regular) var(--text-14)/var(--leading-14) var(--font-sans);
+  --role-body:var(--weight-regular) var(--text-16)/var(--leading-16) var(--font-sans);
+  --role-lead:var(--weight-regular) var(--text-20)/var(--leading-20) var(--font-sans);
+  --role-asset-title:var(--weight-semibold) var(--text-24)/var(--leading-24) var(--font-sans);
+  --role-statement:var(--weight-medium) var(--text-32)/var(--leading-32) var(--font-sans);
+  --role-section:var(--weight-semibold) var(--text-48)/var(--leading-48) var(--font-sans);
+  --role-hero:var(--weight-semibold) var(--text-72)/var(--leading-72) var(--font-sans);
+}

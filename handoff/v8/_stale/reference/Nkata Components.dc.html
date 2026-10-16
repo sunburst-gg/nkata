@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="styles.css">
+<style>
+html,body{margin:0;background:#0E0F11;color:#EEF0F2;font-family:Geist,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#EEF0F2;text-decoration:none}a:hover{color:#E9A23B}
+@keyframes nk-pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes nk-spin{to{transform:rotate(360deg)}}
+</style>
+</helmet>
+<div style="display:flex;flex-direction:column;min-height:100vh;background:var(--bg-canvas);color:var(--fg-heading);font:var(--role-app)">
+
+<header style="position:sticky;top:0;z-index:5;background:var(--bg-canvas);border-bottom:1px solid var(--line-hairline);display:flex;align-items:center;gap:24px;padding:0 40px;height:52px;color:var(--fg-secondary);font-size:13px">
+  <svg width="18" height="18" viewBox="0 0 64 64" fill="none"><path d="M16 50V26Q16 14 32 14Q48 14 48 26V50" stroke="#EEF0F2" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="56" cy="10" r="6" fill="#E9A23B"></circle></svg>
+  <span style="color:var(--fg-heading);font-weight:500">Nkata</span><span style="font:var(--role-mono)">Component sheet · v1</span>
+  <div style="margin-left:auto;display:flex;gap:20px;flex-wrap:wrap"><a href="#primitives">Primitives</a><a href="#status">Status</a><a href="#data">Data</a><a href="#panels">Editor panels</a><a href="#light">Light</a></div>
+</header>
+
+<div style="padding:64px 40px 120px;display:flex;flex-direction:column;gap:96px;max-width:1400px">
+
+<section style="display:flex;flex-direction:column;gap:20px">
+  <h1 style="margin:0;font:var(--role-section);letter-spacing:var(--tracking-48)">Every component, every state.</h1>
+  <p style="margin:0;max-width:720px;font:var(--role-body);color:var(--fg-body)">Named, mapped to tokens in <span style="font:var(--role-mono);color:var(--fg-secondary)">styles.css</span>. Hierarchy comes from type and spacing, not boxes. Hover steps the background up one neutral, press one more, focus is a 2 px amber ring. State changes run 150 ms, panels 300 ms, <span style="font:var(--role-mono);color:var(--fg-secondary)">cubic-bezier(.2,0,0,1)</span>.</p>
+  <div style="display:flex;gap:24px;flex-wrap:wrap;font:var(--role-mono);color:var(--fg-muted)"><span><span style="color:var(--state-approved)">●</span> maps to shadcn primitive</span><span><span style="color:var(--accent)">●</span> custom</span><span><span style="color:var(--fg-secondary)">●</span> one-off</span></div>
+</section>
+
+<section id="primitives" style="display:flex;flex-direction:column;gap:56px">
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;gap:16px;align-items:baseline;border-bottom:1px solid var(--line-hairline);padding-bottom:12px"><span style="font:var(--role-asset-title);letter-spacing:var(--tracking-24)">Button</span><span style="font:var(--role-mono);color:var(--state-approved)">● shadcn Button</span><span style="font:var(--role-mono);color:var(--fg-muted)">h 36 md · 28 sm · radius-md · pad 0 14 · weight 500</span></div>
+    <div style="display:grid;grid-template-columns:120px repeat(4,minmax(0,1fr));gap:12px 16px;align-items:center">
+      <span></span><span style="font:var(--role-mono);color:var(--fg-muted)">default</span><span style="font:var(--role-mono);color:var(--fg-muted)">hover</span><span style="font:var(--role-mono);color:var(--fg-muted)">active</span><span style="font:var(--role-mono);color:var(--fg-muted)">disabled</span>
+      <sc-for list="{{ buttons }}" as="b" hint-placeholder-count="4">
+        <span style="font:var(--role-mono);color:var(--fg-secondary)">{{ b.name }}</span>
+        <div><button style="height:36px;padding:0 14px;border-radius:var(--radius-md);font:500 14px var(--font-sans);cursor:pointer;background:{{ b.bg }};color:{{ b.fg }};border:1px solid {{ b.border }}">{{ b.label }}</button></div>
+        <div><button style="height:36px;padding:0 14px;border-radius:var(--radius-md);font:500 14px var(--font-sans);cursor:pointer;background:{{ b.bgHover }};color:{{ b.fg }};border:1px solid {{ b.borderHover }}">{{ b.label }}</button></div>
+        <div><button style="height:36px;padding:0 14px;border-radius:var(--radius-md);font:500 14px var(--font-sans);cursor:pointer;background:{{ b.bgActive }};color:{{ b.fg }};border:1px solid {{ b.borderHover }};box-shadow:var(--shadow-focus)">{{ b.label }}</button></div>
+        <div><button style="height:36px;padding:0 14px;border-radius:var(--radius-md);font:500 14px var(--font-sans);background:var(--bg-raised);color:var(--fg-disabled);border:1px solid transparent;cursor:not-allowed">{{ b.label }}</button></div>
+      </sc-for>
+      <span style="font:var(--role-mono);color:var(--fg-secondary)">sm · icon</span>
+      <div><button style="height:28px;padding:0 10px;border-radius:var(--radius-sm);font:500 13px var(--font-sans);background:transparent;color:var(--fg-body);border:1px solid var(--line-border);cursor:pointer">Roll back</button></div>
+      <div><button style="height:28px;width:28px;border-radius:var(--radius-sm);background:transparent;color:var(--fg-secondary);border:1px solid var(--line-border);cursor:pointer;display:inline-flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 8h10M8 3l5 5-5 5"></path></svg></button></div>
+      <div><button style="height:28px;padding:0 10px;border-radius:var(--radius-sm);font:500 13px var(--font-sans);background:var(--accent);color:var(--accent-fg);border:0;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 8.5l3.2 3L13 4.5"></path></svg>Approve</button></div>
+      <div><button style="height:28px;padding:0 10px;border-radius:var(--radius-sm);font:500 13px var(--font-sans);background:transparent;color:var(--fg-secondary);border:1px solid var(--line-border);cursor:wait;display:inline-flex;align-items:center;gap:8px">{{ spinner }}Publishing</button></div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;gap:16px;align-items:baseline;border-bottom:1px solid var(--line-hairline);padding-bottom:12px"><span style="font:var(--role-asset-title);letter-spacing:var(--tracking-24)">Input · AskField · FilterChip · Tabs</span><span style="font:var(--role-mono);color:var(--state-approved)">● shadcn Input, Badge, Tabs</span><span style="font:var(--role-mono);color:var(--accent)">● AskField custom</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px">
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="font:var(--role-mono);color:var(--fg-muted)">Input · default</span><div style="height:36px;border-radius:var(--radius-md);border:1px solid var(--line-border);background:var(--bg-panel);display:flex;align-items:center;padding:0 12px;color:var(--fg-muted)">Asset name</div></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="font:var(--role-mono);color:var(--fg-muted)">Input · focus</span><div style="height:36px;border-radius:var(--radius-md);border:1px solid var(--accent);background:var(--bg-panel);display:flex;align-items:center;padding:0 12px;color:var(--fg-heading);box-shadow:var(--shadow-focus)">Ojukwu<span style="width:1px;height:16px;background:var(--accent);margin-left:1px"></span></div></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="font:var(--role-mono);color:var(--fg-muted)">Input · error</span><div style="height:36px;border-radius:var(--radius-md);border:1px solid var(--state-failed);background:var(--bg-panel);display:flex;align-items:center;padding:0 12px;color:var(--fg-heading)">Ojukwu / face</div><span style="font-size:12px;color:var(--state-failed)">A part named face already exists.</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="font:var(--role-mono);color:var(--fg-muted)">Input · disabled</span><div style="height:36px;border-radius:var(--radius-md);border:1px solid var(--line-hairline);background:var(--bg-raised);display:flex;align-items:center;padding:0 12px;color:var(--fg-disabled)">Set by template</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;align-items:start">
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="font:var(--role-mono);color:var(--fg-muted)">AskField · idle · h 44 · radius-lg</span><div style="height:44px;border-radius:var(--radius-lg);border:1px solid var(--line-border);background:var(--bg-panel);display:flex;align-items:center;gap:10px;padding:0 14px;color:var(--fg-muted)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5L14 14"></path></svg>Ask. What is blocking Ojukwu<span style="margin-left:auto;font:var(--role-mono);border:1px solid var(--line-border);border-radius:4px;padding:1px 5px">⌘K</span></div></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="font:var(--role-mono);color:var(--fg-muted)">AskField · answer</span><div style="border-radius:var(--radius-lg);border:1px solid var(--line-border);background:var(--bg-panel);display:flex;flex-direction:column;box-shadow:var(--shadow-2)"><div style="height:44px;display:flex;align-items:center;gap:10px;padding:0 14px;color:var(--fg-heading);border-bottom:1px solid var(--line-hairline)">What is blocking Ojukwu</div><div style="padding:14px;display:flex;flex-direction:column;gap:8px;font-size:14px;line-height:1.45;color:var(--fg-body)"><span>Textures wait on <a href="#" style="color:var(--accent-text)">face</a>. Ada has it, Draft, 3 days. Last comment from Emeka: "Seam at the jaw."</span><div style="display:flex;gap:8px;flex-wrap:wrap;font-size:13px"><a href="#" style="border:1px solid var(--line-border);border-radius:4px;padding:3px 8px">Open Ojukwu / face</a><a href="#" style="border:1px solid var(--line-border);border-radius:4px;padding:3px 8px">Remove gate</a></div></div></div></div>
+    </div>
+    <div style="display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start">
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="font:var(--role-mono);color:var(--fg-muted)">FilterChip · default · active · with count</span><div style="display:flex;gap:8px"><span style="height:28px;padding:0 10px;border-radius:var(--radius-full);border:1px solid var(--line-border);display:inline-flex;align-items:center;font-size:13px;color:var(--fg-body)">Person</span><span style="height:28px;padding:0 10px;border-radius:var(--radius-full);border:1px solid var(--fg-heading);background:var(--fg-heading);color:var(--bg-canvas);display:inline-flex;align-items:center;font-size:13px;font-weight:500">Ada</span><span style="height:28px;padding:0 10px;border-radius:var(--radius-full);border:1px solid var(--line-border);display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--fg-body)">Ready<span style="font:var(--role-mono);color:var(--fg-muted)">4</span></span></div></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="font:var(--role-mono);color:var(--fg-muted)">Tabs · underline 2 px · 150 ms</span><div style="display:flex;gap:20px;border-bottom:1px solid var(--line-hairline);font-size:14px"><span style="padding:8px 0;border-bottom:2px solid var(--fg-heading);color:var(--fg-heading);font-weight:500">Parts</span><span style="padding:8px 0;border-bottom:2px solid transparent;color:var(--fg-secondary)">Timeline</span><span style="padding:8px 0;border-bottom:2px solid transparent;color:var(--fg-secondary)">Comments <span style="font:var(--role-mono);color:var(--fg-muted)">3</span></span><span style="padding:8px 0;border-bottom:2px solid transparent;color:var(--fg-disabled)">Export</span></div></div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;gap:16px;align-items:baseline;border-bottom:1px solid var(--line-hairline);padding-bottom:12px"><span style="font:var(--role-asset-title);letter-spacing:var(--tracking-24)">Dialog · Toast · Tooltip</span><span style="font:var(--role-mono);color:var(--state-approved)">● shadcn Dialog, Toast, Tooltip</span><span style="font:var(--role-mono);color:var(--fg-muted)">shadow-2 · 300 ms in, 150 ms out</span></div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+      <div style="width:420px;max-width:100%;background:var(--bg-panel);border:1px solid var(--line-border);border-radius:var(--radius-xl);box-shadow:var(--shadow-2);padding:24px;display:flex;flex-direction:column;gap:16px"><span style="font-size:16px;font-weight:600">Remove the gate on textures?</span><span style="font-size:14px;line-height:1.45;color:var(--fg-body)">Ngozi can start before face is approved. This is logged on the asset timeline.</span><div style="display:flex;justify-content:flex-end;gap:8px"><button style="height:36px;padding:0 14px;border-radius:var(--radius-md);font:500 14px var(--font-sans);background:transparent;color:var(--fg-body);border:1px solid var(--line-border);cursor:pointer">Keep gate</button><button style="height:36px;padding:0 14px;border-radius:var(--radius-md);font:500 14px var(--font-sans);background:var(--accent);color:var(--accent-fg);border:0;cursor:pointer">Remove gate</button></div></div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="width:360px;max-width:100%;background:var(--bg-raised);border:1px solid var(--line-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-2);padding:12px 14px;display:flex;align-items:center;gap:10px;font-size:14px"><span style="width:8px;height:8px;border-radius:50%;background:var(--state-approved)"></span>Approved by Emeka. Face is locked.<span style="margin-left:auto;font:var(--role-mono);color:var(--fg-muted)">now</span></div>
+        <div style="width:360px;max-width:100%;background:var(--bg-raised);border:1px solid var(--line-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-2);padding:12px 14px;display:flex;align-items:center;gap:10px;font-size:14px"><span style="width:8px;height:8px;border-radius:50%;background:var(--state-sync-failed)"></span>Not in Unreal. The editor is closed.<button style="margin-left:auto;height:28px;padding:0 10px;border-radius:var(--radius-sm);font:500 13px var(--font-sans);background:transparent;color:var(--fg-body);border:1px solid var(--line-border);cursor:pointer">Retry</button></div>
+        <div style="display:inline-flex;align-items:center;gap:8px"><span style="background:var(--fg-heading);color:var(--bg-canvas);font-size:12px;padding:5px 8px;border-radius:var(--radius-sm);box-shadow:var(--shadow-1)">Ada · in face · 12 min</span><span style="font:var(--role-mono);color:var(--fg-muted)">Tooltip · 12 px · inverted</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="status" style="display:flex;flex-direction:column;gap:56px">
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;gap:16px;align-items:baseline;border-bottom:1px solid var(--line-hairline);padding-bottom:12px"><span style="font:var(--role-asset-title);letter-spacing:var(--tracking-24)">StateBadge</span><span style="font:var(--role-mono);color:var(--accent)">● custom</span><span style="font:var(--role-mono);color:var(--fg-muted)">dot 8 + word · or filled pill on hover rows · color animates 150 ms</span></div>
+    <div style="display:flex;gap:32px;flex-wrap:wrap">
+      <sc-for list="{{ states }}" as="s" hint-placeholder-count="5">
+        <div style="display:flex;flex-direction:column;gap:10px;min-width:150px">
+          <span style="display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--fg-body)"><span style="width:8px;height:8px;border-radius:50%;background:{{ s.color }}"></span>{{ s.name }}</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px 0 8px;border-radius:var(--radius-full);font-size:12px;font-weight:500;color:var(--state-fg);background:{{ s.color }};width:fit-content">{{ s.glyph }}{{ s.name }}</span>
+          <span style="font:var(--role-mono);color:var(--fg-muted)">{{ s.token }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;gap:16px;align-items:baseline;border-bottom:1px solid var(--line-hairline);padding-bottom:12px"><span style="font:var(--role-asset-title);letter-spacing:var(--tracking-24)">MirrorStatus</span><span style="font:var(--role-mono);color:var(--accent)">● custom</span><span style="font:var(--role-mono);color:var(--fg-muted)">compact 24 · large 44, readable across the room · time in mono · one line on failure</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px">
+      <div style="display:flex;flex-direction:column;gap:12px"><span style="font:var(--role-mono);color:var(--fg-muted)">synced</span><span style="display:inline-flex;align-items:center;gap:8px;height:24px;font-size:13px;color:var(--fg-body)"><span style="width:8px;height:8px;border-radius:50%;background:var(--state-synced)"></span>Synced to Unreal<span style="font:var(--role-mono);color:var(--fg-muted)">4 s</span></span><div style="height:44px;border-radius:var(--radius-lg);background:var(--bg-panel);border:1px solid var(--line-hairline);display:flex;align-items:center;gap:12px;padding:0 14px"><span style="width:12px;height:12px;border-radius:50%;background:var(--state-synced)"></span><span style="font-size:16px;font-weight:500">Synced</span><span style="margin-left:auto;font:500 16px var(--font-mono);color:var(--fg-secondary)">4 s</span></div></div>
+      <div style="display:flex;flex-direction:column;gap:12px"><span style="font:var(--role-mono);color:var(--fg-muted)">syncing · pulse 1.2 s</span><span style="display:inline-flex;align-items:center;gap:8px;height:24px;font-size:13px;color:var(--fg-body)">{{ pulseSm }}Syncing to Unreal<span style="font:var(--role-mono);color:var(--fg-muted)">2 s</span></span><div style="height:44px;border-radius:var(--radius-lg);background:var(--bg-panel);border:1px solid var(--line-hairline);display:flex;align-items:center;gap:12px;padding:0 14px">{{ pulseLg }}<span style="font-size:16px;font-weight:500">Syncing</span><span style="margin-left:auto;font:500 16px var(--font-mono);color:var(--fg-secondary)">2 s</span></div></div>
+      <div style="display:flex;flex-direction:column;gap:12px"><span style="font:var(--role-mono);color:var(--fg-muted)">failed</span><span style="display:inline-flex;align-items:center;gap:8px;height:24px;font-size:13px;color:var(--fg-body)"><span style="width:8px;height:8px;border-radius:50%;background:var(--state-sync-failed)"></span>Not in Unreal<span style="color:var(--fg-muted)">· the editor is closed</span></span><div style="height:44px;border-radius:var(--radius-lg);background:var(--bg-panel);border:1px solid var(--state-sync-failed);display:flex;align-items:center;gap:12px;padding:0 14px"><span style="width:12px;height:12px;border-radius:50%;background:var(--state-sync-failed)"></span><span style="font-size:16px;font-weight:500">Not in Unreal</span><span style="font-size:14px;color:var(--fg-secondary)">The editor is closed.</span><button style="margin-left:auto;height:28px;padding:0 10px;border-radius:var(--radius-sm);font:500 13px var(--font-sans);background:transparent;color:var(--fg-body);border:1px solid var(--line-border);cursor:pointer">Retry</button></div></div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;gap:16px;align-items:baseline;border-bottom:1px solid var(--line-hairline);padding-bottom:12px"><span style="font:var(--role-asset-title);letter-spacing:var(--tracking-24)">PresenceAvatar · LockBadge</span><span style="font:var(--role-mono);color:var(--state-approved)">● shadcn Avatar</span><span style="font:var(--role-mono);color:var(--accent)">● LockBadge custom</span><span style="font:var(--role-mono);color:var(--fg-muted)">20 · 24 · 32 · dot 8 amber online, neutral idle, none offline · stack overlap −6</span></div>
+    <div style="display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;gap:20px;align-items:center">
+          <span style="position:relative;width:32px;height:32px;border-radius:50%;background:#5B6B8A;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff">A<span style="position:absolute;right:-1px;bottom:-1px;width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--bg-canvas)"></span></span>
+          <span style="position:relative;width:24px;height:24px;border-radius:50%;background:#7A5B6B;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff">C<span style="position:absolute;right:-1px;bottom:-1px;width:8px;height:8px;border-radius:50%;background:var(--fg-muted);border:2px solid var(--bg-canvas)"></span></span>
+          <span style="width:20px;height:20px;border-radius:50%;background:#6B7A5B;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;opacity:.6">N</span>
+          <span style="display:inline-flex"><span style="width:24px;height:24px;border-radius:50%;background:#5B6B8A;border:2px solid var(--bg-canvas);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff">A</span><span style="width:24px;height:24px;border-radius:50%;background:#7A5B6B;border:2px solid var(--bg-canvas);margin-left:-6px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff">C</span><span style="width:24px;height:24px;border-radius:50%;background:var(--bg-active);border:2px solid var(--bg-canvas);margin-left:-6px;display:inline-flex;align-items:center;justify-content:center;font:var(--role-mono);color:var(--fg-secondary)">+3</span></span>
+        </div>
+        <span style="font:var(--role-mono);color:var(--fg-muted)">online 32 · idle 24 · offline 20 · stack</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+          <span style="display:inline-flex;align-items:center;gap:8px;height:28px;padding:0 10px 0 6px;border-radius:var(--radius-full);background:var(--bg-raised);font-size:13px"><span style="width:18px;height:18px;border-radius:50%;background:#5B6B8A;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:#fff">A</span>You have this part</span>
+          <span style="display:inline-flex;align-items:center;gap:8px;height:28px;padding:0 10px 0 6px;border-radius:var(--radius-full);background:var(--bg-raised);font-size:13px;color:var(--fg-body)"><span style="width:18px;height:18px;border-radius:50%;background:#7A5B6B;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:#fff">C</span>Chidi has this part<span style="font:var(--role-mono);color:var(--fg-muted)">12 min</span></span>
+          <span style="display:inline-flex;align-items:center;gap:8px;height:28px;padding:0 6px 0 6px;border-radius:var(--radius-full);background:var(--bg-raised);font-size:13px;color:var(--fg-body)"><span style="width:18px;height:18px;border-radius:50%;background:#7A5B6B;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:#fff">C</span>Chidi has this part<button style="height:22px;padding:0 8px;border-radius:var(--radius-full);font:500 12px var(--font-sans);background:var(--fg-heading);color:var(--bg-canvas);border:0;cursor:pointer">Ask to unlock</button></span>
+          <span style="display:inline-flex;align-items:center;gap:8px;height:28px;padding:0 10px;border-radius:var(--radius-full);background:var(--bg-raised);font-size:13px;color:var(--fg-body)"><span style="width:8px;height:8px;border-radius:50%;background:var(--state-approved)"></span>Approved. Locked.</span>
+        </div>
+        <span style="font:var(--role-mono);color:var(--fg-muted)">you · other · request unlock · approved lock</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="data" style="display:flex;flex-direction:column;gap:56px">
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;gap:16px;align-items:baseline;border-bottom:1px solid var(--line-hairline);padding-bottom:12px"><span style="font:var(--role-asset-title);letter-spacing:var(--tracking-24)">PartRow</span><span style="font:var(--role-mono);color:var(--accent)">● custom</span><span style="font:var(--role-mono);color:var(--fg-muted)">h 48 · grid 24 1fr 140 160 120 · hairline below · hover bg-hover · active bg-active + 2 px accent left</span></div>
+    <div style="display:flex;flex-direction:column;border-top:1px solid var(--line-hairline)">
+      <sc-for list="{{ partRows }}" as="r" hint-placeholder-count="7">
+        <div style="display:grid;grid-template-columns:24px minmax(0,1fr) 140px 160px 120px 100px;gap:16px;align-items:center;height:48px;padding:0 12px;border-bottom:1px solid var(--line-hairline);background:{{ r.bg }};box-shadow:{{ r.edge }};opacity:{{ r.opacity }}">
+          <span style="width:24px;height:24px;border-radius:50%;background:{{ r.avatarBg }};display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff">{{ r.initial }}</span>
+          <span style="display:flex;align-items:center;gap:10px;min-width:0"><span style="font-weight:500;color:{{ r.fg }}">{{ r.part }}</span><span style="font:var(--role-mono);color:var(--fg-muted)">{{ r.version }}</span></span>
+          <span style="display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--fg-body)"><span style="width:8px;height:8px;border-radius:50%;background:{{ r.stateColor }}"></span>{{ r.state }}</span>
+          <span style="font-size:13px;color:var(--fg-secondary)">{{ r.gate }}</span>
+          <span style="font:var(--role-mono);color:var(--fg-muted)">{{ r.when }}</span>
+          <span style="font:var(--role-mono);color:var(--fg-muted);text-align:right">{{ r.label }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;gap:16px;align-items:baseline;border-bottom:1px solid var(--line-hairline);padding-bottom:12px"><span style="font:var(--role-asset-title);letter-spacing:var(--tracking-24)">AssetCard · StatTile</span><span style="font:var(--role-mono);color:var(--accent)">● custom</span><span style="font:var(--role-mono);color:var(--fg-muted)">card 260 · radius-xl · bg-panel · hairline · preview 16:10 · hover raises to bg-raised, no shadow</span></div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+      <sc-for list="{{ assetCards }}" as="a" hint-placeholder-count="4">
+        <div style="width:260px;border-radius:var(--radius-xl);border:1px solid {{ a.border }};background:{{ a.bg }};overflow:hidden;display:flex;flex-direction:column">
+          <div style="aspect-ratio:16/10;background:#201d18;position:relative;overflow:hidden"><img src="{{ a.img }}" alt="" style="width:100%;height:100%;object-fit:cover;display:block"><span style="position:absolute;left:10px;top:10px;display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:var(--radius-full);font-size:12px;font-weight:500;color:var(--state-fg);background:{{ a.stateColor }}">{{ a.state }}</span></div>
+          <div style="padding:12px 14px 14px;display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:600;font-size:15px">{{ a.name }}</span><span style="font:var(--role-mono);color:var(--fg-muted)">{{ a.parts }}</span></div><div style="display:flex;justify-content:space-between;align-items:center"><span style="display:inline-flex"><span style="width:20px;height:20px;border-radius:50%;background:#5B6B8A;border:2px solid var(--bg-panel);display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:#fff">A</span><span style="width:20px;height:20px;border-radius:50%;background:#7A5B6B;border:2px solid var(--bg-panel);margin-left:-6px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:#fff">C</span></span><span style="font-size:12px;color:var(--fg-secondary)">{{ a.meta }}</span></div></div>
+        </div>
+      </sc-for>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;gap:8px"><div style="width:160px;padding:14px 16px;border-radius:var(--radius-xl);border:1px solid var(--line-hairline);background:var(--bg-panel);display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;color:var(--fg-secondary)">Online now</span><span style="font:600 32px/1.1 var(--font-sans);letter-spacing:-.025em">6</span></div><div style="width:160px;padding:14px 16px;border-radius:var(--radius-xl);border:1px solid var(--line-hairline);background:var(--bg-panel);display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;color:var(--fg-secondary)">Ready for review</span><span style="font:600 32px/1.1 var(--font-sans);letter-spacing:-.025em;display:flex;align-items:center;gap:10px"><span style="width:10px;height:10px;border-radius:50%;background:var(--state-ready)"></span>4</span></div></div>
+        <div style="display:flex;gap:8px"><div style="width:160px;padding:14px 16px;border-radius:var(--radius-xl);border:1px solid var(--line-hairline);background:var(--bg-panel);display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;color:var(--fg-secondary)">Failed checks</span><span style="font:600 32px/1.1 var(--font-sans);letter-spacing:-.025em;display:flex;align-items:center;gap:10px"><span style="width:10px;height:10px;border-radius:50%;background:var(--state-failed)"></span>2</span></div><div style="width:160px;padding:14px 16px;border-radius:var(--radius-xl);border:1px solid var(--line-hairline);background:var(--bg-panel);display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;color:var(--fg-secondary)">Idle over 14 days</span><span style="font:600 32px/1.1 var(--font-sans);letter-spacing:-.025em;color:var(--fg-muted)">0</span></div></div>
+        <span style="font:var(--role-mono);color:var(--fg-muted)">StatTile · 160 · number 32/600 · zero is muted</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;gap:16px;align-items:baseline;border-bottom:1px solid var(--line-hairline);padding-bottom:12px"><span style="font:var(--role-asset-title);letter-spacing:var(--tracking-24)">Timeline · CheckList</span><span style="font:var(--role-mono);color:var(--accent)">● custom</span><span style="font:var(--role-mono);color:var(--fg-muted)">timeline row h 40 · rail 1 px hairline · current dot amber · check row h 36 · Fix is a sm secondary button</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:40px">
+      <div style="display:flex;flex-direction:column">
+        <sc-for list="{{ versions }}" as="v" hint-placeholder-count="5">
+          <div style="display:grid;grid-template-columns:20px 60px minmax(0,1fr) 110px 90px;gap:12px;align-items:center;height:40px;opacity:{{ v.opacity }}">
+            <span style="display:flex;justify-content:center;height:100%;position:relative"><span style="width:1px;background:var(--line-hairline);position:absolute;top:0;bottom:0"></span><span style="width:8px;height:8px;border-radius:50%;background:{{ v.dot }};position:relative;top:16px;border:2px solid var(--bg-canvas)"></span></span>
+            <span style="font:500 12px var(--font-mono);color:{{ v.fg }}">{{ v.version }}</span>
+            <span style="font-size:14px;color:{{ v.fg }};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ v.who }}</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--fg-secondary)"><span style="width:6px;height:6px;border-radius:50%;background:{{ v.mirror }}"></span>{{ v.mirrorText }}</span>
+            <span style="font:var(--role-mono);color:var(--fg-muted);text-align:right">{{ v.when }}</span>
+          </div>
+        </sc-for>
+        <div style="display:flex;gap:8px;padding:12px 0 0 32px"><button style="height:28px;padding:0 10px;border-radius:var(--radius-sm);font:500 13px var(--font-sans);background:transparent;color:var(--fg-body);border:1px solid var(--line-border);cursor:pointer">Roll back to v12</button><span style="font:var(--role-mono);color:var(--fg-muted);align-self:center">appears on row hover</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;border-top:1px solid var(--line-hairline)">
+        <sc-for list="{{ checks }}" as="c" hint-placeholder-count="6">
+          <div style="display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:12px;align-items:center;min-height:36px;padding:6px 0;border-bottom:1px solid var(--line-hairline)">
+            <span style="color:{{ c.color }};display:flex;align-items:center;justify-content:center">{{ c.glyph }}</span>
+            <span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:14px;color:{{ c.fg }}">{{ c.name }}</span><span style="font-size:12px;color:var(--fg-secondary)">{{ c.detail }}</span></span>
+            <span style="font:var(--role-mono);color:var(--fg-muted)">{{ c.right }}</span>
+          </div>
+        </sc-for>
+        <div style="display:flex;gap:8px;padding-top:12px;align-items:center"><button style="height:28px;padding:0 10px;border-radius:var(--radius-sm);font:500 13px var(--font-sans);background:transparent;color:var(--fg-body);border:1px solid var(--line-border);cursor:pointer">Fix</button><button style="height:28px;padding:0 10px;border-radius:var(--radius-sm);font:500 13px var(--font-sans);background:var(--fg-heading);color:var(--bg-canvas);border:0;cursor:pointer">Fix all 2</button><span style="font:var(--role-mono);color:var(--fg-muted)">Fix sits on the row, right column</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;gap:16px;align-items:baseline;border-bottom:1px solid var(--line-hairline);padding-bottom:12px"><span style="font:var(--role-asset-title);letter-spacing:var(--tracking-24)">ReviewPanel · CommentPin · Comment</span><span style="font:var(--role-mono);color:var(--accent)">● custom</span><span style="font:var(--role-mono);color:var(--fg-muted)">pin 24, teardrop, numbered · resolved pin hollow · panel 320 · score 1 to 5 segmented</span></div>
+    <div style="display:flex;gap:2px;flex-wrap:wrap;align-items:stretch">
+      <div style="flex:1 1 420px;min-height:340px;position:relative;overflow:hidden;background:#201d18;border-radius:var(--radius-xl) 0 0 var(--radius-xl)">
+        <img src="assets/renders/compound-interior.png" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">
+        <div style="position:absolute;left:58%;top:34%;display:flex;align-items:flex-start;gap:8px"><span style="width:24px;height:24px;border-radius:50% 50% 50% 0;background:var(--fg-heading);color:var(--bg-canvas);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0">1</span></div>
+        <div style="position:absolute;left:30%;top:60%;display:flex;align-items:flex-start;gap:8px"><span style="width:24px;height:24px;border-radius:50% 50% 50% 0;background:var(--accent);color:var(--accent-fg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;box-shadow:0 0 0 3px rgba(233,162,59,.3)">2</span><span style="background:var(--bg-panel);border:1px solid var(--line-border);color:var(--fg-heading);padding:8px 10px;border-radius:var(--radius-md);max-width:200px;font-size:13px;line-height:1.4;box-shadow:var(--shadow-2)"><span style="color:var(--fg-secondary)">Emeka</span><br>Shadow under the table is crushed.</span></div>
+        <div style="position:absolute;left:14%;top:22%;display:flex"><span style="width:24px;height:24px;border-radius:50% 50% 50% 0;border:2px solid var(--fg-heading);color:var(--fg-heading);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;background:rgba(14,15,17,.5)">3</span></div>
+        <div style="position:absolute;left:14px;bottom:14px;display:flex;gap:6px"><span style="height:28px;padding:0 10px;border-radius:var(--radius-sm);background:var(--fg-heading);color:var(--bg-canvas);display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 2v12M2 8h12"></path></svg>Pin</span><span style="height:28px;padding:0 10px;border-radius:var(--radius-sm);background:rgba(14,15,17,.7);color:var(--fg-body);display:inline-flex;align-items:center;font-size:13px">Hide resolved</span></div>
+      </div>
+      <div style="flex:0 0 320px;background:var(--bg-panel);border:1px solid var(--line-hairline);border-radius:0 var(--radius-xl) var(--radius-xl) 0;display:flex;flex-direction:column">
+        <div style="padding:14px 16px;border-bottom:1px solid var(--line-hairline);display:flex;flex-direction:column;gap:4px"><span style="font-weight:600;font-size:15px">Compound / interior</span><span style="display:flex;gap:10px;align-items:center;font-size:13px;color:var(--fg-secondary)"><span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:var(--state-ready)"></span>Ready</span><span style="font:var(--role-mono)">v6 · Ada · 2 h</span></span></div>
+        <div style="padding:12px 16px;display:flex;flex-direction:column;gap:14px;flex:1">
+          <div style="display:flex;gap:10px"><span style="width:24px;height:24px;border-radius:50% 50% 50% 0;background:var(--fg-heading);color:var(--bg-canvas);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0">1</span><div style="display:flex;flex-direction:column;gap:4px;font-size:13px;line-height:1.4"><span><span style="font-weight:500">Emeka</span> <span style="font:var(--role-mono);color:var(--fg-muted)">14 min</span></span><span style="color:var(--fg-body)">Steam reads too strong in the key light.</span><span style="color:var(--fg-muted);font-size:12px">Reply</span></div></div>
+          <div style="display:flex;gap:10px"><span style="width:24px;height:24px;border-radius:50% 50% 50% 0;background:var(--accent);color:var(--accent-fg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0">2</span><div style="display:flex;flex-direction:column;gap:4px;font-size:13px;line-height:1.4"><span><span style="font-weight:500">Emeka</span> <span style="font:var(--role-mono);color:var(--fg-muted)">12 min</span></span><span style="color:var(--fg-body)">Shadow under the table is crushed. Approve after fix.</span><div style="height:30px;border:1px solid var(--line-border);border-radius:var(--radius-sm);display:flex;align-items:center;padding:0 8px;color:var(--fg-muted);font-size:13px">Reply</div></div></div>
+          <div style="display:flex;gap:10px;opacity:.55"><span style="width:24px;height:24px;border-radius:50% 50% 50% 0;border:2px solid var(--fg-heading);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0">3</span><div style="display:flex;flex-direction:column;gap:4px;font-size:13px;line-height:1.4"><span><span style="font-weight:500">Emeka</span> <span style="font:var(--role-mono);color:var(--fg-muted)">resolved</span></span><span style="color:var(--fg-body);text-decoration:line-through">Window slats too thin.</span></div></div>
+        </div>
+        <div style="padding:12px 16px;border-top:1px solid var(--line-hairline);display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;gap:10px"><span style="font-size:13px;color:var(--fg-secondary)">Score</span><span style="display:inline-flex;border:1px solid var(--line-border);border-radius:var(--radius-sm);overflow:hidden"><span style="width:32px;height:28px;display:inline-flex;align-items:center;justify-content:center;font:var(--role-mono);color:var(--fg-body)">1</span><span style="width:32px;height:28px;display:inline-flex;align-items:center;justify-content:center;font:var(--role-mono);color:var(--fg-body);border-left:1px solid var(--line-border)">2</span><span style="width:32px;height:28px;display:inline-flex;align-items:center;justify-content:center;font:var(--role-mono);color:var(--fg-body);border-left:1px solid var(--line-border)">3</span><span style="width:32px;height:28px;display:inline-flex;align-items:center;justify-content:center;font:500 12px var(--font-mono);color:var(--bg-canvas);background:var(--fg-heading);border-left:1px solid var(--line-border)">4</span><span style="width:32px;height:28px;display:inline-flex;align-items:center;justify-content:center;font:var(--role-mono);color:var(--fg-body);border-left:1px solid var(--line-border)">5</span></span></div>
+          <div style="display:flex;gap:8px"><button style="flex:1;height:36px;border-radius:var(--radius-md);font:500 14px var(--font-sans);background:transparent;color:var(--fg-body);border:1px solid var(--line-border);cursor:pointer">Send back</button><button style="flex:1;height:36px;border-radius:var(--radius-md);font:500 14px var(--font-sans);background:var(--accent);color:var(--accent-fg);border:0;cursor:pointer">Approve</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;gap:16px;align-items:baseline;border-bottom:1px solid var(--line-hairline);padding-bottom:12px"><span style="font:var(--role-asset-title);letter-spacing:var(--tracking-24)">TemplatePartRow</span><span style="font:var(--role-mono);color:var(--accent)">● custom · template editor only</span><span style="font:var(--role-mono);color:var(--fg-muted)">drag handle 16 · order mono · gate select · checks chips · reference slots count · inline edit on name</span></div>
+    <div style="display:flex;flex-direction:column;border-top:1px solid var(--line-hairline);max-width:980px">
+      <sc-for list="{{ templateRows }}" as="t" hint-placeholder-count="4">
+        <div style="display:grid;grid-template-columns:16px 28px minmax(0,1fr) 180px minmax(0,1.4fr) 90px;gap:16px;align-items:center;height:48px;padding:0 8px;border-bottom:1px solid var(--line-hairline);background:{{ t.bg }}">
+          <span style="color:var(--fg-disabled);display:flex;flex-direction:column;gap:3px;align-items:center"><span style="width:10px;height:1px;background:currentColor"></span><span style="width:10px;height:1px;background:currentColor"></span><span style="width:10px;height:1px;background:currentColor"></span></span>
+          <span style="font:var(--role-mono);color:var(--fg-muted)">{{ t.n }}</span>
+          <span style="font-weight:500;border-bottom:1px solid {{ t.nameLine }};padding:2px 0;width:fit-content">{{ t.name }}</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:1px solid var(--line-border);border-radius:var(--radius-sm);font-size:13px;color:var(--fg-body);width:fit-content">{{ t.gate }}<svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6l4 4 4-4"></path></svg></span>
+          <span style="display:flex;gap:6px;flex-wrap:nowrap;overflow:hidden;font-size:12px;color:var(--fg-secondary)">{{ t.checks }}</span>
+          <span style="font:var(--role-mono);color:var(--fg-muted);text-align:right">{{ t.refs }}</span>
+        </div>
+      </sc-for>
+      <div style="height:48px;display:flex;align-items:center;padding:0 8px 0 60px;color:var(--fg-muted);font-size:14px">+ Add part</div>
+    </div>
+  </div>
+</section>
+
+<section id="panels" style="display:flex;flex-direction:column;gap:32px">
+  <div style="display:flex;gap:16px;align-items:baseline;border-bottom:1px solid var(--line-hairline);padding-bottom:12px"><span style="font:var(--role-asset-title);letter-spacing:var(--tracking-24)">Editor panel components</span><span style="font:var(--role-mono);color:var(--accent)">● custom</span><span style="font:var(--role-mono);color:var(--fg-muted)">Blender N-panel 300 · UE5 dock 320 · base 13 px · control 24/30 · radius-editor 3 · editor greys, Nkata states and accent</span></div>
+  <div style="display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start">
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <span style="font:var(--role-mono);color:var(--fg-muted)">Blender · 300 · PartHeader, MirrorStatus, ReferenceStrip, CheckList, Comments, Publish, PresenceRow</span>
+      <div style="width:300px;background:var(--editor-blender-panel);border:1px solid var(--editor-blender-line);border-radius:var(--radius-editor);color:var(--editor-blender-fg);font-size:13px;line-height:1.4;display:flex;flex-direction:column">
+        <div style="padding:10px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--editor-blender-line)"><svg width="14" height="14" viewBox="0 0 64 64" fill="none"><path d="M16 50V26Q16 14 32 14Q48 14 48 26V50" stroke="#E6E6E6" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="56" cy="10" r="6" fill="#E9A23B"></circle></svg><span style="font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ojukwu / face</span><span style="font:var(--role-mono);color:#9a9a9a">v14</span><span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12px"><span style="width:16px;height:16px;border-radius:50%;background:#5B6B8A;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:600;color:#fff">A</span><span style="width:6px;height:6px;border-radius:50%;background:var(--state-draft)"></span>Draft</span></div>
+        <div style="margin:10px 12px 0;height:36px;border-radius:var(--radius-editor);background:#242424;display:flex;align-items:center;gap:10px;padding:0 10px"><span style="width:10px;height:10px;border-radius:50%;background:var(--state-synced)"></span><span style="font-weight:500;font-size:14px">Synced to Unreal</span><span style="margin-left:auto;font:500 13px var(--font-mono);color:#9a9a9a">4 s</span></div>
+        <div style="padding:12px 12px 0;display:flex;flex-direction:column;gap:6px"><span style="font-size:11px;color:#9a9a9a">Reference</span><div style="display:flex;gap:4px"><div style="flex:1;aspect-ratio:1;border-radius:var(--radius-editor);overflow:hidden;background:#333"><img src="assets/renders/compound-tree.png" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></div><div style="flex:1;aspect-ratio:1;border-radius:var(--radius-editor);overflow:hidden;background:#333"><img src="assets/renders/compound-courtyard.png" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></div><div style="flex:1;aspect-ratio:1;border-radius:var(--radius-editor);overflow:hidden;background:#333"><img src="assets/renders/compound-ground.png" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></div><div style="flex:1;aspect-ratio:1;border-radius:var(--radius-editor);background:#333;display:flex;align-items:center;justify-content:center;font:var(--role-mono);color:#9a9a9a">+2</div></div></div>
+        <div style="padding:12px 12px 0;display:flex;flex-direction:column;gap:6px"><span style="font-size:11px;color:#9a9a9a">Checks · 4 of 6</span>
+          <div style="display:flex;align-items:center;gap:8px;height:24px"><span style="color:var(--state-approved)">{{ gCheck }}</span><span style="flex:1">Scale 1.0</span></div>
+          <div style="display:flex;align-items:center;gap:8px;height:24px"><span style="color:var(--state-approved)">{{ gCheck }}</span><span style="flex:1">Naming</span></div>
+          <div style="display:flex;align-items:center;gap:8px;height:24px"><span style="color:var(--state-approved)">{{ gCheck }}</span><span style="flex:1">Rig names</span></div>
+          <div style="display:flex;align-items:center;gap:8px;height:24px"><span style="color:var(--state-approved)">{{ gCheck }}</span><span style="flex:1">Collision</span></div>
+          <div style="display:flex;align-items:flex-start;gap:8px;padding:4px 0"><span style="color:var(--state-failed);padding-top:1px">{{ gCross }}</span><span style="flex:1;display:flex;flex-direction:column;gap:2px"><span>Triangles <span style="font:var(--role-mono);color:#9a9a9a">48,200 / 30,000</span></span><span style="font-size:12px;color:#9a9a9a">Decimate or split the mesh.</span></span></div>
+          <div style="display:flex;align-items:center;gap:8px;height:24px"><span style="color:var(--state-failed)">{{ gCross }}</span><span style="flex:1">3 textures over 2048</span><button style="height:22px;padding:0 8px;border-radius:var(--radius-editor);font:500 12px var(--font-sans);background:#3d3d3d;color:#E6E6E6;border:0;cursor:pointer">Fix</button></div>
+        </div>
+        <div style="padding:12px 12px 0;display:flex;flex-direction:column;gap:8px"><span style="font-size:11px;color:#9a9a9a">Comments · 2</span><div style="display:flex;gap:8px"><span style="width:20px;height:20px;border-radius:50% 50% 50% 0;background:#E6E6E6;color:#111;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0">1</span><span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span><span style="font-weight:500">Emeka</span> <span style="font:var(--role-mono);color:#9a9a9a">14 min</span></span><span style="color:#c9c9c9">Brow ridge too soft under key light.</span><span style="font-size:12px;color:#9a9a9a">Reply</span></span></div></div>
+        <div style="padding:14px 12px 12px;display:flex;flex-direction:column;gap:6px"><button style="height:32px;border-radius:var(--radius-editor);font:500 14px var(--font-sans);background:var(--accent);color:var(--accent-fg);border:0;cursor:pointer">Publish</button><button style="height:26px;border-radius:var(--radius-editor);font:500 12px var(--font-sans);background:transparent;color:#c9c9c9;border:1px solid #4a4a4a;cursor:pointer">Mark Ready</button></div>
+        <div style="padding:8px 12px 10px;border-top:1px solid var(--editor-blender-line);display:flex;align-items:center;gap:8px;font-size:12px;color:#c9c9c9"><span style="display:inline-flex"><span style="width:18px;height:18px;border-radius:50%;background:#7A5B6B;border:2px solid var(--editor-blender-panel);display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:600;color:#fff">C</span><span style="width:18px;height:18px;border-radius:50%;background:#6B7A5B;border:2px solid var(--editor-blender-panel);margin-left:-6px;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:600;color:#fff">N</span></span>Chidi in cloth · Ngozi in hair</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <span style="font:var(--role-mono);color:var(--fg-muted)">UE5 · 320 · same seven, same words · plus Review and Level parts</span>
+      <div style="width:320px;background:var(--editor-ue-panel);border:1px solid var(--editor-ue-line);border-radius:var(--radius-editor);color:var(--editor-ue-fg);font-size:13px;line-height:1.4;display:flex;flex-direction:column">
+        <div style="padding:10px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--editor-ue-line)"><svg width="14" height="14" viewBox="0 0 64 64" fill="none"><path d="M16 50V26Q16 14 32 14Q48 14 48 26V50" stroke="#DADADA" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="56" cy="10" r="6" fill="#E9A23B"></circle></svg><span style="font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ojukwu / face</span><span style="font:var(--role-mono);color:#8a8a8a">v14</span><span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12px"><span style="width:16px;height:16px;border-radius:50%;background:#5B6B8A;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:600;color:#fff">A</span><span style="width:6px;height:6px;border-radius:50%;background:var(--state-ready)"></span>Ready</span></div>
+        <div style="margin:10px 12px 0;height:36px;border-radius:var(--radius-editor);background:#1a1a1a;display:flex;align-items:center;gap:10px;padding:0 10px">{{ pulseUe }}<span style="font-weight:500;font-size:14px">Syncing from Blender</span><span style="margin-left:auto;font:500 13px var(--font-mono);color:#8a8a8a">2 s</span></div>
+        <div style="padding:12px 12px 0;display:flex;flex-direction:column;gap:6px"><span style="font-size:11px;color:#8a8a8a">Reference</span><div style="display:flex;gap:4px"><div style="flex:1;aspect-ratio:1;border-radius:var(--radius-editor);overflow:hidden;background:#333"><img src="assets/renders/compound-tree.png" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></div><div style="flex:1;aspect-ratio:1;border-radius:var(--radius-editor);overflow:hidden;background:#333"><img src="assets/renders/compound-courtyard.png" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></div><div style="flex:1;aspect-ratio:1;border-radius:var(--radius-editor);overflow:hidden;background:#333"><img src="assets/renders/compound-ground.png" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></div><div style="flex:1;aspect-ratio:1;border-radius:var(--radius-editor);background:#333;display:flex;align-items:center;justify-content:center;font:var(--role-mono);color:#8a8a8a">+2</div></div></div>
+        <div style="padding:12px 12px 0;display:flex;flex-direction:column;gap:6px"><span style="font-size:11px;color:#8a8a8a">Checks · 6 of 6</span><div style="display:flex;align-items:center;gap:8px;height:24px"><span style="color:var(--state-approved)">{{ gCheck }}</span><span style="flex:1">All checks pass</span><span style="font:var(--role-mono);color:#8a8a8a">6</span></div></div>
+        <div style="padding:12px 12px 0;display:flex;flex-direction:column;gap:8px"><span style="font-size:11px;color:#8a8a8a">Review</span><div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;color:#8a8a8a">Score</span><span style="display:inline-flex;border:1px solid #3a3a3a;border-radius:var(--radius-editor);overflow:hidden"><span style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;font:var(--role-mono)">1</span><span style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;font:var(--role-mono);border-left:1px solid #3a3a3a">2</span><span style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;font:var(--role-mono);border-left:1px solid #3a3a3a">3</span><span style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;font:var(--role-mono);border-left:1px solid #3a3a3a">4</span><span style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;font:var(--role-mono);border-left:1px solid #3a3a3a">5</span></span><span style="margin-left:auto;height:24px;padding:0 8px;border-radius:var(--radius-editor);background:#DADADA;color:#111;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500"><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 2v12M2 8h12"></path></svg>Pin</span></div><div style="display:flex;gap:6px"><button style="flex:1;height:30px;border-radius:var(--radius-editor);font:500 13px var(--font-sans);background:transparent;color:#DADADA;border:1px solid #4a4a4a;cursor:pointer">Send back</button><button style="flex:1;height:30px;border-radius:var(--radius-editor);font:500 13px var(--font-sans);background:var(--accent);color:var(--accent-fg);border:0;cursor:pointer">Approve</button></div></div>
+        <div style="padding:12px 12px 0;display:flex;flex-direction:column;gap:4px"><span style="font-size:11px;color:#8a8a8a">Level parts · Enugu Market</span>
+          <div style="display:flex;align-items:center;gap:8px;height:26px"><span style="width:6px;height:6px;border-radius:50%;background:var(--state-locked)"></span><span style="flex:1">Market square</span><span style="font-size:12px;color:#8a8a8a">Ada</span></div>
+          <div style="display:flex;align-items:center;gap:8px;height:26px"><span style="width:6px;height:6px;border-radius:50%;background:var(--state-approved)"></span><span style="flex:1">Stalls</span><span style="font-size:12px;color:#8a8a8a">Chidi</span></div>
+          <div style="display:flex;align-items:center;gap:8px;height:26px;color:#6b6b6b"><span style="width:6px;height:6px;border-radius:50%;border:1px solid #4a4a4a"></span><span style="flex:1">Lighting</span><span style="font-size:12px">after set dressing</span></div>
+        </div>
+        <div style="padding:14px 12px 12px;display:flex;flex-direction:column;gap:6px"><button style="height:32px;border-radius:var(--radius-editor);font:500 14px var(--font-sans);background:#3a3a3a;color:#8a8a8a;border:0;cursor:not-allowed">Publish</button><span style="font-size:11px;color:#8a8a8a;text-align:center">Ready for review. Approve or send back to publish again.</span></div>
+        <div style="padding:8px 12px 10px;border-top:1px solid var(--editor-ue-line);display:flex;align-items:center;gap:8px;font-size:12px;color:#c9c9c9"><span style="width:18px;height:18px;border-radius:50%;background:#5B6B8A;border:2px solid var(--editor-ue-panel);display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:600;color:#fff">A</span>Ada in face, Blender</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;flex:1 1 280px;min-width:280px">
+      <span style="font:var(--role-mono);color:var(--fg-muted)">Panel states · MirrorStatus, Publish</span>
+      <div style="display:flex;flex-direction:column;gap:8px;width:300px;max-width:100%;font-size:13px;color:var(--editor-blender-fg)">
+        <div style="height:36px;border-radius:var(--radius-editor);background:#242424;display:flex;align-items:center;gap:10px;padding:0 10px"><span style="width:10px;height:10px;border-radius:50%;background:var(--state-synced)"></span><span style="font-weight:500;font-size:14px">Synced to Unreal</span><span style="margin-left:auto;font:500 13px var(--font-mono);color:#9a9a9a">4 s</span></div>
+        <div style="height:36px;border-radius:var(--radius-editor);background:#242424;display:flex;align-items:center;gap:10px;padding:0 10px">{{ pulseBl }}<span style="font-weight:500;font-size:14px">Syncing to Unreal</span><span style="margin-left:auto;font:500 13px var(--font-mono);color:#9a9a9a">2 s</span></div>
+        <div style="min-height:36px;border-radius:var(--radius-editor);background:#242424;border:1px solid var(--state-sync-failed);display:flex;align-items:center;gap:10px;padding:6px 10px"><span style="width:10px;height:10px;border-radius:50%;background:var(--state-sync-failed);flex-shrink:0"></span><span style="display:flex;flex-direction:column"><span style="font-weight:500;font-size:14px">Not in Unreal</span><span style="font-size:12px;color:#9a9a9a">The editor is closed.</span></span><button style="margin-left:auto;height:22px;padding:0 8px;border-radius:var(--radius-editor);font:500 12px var(--font-sans);background:#3d3d3d;color:#E6E6E6;border:0;cursor:pointer">Retry</button></div>
+        <div style="height:36px;border-radius:var(--radius-editor);background:#242424;display:flex;align-items:center;gap:10px;padding:0 10px;color:#9a9a9a"><span style="width:10px;height:10px;border-radius:50%;border:1.5px solid #6b6b6b"></span><span style="font-weight:500;font-size:14px">Offline</span><span style="margin-left:auto;font-size:12px">Saves kept. Mirrors when back.</span></div>
+        <div style="display:flex;gap:6px;padding-top:8px"><button style="flex:1;height:32px;border-radius:var(--radius-editor);font:500 14px var(--font-sans);background:var(--accent);color:var(--accent-fg);border:0;cursor:pointer">Publish</button><button style="flex:1;height:32px;border-radius:var(--radius-editor);font:500 14px var(--font-sans);background:var(--accent-hover);color:var(--accent-fg);border:0;cursor:pointer">Publish</button><button style="flex:1;height:32px;border-radius:var(--radius-editor);font:500 14px var(--font-sans);background:var(--accent-pressed);color:var(--accent-fg);border:0;cursor:pointer">Publish</button></div>
+        <div style="display:flex;gap:6px"><button style="flex:1;height:32px;border-radius:var(--radius-editor);font:500 14px var(--font-sans);background:#3a3a3a;color:#8a8a8a;border:0;cursor:not-allowed;display:inline-flex;align-items:center;justify-content:center;gap:6px"><span style="color:var(--state-failed)">{{ gCrossSm }}</span>2 checks block</button><button style="flex:1;height:32px;border-radius:var(--radius-editor);font:500 14px var(--font-sans);background:#3a3a3a;color:#E6E6E6;border:0;cursor:wait;display:inline-flex;align-items:center;justify-content:center;gap:8px">{{ spinnerBl }}Publishing</button><button style="flex:1;height:32px;border-radius:var(--radius-editor);font:500 14px var(--font-sans);background:#242424;color:var(--state-approved);border:0;display:inline-flex;align-items:center;justify-content:center;gap:6px">{{ gCheckSm }}Published v15</button></div>
+        <span style="font:var(--role-mono);color:var(--fg-muted)">default · hover · pressed · blocked · publishing · done 1.5 s then back</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="light" style="display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;gap:16px;align-items:baseline;border-bottom:1px solid var(--line-hairline);padding-bottom:12px"><span style="font:var(--role-asset-title);letter-spacing:var(--tracking-24)">Light mode</span><span style="font:var(--role-mono);color:var(--fg-muted)">[data-theme="light"] · same tokens, inverted scale · accent text darkens to B7761A for 4.5:1</span></div>
+  <div data-theme="light" style="background:var(--bg-canvas);color:var(--fg-heading);border-radius:var(--radius-xl);padding:32px;display:flex;flex-direction:column;gap:24px;font:var(--role-app)">
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+      <button style="height:36px;padding:0 14px;border-radius:var(--radius-md);font:500 14px var(--font-sans);background:var(--accent);color:var(--accent-fg);border:0;cursor:pointer">Publish</button>
+      <button style="height:36px;padding:0 14px;border-radius:var(--radius-md);font:500 14px var(--font-sans);background:transparent;color:var(--fg-body);border:1px solid var(--line-border);cursor:pointer">Open read-only</button>
+      <span style="display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--fg-body)"><span style="width:8px;height:8px;border-radius:50%;background:var(--state-locked)"></span>Locked</span>
+      <span style="display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--fg-body)"><span style="width:8px;height:8px;border-radius:50%;background:var(--state-ready)"></span>Ready</span>
+      <span style="display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--fg-body)"><span style="width:8px;height:8px;border-radius:50%;background:var(--state-approved)"></span>Approved</span>
+      <span style="display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--fg-body)"><span style="width:8px;height:8px;border-radius:50%;background:var(--state-failed)"></span>Failed check</span>
+      <a href="#" style="color:var(--accent-text);font-size:14px">Open Ojukwu / face</a>
+    </div>
+    <div style="display:flex;flex-direction:column;border-top:1px solid var(--line-hairline);background:var(--bg-panel);border-radius:var(--radius-lg);border:1px solid var(--line-hairline)">
+      <div style="display:grid;grid-template-columns:24px minmax(0,1fr) 140px 160px 120px;gap:16px;align-items:center;height:48px;padding:0 12px;border-bottom:1px solid var(--line-hairline)"><span style="width:24px;height:24px;border-radius:50%;background:#5B6B8A;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff">A</span><span style="display:flex;gap:10px;align-items:center"><span style="font-weight:500">face</span><span style="font:var(--role-mono);color:var(--fg-muted)">v14</span></span><span style="display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--fg-body)"><span style="width:8px;height:8px;border-radius:50%;background:var(--state-draft)"></span>Draft</span><span style="font-size:13px;color:var(--fg-secondary)">Open</span><span style="font:var(--role-mono);color:var(--fg-muted)">12 min</span></div>
+      <div style="display:grid;grid-template-columns:24px minmax(0,1fr) 140px 160px 120px;gap:16px;align-items:center;height:48px;padding:0 12px;border-bottom:1px solid var(--line-hairline);background:var(--bg-hover)"><span style="width:24px;height:24px;border-radius:50%;background:#7A5B6B;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff">C</span><span style="display:flex;gap:10px;align-items:center"><span style="font-weight:500">cloth</span><span style="font:var(--role-mono);color:var(--fg-muted)">v8</span></span><span style="display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--fg-body)"><span style="width:8px;height:8px;border-radius:50%;background:var(--state-approved)"></span>Approved</span><span style="font-size:13px;color:var(--fg-secondary)">Open</span><span style="font:var(--role-mono);color:var(--fg-muted)">2 d</span></div>
+      <div style="display:grid;grid-template-columns:24px minmax(0,1fr) 140px 160px 120px;gap:16px;align-items:center;height:48px;padding:0 12px"><span style="width:24px;height:24px;border-radius:50%;background:#6B7A5B;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff;opacity:.6">N</span><span style="display:flex;gap:10px;align-items:center"><span style="font-weight:500;color:var(--fg-muted)">textures</span></span><span style="display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--fg-muted)"><span style="width:8px;height:8px;border-radius:50%;border:1px solid var(--line-border)"></span>Waiting</span><span style="font-size:13px;color:var(--fg-muted)">After face</span><span style="font:var(--role-mono);color:var(--fg-muted)"></span></div>
+    </div>
+  </div>
+</section>
+
+</div></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const e = React.createElement;
+    const svg = (paths, w, size) => e('svg', { width: size || 14, height: size || 14, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', strokeWidth: w || 2, strokeLinecap: 'round', strokeLinejoin: 'round' }, ...paths.map((d, i) => e('path', { key: i, d })));
+    if (!this._g) {
+      const pulse = (c, s, border) => e('span', { style: { width: s, height: s, borderRadius: '50%', background: c, animation: 'nk-pulse 1.2s ease-in-out infinite', flexShrink: 0, border } });
+      const spinner = (c) => e('span', { style: { width: 12, height: 12, borderRadius: '50%', border: '2px solid ' + c, borderTopColor: 'transparent', animation: 'nk-spin .8s linear infinite', flexShrink: 0 } });
+      this._g = {
+        check: svg(['M3 8.5l3.2 3L13 4.5'], 2.4), cross: svg(['M4 4l8 8M12 4l-8 8'], 2.4),
+        checkSm: svg(['M3 8.5l3.2 3L13 4.5'], 2.4, 12), crossSm: svg(['M4 4l8 8M12 4l-8 8'], 2.4, 12),
+        lock: svg(['M3 7.5h10v6.5H3zM5 7.5V5a3 3 0 016 0v2.5'], 2, 12), eye: svg(['M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z', 'M8 6a2 2 0 100 4 2 2 0 000-4z'], 2, 12),
+        dot: e('span', { style: { width: 6, height: 6, borderRadius: '50%', background: 'currentColor' } }),
+        warn: svg(['M8 3v6M8 12v.5'], 2.4), running: spinner('var(--fg-secondary)'), blocked: svg(['M4 8h8'], 2.4),
+        pulseSm: pulse('var(--state-syncing)', 8), pulseLg: pulse('var(--state-syncing)', 12), pulseBl: pulse('var(--state-syncing)', 10), pulseUe: pulse('var(--state-syncing)', 10),
+        spinner: spinner('var(--fg-secondary)'), spinnerBl: spinner('#E6E6E6')
+      };
+    }
+    const g = this._g;
+    const chips = (arr) => arr.map((c, i) => e('span', { key: i, style: { border: '1px solid var(--line-border)', borderRadius: 4, padding: '2px 6px', whiteSpace: 'nowrap' } }, c));
+    return {
+      spinner: g.spinner, spinnerBl: g.spinnerBl, pulseSm: g.pulseSm, pulseLg: g.pulseLg, pulseBl: g.pulseBl, pulseUe: g.pulseUe,
+      gCheck: g.check, gCross: g.cross, gCheckSm: g.checkSm, gCrossSm: g.crossSm,
+      buttons: [
+        { name: 'primary', label: 'Publish', bg: 'var(--accent)', bgHover: 'var(--accent-hover)', bgActive: 'var(--accent-pressed)', fg: 'var(--accent-fg)', border: 'transparent', borderHover: 'transparent' },
+        { name: 'secondary', label: 'Mark Ready', bg: 'transparent', bgHover: 'var(--bg-hover)', bgActive: 'var(--bg-active)', fg: 'var(--fg-body)', border: 'var(--line-border)', borderHover: 'var(--line-border)' },
+        { name: 'ghost', label: 'Open in Blender', bg: 'transparent', bgHover: 'var(--bg-hover)', bgActive: 'var(--bg-active)', fg: 'var(--fg-body)', border: 'transparent', borderHover: 'transparent' },
+        { name: 'danger', label: 'Remove gate', bg: 'transparent', bgHover: 'rgba(239,90,78,.12)', bgActive: 'rgba(239,90,78,.2)', fg: 'var(--state-failed)', border: 'var(--line-border)', borderHover: 'var(--state-failed)' }
+      ],
+      states: [
+        { name: 'Locked', color: 'var(--state-locked)', token: '--state-locked', glyph: g.lock },
+        { name: 'Draft', color: 'var(--state-draft)', token: '--state-draft', glyph: g.dot },
+        { name: 'Ready', color: 'var(--state-ready)', token: '--state-ready', glyph: g.eye },
+        { name: 'Approved', color: 'var(--state-approved)', token: '--state-approved', glyph: g.checkSm },
+        { name: 'Failed check', color: 'var(--state-failed)', token: '--state-failed', glyph: g.crossSm }
+      ],
+      partRows: [
+        { label: 'default', part: 'face', version: 'v14', initial: 'A', avatarBg: '#5B6B8A', state: 'Draft', stateColor: 'var(--state-draft)', gate: 'Open', when: '12 min', bg: 'transparent', edge: 'none', fg: 'var(--fg-heading)', opacity: 1 },
+        { label: 'hover', part: 'cloth', version: 'v8', initial: 'C', avatarBg: '#7A5B6B', state: 'Draft', stateColor: 'var(--state-draft)', gate: 'Open', when: '1 h', bg: 'var(--bg-hover)', edge: 'none', fg: 'var(--fg-heading)', opacity: 1 },
+        { label: 'active', part: 'hair', version: 'v3', initial: 'N', avatarBg: '#6B7A5B', state: 'Ready', stateColor: 'var(--state-ready)', gate: 'Open', when: '3 h', bg: 'var(--bg-active)', edge: 'inset 2px 0 0 var(--accent)', fg: 'var(--fg-heading)', opacity: 1 },
+        { label: 'locked', part: 'textures', version: 'v2', initial: 'N', avatarBg: '#6B7A5B', state: 'Locked', stateColor: 'var(--state-locked)', gate: 'Ngozi has it', when: '4 min', bg: 'transparent', edge: 'none', fg: 'var(--fg-heading)', opacity: 1 },
+        { label: 'approved', part: 'rig', version: 'v6', initial: 'C', avatarBg: '#7A5B6B', state: 'Approved', stateColor: 'var(--state-approved)', gate: 'Locked', when: '2 d', bg: 'transparent', edge: 'none', fg: 'var(--fg-heading)', opacity: 1 },
+        { label: 'failed', part: 'lookdev', version: 'v1', initial: 'A', avatarBg: '#5B6B8A', state: 'Failed check', stateColor: 'var(--state-failed)', gate: 'Open', when: '20 min', bg: 'transparent', edge: 'none', fg: 'var(--fg-heading)', opacity: 1 },
+        { label: 'disabled · gated', part: 'animation', version: '', initial: '', avatarBg: 'var(--bg-active)', state: 'Waiting', stateColor: 'var(--line-border)', gate: 'After lookdev', when: '', bg: 'transparent', edge: 'none', fg: 'var(--fg-muted)', opacity: .6 }
+      ],
+      assetCards: [
+        { name: 'Ojukwu', parts: '3 / 6', state: 'Draft', stateColor: 'var(--state-draft)', meta: 'Changed 12 min ago', img: 'assets/renders/compound-ground.png', bg: 'var(--bg-panel)', border: 'var(--line-hairline)' },
+        { name: 'Enugu Market', parts: '5 / 6', state: 'Ready', stateColor: 'var(--state-ready)', meta: 'hover · bg-raised', img: 'assets/renders/compound-overview.png', bg: 'var(--bg-raised)', border: 'var(--line-border)' },
+        { name: 'Compound', parts: '6 / 6', state: 'Approved', stateColor: 'var(--state-approved)', meta: 'Complete', img: 'assets/renders/compound-interior.png', bg: 'var(--bg-panel)', border: 'var(--line-hairline)' },
+        { name: 'Act1_Scene3', parts: '2 / 5', state: 'Failed check', stateColor: 'var(--state-failed)', meta: '1 check failing', img: 'assets/renders/compound-courtyard.png', bg: 'var(--bg-panel)', border: 'var(--line-hairline)' }
+      ],
+      versions: [
+        { version: 'v14', who: 'Ada · current', mirror: 'var(--state-synced)', mirrorText: 'In Unreal', when: '12 min', dot: 'var(--accent)', fg: 'var(--fg-heading)', opacity: 1 },
+        { version: 'v13', who: 'Ada', mirror: 'var(--state-synced)', mirrorText: 'In Unreal', when: '1 h', dot: 'var(--fg-muted)', fg: 'var(--fg-body)', opacity: 1 },
+        { version: 'v12', who: 'Ada · published', mirror: 'var(--state-synced)', mirrorText: 'In Unreal', when: '3 h', dot: 'var(--fg-muted)', fg: 'var(--fg-body)', opacity: 1 },
+        { version: 'v11', who: 'Ada', mirror: 'var(--state-sync-failed)', mirrorText: 'Not mirrored', when: '3 h', dot: 'var(--fg-muted)', fg: 'var(--fg-body)', opacity: 1 },
+        { version: 'v10', who: 'Chidi · rolled back to v8', mirror: 'var(--state-synced)', mirrorText: 'In Unreal', when: '2 d', dot: 'var(--fg-muted)', fg: 'var(--fg-body)', opacity: .6 }
+      ],
+      checks: [
+        { name: 'Scale', detail: '1.0', glyph: g.check, color: 'var(--state-approved)', fg: 'var(--fg-body)', right: 'pass' },
+        { name: 'Naming', detail: 'SM_Ojukwu_Face', glyph: g.check, color: 'var(--state-approved)', fg: 'var(--fg-body)', right: 'pass' },
+        { name: 'Triangle budget', detail: '48,200 of 30,000. Decimate or split the mesh.', glyph: g.cross, color: 'var(--state-failed)', fg: 'var(--fg-heading)', right: 'fail · blocks' },
+        { name: 'Texture size', detail: '3 textures over 2048. Nkata can resize them.', glyph: g.warn, color: 'var(--accent)', fg: 'var(--fg-heading)', right: 'warn · fixable' },
+        { name: 'LODs', detail: 'Generating 3 levels', glyph: g.running, color: 'var(--fg-secondary)', fg: 'var(--fg-body)', right: 'running' },
+        { name: 'Collision', detail: 'Runs after LODs', glyph: g.blocked, color: 'var(--fg-disabled)', fg: 'var(--fg-muted)', right: 'waiting' }
+      ],
+      templateRows: [
+        { n: '1', name: 'face', gate: 'No gate', checks: chips(['Scale', 'Naming', 'Tris 30k']), refs: '3 refs', bg: 'transparent', nameLine: 'transparent' },
+        { n: '2', name: 'cloth', gate: 'No gate', checks: chips(['Scale', 'Naming', 'Tris 20k']), refs: '2 refs', bg: 'transparent', nameLine: 'transparent' },
+        { n: '3', name: 'textures', gate: 'After face, cloth, hair', checks: chips(['Size 2048', 'Naming']), refs: '1 ref', bg: 'var(--bg-hover)', nameLine: 'var(--accent)' },
+        { n: '4', name: 'rig', gate: 'After textures', checks: chips(['Rig names', 'Scale']), refs: '0 refs', bg: 'transparent', nameLine: 'transparent' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
