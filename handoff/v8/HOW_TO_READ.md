@@ -31,6 +31,10 @@ The behavior spec is the `Component` class at the end of the file. Read `sync()`
 
 The markup blocks are labeled with HTML comments: ARRIVAL, ZERO STATE, SHELL, WALL, TEAM STRIP, Cards, ASSET, MENTIONS, CONNECTIONS, NEW PROJECT, INVITE, PUBLISH, TOAST. Search for the comment to find a block.
 
+## Three 404s you can ignore
+
+`styles.css` is three `@import` lines for the v3 tokens, which sit in `_stale/tokens/`. The prototype does not use them: its tokens are the two `[data-theme]` blocks in its own `<style>`. The console shows three 404s for `tokens/*.css` on every load. Nothing is missing on the screen.
+
 ## What the prototype loads from the network
 
 The prototype loads three.js, the fonts (Geist, Geist Mono, Newsreader) and the sample GLBs from CDNs. The app bundles all of them and works offline (step 1 of `PROMPTS.md`).

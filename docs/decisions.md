@@ -137,3 +137,4 @@ The v8 handoff rebuilds the desktop screens on the prototype. Entries: date, dec
 - 2026-10-16: Decision 18, binding. Journey row copy. One pending person: "Waiting for Ada to join." More: "Waiting for 3 people to join." Reference: Decisions 18; TEAM STRIP block.
 - 2026-10-16: Decision 19, binding. Unreal stays behind UNREAL_ENABLED=false. "Open in Unreal" and the old mirror status appear nowhere. Connections shows Coming soon. Reference: Decisions 19; CONNECTIONS block.
 - 2026-10-16: Decision 20, binding. Pause stops sending saves from this computer only. Live and presence stop for the team; nothing is lost. Reference: Decisions 20.
+- 2026-10-16: `styles.css` stays as shipped and its three `@import`s of the v3 tokens 404 under `make proto`. Why: PROMPTS.md keeps `styles.css` and moves `tokens/` aside, the prototype draws nothing from either (its tokens are inline), and the prototype runtime is not edited. Noted in HOW_TO_READ.md. Reference: step 0, item 2.
