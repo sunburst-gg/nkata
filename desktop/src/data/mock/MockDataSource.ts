@@ -171,8 +171,9 @@ export class MockDataSource implements DataSource {
 
   async listProjects(): Promise<Project[]> {
     if (!this.s.studio) return [];
-    if (this.stage === "noproject" && !this.s.createdProject) return [];
-    const list: Project[] = this.stage === "noproject" ? [] : [RISING_SUN];
+    const fresh = this.stage === "noproject" || this.stage === "nostudio";
+    if (fresh && !this.s.createdProject) return [];
+    const list: Project[] = fresh ? [] : [RISING_SUN];
     if (this.s.createdProject) list.push(this.s.createdProject);
     list.push(TRY_NKATA);
     return list;
@@ -235,7 +236,7 @@ export class MockDataSource implements DataSource {
     const stage = this.stage;
     const base: { k: Key; step: number }[] = stage === "studio"
       ? (["E", "A", "C", "N", "T", "K", "D", "F"] as Key[]).map((k, i) => ({ k, step: i < 4 ? 3 : i < 7 ? 2 : 1 }))
-      : stage === "arrival" || stage === "empty"
+      : stage === "arrival" || stage === "empty" || stage === "nostudio" || stage === "noproject"
         ? [{ k: "E", step: 2 }]
         : [{ k: "E", step: 2 }, { k: "A", step: Math.min(3, this.s.joinStep) }];
     const steps: Journey[] = ["invited", "joined", "blender", "inBlender"];
@@ -311,7 +312,10 @@ export class MockDataSource implements DataSource {
 
   async createProject(name: string, color: string): Promise<Project> {
     const n = name.trim() || "New project";
-    this.s.createdProject = { id: slug(n), name: n, color };
+    const taken = (await this.listProjects()).map((p) => p.id);
+    let id = slug(n) || "project";
+    for (let i = 2; taken.includes(id); i++) id = `${slug(n)}-${i}`;
+    this.s.createdProject = { id, name: n, color };
     this.s.filled = false;
     return this.s.createdProject;
   }

@@ -108,9 +108,10 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   go(screen, extra = {}) {
+    const was = get().projectId;
     set({ screen, stop: null, pendingPin: null, activePin: null, draft: "", compare: false, compareWith: null, ...extra });
-    const { assetId, projectId } = get();
-    if (extra.projectId && extra.projectId !== projectId) void get().refresh();
+    const { assetId } = get();
+    if (extra.projectId && extra.projectId !== was) void get().refresh();
     if (screen === "asset" && assetId) void get().loadComments(assetId);
   },
   setFilter: (filter) => set({ filter }),
