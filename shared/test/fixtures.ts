@@ -45,6 +45,10 @@ const events = {
   StudioTraining: { ...head, project_id: null, kind: "studio.training", training: "on" },
 };
 
+const budgets = { prop: 20000, vehicle: 80000, character: 60000, environment: 2000000, max_texture: 4096 };
+const manifestCheck = { key: "textures", pass: true, sentence: "Textures named right.", fix: "" };
+const me = { v: 1, user, project: { id, name: "Rising Sun", folder_name: "rising-sun" }, package_version: "0.1.0", online: true, spool_dir: "/home/ada/rising-sun/.nkata-agent/spool", mode: "sync", mirror_paused: false, unreal: false };
+
 export const fixtures: Fixtures = {
   common: {
     Ulid: { valid: [id], invalid: ["not-a-ulid", 12] },
@@ -56,6 +60,8 @@ export const fixtures: Fixtures = {
     ReviewDecision: { valid: ["approve", "send_back"], invalid: ["reject"] },
     Training: { valid: ["on", "off"], invalid: ["yes", true] },
     CommentKind: { valid: ["pin", "take_a_look"], invalid: ["note"] },
+    AssetKind: { valid: ["object", "environment"], invalid: ["prop", "Object"] },
+    Budgets: { valid: [budgets, { ...budgets, max_texture: null }], invalid: [{ ...budgets, prop: -1 }, { prop: 1, vehicle: 1, character: 1 }] },
     AssetRights: { valid: [rights], invalid: [{ ...rights, statement: "" }, { statement: "x" }] },
     Vec3: { valid: [[0, 1, 2.5]], invalid: [[0, 1], ["a", "b", "c"]] },
     UserRef: { valid: [user, user2], invalid: [{ id, name: "" , avatar_url: null }, { id, name: "x" }] },
@@ -99,7 +105,7 @@ export const fixtures: Fixtures = {
   },
   agent: {
     ProjectRef: { valid: [{ id, name: "Rising Sun", folder_name: "rising-sun" }], invalid: [{ id, name: "Rising Sun" }] },
-    MeResponse: { valid: [{ v: 1, user, project: { id, name: "Rising Sun", folder_name: "rising-sun" }, package_version: "0.1.0", online: true, spool_dir: "/home/ada/rising-sun/.nkata-agent/spool", mode: "sync", mirror_paused: false, unreal: false }], invalid: [{ v: 1, user }] },
+    MeResponse: { valid: [me, { ...me, budgets }], invalid: [{ v: 1, user }, { ...me, budgets: { prop: 1 } }] },
     AgentMode: { valid: ["sync", "stream"], invalid: ["viewer"] },
     CheckSpec: { valid: [checkSpec, { id: "unit_scale", severity: "warn", params: {} }], invalid: [{ id: "Unit", severity: "block", params: {} }] },
     PartSummary: { valid: [partSummary, { ...partSummary, owner: null, lock: null }], invalid: [{ ...partSummary, state: "open" }] },
@@ -108,7 +114,10 @@ export const fixtures: Fixtures = {
     PartCloseResponse: { valid: [{ v: 1, released: true }], invalid: [{ v: 1, released: 1 }] },
     ManifestObject: { valid: [manifestObject], invalid: [{ ...manifestObject, triangles: -1 }] },
     ManifestTexture: { valid: [{ name: "T_Face_D", width: 2048, height: 2048 }], invalid: [{ name: "", width: 1, height: 1 }, { name: "T", width: -1, height: 1 }] },
-    ObjectManifest: { valid: [manifest, { ...manifest, armature: "Armature" }], invalid: [{ ...manifest, objects: {} }] },
+    ManifestCheck: { valid: [manifestCheck, { ...manifestCheck, key: "tris", pass: false, sentence: "40,100 triangles, over the 20,000 budget.", fix: "Decimate or remove hidden faces." }], invalid: [{ ...manifestCheck, key: "bones" }, { key: "uv", pass: true }] },
+    ObjectManifest: { valid: [manifest, { ...manifest, armature: "Armature" }, { ...manifest, asset_kind: "environment", checks: [manifestCheck] }], invalid: [{ ...manifest, objects: {} }, { ...manifest, asset_kind: "prop" }] },
+    AssetCreateRequest: { valid: [{ v: 1, name: "Kettle", file: "Objects/Kettle/Kettle.blend", kind: "object", group: "Objects" }, { v: 1, name: "Market", file: "Market.blend", kind: "environment", group: null }], invalid: [{ v: 1, name: "", file: "x.blend", kind: "object", group: null }, { v: 1, name: "Kettle", file: "k.blend", kind: "prop", group: null }] },
+    AssetCreateResponse: { valid: [{ v: 1, part: partSummary }], invalid: [{ v: 1 }] },
     PartSavedRequest: {
       valid: [{ v: 1, changed: true, spool_path: "/spool/x.glb", manifest, source_file: "face.blend" }, { v: 1, changed: false, spool_path: null, manifest: null, source_file: "face.blend", opened_at: at }],
       invalid: [{ v: 1, changed: true }],
@@ -123,7 +132,7 @@ export const fixtures: Fixtures = {
     CommentCreateResponse: { valid: [{ v: 1, comment }], invalid: [{ v: 1 }] },
     ReviewRequest: { valid: [{ v: 1, score: 5, decision: "approve", note: "" }], invalid: [{ v: 1, score: 6, decision: "approve", note: "" }] },
     ReviewResponse: { valid: [{ v: 1, review_id: id, state: "approved" }], invalid: [{ v: 1, state: "approved" }] },
-    PresenceRequest: { valid: [{ v: 1, part_id: null }, { v: 1, part_id: id }], invalid: [{ v: 1 }] },
+    PresenceRequest: { valid: [{ v: 1, part_id: null }, { v: 1, part_id: id }, { v: 1, part_id: id, file: "Objects/Kettle/Kettle.blend" }], invalid: [{ v: 1 }, { v: 1, part_id: id, file: 3 }] },
     PresenceResponse: { valid: [{ v: 1, online: [presenceEntry] }], invalid: [{ v: 1, online: null }] },
     AgentEvent: { valid: [events.LockGranted, events.MirrorResult, events.CommentCreated], invalid: [events.GateOpened] },
     MirrorRetryResponse: { valid: [{ v: 1, part_id: id, queued: true }], invalid: [{ v: 1, part_id: id }] },
