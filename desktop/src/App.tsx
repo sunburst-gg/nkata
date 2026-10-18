@@ -1,5 +1,5 @@
 // The app. The shell wraps every in-app screen; bare screens (zero states, arrival, sign in)
-// draw alone. Connections is a placeholder until step 9.
+// draw alone.
 import { useEffect, useState } from "react";
 import { useStore } from "@/app/store";
 import { bootMock } from "@/app/boot";
@@ -20,6 +20,7 @@ import { SettingsScreen } from "@/screens/Settings";
 import { ProjectSettingsScreen } from "@/screens/ProjectSettings";
 import { MentionsScreen } from "@/screens/Mentions";
 import { NewProjectScreen } from "@/screens/NewProject";
+import { ConnectionsScreen } from "@/screens/Connections";
 
 function Placeholder() {
   const screen = useStore((s) => s.screen);
@@ -48,7 +49,7 @@ export function App() {
       <Toaster />
     </>
   ) : (
-    <AppShell>{screen === "project" ? <Wall /> : screen === "asset" ? <AssetScreen /> : screen === "settings" ? <SettingsScreen /> : screen === "projectSettings" ? <ProjectSettingsScreen /> : screen === "mentions" ? <MentionsScreen /> : screen === "newProject" ? <NewProjectScreen /> : <Placeholder />}</AppShell>
+    <AppShell>{screen === "project" ? <Wall /> : screen === "asset" ? <AssetScreen /> : screen === "settings" ? <SettingsScreen /> : screen === "projectSettings" ? <ProjectSettingsScreen /> : screen === "mentions" ? <MentionsScreen /> : screen === "newProject" ? <NewProjectScreen /> : screen === "connections" ? <ConnectionsScreen /> : <Placeholder />}</AppShell>
   );
   return (
     <>

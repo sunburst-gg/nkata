@@ -21,6 +21,8 @@
   --p-indigo: #4F6D9C; --p-plum: #7A4E8C; --p-rose: #A4567A; --p-slate: #5B6775;
   /* Pass and fail dots, the toast pill. */
   --ok: #5A9E6F; --bad: #C94C3A;
+  /* Blender's own orange, on its logo only (the prototype's CONNECTIONS block). */
+  --blender: #E87D0D;
   --toast-bg: #17181B; --toast-fg: #F2EEE8; --toast-fg-60: rgba(242, 238, 232, .6);
   /* The pulse ring around a card that just saved (the prototype's rgba(217,149,36,.55)). */
   --pulse: rgba(217, 149, 36, .55);

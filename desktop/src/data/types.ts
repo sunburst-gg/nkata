@@ -37,6 +37,12 @@ export interface Person {
   email?: string;
 }
 
+/** A Blender on this computer, as detection lists it. */
+export interface BlenderInstall { path: string; version: string }
+
+/** A project's files on this computer (artists). */
+export interface LocalProject { projectId: string; name: string; path: string; bytes: number; syncing: boolean }
+
 export type Journey = "invited" | "joined" | "blender" | "inBlender";
 
 export interface Member { person: Person; journey: Journey }

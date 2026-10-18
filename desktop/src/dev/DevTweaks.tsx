@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { useStore } from "@/app/store";
 import { STAGES, TWEAK_ROLES, type MockDataSource } from "@/data/mock";
-import { START_SCREENS, tweaksToSearch, type Tweaks } from "./tweaks";
+import { BLENDER_TWEAKS, START_SCREENS, tweaksToSearch, type Tweaks } from "./tweaks";
 import { toast } from "@/ui/toast/toast";
 
 declare global { interface Window { __nkataPool?: { length: number } } }
@@ -27,6 +27,9 @@ export function DevTweaks({ mock, tweaks, onChange }: { mock: MockDataSource; tw
       <label style={field}>stage<select style={select} value={tweaks.stage} onChange={(e) => set({ stage: e.target.value as Tweaks["stage"] })}>{STAGES.map((r) => <option key={r} value={r}>{r}</option>)}</select></label>
       <label style={field}>startScreen<select style={select} value={tweaks.startScreen} onChange={(e) => set({ startScreen: e.target.value as Tweaks["startScreen"] })}>{START_SCREENS.map((r) => <option key={r} value={r}>{r}</option>)}</select></label>
       <label style={field}>theme<select style={select} value={theme} onChange={(e) => set({ theme: e.target.value as Tweaks["theme"] })}>{["light", "dark"].map((r) => <option key={r} value={r}>{r}</option>)}</select></label>
+      <label style={field}>blender<select style={select} value={tweaks.blender} onChange={(e) => set({ blender: e.target.value as Tweaks["blender"] })}>{BLENDER_TWEAKS.map((r) => <option key={r} value={r}>{r || "(stage)"}</option>)}</select></label>
+      <div style={field}><span>agent</span><button type="button" style={select} onClick={() => mock.setAgent(!useStore.getState().agentRunning)}>toggle</button></div>
+      <div style={field}><span>offline</span><button type="button" style={select} onClick={() => mock.setOnline(!useStore.getState().online)}>toggle</button></div>
       <div style={field}><span>simulateSave</span><button type="button" style={select} onClick={() => void mock.simulateSave()}>fire</button></div>
       <div style={field}><span>simulateJoin</span><button type="button" style={select} onClick={() => void mock.simulateJoin()}>fire</button></div>
       <div style={field}><span>test toast</span><button type="button" style={select} onClick={() => toast("Ada saved Market stall.", "var(--p-terracotta)", { thumb: "/fixtures/renders/compound-ground.png", go: () => useStore.getState().go("asset", { assetId: useStore.getState().assets[0]?.id ?? null }) })}>fire</button></div>

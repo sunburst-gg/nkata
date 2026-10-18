@@ -2,7 +2,8 @@
 // 10); the live source over the agent and the server replaces it in step 11. Reads are async.
 // Changes arrive as events, so the app reacts to a real save the same way it reacts to a
 // simulated one.
-import type { Asset, Budgets, Comment, DeletedProject, Journey, Member, Mention, Person, Project, Role, Studio, StudioRef } from "./types";
+import type { Asset, BlenderInstall, Budgets, Comment, DeletedProject, Journey, LocalProject, Member, Mention, Person, Project, Role, Studio, StudioRef } from "./types";
+import type { ConnectionEvent } from "@/app/connection";
 
 export type DataEvent =
   | { type: "saved"; assetId: string; by: string }
@@ -12,8 +13,14 @@ export type DataEvent =
   | { type: "commented"; assetId: string; commentId: string }
   | { type: "memberChanged"; personId: string; journey: Journey }
   | { type: "presence"; personId: string; file: string | null }
-  /** First run: one row of the setup list is done (step 9 folds this into the Blender states). */
-  | { type: "setup"; step: "blender" | "addon" | "project"; meta: string };
+  /** First run: the project row of the setup list is done. Blender rows come from the connection events. */
+  | { type: "setup"; step: "project"; meta: string }
+  /** The Blender connection (step 9): the machine in app/connection.ts moves on these alone. */
+  | ConnectionEvent
+  /** Nkata itself: the background process, and the network. */
+  | { type: "agent"; running: boolean }
+  | { type: "online"; online: boolean }
+  | { type: "localChanged" };
 
 export type Unsubscribe = () => void;
 
@@ -59,5 +66,24 @@ export interface DataSource {
   setBudgets(projectId: string, budgets: Budgets): Promise<number>;
   setAssetBudget(assetId: string, n: number | null): Promise<void>;
   openInBlender(assetId: string, version?: number): Promise<void>;
+  // ---- connections (step 9)
+  /** Installs and enables the add-on in the found Blender, then emits addonInstalled. */
+  connectBlender(): Promise<void>;
+  updateAddon(): Promise<void>;
+  /** Opens the app picker; emits toolDetected with the pick, or with several to choose from. */
+  pickBlender(install?: BlenderInstall): Promise<void>;
+  /** Reloads the add-on after a lost heartbeat. */
+  reconnectBlender(): Promise<void>;
+  openBlender(): Promise<void>;
+  pause(): Promise<void>;
+  resume(): Promise<void>;
+  disconnect(): Promise<void>;
+  listLocalProjects(): Promise<LocalProject[]>;
+  showInFinder(projectId: string): Promise<void>;
+  /** Picks a new place and moves the files; resolves to the new path. */
+  moveProject(projectId: string): Promise<string>;
+  stopSyncing(projectId: string): Promise<void>;
+  syncAgain(projectId: string): Promise<void>;
+  restartAgent(): Promise<void>;
   download(assetId: string, format: "glb" | "fbx" | "image", version?: number): Promise<string>;
 }

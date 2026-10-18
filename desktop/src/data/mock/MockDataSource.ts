@@ -5,7 +5,8 @@
 // difference. Ported from the Component class at the end of handoff/v8/Nkata App v8.dc.html.
 import type { DataEvent, DataSource, Unsubscribe } from "../DataSource";
 import { isApproved, slug } from "../rules";
-import { DEFAULT_BUDGETS, type Asset, type Budgets, type Check, type CheckKey, type Comment, type DeletedProject, type Facts, type Journey, type Member, type Mention, type Person, type Project, type Role, type Studio, type StudioRef, type Version } from "../types";
+import { DEFAULT_BUDGETS, type Asset, type BlenderInstall, type Budgets, type Check, type CheckKey, type Comment, type DeletedProject, type Facts, type Journey, type LocalProject, type Member, type Mention, type Person, type Project, type Role, type Studio, type StudioRef, type Version } from "../types";
+import { apply as applyConnection, INITIAL as NO_BLENDER, type BlenderKind, type BlenderState, type ConnectionEvent } from "@/app/connection";
 import { ENV, GLB, items, OLD_NOTES, OWNERS, PREV_TRIS, RENDER, SAMPLE, TIMES, TRIS } from "./items";
 import { ME, PEOPLE, isLead, type Key } from "./people";
 
@@ -19,6 +20,9 @@ export const TRY_NKATA: Project = { id: "try-nkata", name: "Try Nkata", color: "
 export const BUDGET = DEFAULT_BUDGETS.prop;
 /** Rising Sun's lead set props to 50,000: with the defaults, seven seeded props would be over, and the prototype shows one red check. */
 export const RISING_SUN_BUDGETS: Budgets = { ...DEFAULT_BUDGETS, prop: 50_000 };
+export const BLENDER_VERSION = "4.2.3";
+export const ADDON_VERSION = "1.4.0";
+const BLENDER_PATH = "/Applications/Blender.app";
 /** The sign in code the mock accepts. Anything else is wrong; five wrong tries use it up. */
 export const MOCK_CODE = "123456";
 
@@ -50,6 +54,12 @@ interface State {
   budgets: Record<string, Budgets>;
   assetBudgets: Record<string, number>;
   codeTries: number;
+  /** The Blender connection, moved by the same machine the store runs. touched: false until the first event. */
+  blender: BlenderState;
+  blenderTouched: boolean;
+  local: LocalProject[];
+  agentRunning: boolean;
+  online: boolean;
   me: Person | null;
 }
 
@@ -109,6 +119,11 @@ export class MockDataSource implements DataSource {
       assetBudgets: {},
       codeTries: 0,
       me: null,
+      blender: stage === "arrival" || stage === "nostudio" || stage === "noproject" ? NO_BLENDER : { kind: "connected", version: BLENDER_VERSION, addon: ADDON_VERSION },
+      blenderTouched: false,
+      local: stage === "nostudio" || stage === "noproject" ? [] : [{ projectId: RISING_SUN.id, name: "Rising Sun", path: "~/Nkata/Rising Sun", bytes: 1_840_000_000, syncing: true }],
+      agentRunning: true,
+      online: true,
     };
   }
 
@@ -277,7 +292,7 @@ export class MockDataSource implements DataSource {
         ? [{ k: "E", step: 2 }]
         : [{ k: "E", step: 2 }, { k: "A", step: Math.min(3, this.s.joinStep) }];
     const steps: Journey[] = ["invited", "joined", "blender", "inBlender"];
-    const members: Member[] = base.map(({ k, step }) => ({ person: PEOPLE[k], journey: steps[Math.min(3, step)]! }));
+    const members: Member[] = base.map(({ k, step }) => ({ person: PEOPLE[k], journey: k === this.me.id && this.s.blenderTouched ? this.myJourney() : steps[Math.min(3, step)]! }));
     for (const inv of this.s.invited) {
       const initial = inv.email.charAt(0).toUpperCase();
       members.push({ person: { id: `invite-${inv.email}`, first: inv.email, name: inv.email, initial, color: "var(--p-slate)", role: inv.role, email: inv.email }, journey: steps[Math.max(0, Math.min(3, inv.step))]! });
@@ -437,6 +452,86 @@ export class MockDataSource implements DataSource {
     if (n && n > 0) this.s.assetBudgets[assetId] = n; else delete this.s.assetBudgets[assetId];
   }
 
+  // ---- connections (step 9): the mock runs the same machine and emits the events that move it
+
+  get blender(): BlenderState { return this.s.blender; }
+
+  private myJourney(): Journey {
+    const b = this.s.blender;
+    if (b.kind === "open") return "inBlender";
+    if (b.kind === "connected" || b.kind === "paused" || b.kind === "lost" || b.kind === "outdated") return "blender";
+    return "joined";
+  }
+
+  private connection(e: ConnectionEvent): void {
+    this.s.blender = applyConnection(this.s.blender, e);
+    this.s.blenderTouched = true;
+    this.emit(e);
+    if (this.me.role === "artist") this.emit({ type: "memberChanged", personId: this.me.id, journey: this.myJourney() });
+  }
+
+  async connectBlender(): Promise<void> {
+    const b = this.s.blender;
+    if (b.kind === "disconnected" || b.kind === "notFound") this.connection({ type: "toolDetected", installs: [{ path: BLENDER_PATH, version: b.kind === "disconnected" && b.version ? b.version : BLENDER_VERSION }] });
+    if (this.s.blender.kind === "found") this.connection({ type: "addonInstalled", addon: ADDON_VERSION });
+  }
+  async updateAddon(): Promise<void> {
+    const b = this.s.blender;
+    if (b.kind !== "outdated") return;
+    this.connection(b.blenderOpen ? { type: "addonInstalled", addon: ADDON_VERSION, restart: true } : { type: "addonInstalled", addon: ADDON_VERSION });
+  }
+  async pickBlender(install?: BlenderInstall): Promise<void> {
+    this.connection({ type: "toolDetected", installs: [install ?? { path: BLENDER_PATH, version: BLENDER_VERSION }] });
+  }
+  async reconnectBlender(): Promise<void> {
+    const b = this.s.blender;
+    if (b.kind === "lost") this.connection({ type: "heartbeat", file: b.file });
+  }
+  async openBlender(): Promise<void> {
+    if (this.s.blender.kind === "connected") this.connection({ type: "heartbeat", file: "market_stall.blend" });
+  }
+  async pause(): Promise<void> { this.connection({ type: "paused" }); }
+  async resume(): Promise<void> { this.connection({ type: "resumed" }); }
+  async disconnect(): Promise<void> { this.connection({ type: "disconnected" }); }
+  async listLocalProjects(): Promise<LocalProject[]> { return this.s.local.filter((l) => !this.s.deleted.some((d) => d.id === l.projectId)); }
+  async showInFinder(_projectId: string): Promise<void> { /* the mock has no Finder */ }
+  async moveProject(projectId: string): Promise<string> {
+    const next = `~/Work/${this.s.local.find((l) => l.projectId === projectId)?.name ?? "Project"}`;
+    this.s.local = this.s.local.map((l) => (l.projectId === projectId ? { ...l, path: next } : l));
+    this.emit({ type: "localChanged" });
+    return next;
+  }
+  async stopSyncing(projectId: string): Promise<void> {
+    this.s.local = this.s.local.map((l) => (l.projectId === projectId ? { ...l, syncing: false } : l));
+    this.emit({ type: "localChanged" });
+  }
+  async syncAgain(projectId: string): Promise<void> {
+    this.s.local = this.s.local.map((l) => (l.projectId === projectId ? { ...l, syncing: true } : l));
+    this.emit({ type: "localChanged" });
+  }
+  async restartAgent(): Promise<void> { this.s.agentRunning = true; this.emit({ type: "agent", running: true }); }
+
+  /** The Tweaks' "blender" control: jump to any of the ten states through the events that reach it. */
+  setBlender(kind: BlenderKind): void {
+    const v = BLENDER_VERSION, addon = ADDON_VERSION;
+    const seq: Record<BlenderKind, ConnectionEvent[]> = {
+      notFound: [{ type: "toolDetected", installs: [] }],
+      several: [{ type: "toolDetected", installs: [{ path: BLENDER_PATH, version: v }, { path: "/Applications/Blender 4.1.app", version: "4.1.1" }] }],
+      unsupported: [{ type: "toolDetected", installs: [{ path: "/Applications/Blender 3.6.app", version: "3.6.0" }] }],
+      found: [{ type: "disconnected" }, { type: "toolDetected", installs: [{ path: BLENDER_PATH, version: v }] }],
+      outdated: [{ type: "disconnected" }, { type: "toolDetected", installs: [{ path: BLENDER_PATH, version: v }] }, { type: "addonOutdated", addon: "1.2.0", blenderOpen: false }],
+      connected: [{ type: "disconnected" }, { type: "toolDetected", installs: [{ path: BLENDER_PATH, version: v }] }, { type: "addonInstalled", addon }],
+      open: [{ type: "disconnected" }, { type: "toolDetected", installs: [{ path: BLENDER_PATH, version: v }] }, { type: "addonInstalled", addon }, { type: "heartbeat", file: "market_stall.blend" }],
+      lost: [{ type: "disconnected" }, { type: "toolDetected", installs: [{ path: BLENDER_PATH, version: v }] }, { type: "addonInstalled", addon }, { type: "heartbeat", file: "market_stall.blend" }, { type: "heartbeatLost" }],
+      paused: [{ type: "disconnected" }, { type: "toolDetected", installs: [{ path: BLENDER_PATH, version: v }] }, { type: "addonInstalled", addon }, { type: "paused" }],
+      disconnected: [{ type: "disconnected" }],
+    };
+    for (const e of seq[kind]) this.connection(e);
+  }
+  /** The Tweaks' agent and network lines. */
+  setAgent(running: boolean): void { this.s.agentRunning = running; this.emit({ type: "agent", running }); }
+  setOnline(online: boolean): void { this.s.online = online; this.emit({ type: "online", online }); }
+
   // ---- the Tweaks' simulations, through the same events as a real save or sign in
 
   /** A save lands: in an empty project the Market lantern appears; on the wall the first live card saves again. */
@@ -464,8 +559,9 @@ export class MockDataSource implements DataSource {
 
   /** First run, artist: the three setup rows tick 700 ms apart, as events, never a timer in the UI. */
   startArrivalSetup(): void {
-    const rows: { step: "blender" | "addon" | "project"; meta: string }[] = [{ step: "blender", meta: "4.2.3" }, { step: "addon", meta: "" }, { step: "project", meta: "Show in Finder" }];
-    rows.forEach((r, i) => setTimeout(() => this.emit({ type: "setup", step: r.step, meta: r.meta }), 700 * (i + 1)));
+    setTimeout(() => this.connection({ type: "toolDetected", installs: [{ path: BLENDER_PATH, version: BLENDER_VERSION }] }), 700);
+    setTimeout(() => this.connection({ type: "addonInstalled", addon: ADDON_VERSION }), 1400);
+    setTimeout(() => this.emit({ type: "setup", step: "project", meta: "Show in Finder" }), 2100);
   }
 
   /** For tests: the approved count the prototype shows. */

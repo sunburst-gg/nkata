@@ -13,6 +13,7 @@ import { YourTurnBar } from "@/ui/wall/YourTurnBar";
 import { TeamStrip } from "@/ui/people/TeamStrip";
 import { FirstTimeNote } from "@/ui/notes/FirstTimeNote";
 import { ProjectMenu } from "@/ui/wall/ProjectMenu";
+import { PausedLine } from "@/ui/connections/StatusLine";
 import { isLead } from "@/auth/permissions";
 
 export function Wall() {
@@ -39,6 +40,7 @@ export function Wall() {
   const cornerOf = (a: Asset): Corner => (a.live ? "live" : isApproved(a) ? "approved" : mine.includes(a) ? "needsMe" : null);
   return (
     <div data-nk-wall="1" style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+      <PausedLine />
       <div style={{ display: "flex", alignItems: "flex-end", gap: 32 }}>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 6 }}>
           <h1 style={{ margin: 0, font: "400 var(--t-40)/1.1 var(--serif)", letterSpacing: "-0.02em", color: "var(--ink)" }}>{project.name}</h1>

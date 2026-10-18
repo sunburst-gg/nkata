@@ -3,7 +3,8 @@
 // refreshed on its events. Screens never touch the DataSource for reads; they read here.
 import { create } from "zustand";
 import type { DataEvent, DataSource } from "@/data/DataSource";
-import type { Asset, Comment, Member, Mention, Person, Project, Studio } from "@/data/types";
+import type { Asset, Comment, LocalProject, Member, Mention, Person, Project, Studio } from "@/data/types";
+import { apply as applyConnection, INITIAL as NO_BLENDER, type BlenderState } from "./connection";
 import type { Stage } from "@/data/mock";
 import type { Filter } from "./selectors";
 import { apply as applyJourney, type MemberState } from "./journey";
@@ -57,6 +58,12 @@ export interface AppState {
   setupDone: string[];
   /** The sidebar slides in once, after the zero state. */
   slideIn: boolean;
+  /** The Blender connection (step 9), moved by DataSource events alone. */
+  blender: BlenderState;
+  agentRunning: boolean;
+  online: boolean;
+  localProjects: LocalProject[];
+  disconnectOpen: boolean;
   // actions
   boot(source: DataSource, me: Person, stage: Stage): Promise<void>;
   refresh(): Promise<void>;
@@ -80,12 +87,14 @@ export const useStore = create<AppState>((set, get) => ({
   saved: {}, pulse: null, theme: "light", themeChoice: "light", screen: "project", assetId: null, stop: null, filter: "Everything", group: "All",
   notesSeen: {}, firstSaveFilled: false, toast: null, inviteOpen: false, publishOpen: false, switchOpen: false,
   pendingPin: null, activePin: null, draft: "", compare: false, compareWith: null, stamp: false, setupDone: [], slideIn: false,
+  blender: NO_BLENDER, agentRunning: true, online: true, localProjects: [], disconnectOpen: false,
 
   async boot(source, me, stage) {
     unsubscribe?.();
     unsubscribe = source.subscribe((e) => get().onEvent(e));
     const theme = setThemePerson(me.id);
-    set({ source, me, stage, theme, saved: {}, pulse: null, filter: "Everything", group: "All", stop: null, notesSeen: readNotes(me.id), firstSaveFilled: stage === "firstsave" || stage === "firstcomment", toast: null, journeys: {}, journeyState: {}, setupDone: [], slideIn: false });
+    const blender = "blender" in source ? (source as { blender: BlenderState }).blender : NO_BLENDER;
+    set({ source, me, stage, theme, saved: {}, pulse: null, filter: "Everything", group: "All", stop: null, notesSeen: readNotes(me.id), firstSaveFilled: stage === "firstsave" || stage === "firstcomment", toast: null, journeys: {}, journeyState: {}, setupDone: [], slideIn: false, blender, agentRunning: true, online: true, disconnectOpen: false });
     await get().refresh();
   },
 
@@ -96,7 +105,8 @@ export const useStore = create<AppState>((set, get) => ({
     let projectId = get().projectId;
     if (!projectId || !projects.some((p) => p.id === projectId)) projectId = projects.find((p) => !p.sample)?.id ?? projects[0]?.id ?? null;
     const [assets, members, mentions] = projectId ? await Promise.all([source.listAssets(projectId), source.listMembers(projectId), source.listMentions(projectId)]) : [[], [], []];
-    set({ studio, projects, projectId, assets, members, mentions });
+    const localProjects = await source.listLocalProjects();
+    set({ studio, projects, projectId, assets, members, mentions, localProjects });
     const { assetId } = get();
     if (assetId) await get().loadComments(assetId);
   },
@@ -143,6 +153,23 @@ export const useStore = create<AppState>((set, get) => ({
       return;
     }
     if (e.type === "setup") { set((s) => ({ setupDone: s.setupDone.includes(e.step) ? s.setupDone : [...s.setupDone, e.step] })); return; }
+    if (e.type === "agent") { set({ agentRunning: e.running }); return; }
+    if (e.type === "online") { set({ online: e.online }); return; }
+    if (e.type === "localChanged") { void get().refresh(); return; }
+    if (e.type === "toolDetected" || e.type === "addonInstalled" || e.type === "addonOutdated" || e.type === "heartbeat" || e.type === "heartbeatLost" || e.type === "paused" || e.type === "resumed" || e.type === "disconnected") {
+      set((s) => ({ blender: applyConnection(s.blender, e) }));
+      // Disconnect is the one move back on the strip: my journey machine resets and the roster
+      // reads Joined at once, before the source's roster arrives.
+      if (e.type === "disconnected") set((s) => {
+        const me = s.me?.id;
+        if (!me) return {};
+        const journeyState = { ...s.journeyState }; const journeys = { ...s.journeys };
+        delete journeyState[me]; delete journeys[me];
+        return { journeyState, journeys, members: s.members.map((m) => (m.person.id === me && m.journey !== "invited" ? { ...m, journey: "joined" } : m)) };
+      });
+      void get().refresh();
+      return;
+    }
     if (e.type === "memberChanged" || e.type === "presence") {
       const now = Date.now();
       set((s) => {

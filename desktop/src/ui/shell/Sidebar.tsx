@@ -1,4 +1,5 @@
 import { useStore } from "@/app/store";
+import { dot, line } from "@/app/connection";
 import { useCan } from "@/auth/useCan";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { JourneyRow } from "./JourneyRow";
@@ -14,6 +15,13 @@ export function Sidebar() {
   const go = useStore((s) => s.go);
   const mentionCount = useStore((s) => s.mentions.length);
   const canConnections = useCan("seeConnections");
+  const blender = useStore((s) => s.blender);
+  const agentRunning = useStore((s) => s.agentRunning);
+  const online = useStore((s) => s.online);
+  const me = useStore((s) => s.me);
+  // The dot: green when everything works, hollow neutral when paused, red when an action is needed.
+  const why = !agentRunning ? "Nkata is not running in the background." : !online ? "Offline. Changes go out when you are back." : line(blender);
+  const tone = !agentRunning ? "action" : !online ? "paused" : dot(blender);
   return (
     <aside style={{ width: 248, flexShrink: 0, display: "flex", flexDirection: "column", padding: "20px 12px", gap: 2 }}>
       <div style={{ position: "relative", marginBottom: 16 }}><StudioMenu /></div>
@@ -27,7 +35,7 @@ export function Sidebar() {
       <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
         {canConnections ? (
           <NavItem active={screen === "connections"} onClick={() => go("connections")}>
-            Connections<span aria-label="Everything works" style={{ marginLeft: "auto", width: 7, height: 7, borderRadius: "50%", background: "var(--ok)" }} />
+            Connections<span title={why} aria-hidden="true" style={{ marginLeft: "auto", width: 7, height: 7, borderRadius: "50%", boxSizing: "border-box", background: tone === "ok" ? "var(--ok)" : tone === "live" ? (me?.color ?? "var(--ok)") : tone === "action" ? "var(--bad)" : "transparent", border: tone === "paused" ? "1.5px solid var(--ink40)" : 0, animation: tone === "live" ? "nk-breathe 2.4s var(--ease) infinite" : undefined }} />
           </NavItem>
         ) : null}
         <MeRow />
