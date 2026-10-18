@@ -22,13 +22,13 @@ use crate::ids::new_id;
 use crate::ignore::AGENT_DIR;
 use crate::mirror::{MirrorJob, MirrorRunner};
 use crate::protocol::{
-    iso_now, AgentEvent, AgentMode, AssetCreateRequest, AssetCreateResponse, ChecksRequest, ChecksResponse, CommentCreateRequest,
-    CommentCreateResponse, CommentsResponse, ErrorBody, ErrorDetail, ExportRequest, ExportResponse,
-    LockReleaseReason, MeResponse, MirrorOnSaveRequest, MirrorPauseRequest, MirrorPauseResponse,
-    MirrorRetryResponse, MirrorStateResponse, MirrorStatus, PartCloseResponse, PartOpenResponse,
-    PartSavedRequest, PartSavedResponse, PartsResponse, PresenceRequest, PresenceResponse,
-    ProjectRef, PublishRequest, PublishResponse, RenderRequest, RenderResponse, ReviewRequest,
-    ReviewResponse, UserRef,
+    iso_now, AgentEvent, AgentMode, AssetCreateRequest, AssetCreateResponse, ChecksRequest,
+    ChecksResponse, CommentCreateRequest, CommentCreateResponse, CommentsResponse, ErrorBody,
+    ErrorDetail, ExportRequest, ExportResponse, LockReleaseReason, MeResponse, MirrorOnSaveRequest,
+    MirrorPauseRequest, MirrorPauseResponse, MirrorRetryResponse, MirrorStateResponse,
+    MirrorStatus, PartCloseResponse, PartOpenResponse, PartSavedRequest, PartSavedResponse,
+    PartsResponse, PresenceRequest, PresenceResponse, ProjectRef, PublishRequest, PublishResponse,
+    RenderRequest, RenderResponse, ReviewRequest, ReviewResponse, UserRef,
 };
 
 pub const DEFAULT_PORT: u16 = 7420;
@@ -259,7 +259,10 @@ async fn create_asset(
             body.group.as_deref(),
         )
         .await?;
-    Ok((StatusCode::CREATED, Json(AssetCreateResponse { v: 1, part })))
+    Ok((
+        StatusCode::CREATED,
+        Json(AssetCreateResponse { v: 1, part }),
+    ))
 }
 
 async fn open_part(
