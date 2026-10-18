@@ -44,6 +44,14 @@ export interface AppState {
   toast: Toast | null;
   inviteOpen: boolean;
   publishOpen: boolean;
+  /** The pin just dropped on the model, waiting for its line. */
+  pendingPin: [number, number, number] | null;
+  activePin: string | null;
+  draft: string;
+  compare: boolean;
+  /** The older Version picked for Compare. */
+  compareWith: number | null;
+  stamp: boolean;
   // actions
   boot(source: DataSource, me: Person, stage: Stage): Promise<void>;
   refresh(): Promise<void>;
@@ -66,6 +74,7 @@ export const useStore = create<AppState>((set, get) => ({
   source: null, stage: "studio", me: null, studio: null, projects: [], projectId: null, assets: [], members: [], journeys: {}, journeyState: {}, comments: {}, mentions: [],
   saved: {}, pulse: null, theme: "light", themeChoice: "light", screen: "project", assetId: null, stop: null, filter: "Everything", group: "All",
   notesSeen: {}, firstSaveFilled: false, toast: null, inviteOpen: false, publishOpen: false,
+  pendingPin: null, activePin: null, draft: "", compare: false, compareWith: null, stamp: false,
 
   async boot(source, me, stage) {
     unsubscribe?.();
@@ -95,14 +104,14 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   go(screen, extra = {}) {
-    set({ screen, stop: null, ...extra });
+    set({ screen, stop: null, pendingPin: null, activePin: null, draft: "", compare: false, compareWith: null, ...extra });
     const { assetId, projectId } = get();
     if (extra.projectId && extra.projectId !== projectId) void get().refresh();
     if (screen === "asset" && assetId) void get().loadComments(assetId);
   },
   setFilter: (filter) => set({ filter }),
   setGroup: (group) => set({ group }),
-  setStop: (stop) => set({ stop }),
+  setStop: (stop) => set((s) => (s.compare && typeof stop === "number" && stop !== (s.assets.find((a) => a.id === s.assetId)?.versions[0]?.n ?? 0) ? { compareWith: stop } : { stop })),
   setTheme(choice) { set({ themeChoice: choice, theme: storeTheme(choice) }); },
   markNoteSeen: (key) => set((s) => ({ notesSeen: { ...s.notesSeen, [key]: true } })),
 

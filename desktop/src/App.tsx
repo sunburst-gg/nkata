@@ -12,6 +12,7 @@ import { AppShell } from "@/ui/shell/AppShell";
 import { Stage } from "@/ui/stage/Stage";
 import { Toaster } from "@/ui/toast/Toaster";
 import { Wall } from "@/screens/Wall";
+import { AssetScreen } from "@/screens/Asset";
 
 function Placeholder() {
   const screen = useStore((s) => s.screen);
@@ -40,7 +41,7 @@ export function App() {
       <Toaster />
     </div>
   ) : (
-    <AppShell>{screen === "project" ? <Wall /> : <Placeholder />}</AppShell>
+    <AppShell>{screen === "project" ? <Wall /> : screen === "asset" ? <AssetScreen /> : <Placeholder />}</AppShell>
   );
   return (
     <>

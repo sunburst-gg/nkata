@@ -8,6 +8,9 @@
 // viewer boots again on a fresh canvas, because a canvas whose context was force-lost cannot
 // hand out a new one and three.js then fails on getContext; (g) data-live marks a viewer that
 // holds a context, so a card can show the ghost placeholder while it has neither context nor still.
+// Step 5: (h) the occlusion raycast is skipped for a pin whose screen position did not change
+// since the last frame, and at most 30 pins are tested per frame; (i) the pins setter accepts the
+// JSON string React hands it through the property.
 // NKATA (a): the npm package, not an import map.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -78,7 +81,7 @@ class NkViewer extends HTMLElement {
     if (n === 'autorotate' && this._hint) this._hint.style.display = 'none';
     if (n === 'autorotate' && this._controls) { this._controls.autoRotate = v != null && v !== 'false'; this._controls.autoRotateSpeed = parseFloat(v) || 0.6; }
     if (n === 'poster' && this._poster) this._poster.style.backgroundImage = v ? 'url(' + v + ')' : 'none'; }
-  set pins(list) { this._pins = list || []; this._renderPins(); }
+  set pins(list) { this._pins = typeof list === 'string' ? (() => { try { return JSON.parse(list || '[]'); } catch (e) { return []; } })() : (list || []); this._renderPins(); } // NKATA (i): React sets a JSX pins attribute through this setter as a string
   get pins() { return this._pins; }
   set activePin(id) { this._active = id; this._renderPins(); }
   _applyGhost() { if (!this._model) return; const on = this.hasAttribute('ghost') && this.getAttribute('ghost') !== 'false'; this._model.traverse(o => { if (!o.isMesh) return; if (on) { if (!o.userData.nkMat) o.userData.nkMat = o.material; o.material = new THREE.MeshBasicMaterial({ color: 0xE9A23B, wireframe: true, transparent: true, opacity: 0.3 }); } else if (o.userData.nkMat) { o.material = o.userData.nkMat; o.userData.nkMat = null; } }); if (on) { this._loading.style.opacity = 0; this._poster.style.opacity = 0; } }
@@ -124,13 +127,16 @@ class NkViewer extends HTMLElement {
     if (this._captureAfter != null && this._model && !(this.hasAttribute('ghost') && this.getAttribute('ghost') !== 'false')) { if (this._captureAfter-- <= 0) { this._captureAfter = null; this._captureStill(); } } // NKATA (d)
     if (!this._pinEls || !this._pinEls.length) return;
     const w = this.clientWidth, h = this.clientHeight, camPos = this._camera.position;
+    let tested = 0; // NKATA (h)
     this._pins.forEach((p, i) => {
       const v = new THREE.Vector3(...p.pos), el = this._pinEls[i]; if (!el) return;
-      let occluded = false;
-      if (this._model) { const dir = v.clone().sub(camPos); const dist = dir.length(); this._ray.set(camPos, dir.normalize()); const hit = this._ray.intersectObject(this._model, true)[0]; occluded = !!hit && hit.distance < dist - 0.02; }
+      const world = v.clone();
       v.project(this._camera);
-      el.style.left = ((v.x + 1) / 2 * w) + 'px'; el.style.top = ((1 - v.y) / 2 * h) + 'px';
-      el.classList.toggle('hidden', occluded);
+      const left = ((v.x + 1) / 2 * w), top = ((1 - v.y) / 2 * h);
+      const moved = el._nkLeft !== left || el._nkTop !== top;
+      el.style.left = left + 'px'; el.style.top = top + 'px'; el._nkLeft = left; el._nkTop = top;
+      if (this._model && (moved || el._nkOcc === undefined) && tested < 30) { tested++; const dir = world.sub(camPos); const dist = dir.length(); this._ray.set(camPos, dir.normalize()); const hit = this._ray.intersectObject(this._model, true)[0]; el._nkOcc = !!hit && hit.distance < dist - 0.02; } // NKATA (h)
+      el.classList.toggle('hidden', !!el._nkOcc);
     });
   }
 }
