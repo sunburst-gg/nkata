@@ -56,7 +56,7 @@ describe("stage=studio", () => {
   it("the one failing card (index 12) blocks Publish until fixed", async () => {
     const { mock, assets } = await load("studio", "artist");
     const bad = assets[12]!;
-    expect(bad.versions[0]!.checks.find((c) => c.key === "tris")).toMatchObject({ pass: false, sentence: "1,800 triangles. Budget is 30,000.", fix: "Over budget. Decimate or split the mesh." });
+    expect(bad.versions[0]!.checks.find((c) => c.key === "tris")).toMatchObject({ pass: false, sentence: "1,800 triangles. Budget is 50,000.", fix: "Over budget. Decimate or split the mesh." });
     expect(publishState(bad, "x").label).toBe("Publish, after the red one");
     await mock.fixCheck(bad.id, "tris");
     const fixed = (await mock.getAsset(bad.id))!;

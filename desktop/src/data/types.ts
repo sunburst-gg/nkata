@@ -5,6 +5,15 @@ export type Role = "producer" | "artDirector" | "artist" | "viewer";
 
 export interface Studio { id: string; name: string; training: boolean }
 
+/** A studio the account belongs to, as the Switch studio dialog lists it. */
+export interface StudioRef { id: string; name: string; role: Role; projects: number; current: boolean }
+
+/** Triangle budgets per kind, and an optional texture size limit, per project (Decisions 12). */
+export interface Budgets { prop: number; vehicle: number; character: number; environment: number; maxTexture: number | null }
+export const DEFAULT_BUDGETS: Budgets = { prop: 30_000, vehicle: 60_000, character: 80_000, environment: 2_000_000, maxTexture: null };
+
+export interface DeletedProject { id: string; name: string; deletedAt: string }
+
 export interface Project {
   id: string;
   name: string;
@@ -84,6 +93,8 @@ export interface Asset {
   versions: Version[];
   /** Someone mentioned me on it. */
   mentionsMe?: boolean;
+  /** A lead's override of the project budget for this asset alone. */
+  budget?: number;
   /** When it last changed, as the app shows it. */
   changedAt: string;
   /** Changed today: cards from before today read slightly desaturated. */

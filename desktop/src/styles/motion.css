@@ -11,6 +11,8 @@
 @keyframes nk-ghost-turn{from{transform:rotateY(0deg)}to{transform:rotateY(360deg)}}
 
 @keyframes nk-crossfade{from{opacity:.3}to{opacity:1}}
+/* A wrong code: the boxes shake 2 px once. */
+@keyframes nk-shake{0%,100%{transform:none}25%{transform:translateX(-2px)}75%{transform:translateX(2px)}}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
   /* The first-save fill becomes a 150 ms crossfade; nothing pulses, drifts or turns on its own. */

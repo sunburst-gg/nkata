@@ -5,7 +5,7 @@
 // difference. Ported from the Component class at the end of handoff/v8/Nkata App v8.dc.html.
 import type { DataEvent, DataSource, Unsubscribe } from "../DataSource";
 import { isApproved, slug } from "../rules";
-import type { Asset, Check, CheckKey, Comment, Facts, Journey, Member, Mention, Person, Project, Role, Studio, Version } from "../types";
+import { DEFAULT_BUDGETS, type Asset, type Budgets, type Check, type CheckKey, type Comment, type DeletedProject, type Facts, type Journey, type Member, type Mention, type Person, type Project, type Role, type Studio, type StudioRef, type Version } from "../types";
 import { ENV, GLB, items, OLD_NOTES, OWNERS, PREV_TRIS, RENDER, SAMPLE, TIMES, TRIS } from "./items";
 import { ME, PEOPLE, isLead, type Key } from "./people";
 
@@ -16,7 +16,11 @@ export const TWEAK_ROLES: TweakRole[] = ["lead", "artDirector", "artist", "viewe
 
 export const RISING_SUN: Project = { id: "rising-sun", name: "Rising Sun", color: "var(--swatch-1)" };
 export const TRY_NKATA: Project = { id: "try-nkata", name: "Try Nkata", color: "var(--swatch-2)", sample: true };
-export const BUDGET = 30_000;
+export const BUDGET = DEFAULT_BUDGETS.prop;
+/** Rising Sun's lead set props to 50,000: with the defaults, seven seeded props would be over, and the prototype shows one red check. */
+export const RISING_SUN_BUDGETS: Budgets = { ...DEFAULT_BUDGETS, prop: 50_000 };
+/** The sign in code the mock accepts. Anything else is wrong; five wrong tries use it up. */
+export const MOCK_CODE = "123456";
 
 interface Raw {
   name: string; owner: Key; glb: string | null; render: string; isEnv: boolean; group: string;
@@ -30,25 +34,46 @@ interface State {
   changesReq: Record<string, true>;
   fixed: Record<string, true>;
   saved: Record<string, number>;
-  invited: { email: string; role: Role }[];
+  /** step: 0 invited, 1 joined, 2 blender, 3 inBlender. A new invite starts at 0; simulateJoin moves it. */
+  invited: { email: string; role: Role; step: number }[];
   joinStep: number;
   filled: boolean;
   training: boolean;
   studio: Studio | null;
   createdProject: Project | null;
   comments: Comment[];
+  studios: StudioRef[];
+  members: { person: Person; role: Role }[];
+  names: Record<string, string>;
+  colors: Record<string, string>;
+  deleted: DeletedProject[];
+  budgets: Record<string, Budgets>;
+  assetBudgets: Record<string, number>;
+  codeTries: number;
+  me: Person | null;
 }
 
 const checkOf = (key: CheckKey, pass: boolean, sentence: string, fix: string): Check => ({ key, pass, sentence, fix });
 const fmt = (n: number): string => n.toLocaleString("en-US");
 
-export function checksFor(facts: Facts, fails: readonly CheckKey[]): Check[] {
+export function checksFor(facts: Facts, fails: readonly CheckKey[], budget: number = BUDGET): Check[] {
+  const over = fails.includes("tris") || facts.tris > budget;
   return [
     checkOf("textures", !fails.includes("textures"), `All ${facts.textures} textures are named right.`, "Rename to the sheet."),
     checkOf("scale", !fails.includes("scale"), "Scale is 1.00, in metres.", "Apply scale so it reads 1.00."),
     checkOf("uv", !fails.includes("uv"), `${facts.uvSets} UV set, no overlap.`, "Unwrap the mesh once."),
-    checkOf("tris", !fails.includes("tris"), fails.includes("tris") ? `${fmt(facts.tris)} triangles. Budget is ${fmt(BUDGET)}.` : `${fmt(facts.tris)} triangles, within budget.`, "Over budget. Decimate or split the mesh."),
+    checkOf("tris", !over, over ? `${fmt(facts.tris)} triangles. Budget is ${fmt(budget)}.` : `${fmt(facts.tris)} triangles, within budget.`, "Over budget. Decimate or split the mesh."),
   ];
+}
+
+/** Which budget an asset's kind and group draw on. */
+export function budgetFor(b: Budgets, kind: "object" | "environment", group: string | null, override?: number): number {
+  if (override) return override;
+  if (kind === "environment") return b.environment;
+  const g = (group ?? "").toLowerCase();
+  if (g.startsWith("vehicle")) return b.vehicle;
+  if (g.startsWith("character")) return b.character;
+  return b.prop;
 }
 
 export class MockDataSource implements DataSource {
@@ -75,6 +100,15 @@ export class MockDataSource implements DataSource {
       studio: stage === "nostudio" ? null : { id: "sunburst", name: "Sunburst", training: true },
       createdProject: null,
       comments: [],
+      studios: stage === "nostudio" ? [] : [{ id: "sunburst", name: "Sunburst", role: this.me.role, projects: 2, current: true }, { id: "ironwood", name: "Ironwood Play", role: "viewer", projects: 1, current: false }],
+      members: (["E", "A", "C", "N", "T", "K", "D", "F"] as Key[]).map((k) => ({ person: PEOPLE[k], role: PEOPLE[k].role })),
+      names: {},
+      colors: {},
+      deleted: [],
+      budgets: { [RISING_SUN.id]: RISING_SUN_BUDGETS },
+      assetBudgets: {},
+      codeTries: 0,
+      me: null,
     };
   }
 
@@ -131,13 +165,15 @@ export class MockDataSource implements DataSource {
   private toAsset(r: Raw, projectId: string): Asset {
     const V = r.version;
     const facts: Facts = { tris: r.tris, textures: r.tex, scale: "1.00", uvSets: 1 };
+    const assetId = `${projectId}/${slug(r.name)}`;
+    const budget = budgetFor(this.s.budgets[projectId] ?? DEFAULT_BUDGETS, r.isEnv ? "environment" : "object", r.group, this.s.assetBudgets[assetId]);
     const versions: Version[] = [];
     for (let n = V; n >= 1; n--) {
       const isCurrent = n === V;
       const note = isCurrent ? r.note : OLD_NOTES[Math.min(3, n - 1)]!;
       const v: Version = {
         n, note, publishedAt: isCurrent ? r.time : `${V - n} wk ago`,
-        checks: isCurrent ? checksFor(facts, r.fails) : checksFor({ ...facts, tris: r.prevTris ?? r.tris }, []),
+        checks: isCurrent ? checksFor(facts, r.fails, budget) : checksFor({ ...facts, tris: r.prevTris ?? r.tris }, [], budget),
         // A published Version with no decision waits on a lead. The prototype marks a third of the
         // wall as waiting; the rest were sent back once, which is what changesRequested records.
         approved: isCurrent && r.approved, changesRequested: isCurrent && (!!this.s.changesReq[r.name] || (!r.approved && !r.live && !r.waitingOnLead && !!r.note)),
@@ -147,7 +183,7 @@ export class MockDataSource implements DataSource {
       versions.push(v);
     }
     return {
-      id: `${projectId}/${slug(r.name)}`, name: r.name, kind: r.isEnv ? "environment" : "object", group: r.group,
+      id: assetId, name: r.name, kind: r.isEnv ? "environment" : "object", group: r.group, ...(this.s.assetBudgets[assetId] ? { budget: this.s.assetBudgets[assetId] } : {}),
       owner: PEOPLE[r.owner], ...(r.glb ? { glb: r.glb } : {}), ...(r.isEnv ? { render: r.render } : {}),
       ...(r.live ? { live: { savedAt: r.time } } : {}), versions, ...(r.mentionsMe ? { mentionsMe: true } : {}),
       changedAt: r.time, today: r.today,
@@ -176,7 +212,8 @@ export class MockDataSource implements DataSource {
     const list: Project[] = fresh ? [] : [RISING_SUN];
     if (this.s.createdProject) list.push(this.s.createdProject);
     list.push(TRY_NKATA);
-    return list;
+    const gone = new Set(this.s.deleted.map((d) => d.id));
+    return list.filter((p) => !gone.has(p.id)).map((p) => ({ ...p, ...(this.s.names[p.id] ? { name: this.s.names[p.id]! } : {}), ...(this.s.colors[p.id] ? { color: this.s.colors[p.id]! } : {}) }));
   }
 
   async getProject(id: string): Promise<Project | null> { return (await this.listProjects()).find((p) => p.id === id) ?? null; }
@@ -243,7 +280,7 @@ export class MockDataSource implements DataSource {
     const members: Member[] = base.map(({ k, step }) => ({ person: PEOPLE[k], journey: steps[Math.min(3, step)]! }));
     for (const inv of this.s.invited) {
       const initial = inv.email.charAt(0).toUpperCase();
-      members.push({ person: { id: `invite-${inv.email}`, first: inv.email, name: inv.email, initial, color: "var(--p-slate)", role: inv.role, email: inv.email }, journey: steps[Math.max(0, Math.min(3, this.s.joinStep - 1))]! });
+      members.push({ person: { id: `invite-${inv.email}`, first: inv.email, name: inv.email, initial, color: "var(--p-slate)", role: inv.role, email: inv.email }, journey: steps[Math.max(0, Math.min(3, inv.step))]! });
     }
     return members;
   }
@@ -252,7 +289,7 @@ export class MockDataSource implements DataSource {
 
   async invite(_projectId: string, email: string, role: Role): Promise<Member> {
     const e = email.trim();
-    this.s.invited.push({ email: e, role });
+    this.s.invited.push({ email: e, role, step: 0 });
     this.s.joinStep = Math.max(this.s.joinStep, 1);
     const member = (await this.listMembers(_projectId)).find((m) => m.person.email === e)!;
     this.emit({ type: "memberChanged", personId: member.person.id, journey: member.journey });
@@ -328,6 +365,78 @@ export class MockDataSource implements DataSource {
     return `${slug(asset?.name ?? "asset").replace(/-/g, "_")}_v${v}.${format === "image" ? "png" : format}`;
   }
 
+  // ---- account and studio
+
+  async requestCode(email: string): Promise<{ sent: true; code?: string }> {
+    void email;
+    this.s.codeTries = 0;
+    return { sent: true, code: MOCK_CODE };
+  }
+  async redeemCode(email: string, code: string): Promise<Person> {
+    if (this.s.codeTries >= 5) throw new Error("used up");
+    if (code !== MOCK_CODE) { this.s.codeTries++; throw new Error(this.s.codeTries >= 5 ? "used up" : "wrong"); }
+    const known = Object.values(PEOPLE).find((p) => `${p.first.toLowerCase()}@sunburst.studio` === email.trim().toLowerCase());
+    this.s.me = known ?? { ...this.me, email: email.trim().toLowerCase(), first: "", name: "" };
+    return this.s.me;
+  }
+  async signOut(): Promise<void> { this.s.me = null; }
+  async setMe(name: string): Promise<Person> {
+    const n = name.trim();
+    this.me = { ...this.me, name: n, first: n.split(" ")[0] ?? n, initial: (n.charAt(0) || "?").toUpperCase() };
+    return this.me;
+  }
+  async listStudios(): Promise<StudioRef[]> { return this.s.studios; }
+  async switchStudio(id: string): Promise<void> {
+    const target = this.s.studios.find(x => x.id === id);
+    if (!target) throw new Error("no studio");
+    this.s.studios = this.s.studios.map((x) => ({ ...x, current: x.id === id }));
+    this.s.studio = { id: target.id, name: target.name, training: this.s.training };
+    this.me = { ...this.me, role: target.role };
+  }
+  async setStudioName(name: string): Promise<void> {
+    if (!this.s.studio) return;
+    this.s.studio = { ...this.s.studio, name: name.trim() || this.s.studio.name };
+    this.s.studios = this.s.studios.map((x) => (x.current ? { ...x, name: this.s.studio!.name } : x));
+  }
+  async listStudioMembers(): Promise<Member[]> {
+    const journeys = await this.listMembers(RISING_SUN.id);
+    const inv = this.s.invited.map((i) => ({ person: { id: `invite-${i.email}`, first: i.email, name: i.email, initial: i.email.charAt(0).toUpperCase(), color: "var(--p-slate)", role: i.role, email: i.email }, journey: journeys.find((j) => j.person.email === i.email)?.journey ?? ("invited" as Journey) }));
+    return this.s.members.map((m) => ({ person: { ...m.person, role: m.role }, journey: journeys.find((j) => j.person.id === m.person.id)?.journey ?? "joined" })).concat(inv);
+  }
+  private producersLeftWithout(personId: string, role?: Role): number {
+    return this.s.members.filter((m) => (m.person.id === personId ? role === "producer" : m.role === "producer")).length;
+  }
+  async setMemberRole(personId: string, role: Role): Promise<void> {
+    if (this.producersLeftWithout(personId, role) === 0) throw new Error("A studio keeps at least one producer.");
+    this.s.members = this.s.members.map((m) => (m.person.id === personId ? { ...m, role } : m));
+    if (personId === this.me.id) this.me = { ...this.me, role };
+    this.emit({ type: "memberChanged", personId, journey: "joined" });
+  }
+  async removeMember(personId: string): Promise<void> {
+    if (this.producersLeftWithout(personId) === 0) throw new Error("A studio keeps at least one producer.");
+    this.s.members = this.s.members.filter((m) => m.person.id !== personId);
+    this.s.invited = this.s.invited.filter((i) => `invite-${i.email}` !== personId);
+    this.emit({ type: "memberChanged", personId, journey: "invited" });
+  }
+  async renameProject(id: string, name: string): Promise<void> { this.s.names[id] = name.trim() || (await this.getProject(id))?.name || "Project"; }
+  async setProjectColor(id: string, color: string): Promise<void> { this.s.colors[id] = color; }
+  async deleteProject(id: string): Promise<void> {
+    const p = await this.getProject(id);
+    if (!p) return;
+    this.s.deleted.push({ id, name: p.name, deletedAt: "Just now" });
+  }
+  async listDeletedProjects(): Promise<DeletedProject[]> { return this.s.deleted; }
+  async restoreProject(id: string): Promise<void> { this.s.deleted = this.s.deleted.filter((d) => d.id !== id); }
+  async getBudgets(projectId: string): Promise<Budgets> { return this.s.budgets[projectId] ?? DEFAULT_BUDGETS; }
+  async setBudgets(projectId: string, budgets: Budgets): Promise<number> {
+    this.s.budgets[projectId] = budgets;
+    const assets = await this.listAssets(projectId);
+    return assets.filter((a) => a.versions[0]?.checks.some((c) => c.key === "tris" && !c.pass)).length;
+  }
+  async setAssetBudget(assetId: string, n: number | null): Promise<void> {
+    if (n && n > 0) this.s.assetBudgets[assetId] = n; else delete this.s.assetBudgets[assetId];
+  }
+
   // ---- the Tweaks' simulations, through the same events as a real save or sign in
 
   /** A save lands: in an empty project the Market lantern appears; on the wall the first live card saves again. */
@@ -346,9 +455,10 @@ export class MockDataSource implements DataSource {
 
   /** One member moves one step forward along the journey. */
   async simulateJoin(): Promise<void> {
-    this.s.joinStep = Math.min(4, this.s.joinStep + 1);
+    const pending = this.s.invited.find((i) => i.step < 3);
+    if (pending) pending.step++; else this.s.joinStep = Math.min(4, this.s.joinStep + 1);
     const members = await this.listMembers(RISING_SUN.id);
-    const moved = members.find((m) => m.person.email) ?? members.find((m) => m.person.id === "A") ?? members[0];
+    const moved = (pending ? members.find((m) => m.person.email === pending.email) : null) ?? members.find((m) => m.person.id === "A") ?? members[0];
     if (moved) this.emit({ type: "memberChanged", personId: moved.person.id, journey: moved.journey });
   }
 

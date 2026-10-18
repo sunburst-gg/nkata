@@ -9,7 +9,7 @@ import type { Filter } from "./selectors";
 import { apply as applyJourney, type MemberState } from "./journey";
 import { applyTheme, setPerson as setThemePerson, setTheme as storeTheme, type Theme, type ThemeChoice } from "./theme";
 
-export type Screen = "zeroStudio" | "zeroProject" | "arrival" | "project" | "asset" | "mentions" | "connections" | "newProject" | "signIn" | "settings" | "projectSettings";
+export type Screen = "zeroStudio" | "zeroProject" | "arrival" | "project" | "asset" | "mentions" | "connections" | "newProject" | "signIn" | "name" | "settings" | "projectSettings";
 
 export interface Toast { id: number; text: string; color: string; thumb?: string; go?: () => void }
 
@@ -44,6 +44,7 @@ export interface AppState {
   toast: Toast | null;
   inviteOpen: boolean;
   publishOpen: boolean;
+  switchOpen: boolean;
   /** The pin just dropped on the model, waiting for its line. */
   pendingPin: [number, number, number] | null;
   activePin: string | null;
@@ -77,7 +78,7 @@ let unsubscribe: (() => void) | null = null;
 export const useStore = create<AppState>((set, get) => ({
   source: null, stage: "studio", me: null, studio: null, projects: [], projectId: null, assets: [], members: [], journeys: {}, journeyState: {}, comments: {}, mentions: [],
   saved: {}, pulse: null, theme: "light", themeChoice: "light", screen: "project", assetId: null, stop: null, filter: "Everything", group: "All",
-  notesSeen: {}, firstSaveFilled: false, toast: null, inviteOpen: false, publishOpen: false,
+  notesSeen: {}, firstSaveFilled: false, toast: null, inviteOpen: false, publishOpen: false, switchOpen: false,
   pendingPin: null, activePin: null, draft: "", compare: false, compareWith: null, stamp: false, setupDone: [], slideIn: false,
 
   async boot(source, me, stage) {

@@ -1,5 +1,5 @@
 // The app. The shell wraps every in-app screen; bare screens (zero states, arrival, sign in)
-// draw alone. Bodies are placeholders until their step; the asset body keeps the step 1 stage.
+// draw alone. Connections is a placeholder until step 9.
 import { useEffect, useState } from "react";
 import { useStore } from "@/app/store";
 import { bootMock } from "@/app/boot";
@@ -15,6 +15,11 @@ import { Wall } from "@/screens/Wall";
 import { AssetScreen } from "@/screens/Asset";
 import { Zero } from "@/screens/Zero";
 import { Arrival } from "@/screens/Arrival";
+import { NameScreen, SignIn } from "@/screens/SignIn";
+import { SettingsScreen } from "@/screens/Settings";
+import { ProjectSettingsScreen } from "@/screens/ProjectSettings";
+import { MentionsScreen } from "@/screens/Mentions";
+import { NewProjectScreen } from "@/screens/NewProject";
 
 function Placeholder() {
   const screen = useStore((s) => s.screen);
@@ -39,11 +44,11 @@ export function App() {
   const screen = useStore((s) => s.screen);
   const body = BARE.has(screen) ? (
     <>
-      {screen === "zeroStudio" ? <Zero which="studio" /> : screen === "zeroProject" ? <Zero which="project" /> : screen === "arrival" ? <Arrival /> : <div style={{ minHeight: "100vh", minWidth: 1280, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--canvas)" }}><Placeholder /></div>}
+      {screen === "zeroStudio" ? <Zero which="studio" /> : screen === "zeroProject" ? <Zero which="project" /> : screen === "arrival" ? <Arrival /> : screen === "signIn" ? <SignIn /> : screen === "name" ? <NameScreen /> : <div style={{ minHeight: "100vh", minWidth: 1280, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--canvas)" }}><Placeholder /></div>}
       <Toaster />
     </>
   ) : (
-    <AppShell>{screen === "project" ? <Wall /> : screen === "asset" ? <AssetScreen /> : <Placeholder />}</AppShell>
+    <AppShell>{screen === "project" ? <Wall /> : screen === "asset" ? <AssetScreen /> : screen === "settings" ? <SettingsScreen /> : screen === "projectSettings" ? <ProjectSettingsScreen /> : screen === "mentions" ? <MentionsScreen /> : screen === "newProject" ? <NewProjectScreen /> : <Placeholder />}</AppShell>
   );
   return (
     <>

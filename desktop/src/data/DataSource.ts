@@ -2,7 +2,7 @@
 // 10); the live source over the agent and the server replaces it in step 11. Reads are async.
 // Changes arrive as events, so the app reacts to a real save the same way it reacts to a
 // simulated one.
-import type { Asset, Comment, Journey, Member, Mention, Project, Role, Studio } from "./types";
+import type { Asset, Budgets, Comment, DeletedProject, Journey, Member, Mention, Person, Project, Role, Studio, StudioRef } from "./types";
 
 export type DataEvent =
   | { type: "saved"; assetId: string; by: string }
@@ -38,6 +38,26 @@ export interface DataSource {
   createStudio(name: string): Promise<Studio>;
   createProject(name: string, color: string): Promise<Project>;
   setTraining(on: boolean): Promise<void>;
+  // Account and studio (step 8). Sign in: a code by email, then the account.
+  requestCode(email: string): Promise<{ sent: true; code?: string }>;
+  redeemCode(email: string, code: string): Promise<Person>;
+  signOut(): Promise<void>;
+  setMe(name: string): Promise<Person>;
+  listStudios(): Promise<StudioRef[]>;
+  switchStudio(id: string): Promise<void>;
+  setStudioName(name: string): Promise<void>;
+  listStudioMembers(): Promise<Member[]>;
+  setMemberRole(personId: string, role: Role): Promise<void>;
+  removeMember(personId: string): Promise<void>;
+  renameProject(id: string, name: string): Promise<void>;
+  setProjectColor(id: string, color: string): Promise<void>;
+  deleteProject(id: string): Promise<void>;
+  listDeletedProjects(): Promise<DeletedProject[]>;
+  restoreProject(id: string): Promise<void>;
+  getBudgets(projectId: string): Promise<Budgets>;
+  /** Saves and re-runs the checks on every asset; resolves to how many are over now. */
+  setBudgets(projectId: string, budgets: Budgets): Promise<number>;
+  setAssetBudget(assetId: string, n: number | null): Promise<void>;
   openInBlender(assetId: string, version?: number): Promise<void>;
   download(assetId: string, format: "glb" | "fbx" | "image", version?: number): Promise<string>;
 }

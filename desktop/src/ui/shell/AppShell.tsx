@@ -2,8 +2,10 @@
 // Minimum width 1280. The zero states, arrival and sign in draw without it (routes.ts).
 import type { ReactNode } from "react";
 import { useStore } from "@/app/store";
+import { InviteDialog } from "@/ui/invite/InviteDialog";
 import { Toaster } from "@/ui/toast/Toaster";
 import { Breadcrumbs, Sidebar } from "./Sidebar";
+import { SwitchStudioDialog } from "./SwitchStudioDialog";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const viewer = useStore((s) => s.me?.role === "viewer");
@@ -19,6 +21,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
         <div style={{ flex: 1, minHeight: 0, padding: "8px 40px 40px" }}>{children}</div>
       </main>
+      <InviteDialog />
+      <SwitchStudioDialog />
       <Toaster />
     </div>
   );

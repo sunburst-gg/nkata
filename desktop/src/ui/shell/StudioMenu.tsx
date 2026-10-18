@@ -29,6 +29,7 @@ export function StudioMenu() {
       <Menu.Portal>
         <Menu.Content align="start" sideOffset={6} style={{ width: 272, background: "var(--raised)", borderRadius: "var(--r-12)", boxShadow: "var(--shadow-lift)", padding: 6, display: "flex", flexDirection: "column", zIndex: 30, animation: "nk-rise var(--t-fast) var(--ease)" }}>
           <Menu.Item className="nk-menu-item" style={item} onSelect={() => go("settings")}>Settings</Menu.Item>
+          <Menu.Item className="nk-menu-item" style={item} onSelect={() => useStore.setState({ switchOpen: true })}>Switch studio</Menu.Item>
           {canInvite ? <Menu.Item className="nk-menu-item" style={item} onSelect={() => useStore.setState({ inviteOpen: true })}>Invite people</Menu.Item> : null}
           {canTraining ? (
             <>
@@ -45,7 +46,7 @@ export function StudioMenu() {
             </>
           ) : null}
           <Menu.Separator style={{ height: 1, background: "var(--line)", margin: "6px 4px" }} />
-          <Menu.Item className="nk-menu-item" style={item} onSelect={() => toast(`Logged out. See you, ${me?.first ?? "friend"}.`, me?.color ?? "var(--ok)")}>Log out</Menu.Item>
+          <Menu.Item className="nk-menu-item" style={item} onSelect={() => { void source?.signOut(); useStore.setState({ screen: "signIn" }); toast(`Logged out. See you, ${me?.first ?? "friend"}.`, me?.color ?? "var(--ok)"); }}>Log out</Menu.Item>
         </Menu.Content>
       </Menu.Portal>
     </Menu.Root>

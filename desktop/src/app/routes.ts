@@ -3,10 +3,10 @@
 // mentions, connections, newProject, plus signIn, settings and projectSettings from step 8.
 import type { Screen } from "./store";
 
-export const SCREENS: Screen[] = ["zeroStudio", "zeroProject", "arrival", "project", "asset", "mentions", "connections", "newProject", "signIn", "settings", "projectSettings"];
+export const SCREENS: Screen[] = ["zeroStudio", "zeroProject", "arrival", "project", "asset", "mentions", "connections", "newProject", "signIn", "name", "settings", "projectSettings"];
 
 /** Screens that draw without the shell: the zero states, arrival and sign in. */
-export const BARE: ReadonlySet<Screen> = new Set<Screen>(["zeroStudio", "zeroProject", "arrival", "signIn"]);
+export const BARE: ReadonlySet<Screen> = new Set<Screen>(["zeroStudio", "zeroProject", "arrival", "signIn", "name"]);
 
 export const TITLE: Record<Screen, string> = {
   zeroStudio: "Name your studio.",
@@ -18,6 +18,7 @@ export const TITLE: Record<Screen, string> = {
   connections: "Connections",
   newProject: "New project",
   signIn: "Sign in",
+  name: "Your name",
   settings: "Settings",
   projectSettings: "Project settings",
 };

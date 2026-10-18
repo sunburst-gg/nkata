@@ -2,7 +2,9 @@
 // bar, the Versions row, and on the right the note, the facts and the comments.
 import { useEffect, useState } from "react";
 import { useStore } from "@/app/store";
+import { useCan } from "@/auth/useCan";
 import { ActionBar } from "@/ui/asset/ActionBar";
+import { BudgetDialog } from "@/ui/asset/BudgetDialog";
 import { AssetStage } from "@/ui/asset/AssetStage";
 import { Compare } from "@/ui/asset/Compare";
 import { Facts } from "@/ui/asset/Facts";
@@ -26,6 +28,8 @@ export function AssetScreen() {
   const loadComments = useStore((s) => s.loadComments);
   const source = useStore((s) => s.source);
   const [publishOpen, setPublishOpen] = useState(false);
+  const [budgetOpen, setBudgetOpen] = useState(false);
+  const canBudget = useCan("setBudget");
   const artist = me?.role === "artist";
   useEffect(() => { if (asset) void loadComments(asset.id); }, [asset?.id, loadComments]);
   if (!asset || !project || !me) return <span style={{ color: "var(--ink60)" }}>That asset is not in this project.</span>;
@@ -69,11 +73,12 @@ export function AssetScreen() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
           <NoteBlock asset={asset} shown={shown} />
-          <Facts asset={asset} shown={shown} artist={artist} />
+          <Facts asset={asset} shown={shown} artist={artist} onSetBudget={canBudget && !project.sample ? () => setBudgetOpen(true) : undefined} />
           <CommentList asset={asset} comments={comments} />
         </div>
       </div>
       {artist ? <PublishDialog asset={asset} open={publishOpen} onOpenChange={setPublishOpen} /> : null}
+      {canBudget ? <BudgetDialog asset={asset} open={budgetOpen} onOpenChange={setBudgetOpen} /> : null}
     </div>
   );
 }
