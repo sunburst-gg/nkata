@@ -38,6 +38,8 @@ export interface AppState {
   notesSeen: Record<string, true>;
   firstSaveFilled: boolean;
   toast: Toast | null;
+  inviteOpen: boolean;
+  publishOpen: boolean;
   // actions
   boot(source: DataSource, me: Person, stage: Stage): Promise<void>;
   refresh(): Promise<void>;
@@ -59,7 +61,7 @@ let unsubscribe: (() => void) | null = null;
 export const useStore = create<AppState>((set, get) => ({
   source: null, stage: "studio", me: null, studio: null, projects: [], projectId: null, assets: [], members: [], comments: {}, mentions: [],
   saved: {}, pulse: null, theme: "light", themeChoice: "light", screen: "project", assetId: null, stop: null, filter: "Everything", group: "All",
-  notesSeen: {}, firstSaveFilled: false, toast: null,
+  notesSeen: {}, firstSaveFilled: false, toast: null, inviteOpen: false, publishOpen: false,
 
   async boot(source, me, stage) {
     unsubscribe?.();

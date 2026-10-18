@@ -11,3 +11,6 @@ a:hover { color: var(--amber); }
 input, button, textarea, select { font-family: inherit; }
 button { cursor: pointer; }
 *, *::before, *::after { box-sizing: border-box; }
+
+/* Hover on nav rows and menu items, as the prototype's style-hover. */
+.nk-nav:hover, .nk-menu-item:hover, .nk-menu-item[data-highlighted] { background: var(--hover); }

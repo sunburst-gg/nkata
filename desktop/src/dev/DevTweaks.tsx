@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useStore } from "@/app/store";
 import { STAGES, TWEAK_ROLES, type MockDataSource } from "@/data/mock";
 import { START_SCREENS, tweaksToSearch, type Tweaks } from "./tweaks";
+import { toast } from "@/ui/toast/toast";
 
 declare global { interface Window { __nkataPool?: { length: number } } }
 
@@ -12,7 +13,8 @@ const field: React.CSSProperties = { display: "flex", alignItems: "center", just
 const select: React.CSSProperties = { font: "400 var(--t-11) var(--mono)", color: "var(--ink)", background: "var(--canvas)", border: "1px solid var(--line)", borderRadius: "var(--r-6)", height: 22, padding: "0 4px" };
 
 export function DevTweaks({ mock, tweaks, onChange }: { mock: MockDataSource; tweaks: Tweaks; onChange: (t: Tweaks) => void }) {
-  const [open, setOpen] = useState(true);
+  // Hidden under automation (the shots harness) so the screenshots show the app alone.
+  const [open, setOpen] = useState(() => !navigator.webdriver);
   const [live, setLive] = useState(0);
   const theme = useStore((s) => s.theme);
   useEffect(() => { const t = setInterval(() => setLive(window.__nkataPool?.length ?? 0), 500); return () => clearInterval(t); }, []);
@@ -27,6 +29,7 @@ export function DevTweaks({ mock, tweaks, onChange }: { mock: MockDataSource; tw
       <label style={field}>theme<select style={select} value={theme} onChange={(e) => set({ theme: e.target.value as Tweaks["theme"] })}>{["light", "dark"].map((r) => <option key={r} value={r}>{r}</option>)}</select></label>
       <div style={field}><span>simulateSave</span><button type="button" style={select} onClick={() => void mock.simulateSave()}>fire</button></div>
       <div style={field}><span>simulateJoin</span><button type="button" style={select} onClick={() => void mock.simulateJoin()}>fire</button></div>
+      <div style={field}><span>test toast</span><button type="button" style={select} onClick={() => toast("Ada saved Market stall.", "var(--p-terracotta)", { thumb: "/fixtures/renders/compound-ground.png", go: () => useStore.getState().go("asset", { assetId: useStore.getState().assets[0]?.id ?? null }) })}>fire</button></div>
       <div style={field}><span>live contexts</span><span>{live} / 8</span></div>
     </div>
   );
