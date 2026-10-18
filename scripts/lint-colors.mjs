@@ -8,8 +8,9 @@ import { join, relative } from "node:path";
 const ROOT = new URL("../desktop/src/", import.meta.url).pathname;
 const SKIP = [/\/parked\//, /\/styles\/[^/]+\.css$/, /\.test\.tsx?$/, /\.d\.ts$/, /\/viewer\/nk-viewer\.js$/];
 const NAMED = ["white", "black", "red", "blue", "green", "gray", "grey", "orange", "yellow", "purple", "pink", "brown", "silver", "gold", "navy", "teal", "olive", "maroon", "lime", "aqua", "fuchsia", "coral", "salmon", "tomato", "crimson", "beige", "ivory", "khaki", "tan", "wheat"];
-// A color word counts only inside a style value: after a colon or in a quoted CSS string.
-const NAMED_RE = new RegExp(`(?:(?:color|background|border|fill|stroke|outline|shadow)[A-Za-z]*\\s*[:=]\\s*["'\`]?\\s*|["'\`][^"'\`]*\\b)(${NAMED.join("|")})\\b`, "i");
+// A color word counts only as the value of a style property ("color: red", background="white"),
+// never inside a sentence ("after the red one") or a token name ("--p-olive").
+const NAMED_RE = new RegExp(`(?:color|background|border|fill|stroke|outline|shadow)[A-Za-z]*\\s*[:=]\\s*["'\`]?\\s*(${NAMED.join("|")})\\b`, "i");
 const RULES = [
   { name: "hex color", re: /#[0-9a-fA-F]{3,8}\b/ },
   { name: "rgb()", re: /\brgba?\(/ },
