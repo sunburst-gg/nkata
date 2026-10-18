@@ -33,6 +33,20 @@ export type ReviewDecision = z.infer<typeof ReviewDecision>;
 export const Training = z.enum(["on", "off"]);
 export type Training = z.infer<typeof Training>;
 
+/** What an asset is on the v8 wall: an object turns on the stage, an environment shows its render. See handoff/v8/PROMPTS.md, step 11. */
+export const AssetKind = z.enum(["object", "environment"]);
+export type AssetKind = z.infer<typeof AssetKind>;
+
+/** Triangle budgets per kind for one project, and an optional texture size limit. Decisions 12 in handoff/v8/PROMPTS.md. */
+export const Budgets = z.strictObject({
+  "prop": z.number().int().min(1),
+  "vehicle": z.number().int().min(1),
+  "character": z.number().int().min(1),
+  "environment": z.number().int().min(1),
+  "max_texture": z.number().int().min(1).nullable(),
+});
+export type Budgets = z.infer<typeof Budgets>;
+
 /** pin: a note at a point. take_a_look: asks the art director to look, no state change. */
 export const CommentKind = z.enum(["pin", "take_a_look"]);
 export type CommentKind = z.infer<typeof CommentKind>;

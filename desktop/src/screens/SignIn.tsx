@@ -8,6 +8,8 @@ import { Mark } from "@/ui/stage/Mark";
 import { Stage } from "@/ui/stage/Stage";
 import { NkViewer } from "@/viewer/NkViewer";
 import { toast } from "@/ui/toast/toast";
+import { landLive } from "@/app/bootLive";
+import { LiveDataSource } from "@/data/live/LiveDataSource";
 
 const field: React.CSSProperties = { height: 48, borderRadius: "var(--r-6)", border: 0, background: "var(--canvas)", padding: "0 14px", fontSize: 17, color: "var(--ink)", outline: "none" };
 const cta: React.CSSProperties = { height: 44, borderRadius: "var(--r-6)", border: 0, background: "var(--amber)", color: "var(--amber-fg)", font: "500 15px var(--sans)", cursor: "pointer" };
@@ -42,6 +44,7 @@ export function SignIn() {
     setBusy(true);
     try {
       const me = await source.redeemCode(clean, code);
+      if (source instanceof LiveDataSource) { await landLive(source); return; }
       useStore.setState({ me });
       await useStore.getState().refresh();
       const { studio } = useStore.getState();
@@ -68,7 +71,7 @@ export function SignIn() {
             <span style={{ font: "400 28px/1.2 var(--serif)", letterSpacing: "-0.02em", color: "var(--ink)" }}>Enter the code.</span>
             <span style={{ fontSize: 13, color: "var(--ink60)" }}>We sent six digits to {clean}. It works for 15 minutes.</span>
           </div>
-          <CodeInput value={code} onChange={(v) => { setCode(v); if (verdict === "wrong") setVerdict("ok"); }} wrong={verdict === "wrong"} disabledUp={verdict === "usedUp"} />
+          <CodeInput value={code} onChange={(v) => { setCode(v); if (verdict === "wrong") setVerdict("ok"); }} wrong={verdict === "wrong"} usedUp={verdict === "usedUp"} />
           {verdict === "wrong" ? <span role="alert" style={{ fontSize: 13, color: "var(--bad)" }}>That code is not right, or it expired. Ask for a new one.</span> : null}
           {verdict === "usedUp" ? <span role="alert" style={{ fontSize: 13, color: "var(--bad)" }}>That code is used up. Ask for a new one.</span> : null}
           {verdict !== "usedUp" ? <button type="submit" style={cta} aria-busy={busy}>Continue</button> : null}
@@ -83,14 +86,14 @@ export function SignIn() {
 }
 
 /** Six boxes with one real input laid invisibly over them: typing, paste and autofill all work. */
-export function CodeInput({ value, onChange, wrong, disabledUp }: { value: string; onChange: (v: string) => void; wrong?: boolean; disabledUp?: boolean }) {
+export function CodeInput({ value, onChange, wrong, usedUp }: { value: string; onChange: (v: string) => void; wrong?: boolean; usedUp?: boolean }) {
   const digits = value.padEnd(6, " ").slice(0, 6).split("");
   const ref = useRef<HTMLInputElement>(null);
   const [shake, setShake] = useState(false);
   useEffect(() => { if (wrong) { setShake(true); const t = setTimeout(() => setShake(false), 300); return () => clearTimeout(t); } return undefined; }, [wrong]);
   return (
     <label style={{ position: "relative", display: "block", height: 56, cursor: "text" }} aria-label="Six digit code">
-      <input ref={ref} autoFocus value={value} onChange={(e) => onChange(e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" aria-label="Six digit code" readOnly={disabledUp} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0, background: "transparent", color: "transparent", caretColor: "transparent", outline: "none" }} />
+      <input ref={ref} autoFocus value={value} onChange={(e) => onChange(e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" aria-label="Six digit code" readOnly={usedUp} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0, background: "transparent", color: "transparent", caretColor: "transparent", outline: "none" }} />
       <span aria-hidden="true" style={{ pointerEvents: "none", display: "grid", height: "100%", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, animation: shake ? "nk-shake 300ms var(--ease)" : undefined }}>
         {digits.map((d, i) => <span key={i} style={{ display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "var(--r-6)", background: "var(--canvas)", font: "400 20px var(--mono)", color: "var(--ink)", boxShadow: wrong ? "inset 0 0 0 1.5px var(--bad)" : value.length === i || (i === 5 && value.length === 6) ? "inset 0 0 0 1.5px var(--amber)" : "inset 0 0 0 1px var(--line)", transition: "box-shadow var(--t-fast)" }}>{d.trim()}</span>)}
       </span>
@@ -105,6 +108,7 @@ export function NameScreen() {
   const next = async () => {
     if (!name.trim() || !source) return;
     const me = await source.setMe(name);
+    if (source instanceof LiveDataSource) { await landLive(source); return; }
     useStore.setState({ me });
     const { studio } = useStore.getState();
     useStore.setState({ screen: studio ? "project" : "zeroStudio" });

@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { useStore } from "@/app/store";
 import { bootMock } from "@/app/boot";
+import { bootLive } from "@/app/bootLive";
+import { pickSource } from "@/data";
+import { LiveDataSource } from "@/data/live/LiveDataSource";
 import { BARE, TITLE } from "@/app/routes";
 import { DevTweaks } from "@/dev/DevTweaks";
 import { tweaksFromUrl, type Tweaks } from "@/dev/tweaks";
@@ -41,8 +44,21 @@ function Placeholder() {
 export function App() {
   const [tweaks, setTweaks] = useState<Tweaks>(() => tweaksFromUrl(location.search));
   const [mock, setMock] = useState<MockDataSource | null>(null);
-  useEffect(() => { void bootMock(tweaks).then(setMock); }, [tweaks]);
+  // The mock with any Tweak in the URL (or ?mock=1); live otherwise (docs/decisions.md, v8 step 11).
+  const [choice] = useState(() => pickSource(location.search));
+  useEffect(() => {
+    if (choice.kind === "mock") { void bootMock(tweaks).then(setMock); return; }
+    void bootLive(choice.source);
+  }, [tweaks, choice]);
   const screen = useStore((s) => s.screen);
+  const projectId = useStore((s) => s.projectId);
+  // Live: the event poll follows the project the wall shows.
+  useEffect(() => {
+    const source = useStore.getState().source;
+    if (!(source instanceof LiveDataSource) || !projectId || screen === "signIn" || screen === "name") return;
+    source.start(projectId);
+    return () => source.stop();
+  }, [projectId, screen]);
   const body = BARE.has(screen) ? (
     <>
       {screen === "zeroStudio" ? <Zero which="studio" /> : screen === "zeroProject" ? <Zero which="project" /> : screen === "arrival" ? <Arrival /> : screen === "signIn" ? <SignIn /> : screen === "name" ? <NameScreen /> : <div style={{ minHeight: "100vh", minWidth: 1280, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--canvas)" }}><Placeholder /></div>}

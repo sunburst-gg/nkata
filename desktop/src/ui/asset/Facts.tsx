@@ -22,7 +22,7 @@ export function Facts({ asset, shown, artist, onSetBudget }: { asset: Asset; sho
         {onSetBudget ? (
           <Menu.Root>
             <Menu.Trigger asChild>
-              <button type="button" className="nk-nav" aria-label="Facts menu" style={{ marginLeft: "auto", width: 24, height: 24, borderRadius: "var(--r-6)", border: 0, background: "transparent", color: "var(--ink40)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}>
+              <button type="button" className="nk-nav" aria-label="Facts menu" style={{ marginLeft: "auto", width: 32, height: 32, margin: "-4px 0 -4px auto", borderRadius: "var(--r-6)", border: 0, background: "transparent", color: "var(--ink40)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}>
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3" cy="8" r="1.4" /><circle cx="8" cy="8" r="1.4" /><circle cx="13" cy="8" r="1.4" /></svg>
               </button>
             </Menu.Trigger>
@@ -41,7 +41,9 @@ export function Facts({ asset, shown, artist, onSetBudget }: { asset: Asset; sho
             <span style={{ fontSize: 13, color: "var(--ink60)" }}>{r.name}</span>
             <span style={{ font: "400 13px var(--mono)", color: "var(--ink)" }}>{r.value}</span>
             <span style={{ font: "400 11px var(--mono)", color: tone[r.tone], whiteSpace: "nowrap" }}>{r.delta}</span>
-            <span aria-label={r.failed ? "fails" : "passes"} style={{ width: 8, height: 8, borderRadius: "50%", background: r.failed ? "var(--bad)" : "var(--ok)", justifySelf: "end" }} />
+            {r.pending
+              ? <span aria-label="not checked yet" style={{ width: 8, height: 8, borderRadius: "50%", border: "1.5px solid var(--ink40)", boxSizing: "border-box", justifySelf: "end" }} />
+              : <span aria-label={r.failed ? "fails" : "passes"} style={{ width: 8, height: 8, borderRadius: "50%", background: r.failed ? "var(--bad)" : "var(--ok)", justifySelf: "end" }} />}
           </div>
           {r.failed ? <span style={{ fontSize: 13, color: "var(--bad)" }}>{r.fix}</span> : null}
           {r.name === "Triangles" && asset.budget ? <span style={{ font: "400 11px var(--mono)", color: "var(--ink40)" }}>Budget {asset.budget.toLocaleString("en-US")} for this asset.</span> : null}

@@ -11,19 +11,21 @@
     "tauri": "tauri",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "shots": "node scripts/shots.mjs"
+    "shots": "node scripts/shots.mjs",
+    "test:live": "vitest run --config vitest.live.config.ts"
   },
   "dependencies": {
+    "@nkata/shared": "workspace:*",
     "@radix-ui/react-dialog": "^1.1.23",
     "@radix-ui/react-dropdown-menu": "^2.1.24",
+    "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-tooltip": "^1.2.16",
     "@tauri-apps/api": "^2.12.1",
     "@tauri-apps/plugin-dialog": "^2.8.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "three": "0.160.0",
-    "zustand": "^5.0.15",
-    "@radix-ui/react-select": "^2.2.6"
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.1",

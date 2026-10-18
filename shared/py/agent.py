@@ -6,11 +6,11 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from . import _runtime as _rt
-from .common import CheckResult, CheckSeverity, CommentKind, CommentPin, Gate, LockInfo, MirrorStatus, PartMapping, PartState, ReviewDecision, Timestamp, Ulid, UserRef, Vec3, validate_CheckResult, validate_CheckSeverity, validate_CommentKind, validate_CommentPin, validate_Gate, validate_LockInfo, validate_MirrorStatus, validate_PartMapping, validate_PartState, validate_ReviewDecision, validate_Timestamp, validate_Ulid, validate_UserRef, validate_Vec3
+from .common import AssetKind, Budgets, CheckResult, CheckSeverity, CommentKind, CommentPin, Gate, LockInfo, MirrorStatus, PartMapping, PartState, ReviewDecision, Timestamp, Ulid, UserRef, Vec3, validate_AssetKind, validate_Budgets, validate_CheckResult, validate_CheckSeverity, validate_CommentKind, validate_CommentPin, validate_Gate, validate_LockInfo, validate_MirrorStatus, validate_PartMapping, validate_PartState, validate_ReviewDecision, validate_Timestamp, validate_Ulid, validate_UserRef, validate_Vec3
 from .events import CommentCreated, LockGranted, LockReleased, LockRequested, MirrorResult, PartStateChanged, PresenceChanged, PresenceEntry, validate_CommentCreated, validate_LockGranted, validate_LockReleased, validate_LockRequested, validate_MirrorResult, validate_PartStateChanged, validate_PresenceChanged, validate_PresenceEntry
 from .template import TemplateKind, validate_TemplateKind
 
-__imported__ = (CheckResult, CheckSeverity, CommentCreated, CommentKind, CommentPin, Gate, LockGranted, LockInfo, LockReleased, LockRequested, MirrorResult, MirrorStatus, PartMapping, PartState, PartStateChanged, PresenceChanged, PresenceEntry, ReviewDecision, TemplateKind, Timestamp, Ulid, UserRef, Vec3, validate_CheckResult, validate_CheckSeverity, validate_CommentCreated, validate_CommentKind, validate_CommentPin, validate_Gate, validate_LockGranted, validate_LockInfo, validate_LockReleased, validate_LockRequested, validate_MirrorResult, validate_MirrorStatus, validate_PartMapping, validate_PartState, validate_PartStateChanged, validate_PresenceChanged, validate_PresenceEntry, validate_ReviewDecision, validate_TemplateKind, validate_Timestamp, validate_Ulid, validate_UserRef, validate_Vec3,)
+__imported__ = (AssetKind, Budgets, CheckResult, CheckSeverity, CommentCreated, CommentKind, CommentPin, Gate, LockGranted, LockInfo, LockReleased, LockRequested, MirrorResult, MirrorStatus, PartMapping, PartState, PartStateChanged, PresenceChanged, PresenceEntry, ReviewDecision, TemplateKind, Timestamp, Ulid, UserRef, Vec3, validate_AssetKind, validate_Budgets, validate_CheckResult, validate_CheckSeverity, validate_CommentCreated, validate_CommentKind, validate_CommentPin, validate_Gate, validate_LockGranted, validate_LockInfo, validate_LockReleased, validate_LockRequested, validate_MirrorResult, validate_MirrorStatus, validate_PartMapping, validate_PartState, validate_PartStateChanged, validate_PresenceChanged, validate_PresenceEntry, validate_ReviewDecision, validate_TemplateKind, validate_Timestamp, validate_Ulid, validate_UserRef, validate_Vec3,)
 
 @dataclass(frozen=True)
 class ProjectRef:
@@ -33,6 +33,7 @@ class MeResponse:
     mode: AgentMode
     mirror_paused: bool
     unreal: bool
+    budgets: Budgets | None = field(default=None, metadata={"optional": True})
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -130,6 +131,8 @@ class ObjectManifest:
     mirror_target: str | None
     textures: list[ManifestTexture] | None = field(default=None, metadata={"optional": True})
     unit_scale: float | None = field(default=None, metadata={"optional": True})
+    asset_kind: AssetKind | None = field(default=None, metadata={"optional": True})
+    checks: list[ManifestCheck] | None = field(default=None, metadata={"optional": True})
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -252,6 +255,7 @@ class PresenceRequest:
     """POST /presence, every 15 s."""
     v: Literal[1]
     part_id: Ulid | None
+    file: str | None = field(default=None, metadata={"optional": True})
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -361,6 +365,36 @@ class ExportResponse:
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
 
+@dataclass(frozen=True)
+class ManifestCheck:
+    key: Literal["textures", "scale", "uv", "tris"]
+    pass_: bool = field(metadata={"json_key": "pass"})
+    sentence: str
+    fix: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
+@dataclass(frozen=True)
+class AssetCreateRequest:
+    """POST /assets, from Blender when a saved .blend maps to no asset yet (v8 step 12). The agent makes the asset on the server with one part the artist owns."""
+    v: Literal[1]
+    name: str
+    file: str
+    kind: AssetKind
+    group: str | None
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
+@dataclass(frozen=True)
+class AssetCreateResponse:
+    v: Literal[1]
+    part: PartSummary
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
 # sync: a project folder with index, watcher, and upload. stream: a viewer, files fetched on demand into a capped cache. See docs/engineering.md, Stream mode.
 AgentMode = Literal["sync", "stream"]
 
@@ -406,7 +440,7 @@ def _v_MeResponse_unreal(value: object, path: str) -> bool:
     return _rt.check_bool(value, path)
 
 def validate_MeResponse(value: object, path: str = "$") -> MeResponse:
-    obj = _rt.check_object(value, path, required=("v", "user", "project", "package_version", "online", "spool_dir", "mode", "mirror_paused", "unreal",), allowed=("v", "user", "project", "package_version", "online", "spool_dir", "mode", "mirror_paused", "unreal",))
+    obj = _rt.check_object(value, path, required=("v", "user", "project", "package_version", "online", "spool_dir", "mode", "mirror_paused", "unreal",), allowed=("v", "user", "project", "package_version", "online", "spool_dir", "mode", "mirror_paused", "unreal", "budgets",))
     return MeResponse(
         v=_v_MeResponse_v(obj["v"], path + ".v"),
         user=validate_UserRef(obj["user"], path + ".user"),
@@ -417,6 +451,7 @@ def validate_MeResponse(value: object, path: str = "$") -> MeResponse:
         mode=validate_AgentMode(obj["mode"], path + ".mode"),
         mirror_paused=_v_MeResponse_mirror_paused(obj["mirror_paused"], path + ".mirror_paused"),
         unreal=_v_MeResponse_unreal(obj["unreal"], path + ".unreal"),
+        budgets=validate_Budgets(obj["budgets"], path + ".budgets") if "budgets" in obj else None,
     )
 
 def _v_CheckSpec_id(value: object, path: str) -> str:
@@ -614,8 +649,11 @@ def _v_ObjectManifest_textures(value: object, path: str) -> list[Any]:
 def _v_ObjectManifest_unit_scale(value: object, path: str) -> float:
     return _rt.check_float(value, path, minimum=None, maximum=None)
 
+def _v_ObjectManifest_checks(value: object, path: str) -> list[Any]:
+    return _rt.check_list(value, path, validate_ManifestCheck, min_items=None, max_items=None)
+
 def validate_ObjectManifest(value: object, path: str = "$") -> ObjectManifest:
-    obj = _rt.check_object(value, path, required=("v", "kind", "objects", "bone_count", "armature", "mirror_target",), allowed=("v", "kind", "objects", "bone_count", "armature", "mirror_target", "textures", "unit_scale",))
+    obj = _rt.check_object(value, path, required=("v", "kind", "objects", "bone_count", "armature", "mirror_target",), allowed=("v", "kind", "objects", "bone_count", "armature", "mirror_target", "textures", "unit_scale", "asset_kind", "checks",))
     return ObjectManifest(
         v=_v_ObjectManifest_v(obj["v"], path + ".v"),
         kind=validate_TemplateKind(obj["kind"], path + ".kind"),
@@ -625,6 +663,8 @@ def validate_ObjectManifest(value: object, path: str = "$") -> ObjectManifest:
         mirror_target=_v_ObjectManifest_mirror_target(obj["mirror_target"], path + ".mirror_target"),
         textures=_v_ObjectManifest_textures(obj["textures"], path + ".textures") if "textures" in obj else None,
         unit_scale=_v_ObjectManifest_unit_scale(obj["unit_scale"], path + ".unit_scale") if "unit_scale" in obj else None,
+        asset_kind=validate_AssetKind(obj["asset_kind"], path + ".asset_kind") if "asset_kind" in obj else None,
+        checks=_v_ObjectManifest_checks(obj["checks"], path + ".checks") if "checks" in obj else None,
     )
 
 def _v_PartSavedRequest_v(value: object, path: str) -> Any:
@@ -827,11 +867,15 @@ def _v_PresenceRequest_part_id(value: object, path: str) -> Any:
         return None
     return validate_Ulid(value, path)
 
+def _v_PresenceRequest_file(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=0, pattern=None, fmt=None)
+
 def validate_PresenceRequest(value: object, path: str = "$") -> PresenceRequest:
-    obj = _rt.check_object(value, path, required=("v", "part_id",), allowed=("v", "part_id",))
+    obj = _rt.check_object(value, path, required=("v", "part_id",), allowed=("v", "part_id", "file",))
     return PresenceRequest(
         v=_v_PresenceRequest_v(obj["v"], path + ".v"),
         part_id=_v_PresenceRequest_part_id(obj["part_id"], path + ".part_id"),
+        file=_v_PresenceRequest_file(obj["file"], path + ".file") if "file" in obj else None,
     )
 
 def _v_PresenceResponse_v(value: object, path: str) -> Any:
@@ -1020,4 +1064,62 @@ def validate_ExportResponse(value: object, path: str = "$") -> ExportResponse:
         v=_v_ExportResponse_v(obj["v"], path + ".v"),
         version_id=validate_Ulid(obj["version_id"], path + ".version_id"),
         stored=_v_ExportResponse_stored(obj["stored"], path + ".stored"),
+    )
+
+def _v_ManifestCheck_key(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, ("textures", "scale", "uv", "tris",))
+
+def _v_ManifestCheck_pass(value: object, path: str) -> bool:
+    return _rt.check_bool(value, path)
+
+def _v_ManifestCheck_sentence(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=0, pattern=None, fmt=None)
+
+def _v_ManifestCheck_fix(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=0, pattern=None, fmt=None)
+
+def validate_ManifestCheck(value: object, path: str = "$") -> ManifestCheck:
+    obj = _rt.check_object(value, path, required=("key", "pass", "sentence", "fix",), allowed=("key", "pass", "sentence", "fix",))
+    return ManifestCheck(
+        key=_v_ManifestCheck_key(obj["key"], path + ".key"),
+        pass_=_v_ManifestCheck_pass(obj["pass"], path + ".pass"),
+        sentence=_v_ManifestCheck_sentence(obj["sentence"], path + ".sentence"),
+        fix=_v_ManifestCheck_fix(obj["fix"], path + ".fix"),
+    )
+
+def _v_AssetCreateRequest_v(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, (1,))
+
+def _v_AssetCreateRequest_name(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
+
+def _v_AssetCreateRequest_file(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
+
+def _v_AssetCreateRequest_group_inner(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
+
+def _v_AssetCreateRequest_group(value: object, path: str) -> Any:
+    if value is None:
+        return None
+    return _v_AssetCreateRequest_group_inner(value, path)
+
+def validate_AssetCreateRequest(value: object, path: str = "$") -> AssetCreateRequest:
+    obj = _rt.check_object(value, path, required=("v", "name", "file", "kind", "group",), allowed=("v", "name", "file", "kind", "group",))
+    return AssetCreateRequest(
+        v=_v_AssetCreateRequest_v(obj["v"], path + ".v"),
+        name=_v_AssetCreateRequest_name(obj["name"], path + ".name"),
+        file=_v_AssetCreateRequest_file(obj["file"], path + ".file"),
+        kind=validate_AssetKind(obj["kind"], path + ".kind"),
+        group=_v_AssetCreateRequest_group(obj["group"], path + ".group"),
+    )
+
+def _v_AssetCreateResponse_v(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, (1,))
+
+def validate_AssetCreateResponse(value: object, path: str = "$") -> AssetCreateResponse:
+    obj = _rt.check_object(value, path, required=("v", "part",), allowed=("v", "part",))
+    return AssetCreateResponse(
+        v=_v_AssetCreateResponse_v(obj["v"], path + ".v"),
+        part=validate_PartSummary(obj["part"], path + ".part"),
     )

@@ -70,7 +70,7 @@ export async function seed(db: Db): Promise<Seeded> {
     const tpl = templates[sa.template]!;
     let row = (await db.select().from(asset).where(and(eq(asset.project_id, projectId), eq(asset.name, sa.name))).limit(1))[0];
     if (!row) {
-      [row] = await db.insert(asset).values({ id: newId(), studio_id: studioId, project_id: projectId, template_id: tpl.id, name: sa.name, reference_files: [], created_at: now, updated_at: now }).returning();
+      [row] = await db.insert(asset).values({ id: newId(), studio_id: studioId, project_id: projectId, template_id: tpl.id, name: sa.name, reference_files: [], kind: tpl.schema.kind === "level_area" ? "environment" : "object", created_at: now, updated_at: now }).returning();
       await db.insert(part).values(
         tpl.schema.parts.map((tp, position) => ({
           id: newId(), studio_id: studioId, asset_id: row!.id, name: tp.name, position,

@@ -5,11 +5,14 @@ import { useState } from "react";
 import { useStore } from "@/app/store";
 import { Mark } from "@/ui/stage/Mark";
 import { SWATCHES } from "@/ui/stage/swatches";
+import { Swatches } from "@/ui/stage/Swatches";
 import { stageGradient } from "@/ui/stage/Stage";
 import { GhostStage } from "@/ui/stage/GhostStage";
 import { Stage } from "@/ui/stage/Stage";
 import { NkViewer } from "@/viewer/NkViewer";
 import { GHOST_MODEL } from "@/ui/stage/GhostStage";
+import { landLive } from "@/app/bootLive";
+import { LiveDataSource } from "@/data/live/LiveDataSource";
 
 const field: React.CSSProperties = { height: 48, borderRadius: "var(--r-6)", border: 0, background: "var(--canvas)", padding: "0 14px", fontSize: 17, color: "var(--ink)", outline: "none" };
 const cta: React.CSSProperties = { height: 44, borderRadius: "var(--r-6)", border: 0, background: "var(--amber)", color: "var(--amber-fg)", font: "500 15px var(--sans)", cursor: "pointer" };
@@ -23,8 +26,13 @@ export function Zero({ which }: { which: "studio" | "project" }) {
   const { top, bot } = stageGradient(color, "zero");
   const next = async () => {
     if (!source) return;
-    if (!project) { await source.createStudio(name.trim() || "Sunburst"); await refresh(); useStore.setState({ screen: "zeroProject" }); return; }
+    if (!project) {
+      await source.createStudio(name.trim() || "Sunburst");
+      if (source instanceof LiveDataSource) { await landLive(source); return; }
+      await refresh(); useStore.setState({ screen: "zeroProject" }); return;
+    }
     const made = await source.createProject(name.trim() || "Rising Sun", color);
+    if (source instanceof LiveDataSource) { useStore.setState({ projectId: made.id }); await landLive(source); useStore.setState({ slideIn: true }); return; }
     useStore.setState({ projectId: made.id, screen: "project", slideIn: true, filter: "Everything", group: "All" });
     await refresh();
   };
@@ -39,9 +47,7 @@ export function Zero({ which }: { which: "studio" | "project" }) {
         <label htmlFor="zero-name" style={{ font: "400 28px/1.2 var(--serif)", letterSpacing: "-0.02em", color: "var(--ink)" }}>{project ? "Start your first project." : "Name your studio."}</label>
         <input id="zero-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={project ? "Rising Sun" : "Sunburst"} style={field} />
         {project ? (
-          <div role="radiogroup" aria-label="Project color" style={{ display: "flex", gap: 10 }}>
-            {SWATCHES.map((c) => <button key={c} type="button" role="radio" aria-checked={color === c} aria-label={c.replace("var(--p-", "").replace(")", "")} onClick={() => setColor(c)} style={{ width: 28, height: 28, borderRadius: "50%", background: c, cursor: "pointer", border: 0, padding: 0, boxShadow: color === c ? `0 0 0 2px var(--canvas), 0 0 0 3.5px ${c}` : "none" }} />)}
-          </div>
+          <Swatches value={color} onPick={setColor} gap={10} />
         ) : null}
         <button type="submit" style={cta}>{project ? "Create project" : "Continue"}</button>
         {project

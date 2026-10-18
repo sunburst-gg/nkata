@@ -53,6 +53,9 @@ curl -sf "http://127.0.0.1:$PORT/health" >/dev/null || { echo "server did not st
 export NKATA_TEST_SERVER_URL="http://127.0.0.1:$PORT"
 export NKATA_GATE_REPORT="$ROOT/.testenv/gate-report.json"
 
+# The desktop's live source against that server: two machines, one project (v8 step 11).
+pnpm --filter @nkata/desktop test:live
+
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace

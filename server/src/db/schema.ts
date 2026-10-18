@@ -15,7 +15,10 @@ import {
   uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
-import type { AssetRights, CommentKind, Gate, PartMapping, PartState, Role, Training } from "@nkata/shared";
+import type { AssetKind, AssetRights, Budgets, CommentKind, Gate, PartMapping, PartState, Role, Training } from "@nkata/shared";
+
+/** New projects start here (Decisions 12 in handoff/v8/PROMPTS.md). Mirrors the migration default. */
+export const DEFAULT_BUDGETS: Budgets = { prop: 30_000, vehicle: 60_000, character: 80_000, environment: 2_000_000, max_texture: null };
 
 const ulid = (name: string) => varchar(name, { length: 26 });
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
@@ -74,6 +77,10 @@ export const project = pgTable("project", {
   discord_webhook: text("discord_webhook"),
   // Set by Delete project. The row and its versions stay (nothing is lost); lists leave it out.
   deleted_at: ts("deleted_at"),
+  // The swatch picked at New project, a token name like var(--p-teal). Null: the app picks one.
+  color: text("color"),
+  // Triangle budgets per kind and the texture limit, set by a lead in project settings.
+  budgets: jsonb("budgets").$type<Budgets>().notNull().default(DEFAULT_BUDGETS),
 });
 
 export const template = pgTable(
@@ -101,8 +108,14 @@ export const asset = pgTable(
     reference_files: jsonb("reference_files").$type<string[]>().notNull(),
     // Who holds the rights. Required to Publish while studio.training is on.
     rights: jsonb("rights").$type<AssetRights>(),
-    // A folder the team named. Empty: the project's root list.
+    // A folder the team named. Empty: the project's root list. v8 reads `group` instead.
     folder: text("folder").notNull().default(""),
+    // v8: object (turns on the stage) or environment (shows its render), from the template kind.
+    kind: text("kind").$type<AssetKind>().notNull().default("object"),
+    // v8: the first subfolder under the project folder, or null. The wall's section.
+    group: text("group"),
+    // v8: a lead's triangle override for this asset alone. Null: the project budget for its kind.
+    budget: integer("budget"),
   },
   (t) => [uniqueIndex("asset_project_name_idx").on(t.project_id, t.name)],
 );

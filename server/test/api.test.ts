@@ -237,10 +237,10 @@ describe.skipIf(!hasInfra)("server api", () => {
     expect(bad.statusCode).toBe(400);
   });
 
-  it("a new project starts with the three standard templates", async () => {
+  it("a new project starts with the five standard templates", async () => {
     const made = (await h.app.inject({ method: "POST", url: "/projects", ...h.as(PRODUCER), payload: { name: "Fresh", folder_name: "fresh", blender_version: "4.2", ue_version: "5.4", package_version: "0.1.0" } })).json() as { project: { id: string } };
     const res = (await h.app.inject({ method: "GET", url: `/projects/${made.project.id}/templates`, ...h.as(ARTIST) })).json() as { templates: { name: string; file_path: string }[] };
-    expect(res.templates.map((tp) => tp.name).sort()).toEqual(["Character", "Environment prop", "Level area"]);
+    expect(res.templates.map((tp) => tp.name).sort()).toEqual(["Character", "Environment", "Environment prop", "Level area", "Object"]);
     expect(res.templates.find((tp) => tp.name === "Character")?.file_path).toBe(".nkata/templates/Character.json");
   });
 

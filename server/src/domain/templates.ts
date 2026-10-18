@@ -57,7 +57,30 @@ export const LEVEL_AREA_TEMPLATE: Template = {
   blend_layout: "one_file_per_asset",
 };
 
-export const TEMPLATES: Template[] = [CHARACTER_TEMPLATE, PROP_TEMPLATE, LEVEL_AREA_TEMPLATE];
+// v8 (handoff/v8/PROMPTS.md, step 11): one asset is one .blend with one part. A save of a new
+// file makes an Object or an Environment with the four checks; the triangle budget comes from
+// the project's budgets, so the template carries no number.
+const FOUR_CHECKS = ["texture_names", "unit_scale", "uv_set_present", "triangle_budget"];
+export const OBJECT_TEMPLATE: Template = {
+  v: 1,
+  name: "Object",
+  kind: "prop",
+  parts: [{ name: "model", mapping: "blend_collection", gate: [], checks: FOUR_CHECKS, params: { texture_names: { pattern: "T_.*" } } }],
+  reference_slots: [],
+  export: { ue_path: "/Game/Objects/{asset}", name: "SM_{asset}" },
+  blend_layout: "one_file_per_asset",
+};
+export const ENVIRONMENT_TEMPLATE: Template = {
+  v: 1,
+  name: "Environment",
+  kind: "level_area",
+  parts: [{ name: "model", mapping: "blend_collection", gate: [], checks: FOUR_CHECKS, params: { texture_names: { pattern: "T_.*" } } }],
+  reference_slots: [],
+  export: { ue_path: "/Game/Environments/{asset}", name: "{asset}" },
+  blend_layout: "one_file_per_asset",
+};
+
+export const TEMPLATES: Template[] = [CHARACTER_TEMPLATE, PROP_TEMPLATE, LEVEL_AREA_TEMPLATE, OBJECT_TEMPLATE, ENVIRONMENT_TEMPLATE];
 
 
 /** Where a template file lives in the project folder (docs/engineering.md, Templates). */

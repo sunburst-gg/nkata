@@ -29,7 +29,10 @@
     "AgentMode": {
       "type": "string",
       "description": "sync: a project folder with index, watcher, and upload. stream: a viewer, files fetched on demand into a capped cache. See docs/engineering.md, Stream mode.",
-      "enum": ["sync", "stream"]
+      "enum": [
+        "sync",
+        "stream"
+      ]
     },
     "MeResponse": {
       "description": "GET /me",
@@ -66,6 +69,10 @@
         "unreal": {
           "type": "boolean",
           "description": "False while Unreal is Coming soon (UNREAL_ENABLED on the server): no mirror, no capture, and the panel hides the mirror line."
+        },
+        "budgets": {
+          "$ref": "common.schema.json#/$defs/Budgets",
+          "description": "The project's triangle budgets and texture limit, from the server (v8 step 13). Absent on an older agent."
         }
       },
       "required": [
@@ -76,7 +83,8 @@
         "online",
         "spool_dir",
         "mode",
-        "mirror_paused", "unreal"
+        "mirror_paused",
+        "unreal"
       ],
       "additionalProperties": false
     },
@@ -391,6 +399,17 @@
         "unit_scale": {
           "type": "number",
           "description": "The scene's unit scale at export. 1 is metres."
+        },
+        "asset_kind": {
+          "$ref": "common.schema.json#/$defs/AssetKind",
+          "description": "v8: object or environment, as the add-on decided or the artist picked. Absent from older saves."
+        },
+        "checks": {
+          "type": "array",
+          "description": "v8: the four checks as the add-on ran them on this save, with the sentence and the fix the app shows.",
+          "items": {
+            "$ref": "#/$defs/ManifestCheck"
+          }
         }
       },
       "required": [
@@ -439,7 +458,14 @@
           "minLength": 1
         },
         "opened_at": {
-          "anyOf": [{ "$ref": "common.schema.json#/$defs/Timestamp" }, { "type": "null" }],
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/Timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ],
           "description": "When the editor opened the file, for the version's opened_at."
         }
       },
@@ -714,6 +740,10 @@
               "type": "null"
             }
           ]
+        },
+        "file": {
+          "type": "string",
+          "description": "v8: the open .blend, project relative, so the strip can say where the person is. Optional."
         }
       },
       "required": [
@@ -879,69 +909,213 @@
       "description": "POST /parts/:id/mirror/on-save",
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "on_save": { "type": "boolean" }
+        "v": {
+          "const": 1
+        },
+        "on_save": {
+          "type": "boolean"
+        }
       },
-      "required": ["v", "on_save"],
+      "required": [
+        "v",
+        "on_save"
+      ],
       "additionalProperties": false
     },
     "MirrorPauseRequest": {
       "description": "POST /mirror/pause. Pauses every mirror; saves still version.",
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "paused": { "type": "boolean" }
+        "v": {
+          "const": 1
+        },
+        "paused": {
+          "type": "boolean"
+        }
       },
-      "required": ["v", "paused"],
+      "required": [
+        "v",
+        "paused"
+      ],
       "additionalProperties": false
     },
     "MirrorPauseResponse": {
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "paused": { "type": "boolean" }
+        "v": {
+          "const": 1
+        },
+        "paused": {
+          "type": "boolean"
+        }
       },
-      "required": ["v", "paused"],
+      "required": [
+        "v",
+        "paused"
+      ],
       "additionalProperties": false
     },
     "RenderRequest": {
       "description": "POST /parts/:id/render. A PNG on disk the agent stores as the current version's render.",
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "path": { "type": "string", "minLength": 1 }
+        "v": {
+          "const": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        }
       },
-      "required": ["v", "path"],
+      "required": [
+        "v",
+        "path"
+      ],
       "additionalProperties": false
     },
     "RenderResponse": {
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "version_id": { "$ref": "common.schema.json#/$defs/Ulid" },
-        "stored": { "type": "boolean" }
+        "v": {
+          "const": 1
+        },
+        "version_id": {
+          "$ref": "common.schema.json#/$defs/Ulid"
+        },
+        "stored": {
+          "type": "boolean"
+        }
       },
-      "required": ["v", "version_id", "stored"],
+      "required": [
+        "v",
+        "version_id",
+        "stored"
+      ],
       "additionalProperties": false
     },
     "ExportRequest": {
       "description": "POST /parts/:id/export. An FBX on disk the agent stores as the current version's export, the file an engineer takes into the engine.",
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "path": { "type": "string", "minLength": 1 }
+        "v": {
+          "const": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        }
       },
-      "required": ["v", "path"],
+      "required": [
+        "v",
+        "path"
+      ],
       "additionalProperties": false
     },
     "ExportResponse": {
       "type": "object",
       "properties": {
-        "v": { "const": 1 },
-        "version_id": { "$ref": "common.schema.json#/$defs/Ulid" },
-        "stored": { "type": "boolean" }
+        "v": {
+          "const": 1
+        },
+        "version_id": {
+          "$ref": "common.schema.json#/$defs/Ulid"
+        },
+        "stored": {
+          "type": "boolean"
+        }
       },
-      "required": ["v", "version_id", "stored"],
+      "required": [
+        "v",
+        "version_id",
+        "stored"
+      ],
+      "additionalProperties": false
+    },
+    "ManifestCheck": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "enum": [
+            "textures",
+            "scale",
+            "uv",
+            "tris"
+          ]
+        },
+        "pass": {
+          "type": "boolean"
+        },
+        "sentence": {
+          "type": "string"
+        },
+        "fix": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "pass",
+        "sentence",
+        "fix"
+      ],
+      "additionalProperties": false
+    },
+    "AssetCreateRequest": {
+      "description": "POST /assets, from Blender when a saved .blend maps to no asset yet (v8 step 12). The agent makes the asset on the server with one part the artist owns.",
+      "type": "object",
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "file": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The .blend, project relative with forward slashes."
+        },
+        "kind": {
+          "$ref": "common.schema.json#/$defs/AssetKind"
+        },
+        "group": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The first subfolder under the project folder, or null."
+        }
+      },
+      "required": [
+        "v",
+        "name",
+        "file",
+        "kind",
+        "group"
+      ],
+      "additionalProperties": false
+    },
+    "AssetCreateResponse": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "part": {
+          "$ref": "#/$defs/PartSummary"
+        }
+      },
+      "required": [
+        "v",
+        "part"
+      ],
       "additionalProperties": false
     }
   }

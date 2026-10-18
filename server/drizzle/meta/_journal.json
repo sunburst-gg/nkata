@@ -71,6 +71,13 @@
       "when": 1792009628933,
       "tag": "0009_version_fbx",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792360917988,
+      "tag": "0010_v8_assets",
+      "breakpoints": true
     }
   ]
 }

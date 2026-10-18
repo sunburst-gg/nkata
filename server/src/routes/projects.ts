@@ -1,6 +1,6 @@
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { z } from "zod";
-import { Role, Template, Training, Ulid } from "@nkata/shared";
+import { Budgets, Role, Template, Training, Ulid } from "@nkata/shared";
 import { asset, membership, project, studio, template, user } from "../db/schema.js";
 import type { Principal } from "../auth/tokens.js";
 import { projectInviteEmail, studioInviteEmail } from "../domain/emails.js";
@@ -23,6 +23,8 @@ const ProjectBody = z.object({
   blender_version: z.string().min(1),
   ue_version: z.string().min(1),
   package_version: z.string().min(1),
+  // v8: the swatch picked at New project, a token name. The app picks one when it is missing.
+  color: z.string().regex(/^var\(--[a-z0-9-]+\)$/).optional(),
 });
 
 /** The billing line. Nkata is free while studios test it, whatever the training setting, and no
@@ -201,11 +203,11 @@ export async function projectRoutes(app: TypedApp): Promise<void> {
     return { v: 1, project: projectWire(rows[0]) };
   });
 
-  app.put("/projects/:id", { schema: { params: IdParam, body: z.object({ name: z.string().trim().min(1) }) } }, async (req) => {
+  app.put("/projects/:id", { schema: { params: IdParam, body: z.object({ name: z.string().trim().min(1).optional(), color: z.string().regex(/^var\(--[a-z0-9-]+\)$/).optional() }) } }, async (req) => {
     requireRole(req.principal, ["producer"], "renaming a project");
     const proj = await loadProject(app.db, req.principal, req.params.id);
-    const [row] = await app.db.update(project).set({ name: req.body.name, updated_at: app.now() }).where(eq(project.id, proj.id)).returning();
-    await app.bus.audit({ studio_id: proj.studio_id, project_id: proj.id, actor_id: req.principal.user_id, kind: "audit.project_renamed", target_kind: "project", target_id: proj.id, payload: { name: req.body.name } });
+    const [row] = await app.db.update(project).set({ name: req.body.name ?? proj.name, color: req.body.color ?? proj.color, updated_at: app.now() }).where(eq(project.id, proj.id)).returning();
+    await app.bus.audit({ studio_id: proj.studio_id, project_id: proj.id, actor_id: req.principal.user_id, kind: "audit.project_renamed", target_kind: "project", target_id: proj.id, payload: { name: req.body.name ?? proj.name, color: req.body.color ?? proj.color } });
     return { v: 1, project: projectWire(row!) };
   });
 
@@ -246,6 +248,22 @@ export async function projectRoutes(app: TypedApp): Promise<void> {
 
   app.get("/projects/:id", { schema: { params: IdParam } }, async (req) => {
     return { v: 1, project: projectWire(await loadProject(app.db, req.principal, req.params.id)) };
+  });
+
+  // v8 budgets (Decisions 12): everyone reads them, a lead sets them. The checks use the number for the asset's kind.
+  app.get("/projects/:id/budgets", { schema: { params: IdParam } }, async (req) => {
+    const proj = await loadProject(app.db, req.principal, req.params.id);
+    return { v: 1, budgets: proj.budgets };
+  });
+
+  app.put("/projects/:id/budgets", { schema: { params: IdParam, body: Budgets } }, async (req) => {
+    requireRole(req.principal, ["art_director", "producer"], "setting budgets");
+    const proj = await loadProject(app.db, req.principal, req.params.id);
+    const now = app.now();
+    const [row] = await app.db.update(project).set({ budgets: req.body, updated_at: now }).where(eq(project.id, proj.id)).returning();
+    if (!row) throw new AppError("not_found", "no such project");
+    await app.bus.audit({ studio_id: proj.studio_id, project_id: proj.id, actor_id: req.principal.user_id, kind: "audit.budgets_set", target_kind: "project", target_id: proj.id, payload: { from: proj.budgets, to: req.body } });
+    return { v: 1, budgets: row.budgets };
   });
 
   app.get("/projects/:id/templates", { schema: { params: IdParam } }, async (req) => {

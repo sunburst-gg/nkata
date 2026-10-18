@@ -17,51 +17,141 @@
     "PartState": {
       "type": "string",
       "description": "Part state machine. See docs/product.md, Core concepts.",
-      "enum": ["locked", "draft", "ready", "approved"]
+      "enum": [
+        "locked",
+        "draft",
+        "ready",
+        "approved"
+      ]
     },
     "Role": {
       "type": "string",
       "description": "Four roles in v1. The enum stays open for later roles. See docs/product.md, Roles and permissions.",
-      "enum": ["artist", "art_director", "producer", "viewer"]
+      "enum": [
+        "artist",
+        "art_director",
+        "producer",
+        "viewer"
+      ]
     },
     "MirrorStatus": {
       "type": "string",
       "description": "Result of the Blender to UE5 mirror for one version.",
-      "enum": ["pending", "syncing", "synced", "failed", "skipped"]
+      "enum": [
+        "pending",
+        "syncing",
+        "synced",
+        "failed",
+        "skipped"
+      ]
     },
     "CheckSeverity": {
       "type": "string",
-      "enum": ["block", "warn"]
+      "enum": [
+        "block",
+        "warn"
+      ]
     },
     "ReviewDecision": {
       "type": "string",
-      "enum": ["approve", "send_back"]
+      "enum": [
+        "approve",
+        "send_back"
+      ]
     },
     "Training": {
       "type": "string",
       "description": "Studio setting. On: the studio contributes to model training and pays nothing. Off: billed per seat.",
-      "enum": ["on", "off"]
+      "enum": [
+        "on",
+        "off"
+      ]
+    },
+    "AssetKind": {
+      "type": "string",
+      "description": "What an asset is on the v8 wall: an object turns on the stage, an environment shows its render. See handoff/v8/PROMPTS.md, step 11.",
+      "enum": [
+        "object",
+        "environment"
+      ]
+    },
+    "Budgets": {
+      "type": "object",
+      "description": "Triangle budgets per kind for one project, and an optional texture size limit. Decisions 12 in handoff/v8/PROMPTS.md.",
+      "properties": {
+        "prop": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "vehicle": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "character": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "environment": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_texture": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "prop",
+        "vehicle",
+        "character",
+        "environment",
+        "max_texture"
+      ],
+      "additionalProperties": false
     },
     "CommentKind": {
       "type": "string",
       "description": "pin: a note at a point. take_a_look: asks the art director to look, no state change.",
-      "enum": ["pin", "take_a_look"]
+      "enum": [
+        "pin",
+        "take_a_look"
+      ]
     },
     "AssetRights": {
       "type": "object",
       "description": "Who holds the rights to this asset. Required to Publish while training is on.",
       "properties": {
-        "statement": { "type": "string", "minLength": 1 },
-        "confirmed_by": { "$ref": "#/$defs/Ulid" },
-        "confirmed_at": { "$ref": "#/$defs/Timestamp" }
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confirmed_by": {
+          "$ref": "#/$defs/Ulid"
+        },
+        "confirmed_at": {
+          "$ref": "#/$defs/Timestamp"
+        }
       },
-      "required": ["statement", "confirmed_by", "confirmed_at"],
+      "required": [
+        "statement",
+        "confirmed_by",
+        "confirmed_at"
+      ],
       "additionalProperties": false
     },
     "Vec3": {
       "type": "array",
       "description": "Three floats in the part's local space.",
-      "items": { "type": "number" },
+      "items": {
+        "type": "number"
+      },
       "minItems": 3,
       "maxItems": 3
     },
@@ -69,20 +159,47 @@
       "type": "object",
       "description": "Enough of a user to show a name and a face.",
       "properties": {
-        "id": { "$ref": "#/$defs/Ulid" },
-        "name": { "type": "string", "minLength": 1 },
-        "avatar_url": { "anyOf": [{ "type": "string", "format": "uri" }, { "type": "null" }] }
+        "id": {
+          "$ref": "#/$defs/Ulid"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "avatar_url": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uri"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
       },
-      "required": ["id", "name", "avatar_url"],
+      "required": [
+        "id",
+        "name",
+        "avatar_url"
+      ],
       "additionalProperties": false
     },
     "Gate": {
       "type": "object",
       "description": "A part is Locked until every part named in after is Approved.",
       "properties": {
-        "after": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        "after": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
       },
-      "required": ["after"],
+      "required": [
+        "after"
+      ],
       "additionalProperties": false
     },
     "PartMapping": {
@@ -91,49 +208,101 @@
         {
           "type": "object",
           "properties": {
-            "kind": { "const": "blend_collection" },
-            "file": { "type": "string", "minLength": 1 },
-            "collection": { "type": "string", "minLength": 1 }
+            "kind": {
+              "const": "blend_collection"
+            },
+            "file": {
+              "type": "string",
+              "minLength": 1
+            },
+            "collection": {
+              "type": "string",
+              "minLength": 1
+            }
           },
-          "required": ["kind", "file", "collection"],
+          "required": [
+            "kind",
+            "file",
+            "collection"
+          ],
           "additionalProperties": false
         },
         {
           "type": "object",
           "properties": {
-            "kind": { "const": "ue_actor" },
-            "level": { "type": "string", "minLength": 1 },
-            "actor": { "type": "string", "minLength": 1 }
+            "kind": {
+              "const": "ue_actor"
+            },
+            "level": {
+              "type": "string",
+              "minLength": 1
+            },
+            "actor": {
+              "type": "string",
+              "minLength": 1
+            }
           },
-          "required": ["kind", "level", "actor"],
+          "required": [
+            "kind",
+            "level",
+            "actor"
+          ],
           "additionalProperties": false
         },
         {
           "type": "object",
           "properties": {
-            "kind": { "const": "ue_area" },
-            "level": { "type": "string", "minLength": 1 },
-            "area": { "type": "string", "minLength": 1 }
+            "kind": {
+              "const": "ue_area"
+            },
+            "level": {
+              "type": "string",
+              "minLength": 1
+            },
+            "area": {
+              "type": "string",
+              "minLength": 1
+            }
           },
-          "required": ["kind", "level", "area"],
+          "required": [
+            "kind",
+            "level",
+            "area"
+          ],
           "additionalProperties": false
         },
         {
           "type": "object",
           "properties": {
-            "kind": { "const": "ue_asset" },
-            "path": { "type": "string", "minLength": 1 }
+            "kind": {
+              "const": "ue_asset"
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1
+            }
           },
-          "required": ["kind", "path"],
+          "required": [
+            "kind",
+            "path"
+          ],
           "additionalProperties": false
         },
         {
           "type": "object",
           "properties": {
-            "kind": { "const": "file" },
-            "path": { "type": "string", "minLength": 1 }
+            "kind": {
+              "const": "file"
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1
+            }
           },
-          "required": ["kind", "path"],
+          "required": [
+            "kind",
+            "path"
+          ],
           "additionalProperties": false
         }
       ]
@@ -142,62 +311,149 @@
       "type": "object",
       "description": "Who holds the editor lock on a part. Separate from part state.",
       "properties": {
-        "holder": { "$ref": "#/$defs/UserRef" },
-        "granted_at": { "$ref": "#/$defs/Timestamp" },
-        "heartbeat_at": { "$ref": "#/$defs/Timestamp" },
-        "expires_at": { "$ref": "#/$defs/Timestamp" },
-        "stale": { "type": "boolean", "description": "True after 2 minutes with no heartbeat." }
+        "holder": {
+          "$ref": "#/$defs/UserRef"
+        },
+        "granted_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "heartbeat_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "expires_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "stale": {
+          "type": "boolean",
+          "description": "True after 2 minutes with no heartbeat."
+        }
       },
-      "required": ["holder", "granted_at", "heartbeat_at", "expires_at", "stale"],
+      "required": [
+        "holder",
+        "granted_at",
+        "heartbeat_at",
+        "expires_at",
+        "stale"
+      ],
       "additionalProperties": false
     },
     "CheckResult": {
       "type": "object",
       "description": "One check run on one version, reported by the editor.",
       "properties": {
-        "check_id": { "type": "string", "minLength": 1 },
-        "severity": { "$ref": "#/$defs/CheckSeverity" },
-        "passed": { "type": "boolean" },
-        "auto_fixed": { "type": "boolean" },
-        "message": { "type": "string" }
+        "check_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "$ref": "#/$defs/CheckSeverity"
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "auto_fixed": {
+          "type": "boolean"
+        },
+        "message": {
+          "type": "string"
+        }
       },
-      "required": ["check_id", "severity", "passed", "auto_fixed", "message"],
+      "required": [
+        "check_id",
+        "severity",
+        "passed",
+        "auto_fixed",
+        "message"
+      ],
       "additionalProperties": false
     },
     "CommentPin": {
       "type": "object",
       "description": "A comment pinned to a point on a part, in part local space at a version.",
       "properties": {
-        "id": { "$ref": "#/$defs/Ulid" },
-        "part_id": { "$ref": "#/$defs/Ulid" },
-        "version_id": { "$ref": "#/$defs/Ulid" },
-        "author": { "$ref": "#/$defs/UserRef" },
-        "point": { "$ref": "#/$defs/Vec3" },
-        "normal": { "$ref": "#/$defs/Vec3" },
-        "body": { "type": "string", "minLength": 1 },
-        "kind": { "$ref": "#/$defs/CommentKind" },
-        "resolved_at": { "anyOf": [{ "$ref": "#/$defs/Timestamp" }, { "type": "null" }] },
-        "created_at": { "$ref": "#/$defs/Timestamp" }
+        "id": {
+          "$ref": "#/$defs/Ulid"
+        },
+        "part_id": {
+          "$ref": "#/$defs/Ulid"
+        },
+        "version_id": {
+          "$ref": "#/$defs/Ulid"
+        },
+        "author": {
+          "$ref": "#/$defs/UserRef"
+        },
+        "point": {
+          "$ref": "#/$defs/Vec3"
+        },
+        "normal": {
+          "$ref": "#/$defs/Vec3"
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "$ref": "#/$defs/CommentKind"
+        },
+        "resolved_at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "$ref": "#/$defs/Timestamp"
+        }
       },
-      "required": ["id", "part_id", "version_id", "author", "point", "normal", "body", "kind", "resolved_at", "created_at"],
+      "required": [
+        "id",
+        "part_id",
+        "version_id",
+        "author",
+        "point",
+        "normal",
+        "body",
+        "kind",
+        "resolved_at",
+        "created_at"
+      ],
       "additionalProperties": false
     },
     "ErrorBody": {
       "type": "object",
       "description": "Every error response on every HTTP boundary has this shape.",
       "properties": {
-        "v": { "const": 1 },
+        "v": {
+          "const": 1
+        },
         "error": {
           "type": "object",
           "properties": {
-            "code": { "type": "string", "minLength": 1 },
-            "message": { "type": "string", "minLength": 1 }
+            "code": {
+              "type": "string",
+              "minLength": 1
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1
+            }
           },
-          "required": ["code", "message"],
+          "required": [
+            "code",
+            "message"
+          ],
           "additionalProperties": false
         }
       },
-      "required": ["v", "error"],
+      "required": [
+        "v",
+        "error"
+      ],
       "additionalProperties": false
     }
   }

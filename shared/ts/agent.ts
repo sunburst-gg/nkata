@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @nkata/shared generate
 
 import { z } from "zod";
-import { CheckResult, CheckSeverity, CommentKind, CommentPin, Gate, LockInfo, MirrorStatus, PartMapping, PartState, ReviewDecision, Timestamp, Ulid, UserRef, Vec3 } from "./common.js";
+import { AssetKind, Budgets, CheckResult, CheckSeverity, CommentKind, CommentPin, Gate, LockInfo, MirrorStatus, PartMapping, PartState, ReviewDecision, Timestamp, Ulid, UserRef, Vec3 } from "./common.js";
 import { CommentCreated, LockGranted, LockReleased, LockRequested, MirrorResult, PartStateChanged, PresenceChanged, PresenceEntry } from "./events.js";
 import { TemplateKind } from "./template.js";
 
@@ -28,6 +28,7 @@ export const MeResponse = z.strictObject({
   "mode": AgentMode,
   "mirror_paused": z.boolean(),
   "unreal": z.boolean(),
+  "budgets": Budgets.optional(),
 });
 export type MeResponse = z.infer<typeof MeResponse>;
 
@@ -99,6 +100,14 @@ export const ManifestObject = z.strictObject({
 });
 export type ManifestObject = z.infer<typeof ManifestObject>;
 
+export const ManifestCheck = z.strictObject({
+  "key": z.enum(["textures", "scale", "uv", "tris"]),
+  "pass": z.boolean(),
+  "sentence": z.string(),
+  "fix": z.string(),
+});
+export type ManifestCheck = z.infer<typeof ManifestCheck>;
+
 /** Written next to the export in the spool. See docs/engineering.md, The mirror, step 2. */
 export const ObjectManifest = z.strictObject({
   "v": z.literal(1),
@@ -109,6 +118,8 @@ export const ObjectManifest = z.strictObject({
   "mirror_target": z.string().nullable(),
   "textures": z.array(ManifestTexture).optional(),
   "unit_scale": z.number().optional(),
+  "asset_kind": AssetKind.optional(),
+  "checks": z.array(ManifestCheck).optional(),
 });
 export type ObjectManifest = z.infer<typeof ObjectManifest>;
 
@@ -207,6 +218,7 @@ export type ReviewResponse = z.infer<typeof ReviewResponse>;
 export const PresenceRequest = z.strictObject({
   "v": z.literal(1),
   "part_id": Ulid.nullable(),
+  "file": z.string().optional(),
 });
 export type PresenceRequest = z.infer<typeof PresenceRequest>;
 
@@ -296,3 +308,19 @@ export const ExportResponse = z.strictObject({
   "stored": z.boolean(),
 });
 export type ExportResponse = z.infer<typeof ExportResponse>;
+
+/** POST /assets, from Blender when a saved .blend maps to no asset yet (v8 step 12). The agent makes the asset on the server with one part the artist owns. */
+export const AssetCreateRequest = z.strictObject({
+  "v": z.literal(1),
+  "name": z.string().min(1),
+  "file": z.string().min(1),
+  "kind": AssetKind,
+  "group": z.string().min(1).nullable(),
+});
+export type AssetCreateRequest = z.infer<typeof AssetCreateRequest>;
+
+export const AssetCreateResponse = z.strictObject({
+  "v": z.literal(1),
+  "part": PartSummary,
+});
+export type AssetCreateResponse = z.infer<typeof AssetCreateResponse>;

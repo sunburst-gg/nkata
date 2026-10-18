@@ -8,6 +8,18 @@ from typing import Any, Literal
 from . import _runtime as _rt
 
 @dataclass(frozen=True)
+class Budgets:
+    """Triangle budgets per kind for one project, and an optional texture size limit. Decisions 12 in handoff/v8/PROMPTS.md."""
+    prop: int
+    vehicle: int
+    character: int
+    environment: int
+    max_texture: int | None
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
+@dataclass(frozen=True)
 class AssetRights:
     """Who holds the rights to this asset. Required to Publish while training is on."""
     statement: str
@@ -158,6 +170,9 @@ ReviewDecision = Literal["approve", "send_back"]
 # Studio setting. On: the studio contributes to model training and pays nothing. Off: billed per seat.
 Training = Literal["on", "off"]
 
+# What an asset is on the v8 wall: an object turns on the stage, an environment shows its render. See handoff/v8/PROMPTS.md, step 11.
+AssetKind = Literal["object", "environment"]
+
 # pin: a note at a point. take_a_look: asks the art director to look, no state change.
 CommentKind = Literal["pin", "take_a_look"]
 
@@ -214,6 +229,42 @@ def _v_Training(value: object, path: str) -> Any:
 
 def validate_Training(value: object, path: str = "$") -> Any:
     return _v_Training(value, path)
+
+def _v_AssetKind(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, ("object", "environment",))
+
+def validate_AssetKind(value: object, path: str = "$") -> Any:
+    return _v_AssetKind(value, path)
+
+def _v_Budgets_prop(value: object, path: str) -> int:
+    return _rt.check_int(value, path, minimum=1, maximum=None)
+
+def _v_Budgets_vehicle(value: object, path: str) -> int:
+    return _rt.check_int(value, path, minimum=1, maximum=None)
+
+def _v_Budgets_character(value: object, path: str) -> int:
+    return _rt.check_int(value, path, minimum=1, maximum=None)
+
+def _v_Budgets_environment(value: object, path: str) -> int:
+    return _rt.check_int(value, path, minimum=1, maximum=None)
+
+def _v_Budgets_max_texture_inner(value: object, path: str) -> int:
+    return _rt.check_int(value, path, minimum=1, maximum=None)
+
+def _v_Budgets_max_texture(value: object, path: str) -> Any:
+    if value is None:
+        return None
+    return _v_Budgets_max_texture_inner(value, path)
+
+def validate_Budgets(value: object, path: str = "$") -> Budgets:
+    obj = _rt.check_object(value, path, required=("prop", "vehicle", "character", "environment", "max_texture",), allowed=("prop", "vehicle", "character", "environment", "max_texture",))
+    return Budgets(
+        prop=_v_Budgets_prop(obj["prop"], path + ".prop"),
+        vehicle=_v_Budgets_vehicle(obj["vehicle"], path + ".vehicle"),
+        character=_v_Budgets_character(obj["character"], path + ".character"),
+        environment=_v_Budgets_environment(obj["environment"], path + ".environment"),
+        max_texture=_v_Budgets_max_texture(obj["max_texture"], path + ".max_texture"),
+    )
 
 def _v_CommentKind(value: object, path: str) -> Any:
     return _rt.check_literal(value, path, ("pin", "take_a_look",))
