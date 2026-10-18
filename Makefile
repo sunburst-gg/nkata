@@ -1,4 +1,4 @@
-.PHONY: hooks dev dev-down test addon-vendor addon ue e2e quality fixtures proto fixtures-v8
+.PHONY: hooks dev dev-down test addon-vendor addon ue e2e quality fixtures fixtures-v8
 
 # One-time: route git hooks to the repo's .githooks folder.
 hooks:
@@ -8,7 +8,7 @@ hooks:
 dev: fixtures-v8
 	docker compose -f infra/docker-compose.yml up -d --wait
 
-# The v8 fixture models and renders, fetched once (git-ignored).
+# The v8 fixture models, fetched once (git-ignored). The renders ship in the repo.
 fixtures-v8:
 	@[ -s desktop/public/fixtures/glb/Lantern.glb ] || ./scripts/fetch-fixtures.sh
 
@@ -20,12 +20,6 @@ dev-down:
 # when Docker is absent), starts the server, and tears it all down.
 test:
 	./scripts/test.sh
-
-# Serve the v8 prototype. It needs http, not file://: nk-viewer.js is an ES module behind an
-# import map. Open http://localhost:4600/Nkata%20App%20v8.dc.html (handoff/v8/HOW_TO_READ.md).
-proto:
-	@echo "http://localhost:4600/Nkata%20App%20v8.dc.html"
-	python3 -m http.server 4600 --bind 127.0.0.1 --directory handoff/v8
 
 # Copy the generated shared Python types into the add-on as nkata.nkata_shared.
 addon-vendor:

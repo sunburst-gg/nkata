@@ -1,4 +1,4 @@
-// The three emails Nkata sends, from the design in handoff/emails (Nkata Emails v1): one card,
+// The three emails Nkata sends, from the Nkata Emails v1 design (removed with the handoff): one card,
 // one action each. Table layout, inline styles, system fonts, dark mode by media query. Every
 // value is escaped; the copy follows the engine (a code lives 15 minutes, five tries).
 import type { Role } from "@nkata/shared";

@@ -1,6 +1,7 @@
 // Pure selectors for what the prototype's renderVals() computes. They take data and UI state and
 // return what a screen shows; no component works it out on its own. Ported line by line from the
-// Component class in handoff/v8/Nkata App v8.dc.html so the tests can hold them to it.
+// Component class of the v8 prototype (removed after step 13; its words per combo are in
+// docs/v8-shots/proto-words.json) so the tests can hold them to it.
 import { can, isArtist, isLead, isViewer } from "@/auth/permissions";
 import { isApproved, needsMe, waitingOnLead } from "@/data/rules";
 import type { Asset, Facts, Member, Person, Version } from "@/data/types";

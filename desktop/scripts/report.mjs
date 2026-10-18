@@ -52,14 +52,18 @@ function compare(dir, app, proto) {
   return logged ? `diff: ${detail}. ${logged.why}` : `diff: ${detail}.`;
 }
 
-const dirs = readdirSync(OUT).filter((d) => existsSync(resolve(OUT, d, "app.txt")) && existsSync(resolve(OUT, d, "proto.txt"))).sort();
-const lines = dirs.map((d) => `- ${d}: ${compare(d, readFileSync(resolve(OUT, d, "app.txt"), "utf8"), readFileSync(resolve(OUT, d, "proto.txt"), "utf8"))}`);
+// The prototype's words per combo, captured while handoff/v8 existed. The harness skips the
+// prototype side when its server is not there, and the report reads the words from here.
+const PROTO_WORDS = existsSync(resolve(OUT, "proto-words.json")) ? JSON.parse(readFileSync(resolve(OUT, "proto-words.json"), "utf8")) : {};
+const protoText = (d) => (existsSync(resolve(OUT, d, "proto.txt")) ? readFileSync(resolve(OUT, d, "proto.txt"), "utf8") : PROTO_WORDS[d]);
+const dirs = readdirSync(OUT).filter((d) => existsSync(resolve(OUT, d, "app.txt")) && protoText(d) !== undefined).sort();
+const lines = dirs.map((d) => `- ${d}: ${compare(d, readFileSync(resolve(OUT, d, "app.txt"), "utf8"), protoText(d))}`);
 const matches = lines.filter((l) => l.endsWith(": match")).length;
 const unexplained = lines.filter((l) => /diff:/.test(l) && !/\(decisions/i.test(l));
 const body = [
   "# v8 shots report",
   "",
-  `One line per combo (role, stage, startScreen, theme, width), from the words each page shows. ${matches} of ${lines.length} match. Every diff names the decision that explains it. Pictures: app.png and proto.png in each folder (git-ignored).`,
+  `One line per combo (role, stage, startScreen, theme, width), from the words each page shows. ${matches} of ${lines.length} match. Every diff names the decision that explains it. Pictures: app.png and proto.png in each folder (git-ignored). The prototype's words live in proto-words.json, captured before the handoff folder was removed.`,
   "",
   ...lines,
   "",

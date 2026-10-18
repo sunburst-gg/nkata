@@ -1,5 +1,7 @@
 # Nkata v8: Claude Code prompts
 
+Moved here from the handoff after step 13. The prototype, the viewer source and the renders it names were removed from the repo; the renders live in desktop/public/fixtures/renders and the prototype's words per Tweak combo in docs/v8-shots/proto-words.json.
+
 These prompts improve the Nkata desktop app to match the v8 prototype, one testable increment at a time, in the existing `nkata` repo. The repo already has the Tauri shell, the Rust agent, the server, sign in, roles and a Blender add-on. These prompts keep all of that and rebuild the screens on top. Data goes through a `DataSource` interface: a mock that copies the prototype's data and logic first (steps 1 to 10), then the real agent and server (step 11). The Blender add-on comes last (steps 12 and 13). Each prompt names its files, the prototype Tweaks that show the target, and a "Done means" list. The hard parts are called out where they land. Where the prototype is silent, the Decisions section at the end of this file answers. The handoff zip carries stale v3 and v4 files that contradict v8; step 0 moves them aside.
 
 ## How to use this
@@ -29,7 +31,7 @@ RULES (same in every step)
 7. Where the prototype is silent, decide, then log it in docs/decisions.md with the date.
 8. Follow CLAUDE.md for commits. Push to main after each green step.
 9. Light mode first. The app opens in light. Dark is a choice the person makes.
-10. Decisions in handoff/v8/PROMPTS.md (section "Decisions") are binding.
+10. Decisions in docs/tasks/v8-prompts.md (section "Decisions") are binding.
 
 GOAL
 Put the v8 handoff in the repo as the single source of truth, and make the prototype easy to open and read.
@@ -51,7 +53,7 @@ DO
    - The behavior spec is the Component class at the end of the file. Read sync() and renderVals() before you build a screen. The markup blocks are labeled with HTML comments: ARRIVAL, ZERO STATE, SHELL, WALL, TEAM STRIP, Cards, ASSET, MENTIONS, CONNECTIONS, NEW PROJECT, INVITE, PUBLISH, TOAST.
    - The prototype loads three.js, fonts and sample GLBs from CDNs. The app bundles all of them and works offline.
 6. docs/decisions.md is the DECISIONS log for this work. Add a "v8" heading. Entry format: date, decision, why, prototype reference (Tweak combo or markup block). First entry: "The prototype is the spec. Tokens come from its <style>. Stale handoff files are in handoff/v8/_stale."
-7. Copy this whole prompts file to handoff/v8/PROMPTS.md. Its Decisions section is binding.
+7. Copy this whole prompts file to docs/tasks/v8-prompts.md. Its Decisions section is binding.
 8. Create docs/tasks/v8.md: steps 1 to 13, one line each, with a checkbox.
 
 DONE MEANS
@@ -78,7 +80,7 @@ RULES (same in every step)
 7. Where the prototype is silent, decide, then log it in docs/decisions.md with the date.
 8. Follow CLAUDE.md for commits. Push to main after each green step.
 9. Light mode first. The app opens in light. Dark is a choice the person makes.
-10. Decisions in handoff/v8/PROMPTS.md (section "Decisions") are binding.
+10. Decisions in docs/tasks/v8-prompts.md (section "Decisions") are binding.
 
 READ FIRST
 handoff/v8/HOW_TO_READ.md, handoff/v8/CLAUDE_CODE_PROMPT_v8.md (Stack, Visual system), the <style> block at the top of the prototype, handoff/v8/nk-viewer.js, CLAUDE.md, docs/decisions.md.
@@ -136,7 +138,7 @@ RULES (same in every step)
 7. Where the prototype is silent, decide, then log it in docs/decisions.md with the date.
 8. Follow CLAUDE.md for commits. Push to main after each green step.
 9. Light mode first. The app opens in light. Dark is a choice the person makes.
-10. Decisions in handoff/v8/PROMPTS.md (section "Decisions") are binding.
+10. Decisions in docs/tasks/v8-prompts.md (section "Decisions") are binding.
 
 READ FIRST
 The Component class at the end of the prototype: sync(), renderVals(), simulateSave(), invite(), post(), zeroNext(). handoff/v8/CLAUDE_CODE_PROMPT_v8.md: "How it works" and "Roles in one place".
@@ -186,7 +188,7 @@ RULES (same in every step)
 7. Where the prototype is silent, decide, then log it in docs/decisions.md with the date.
 8. Follow CLAUDE.md for commits. Push to main after each green step.
 9. Light mode first. The app opens in light. Dark is a choice the person makes.
-10. Decisions in handoff/v8/PROMPTS.md (section "Decisions") are binding.
+10. Decisions in docs/tasks/v8-prompts.md (section "Decisions") are binding.
 
 READ FIRST
 The SHELL and TOAST markup blocks in the prototype. The Sidebar and Toasts sections of CLAUDE_CODE_PROMPT_v8.md.
@@ -227,7 +229,7 @@ RULES (same in every step)
 7. Where the prototype is silent, decide, then log it in docs/decisions.md with the date.
 8. Follow CLAUDE.md for commits. Push to main after each green step.
 9. Light mode first. The app opens in light. Dark is a choice the person makes.
-10. Decisions in handoff/v8/PROMPTS.md (section "Decisions") are binding.
+10. Decisions in docs/tasks/v8-prompts.md (section "Decisions") are binding.
 
 READ FIRST
 The WALL, TEAM STRIP and Cards markup blocks. The Wall section of CLAUDE_CODE_PROMPT_v8.md. In nk-viewer.js: connectedCallback, _acquire, _release, _boot.
@@ -283,7 +285,7 @@ RULES (same in every step)
 7. Where the prototype is silent, decide, then log it in docs/decisions.md with the date.
 8. Follow CLAUDE.md for commits. Push to main after each green step.
 9. Light mode first. The app opens in light. Dark is a choice the person makes.
-10. Decisions in handoff/v8/PROMPTS.md (section "Decisions") are binding.
+10. Decisions in docs/tasks/v8-prompts.md (section "Decisions") are binding.
 
 READ FIRST
 The ASSET markup block. In renderVals: stops, card, checks, facts, factsTitle, comments, barLabel, canReview, shownNote. The Asset section of CLAUDE_CODE_PROMPT_v8.md. In nk-viewer.js: _dropPin, _renderPins, _tick.
@@ -333,7 +335,7 @@ RULES (same in every step)
 7. Where the prototype is silent, decide, then log it in docs/decisions.md with the date.
 8. Follow CLAUDE.md for commits. Push to main after each green step.
 9. Light mode first. The app opens in light. Dark is a choice the person makes.
-10. Decisions in handoff/v8/PROMPTS.md (section "Decisions") are binding.
+10. Decisions in docs/tasks/v8-prompts.md (section "Decisions") are binding.
 
 READ FIRST
 The PUBLISH markup block. In renderVals: publish, approve, requestChanges, canPublish, publishLabel, stampOn. CLAUDE_CODE_PROMPT_v8.md, "How it works" items 3 to 6.
@@ -372,7 +374,7 @@ RULES (same in every step)
 7. Where the prototype is silent, decide, then log it in docs/decisions.md with the date.
 8. Follow CLAUDE.md for commits. Push to main after each green step.
 9. Light mode first. The app opens in light. Dark is a choice the person makes.
-10. Decisions in handoff/v8/PROMPTS.md (section "Decisions") are binding.
+10. Decisions in docs/tasks/v8-prompts.md (section "Decisions") are binding.
 
 READ FIRST
 The ARRIVAL, ZERO STATE, "Lead, empty", "Artist or viewer, empty: the Stage" and "Slim bar" markup blocks. sync(), zeroNext(), simulateSave(). CLAUDE_CODE_PROMPT_v8.md: Zero state, Arrival, Wall.
@@ -419,7 +421,7 @@ RULES (same in every step)
 7. Where the prototype is silent, decide, then log it in docs/decisions.md with the date.
 8. Follow CLAUDE.md for commits. Push to main after each green step.
 9. Light mode first. The app opens in light. Dark is a choice the person makes.
-10. Decisions in handoff/v8/PROMPTS.md (section "Decisions") are binding.
+10. Decisions in docs/tasks/v8-prompts.md (section "Decisions") are binding.
 
 READ FIRST
 The MENTIONS, NEW PROJECT and INVITE markup blocks. invite() and the mentions value in renderVals. The current sign in, studio and members code in desktop/src/parked/. handoff/v8/_stale/CHANGES.md sections "Sign in and code", "Studios", "Members", "Project" (behavior to keep).
@@ -468,10 +470,10 @@ RULES (same in every step)
 7. Where the prototype is silent, decide, then log it in docs/decisions.md with the date.
 8. Follow CLAUDE.md for commits. Push to main after each green step.
 9. Light mode first. The app opens in light. Dark is a choice the person makes.
-10. Decisions in handoff/v8/PROMPTS.md (section "Decisions") are binding.
+10. Decisions in docs/tasks/v8-prompts.md (section "Decisions") are binding.
 
 READ FIRST
-The CONNECTIONS markup block. desktop/src-tauri tool detection and add-on install (tools.rs and the decisions about `blender --command extension install-file`). The Decisions section in handoff/v8/PROMPTS.md, "Connections".
+The CONNECTIONS markup block. desktop/src-tauri tool detection and add-on install (tools.rs and the decisions about `blender --command extension install-file`). The Decisions section in docs/tasks/v8-prompts.md, "Connections".
 
 PROTOTYPE TARGET
 startScreen=connections, artist and producer. Every other state below is not in the prototype; build it in the same visual system and log each screen.
@@ -543,7 +545,7 @@ RULES (same in every step)
 7. Where the prototype is silent, decide, then log it in docs/decisions.md with the date.
 8. Follow CLAUDE.md for commits. Push to main after each green step.
 9. Light mode first. The app opens in light. Dark is a choice the person makes.
-10. Decisions in handoff/v8/PROMPTS.md (section "Decisions") are binding.
+10. Decisions in docs/tasks/v8-prompts.md (section "Decisions") are binding.
 
 READ FIRST
 CLAUDE_CODE_PROMPT_v8.md: Roles, Motion, Copy, Done means.
@@ -584,7 +586,7 @@ RULES (same in every step)
 7. Where the prototype is silent, decide, then log it in docs/decisions.md with the date.
 8. Follow CLAUDE.md for commits. Push to main after each green step.
 9. Light mode first. The app opens in light. Dark is a choice the person makes.
-10. Decisions in handoff/v8/PROMPTS.md (section "Decisions") are binding.
+10. Decisions in docs/tasks/v8-prompts.md (section "Decisions") are binding.
 
 READ FIRST
 docs/engineering.md (agent local API, server REST, events), server/src/db/schema.ts, the agent routes in desktop/src-tauri, desktop/src/data/DataSource.ts.
@@ -632,7 +634,7 @@ RULES (same in every step)
 7. Where the prototype is silent, decide, then log it in docs/decisions.md with the date.
 8. Follow CLAUDE.md for commits. Push to main after each green step.
 9. Light mode first. The app opens in light. Dark is a choice the person makes.
-10. Decisions in handoff/v8/PROMPTS.md (section "Decisions") are binding.
+10. Decisions in docs/tasks/v8-prompts.md (section "Decisions") are binding.
 
 READ FIRST
 blender-addon/nkata/panel.py and its operators. The "Blender add-on" section of CLAUDE_CODE_PROMPT_v8.md. The PUBLISH markup block (same content as the panel's publish area).
@@ -677,7 +679,7 @@ RULES (same in every step)
 7. Where the prototype is silent, decide, then log it in docs/decisions.md with the date.
 8. Follow CLAUDE.md for commits. Push to main after each green step.
 9. Light mode first. The app opens in light. Dark is a choice the person makes.
-10. Decisions in handoff/v8/PROMPTS.md (section "Decisions") are binding.
+10. Decisions in docs/tasks/v8-prompts.md (section "Decisions") are binding.
 
 READ FIRST
 blender-addon/nkata: the save_post hook, the exporters, the gpu pin overlay. The manifest section of docs/engineering.md.

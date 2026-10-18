@@ -69,7 +69,7 @@
     },
     "AssetKind": {
       "type": "string",
-      "description": "What an asset is on the v8 wall: an object turns on the stage, an environment shows its render. See handoff/v8/PROMPTS.md, step 11.",
+      "description": "What an asset is on the v8 wall: an object turns on the stage, an environment shows its render. See docs/tasks/v8-prompts.md, step 11.",
       "enum": [
         "object",
         "environment"
@@ -77,7 +77,7 @@
     },
     "Budgets": {
       "type": "object",
-      "description": "Triangle budgets per kind for one project, and an optional texture size limit. Decisions 12 in handoff/v8/PROMPTS.md.",
+      "description": "Triangle budgets per kind for one project, and an optional texture size limit. Decisions 12 in docs/tasks/v8-prompts.md.",
       "properties": {
         "prop": {
           "type": "integer",

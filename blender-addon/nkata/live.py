@@ -1,6 +1,6 @@
 """The v8 panel's live parts, without bpy: the four checks as the artist works, throttled to one
 run every 2 s on a scene change; the heartbeat to the agent every 20 s with the open file; the
-check specs from the project's budgets; the Publish label. handoff/v8/PROMPTS.md, step 12."""
+check specs from the project's budgets; the Publish label. docs/tasks/v8-prompts.md, step 12."""
 
 from __future__ import annotations
 

@@ -18,7 +18,7 @@ __pycache__/
 
 # Fixture models, fetched by scripts/fetch-fixtures.sh
 desktop/public/fixtures/glb/
-desktop/public/fixtures/renders/
 
 # Screenshot pairs from pnpm shots; REPORT.md is committed, the images are not
 docs/v8-shots/**/*.png
+docs/v8-shots/**/*.txt

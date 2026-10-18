@@ -1,4 +1,4 @@
-"""The N-panel, v8 (handoff/v8/PROMPTS.md, step 12). Blender's own grays, sizes and spacing;
+"""The N-panel, v8 (docs/tasks/v8-prompts.md, step 12). Blender's own grays, sizes and spacing;
 Nkata shows through the Publish button, the people on pins, and the small mark. Top to bottom:
 
 1. "Connected to {project}", or one button "Add to {project}" when the file is outside it.

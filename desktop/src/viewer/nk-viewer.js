@@ -1,4 +1,4 @@
-// Ported from handoff/v8/nk-viewer.js. Changes are marked NKATA and logged in docs/decisions.md.
+// Ported from the v8 prototype's nk-viewer.js (removed after step 13). Changes are marked NKATA and logged in docs/decisions.md.
 // Step 1: (a) three resolves from the npm package, (b) the host background is transparent,
 // (c) the loading and error text read their color and font from the host's custom properties.
 // Step 4: (d) still capture: after the model loads and the first frame renders, the canvas is

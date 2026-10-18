@@ -17,7 +17,7 @@ import {
 } from "drizzle-orm/pg-core";
 import type { AssetKind, AssetRights, Budgets, CommentKind, Gate, PartMapping, PartState, Role, Training } from "@nkata/shared";
 
-/** New projects start here (Decisions 12 in handoff/v8/PROMPTS.md). Mirrors the migration default. */
+/** New projects start here (Decisions 12 in docs/tasks/v8-prompts.md). Mirrors the migration default. */
 export const DEFAULT_BUDGETS: Budgets = { prop: 30_000, vehicle: 60_000, character: 80_000, environment: 2_000_000, max_texture: null };
 
 const ulid = (name: string) => varchar(name, { length: 26 });

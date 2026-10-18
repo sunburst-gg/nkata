@@ -1,4 +1,4 @@
-// The server's wire shapes and the pure mappings onto the v8 nouns (handoff/v8/PROMPTS.md,
+// The server's wire shapes and the pure mappings onto the v8 nouns (docs/tasks/v8-prompts.md,
 // step 11). One asset is one part. Every function here is pure so wire.test.ts covers the
 // mapping without a server. Routes: docs/engineering.md, Protocols.
 import type { AssetKind, Budgets as BudgetsWire, PresenceEntry, UserRef } from "@nkata/shared";

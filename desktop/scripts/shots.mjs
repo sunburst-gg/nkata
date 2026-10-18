@@ -31,7 +31,10 @@ function combos(arg) {
   return out;
 }
 
-const protoHtml = await (await fetch(PROTO)).text();
+// The prototype side runs only while a server for it answers (the handoff folder was removed
+// after step 13; docs/v8-shots/proto-words.json keeps its words for the report).
+const protoHtml = await fetch(PROTO).then((r) => (r.ok ? r.text() : null)).catch(() => null);
+if (protoHtml === null) console.log(`no prototype at ${PROTO}: capturing the app only`);
 function patchedProto(params) {
   let out = protoHtml;
   for (const [k, v] of params) {
@@ -68,6 +71,7 @@ for (const combo of combos(process.argv[2])) {
     // The visible text beside the picture, for the report's line per combo.
     writeFileSync(resolve(dir, "app.txt"), await page.locator("body").innerText());
     await page.close();
+    if (protoHtml === null) { console.log(`${combo} ${theme} ${w}: app.png`); continue; }
     const proto = await browser.newPage({ viewport: { width: w, height: h } });
     const entries = [...params.entries(), ["theme", theme]];
     await proto.route(/^https?:\/\//, async (route) => {

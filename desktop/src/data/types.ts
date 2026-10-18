@@ -1,5 +1,5 @@
 // The five nouns: Project, Asset, Version, Comment, Approved (a flag on a Version). Plus the
-// people around them. No part, gate or state types (handoff/v8/CLAUDE_CODE_PROMPT_v8.md).
+// people around them. No part, gate or state types (docs/tasks/v8-prompts.md, Decisions).
 
 export type Role = "producer" | "artDirector" | "artist" | "viewer";
 

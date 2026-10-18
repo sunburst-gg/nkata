@@ -2,7 +2,7 @@
 // 30-item wall, the stages as seed functions built from the prototype's sync(), and the state
 // its screens change (published, approved, fixed, saved, invited, joinStep). simulateSave and
 // simulateJoin emit the same events a real save or sign in will, so screens never know the
-// difference. Ported from the Component class at the end of handoff/v8/Nkata App v8.dc.html.
+// difference. Ported from the Component class at the end of the v8 prototype, removed after step 13.
 import type { DataEvent, DataSource, Unsubscribe } from "../DataSource";
 import { isApproved, slug } from "../rules";
 import { DEFAULT_BUDGETS, type Asset, type BlenderInstall, type Budgets, type Check, type CheckKey, type Comment, type DeletedProject, type Facts, type Journey, type LocalProject, type Member, type Mention, type Person, type Project, type Role, type Studio, type StudioRef, type Version } from "../types";

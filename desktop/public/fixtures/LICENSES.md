@@ -13,4 +13,4 @@ The models in `glb/` come from the Khronos glTF Sample Assets repository (https:
 | DamagedHelmet | CC BY-NC 4.0 (theblueturtle_, Sketchfab) |
 | CesiumMan | CC BY 4.0 (Cesium) |
 
-The renders in `renders/` are Nkata's own, copied from `handoff/v8/assets/renders/`.
+The renders in `renders/` are Nkata's own, from the v8 prototype, kept here since the handoff was removed.

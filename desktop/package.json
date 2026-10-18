@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Nkata desktop app. Tauri 2, React, Vite. The agent core is a Rust crate in src-tauri. The screens follow handoff/v8.",
+  "description": "Nkata desktop app. Tauri 2, React, Vite. The agent core is a Rust crate in src-tauri. The screens follow the v8 plan in docs/tasks/v8-prompts.md.",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

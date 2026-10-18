@@ -57,7 +57,7 @@ export const LEVEL_AREA_TEMPLATE: Template = {
   blend_layout: "one_file_per_asset",
 };
 
-// v8 (handoff/v8/PROMPTS.md, step 11): one asset is one .blend with one part. A save of a new
+// v8 (docs/tasks/v8-prompts.md, step 11): one asset is one .blend with one part. A save of a new
 // file makes an Object or an Environment with the four checks; the triangle budget comes from
 // the project's budgets, so the template carries no number.
 const FOUR_CHECKS = ["texture_names", "unit_scale", "uv_set_present", "triangle_budget"];

@@ -1,4 +1,4 @@
-"""The v8 N-panel (handoff/v8/PROMPTS.md, step 12) with bpy stubbed and a fake agent: the five
+"""The v8 N-panel (docs/tasks/v8-prompts.md, step 12) with bpy stubbed and a fake agent: the five
 elements top to bottom, Add to {project}, the live checks and Fix, Publish with the app's
 labels, comments with Jump to pin, the heartbeat, and the open flow."""
 

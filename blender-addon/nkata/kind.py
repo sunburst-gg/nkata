@@ -1,5 +1,5 @@
 """What an asset is on the v8 wall: an object that turns on the stage, or an environment that
-shows its render. Decided on save, in this order (handoff/v8/PROMPTS.md, step 13):
+shows its render. Decided on save, in this order (docs/tasks/v8-prompts.md, step 13):
 
 1. The first subfolder under the project folder names it: Characters, Props, Vehicles,
    Environments and close variants.

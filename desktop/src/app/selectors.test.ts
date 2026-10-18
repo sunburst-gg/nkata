@@ -1,6 +1,6 @@
 // The selectors must reproduce what the prototype shows for each stage. The numbers here are the
 // prototype's own (stage=studio shows Needs my eyes 9 and Approved 11 for the lead, Mentions 2
-// for the artist), read from handoff/v8/Nkata App v8.dc.html with the Tweaks.
+// for the artist), read from the v8 prototype with the Tweaks (docs/v8-shots/proto-words.json).
 import { describe, expect, it } from "vitest";
 import { ME, MockDataSource, RISING_SUN } from "@/data/mock";
 import { applyFilter, cardOrder, factsWithDeltas, filterCounts, journey, publishState, sectionsByGroup, stripLabel, trisDelta, canReview } from "./selectors";

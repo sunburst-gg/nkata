@@ -9,7 +9,7 @@ from . import _runtime as _rt
 
 @dataclass(frozen=True)
 class Budgets:
-    """Triangle budgets per kind for one project, and an optional texture size limit. Decisions 12 in handoff/v8/PROMPTS.md."""
+    """Triangle budgets per kind for one project, and an optional texture size limit. Decisions 12 in docs/tasks/v8-prompts.md."""
     prop: int
     vehicle: int
     character: int
@@ -170,7 +170,7 @@ ReviewDecision = Literal["approve", "send_back"]
 # Studio setting. On: the studio contributes to model training and pays nothing. Off: billed per seat.
 Training = Literal["on", "off"]
 
-# What an asset is on the v8 wall: an object turns on the stage, an environment shows its render. See handoff/v8/PROMPTS.md, step 11.
+# What an asset is on the v8 wall: an object turns on the stage, an environment shows its render. See docs/tasks/v8-prompts.md, step 11.
 AssetKind = Literal["object", "environment"]
 
 # pin: a note at a point. take_a_look: asks the art director to look, no state change.
