@@ -2,6 +2,7 @@
 // On the artist's first save the Stage fills from wireframe to shaded and reads "Your team sees
 // this now."; it stays full size for the rest of that visit.
 import { useStore } from "@/app/store";
+import { isViewer } from "@/auth/permissions";
 import { GhostStage } from "@/ui/stage/GhostStage";
 import { toast } from "@/ui/toast/toast";
 import { FirstTimeNote } from "@/ui/notes/FirstTimeNote";
@@ -12,7 +13,7 @@ export function StageEmpty() {
   const project = useStore((s) => s.projects.find((p) => p.id === s.projectId) ?? null);
   const assets = useStore((s) => s.assets);
   if (!me) return null;
-  const viewer = me.role === "viewer";
+  const viewer = isViewer(me.role);
   const live = assets.find((a) => a.live);
   const title = filled ? "Your team sees this now." : viewer ? "Nothing to look at yet." : "Open Blender and save.";
   const line = filled ? "When it is ready to hand off, press Publish in Blender and write one line." : viewer ? "You get a notification when the first version is ready." : `Any .blend you save into ${project?.name ?? "the project"} shows up here, in 3D, for the whole team.`;

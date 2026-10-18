@@ -10,7 +10,7 @@ import { ROLE_WORD } from "@/auth/permissions";
 import { DEFAULT_BUDGETS, type Budgets } from "@/data/types";
 import { Avatar } from "@/ui/people/Avatar";
 import { button, field, primary, row, SectionTitle } from "@/ui/settings/SectionTitle";
-import { SWATCHES } from "@/ui/stage/swatches";
+import { Swatches } from "@/ui/stage/Swatches";
 import { toast } from "@/ui/toast/toast";
 
 const KINDS: { key: keyof Omit<Budgets, "maxTexture">; label: string; step: number }[] = [
@@ -53,9 +53,7 @@ function General() {
       <div style={row}><span style={label}>Name</span>{canRename ? <><input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void rename(); }} aria-label="Project name" style={{ ...field, flex: 1 }} /><button type="button" onClick={() => void rename()} style={button}>Rename</button></> : <span style={{ color: "var(--ink)" }}>{project.name}</span>}</div>
       <div style={row}><span style={label}>Color</span>
         {canRename ? (
-          <div role="radiogroup" aria-label="Project color" style={{ display: "flex", gap: 8 }}>
-            {SWATCHES.map((c) => <button key={c} type="button" role="radio" aria-checked={project.color === c} aria-label={c.replace("var(--p-", "").replace(")", "")} onClick={() => void recolor(c)} style={{ width: 28, height: 28, borderRadius: "50%", background: c, cursor: "pointer", border: 0, padding: 0, boxShadow: project.color === c ? `0 0 0 2px var(--canvas), 0 0 0 3.5px ${c}` : "none" }} />)}
-          </div>
+          <Swatches value={project.color} onPick={(c) => void recolor(c)} />
         ) : <span aria-label="Project color" style={{ width: 28, height: 28, borderRadius: "50%", background: project.color }} />}
       </div>
     </div>

@@ -13,12 +13,14 @@ const field: React.CSSProperties = { display: "flex", alignItems: "center", just
 const select: React.CSSProperties = { font: "400 var(--t-11) var(--mono)", color: "var(--ink)", background: "var(--canvas)", border: "1px solid var(--line)", borderRadius: "var(--r-6)", height: 22, padding: "0 4px" };
 
 export function DevTweaks({ mock, tweaks, onChange }: { mock: MockDataSource; tweaks: Tweaks; onChange: (t: Tweaks) => void }) {
-  // Hidden under automation (the shots harness) so the screenshots show the app alone.
-  const [open, setOpen] = useState(() => !navigator.webdriver);
+  // Gone under automation (the shots harness) so the screenshots show the app alone.
+  const [open, setOpen] = useState(true);
+  const automated = typeof navigator !== "undefined" && navigator.webdriver;
   const [live, setLive] = useState(0);
   const theme = useStore((s) => s.theme);
   useEffect(() => { const t = setInterval(() => setLive(window.__nkataPool?.length ?? 0), 500); return () => clearInterval(t); }, []);
   const set = (patch: Partial<Tweaks>) => { const next = { ...tweaks, ...patch }; history.replaceState(null, "", `${location.pathname}${tweaksToSearch(next)}`); onChange(next); };
+  if (automated) return null;
   if (!open) return <button type="button" onClick={() => setOpen(true)} style={{ position: "fixed", right: 12, bottom: 12, zIndex: 50, ...select }}>Tweaks</button>;
   return (
     <div style={{ position: "fixed", right: 12, bottom: 12, zIndex: 50, width: 220, display: "flex", flexDirection: "column", gap: 6, padding: 10, borderRadius: "var(--r-12)", background: "var(--raised)", boxShadow: "var(--shadow-lift)", border: "1px solid var(--line)" }}>

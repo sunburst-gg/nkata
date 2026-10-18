@@ -3,6 +3,7 @@
 // moves on select. Environments load their GLB in the same viewer; the render is the poster.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useStore } from "@/app/store";
+import { isViewer } from "@/auth/permissions";
 import { useCan } from "@/auth/useCan";
 import type { Asset, Comment } from "@/data/types";
 import { Stage } from "@/ui/stage/Stage";
@@ -40,7 +41,7 @@ export function AssetStage({ asset, projectColor, comments }: { asset: Asset; pr
   const src = asset.glb ?? "/fixtures/glb/Lantern.glb";
   // Once per person: until the first pin is made. A viewer sent a link sees it even on an asset
   // that already has pins, which is the whole of their arrival.
-  const showPinNote = canComment && !notesSeen["pin"] && !pendingPin && (pinned.length === 0 || me?.role === "viewer");
+  const showPinNote = canComment && !notesSeen["pin"] && !pendingPin && (pinned.length === 0 || (!!me && isViewer(me.role)));
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <Stage projectColor={projectColor} radius={16} aspect="16/10" shadow>

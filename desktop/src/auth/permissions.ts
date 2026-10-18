@@ -5,12 +5,12 @@ import type { Role } from "@/data/types";
 export type Action =
   | "invite" | "manageMembers" | "approve" | "requestChanges" | "publish" | "openInBlender" | "download"
   | "downloadImage" | "comment" | "createProject" | "renameProject" | "deleteProject" | "setTraining"
-  | "billing" | "seeSetup" | "seeConnections" | "seeMine" | "setBudget";
+  | "billing" | "seeSetup" | "seeConnections" | "seeMine" | "setBudget" | "seeJourney" | "seeDisk";
 
-export const ACTIONS: readonly Action[] = ["invite", "manageMembers", "approve", "requestChanges", "publish", "openInBlender", "download", "downloadImage", "comment", "createProject", "renameProject", "deleteProject", "setTraining", "billing", "seeSetup", "seeConnections", "seeMine", "setBudget"];
+export const ACTIONS: readonly Action[] = ["invite", "manageMembers", "approve", "requestChanges", "publish", "openInBlender", "download", "downloadImage", "comment", "createProject", "renameProject", "deleteProject", "setTraining", "billing", "seeSetup", "seeConnections", "seeMine", "setBudget", "seeJourney", "seeDisk"];
 
-const ART_DIRECTOR: ReadonlySet<Action> = new Set<Action>(["approve", "requestChanges", "invite", "comment", "download", "downloadImage", "openInBlender", "seeConnections", "seeMine", "setBudget"]);
-const ARTIST: ReadonlySet<Action> = new Set<Action>(["publish", "openInBlender", "download", "downloadImage", "comment", "seeSetup", "seeConnections", "seeMine"]);
+const ART_DIRECTOR: ReadonlySet<Action> = new Set<Action>(["approve", "requestChanges", "invite", "comment", "download", "downloadImage", "openInBlender", "seeConnections", "seeMine", "setBudget", "seeJourney"]);
+const ARTIST: ReadonlySet<Action> = new Set<Action>(["publish", "openInBlender", "download", "downloadImage", "comment", "seeSetup", "seeConnections", "seeMine", "seeJourney", "seeDisk"]);
 const VIEWER: ReadonlySet<Action> = new Set<Action>(["comment", "downloadImage"]);
 
 export function can(action: Action, role: Role): boolean {
@@ -24,6 +24,9 @@ export function can(action: Action, role: Role): boolean {
 
 /** A lead is a producer or an art director. Leads land on the wall as the prototype's "lead". */
 export const isLead = (role: Role): boolean => role === "producer" || role === "artDirector";
+/** The prototype's three roles, for layout and copy. Permissions go through can(). */
+export const isArtist = (role: Role): boolean => role === "artist";
+export const isViewer = (role: Role): boolean => role === "viewer";
 
 /** Which roles an inviter may hand out. An art director invites artists and viewers only. */
 export function invitableRoles(role: Role): Role[] {

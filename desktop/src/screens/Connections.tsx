@@ -10,8 +10,9 @@ export function ConnectionsScreen() {
   const me = useStore((s) => s.me);
   const locals = useStore((s) => s.localProjects);
   const canSee = useCan("seeConnections");
+  const canDisk = useCan("seeDisk");
   if (!me || !canSee) return null;
-  const artist = me.role === "artist";
+  const artist = canDisk;
   return (
     <div style={{ maxWidth: 720, display: "flex", flexDirection: "column", gap: 28 }}>
       <h1 style={{ margin: 0, font: "400 var(--t-40)/1.1 var(--serif)", letterSpacing: "-0.02em", color: "var(--ink)" }}>Connections</h1>

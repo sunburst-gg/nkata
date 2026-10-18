@@ -4,8 +4,8 @@
 import { useStore } from "@/app/store";
 import { toast } from "@/ui/toast/toast";
 
-const bar: React.CSSProperties = { height: 36, flexShrink: 0, display: "flex", alignItems: "center", gap: 12, padding: "0 40px", fontSize: 13, color: "var(--ink)", background: "var(--hover)", borderBottom: "1px solid var(--line)" };
-const button: React.CSSProperties = { height: 26, padding: "0 10px", borderRadius: "var(--r-6)", border: 0, background: "var(--raised)", boxShadow: "var(--shadow)", color: "var(--ink)", font: "500 12px var(--sans)", cursor: "pointer" };
+const bar: React.CSSProperties = { height: 40, flexShrink: 0, display: "flex", alignItems: "center", gap: 12, padding: "0 40px", fontSize: 13, color: "var(--ink)", background: "var(--hover)", borderBottom: "1px solid var(--line)" };
+const button: React.CSSProperties = { height: 32, padding: "0 10px", borderRadius: "var(--r-6)", border: 0, background: "var(--raised)", boxShadow: "var(--shadow)", color: "var(--ink)", font: "500 12px var(--sans)", cursor: "pointer" };
 
 export function StatusLine() {
   const agentRunning = useStore((s) => s.agentRunning);

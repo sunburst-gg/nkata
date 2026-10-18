@@ -14,7 +14,7 @@ import { TeamStrip } from "@/ui/people/TeamStrip";
 import { FirstTimeNote } from "@/ui/notes/FirstTimeNote";
 import { ProjectMenu } from "@/ui/wall/ProjectMenu";
 import { PausedLine } from "@/ui/connections/StatusLine";
-import { isLead } from "@/auth/permissions";
+import { isArtist, isLead } from "@/auth/permissions";
 
 export function Wall() {
   const project = useStore((s) => s.projects.find((p) => p.id === s.projectId) ?? null);
@@ -31,8 +31,8 @@ export function Wall() {
   const lead = isLead(me.role);
   const leadEmpty = lead && assets.length === 0;
   // The artist's first save keeps the Stage full size for the visit; so does an empty wall.
-  const stageEmpty = !lead && (assets.length === 0 || (firstSaveFilled && stage !== "studio" && me.role === "artist"));
-  const yourTurn = me.role === "artist" && stage === "joining" && !assets.some((a) => a.owner.id === me.id);
+  const stageEmpty = !lead && (assets.length === 0 || (firstSaveFilled && stage !== "studio" && isArtist(me.role)));
+  const yourTurn = isArtist(me.role) && stage === "joining" && !assets.some((a) => a.owner.id === me.id);
   const firstLive = assets.find((a) => a.live);
   const mine = needsMe(assets, me);
   const shown = applyFilter(cardOrder(assets, saved), me, filter, group);

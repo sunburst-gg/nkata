@@ -2,6 +2,7 @@
 // Invited at 45%, In Blender with the breathing dot. Leads get a dashed + that opens Invite.
 import { useStore } from "@/app/store";
 import { stripLabel } from "@/app/selectors";
+import { isArtist } from "@/auth/permissions";
 import { useCan } from "@/auth/useCan";
 import { Avatar } from "./Avatar";
 
@@ -16,7 +17,7 @@ export function TeamStrip() {
       {members.map((m) => {
         const member = journeys[m.person.id] ? { ...m, journey: journeys[m.person.id]! } : m;
         const label = stripLabel(member, me);
-        const artist = m.person.role === "artist";
+        const artist = isArtist(m.person.role);
         const step = ["invited", "joined", "blender", "inBlender"].indexOf(member.journey);
         return (
           <div key={m.person.id} title={`${m.person.first} · ${label}`} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, width: 72 }}>

@@ -7,7 +7,7 @@
 //   pnpm shots                      three combos (the default set)
 //   pnpm shots all                  every role, stage, startScreen that applies
 //   pnpm shots "role=lead&stage=empty"  one combo
-import { mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 const require = createRequire(import.meta.url);
@@ -60,10 +60,13 @@ for (const combo of combos(process.argv[2])) {
     const dir = resolve(OUT, `${combo.replace(/[&=]/g, "_")}_${theme}_${w}`);
     mkdirSync(dir, { recursive: true });
     const page = await browser.newPage({ viewport: { width: w, height: h } });
-    const q = new URLSearchParams(params); q.set("theme", theme);
+    const q = new URLSearchParams(params); q.set("theme", theme); q.set("mock", "1");
+    page.setDefaultTimeout(180000);
     await page.goto(`${APP}?${q}`, { waitUntil: "load" });
     await page.waitForTimeout(4000);
     await page.screenshot({ path: resolve(dir, "app.png") });
+    // The visible text beside the picture, for the report's line per combo.
+    writeFileSync(resolve(dir, "app.txt"), await page.locator("body").innerText());
     await page.close();
     const proto = await browser.newPage({ viewport: { width: w, height: h } });
     const entries = [...params.entries(), ["theme", theme]];
@@ -75,6 +78,7 @@ for (const combo of combos(process.argv[2])) {
     await proto.goto(PROTO, { waitUntil: "load" });
     await proto.waitForTimeout(sandboxed ? 8000 : 5000);
     await proto.screenshot({ path: resolve(dir, "proto.png") });
+    writeFileSync(resolve(dir, "proto.txt"), await proto.locator("body").innerText());
     await proto.close();
     console.log(`${combo} ${theme} ${w}: app.png, proto.png`);
   }

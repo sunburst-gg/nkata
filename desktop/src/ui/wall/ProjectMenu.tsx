@@ -10,7 +10,7 @@ export function ProjectMenu() {
   return (
     <Menu.Root>
       <Menu.Trigger asChild>
-        <button type="button" className="nk-nav" aria-label="Project menu" style={{ width: 28, height: 28, borderRadius: "var(--r-6)", border: 0, background: "transparent", color: "var(--ink40)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", marginBottom: 6 }}>
+        <button type="button" className="nk-nav" aria-label="Project menu" style={{ width: 32, height: 32, borderRadius: "var(--r-6)", border: 0, background: "transparent", color: "var(--ink40)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", marginBottom: 6 }}>
           <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M3 4.5l3 3 3-3" /></svg>
         </button>
       </Menu.Trigger>

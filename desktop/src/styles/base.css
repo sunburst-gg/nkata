@@ -18,6 +18,9 @@ button { cursor: pointer; }
 /* The wall: 3 columns, 4 from 1440 px, 24 px gutters. */
 .nk-wall-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
 @media (min-width: 1440px) { .nk-wall-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* A visible focus ring on every control: 2 px amber, offset by the canvas. Mouse clicks show none. */
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+:focus:not(:focus-visible) { outline: none; }
 .nk-card { transition: transform var(--t-fast) var(--ease); }
 .nk-card:hover { transform: translateY(-2px); }
 .nk-env-drift { transition: background-position 4s linear; }

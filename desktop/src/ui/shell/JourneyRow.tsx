@@ -1,6 +1,7 @@
 // The progress ring and the next action. Gone when the journey is done. Viewers never see it.
 import { useStore } from "@/app/store";
 import { journey } from "@/app/selectors";
+import { useCan } from "@/auth/useCan";
 import { NavItem } from "./NavItem";
 
 export function JourneyRow() {
@@ -9,7 +10,8 @@ export function JourneyRow() {
   const members = useStore((s) => s.members);
   const stage = useStore((s) => s.stage);
   const go = useStore((s) => s.go);
-  if (!me || me.role === "viewer") return null;
+  const canSee = useCan("seeJourney");
+  if (!me || !canSee) return null;
   const j = journey(assets, members, me, stage);
   if (!j.open) return null;
   const dash = `${((j.done / 3) * 50.3).toFixed(1)} 50.3`;

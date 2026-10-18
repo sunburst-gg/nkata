@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { useStore } from "@/app/store";
 import { SWATCHES } from "@/ui/stage/swatches";
+import { Swatches } from "@/ui/stage/Swatches";
 import { Stage, stageGradient } from "@/ui/stage/Stage";
 import { GHOST_MODEL } from "@/ui/stage/GhostStage";
 import { NkViewer } from "@/viewer/NkViewer";
@@ -30,9 +31,7 @@ export function NewProjectScreen() {
         <span style={{ color: "var(--ink60)" }}>Every artist keeps the project on their own computer. Nkata keeps them in step.</span>
       </div>
       <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Project name" aria-label="Project name" style={field} />
-      <div role="radiogroup" aria-label="Project color" style={{ display: "flex", gap: 8 }}>
-        {SWATCHES.map((c) => <button key={c} type="button" role="radio" aria-checked={color === c} aria-label={c.replace("var(--p-", "").replace(")", "")} onClick={() => setColor(c)} style={{ width: 28, height: 28, borderRadius: "50%", background: c, cursor: "pointer", border: 0, padding: 0, boxShadow: color === c ? `0 0 0 2px var(--canvas), 0 0 0 3.5px ${c}` : "none" }} />)}
-      </div>
+      <Swatches value={color} onPick={setColor} />
       <Stage grid={40} radius={12} aspect="16/9" style={{ background: `linear-gradient(180deg, ${top}, ${bot})`, transition: "background var(--t-panel)" }}>
         {name.trim() ? <span aria-hidden="true" style={{ position: "absolute", left: "50%", top: "10%", transform: "translateX(-50%)", font: "400 clamp(28px, 6vw, 56px)/1 var(--serif)", letterSpacing: "-0.02em", color: "var(--ink)", opacity: .14, whiteSpace: "nowrap", pointerEvents: "none" }}>{name}</span> : null}
         <NkViewer src={GHOST_MODEL} ghost autorotate={0.4} style={{ position: "absolute", inset: 0, opacity: .7 }} />

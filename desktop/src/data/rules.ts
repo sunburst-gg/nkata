@@ -1,4 +1,5 @@
 // Rules both the mock and the screens apply, so the wall, the counts and Mentions agree.
+import { isLead } from "@/auth/permissions";
 import type { Asset, Person, Version } from "./types";
 
 export const slug = (name: string): string => name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -16,6 +17,6 @@ export const isApproved = (a: Asset): boolean => !!current(a)?.approved;
 
 /** What needs my eyes: for a lead, what waits on them or mentions them; for others, mentions. */
 export function needsMe(assets: readonly Asset[], me: Person): Asset[] {
-  const lead = me.role === "producer" || me.role === "artDirector";
+  const lead = isLead(me.role);
   return assets.filter((a) => (lead ? waitingOnLead(a) || !!a.mentionsMe : !!a.mentionsMe));
 }

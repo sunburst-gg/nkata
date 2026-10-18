@@ -4,6 +4,8 @@
 // straight on the asset they were sent.
 import { useEffect } from "react";
 import { useStore } from "@/app/store";
+import { isViewer } from "@/auth/permissions";
+import { useCan } from "@/auth/useCan";
 import { PEOPLE } from "@/data/mock";
 import type { MockDataSource } from "@/data/mock";
 import { Mark } from "@/ui/stage/Mark";
@@ -18,8 +20,8 @@ export function Arrival() {
   const blender = useStore((s) => s.blender);
   const go = useStore((s) => s.go);
   const studio = useStore((s) => s.studio);
-  const viewer = me?.role === "viewer";
-  const artist = me?.role === "artist";
+  const viewer = !!me && isViewer(me.role);
+  const artist = useCan("seeSetup");
   useEffect(() => { if (artist && source && "startArrivalSetup" in source) (source as MockDataSource).startArrivalSetup(); }, [artist, source]);
   if (!me) return null;
   const done = (blender.kind === "connected" || blender.kind === "open") && setupDone.includes("project");

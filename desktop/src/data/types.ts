@@ -56,6 +56,8 @@ export interface Check {
   sentence: string;
   /** The one-line fix, shown under a failed check. */
   fix: string;
+  /** Not checked yet: the add-on has not reported this one. Never drawn as a pass. */
+  pending?: boolean;
 }
 
 export interface Facts {

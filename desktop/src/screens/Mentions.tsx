@@ -22,7 +22,7 @@ export function MentionsScreen() {
             <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink60)" }}>
                 <span aria-hidden="true" style={{ width: 18, height: 18, borderRadius: "50%", background: m.who.color, color: "var(--on-color)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 600 }}>{m.who.initial}</span>
-                <span style={{ color: "var(--ink)", fontWeight: 500 }}>{m.who.name}</span>
+                <span style={{ color: "var(--ink)", fontWeight: 500 }}>{m.who.first}</span>
                 {m.verb}
                 <span style={{ color: "var(--ink)" }}>{m.asset.name}</span>
                 <span style={{ marginLeft: "auto", font: "400 var(--t-11) var(--mono)" }}>{m.when}</span>

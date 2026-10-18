@@ -1,5 +1,5 @@
 import { useStore } from "@/app/store";
-import { ROLE_WORD } from "@/auth/permissions";
+import { isLead, ROLE_WORD } from "@/auth/permissions";
 import { Avatar } from "@/ui/people/Avatar";
 
 export function MeRow() {
@@ -10,7 +10,7 @@ export function MeRow() {
       <Avatar person={me} size={28} />
       <div style={{ display: "flex", flexDirection: "column" }}>
         <span style={{ fontSize: 13, color: "var(--ink)" }}>{me.name}</span>
-        <span style={{ fontSize: 11, color: "var(--ink60)" }}>{me.role === "producer" || me.role === "artDirector" ? "Lead" : ROLE_WORD[me.role]}</span>
+        <span style={{ fontSize: 11, color: "var(--ink60)" }}>{isLead(me.role) ? "Lead" : ROLE_WORD[me.role]}</span>
       </div>
     </div>
   );

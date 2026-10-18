@@ -2,6 +2,7 @@
 // Minimum width 1280. The zero states, arrival and sign in draw without it (routes.ts).
 import type { ReactNode } from "react";
 import { useStore } from "@/app/store";
+import { isViewer } from "@/auth/permissions";
 import { DisconnectDialog } from "@/ui/connections/DisconnectDialog";
 import { StatusLine } from "@/ui/connections/StatusLine";
 import { InviteDialog } from "@/ui/invite/InviteDialog";
@@ -10,12 +11,12 @@ import { Breadcrumbs, Sidebar } from "./Sidebar";
 import { SwitchStudioDialog } from "./SwitchStudioDialog";
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const viewer = useStore((s) => s.me?.role === "viewer");
+  const viewer = useStore((s) => !!s.me && isViewer(s.me.role));
   const slideIn = useStore((s) => s.slideIn);
   return (
-    <div style={{ minHeight: "100vh", minWidth: 1280, display: "flex", background: "var(--canvas)", color: "var(--ink80)", position: "relative" }}>
+    <div style={{ height: "100vh", minWidth: 1280, display: "flex", background: "var(--canvas)", color: "var(--ink80)", position: "relative", overflow: "hidden" }}>
       <div style={{ display: "contents" }} className={slideIn ? "nk-slide-in" : undefined}><Sidebar /></div>
-      <main style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+      <main style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", height: "100vh", overflowY: "auto" }}>
         <StatusLine />
         <header style={{ height: 56, flexShrink: 0, display: "flex", alignItems: "center", gap: 16, padding: "0 40px" }}>
           <Breadcrumbs />

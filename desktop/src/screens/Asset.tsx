@@ -2,6 +2,7 @@
 // bar, the Versions row, and on the right the note, the facts and the comments.
 import { useEffect, useState } from "react";
 import { useStore } from "@/app/store";
+import { isArtist } from "@/auth/permissions";
 import { useCan } from "@/auth/useCan";
 import { ActionBar } from "@/ui/asset/ActionBar";
 import { BudgetDialog } from "@/ui/asset/BudgetDialog";
@@ -30,7 +31,7 @@ export function AssetScreen() {
   const [publishOpen, setPublishOpen] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
   const canBudget = useCan("setBudget");
-  const artist = me?.role === "artist";
+  const artist = !!me && isArtist(me.role);
   useEffect(() => { if (asset) void loadComments(asset.id); }, [asset?.id, loadComments]);
   if (!asset || !project || !me) return <span style={{ color: "var(--ink60)" }}>That asset is not in this project.</span>;
   const shown: number | "live" = stop ?? (asset.live ? "live" : (asset.versions[0]?.n ?? 1));
