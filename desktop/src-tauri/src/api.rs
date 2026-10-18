@@ -22,7 +22,7 @@ use crate::ids::new_id;
 use crate::ignore::AGENT_DIR;
 use crate::mirror::{MirrorJob, MirrorRunner};
 use crate::protocol::{
-    iso_now, AgentEvent, AgentMode, ChecksRequest, ChecksResponse, CommentCreateRequest,
+    iso_now, AgentEvent, AgentMode, AssetCreateRequest, AssetCreateResponse, ChecksRequest, ChecksResponse, CommentCreateRequest,
     CommentCreateResponse, CommentsResponse, ErrorBody, ErrorDetail, ExportRequest, ExportResponse,
     LockReleaseReason, MeResponse, MirrorOnSaveRequest, MirrorPauseRequest, MirrorPauseResponse,
     MirrorRetryResponse, MirrorStateResponse, MirrorStatus, PartCloseResponse, PartOpenResponse,
@@ -48,6 +48,8 @@ pub struct ApiState {
     pub mode: AgentMode,
     /// UNREAL_ENABLED on the server. Off: no mirror job, no capture, no area export.
     pub unreal: bool,
+    /// The project's budgets at start, for the add-on's checks (v8 step 13).
+    pub budgets: Option<crate::protocol::Budgets>,
 }
 
 type Shared = Arc<ApiState>;
@@ -182,6 +184,7 @@ pub fn router(state: Shared) -> Router {
     Router::new()
         .route("/me", get(me))
         .route("/parts", get(parts))
+        .route("/assets", post(create_asset))
         .route("/parts/{id}/open", post(open_part))
         .route("/parts/{id}/close", post(close_part))
         .route("/parts/{id}/saved", post(saved))
@@ -213,6 +216,7 @@ async fn me(State(s): State<Shared>, headers: HeaderMap) -> Result<Json<MeRespon
         mode: s.mode,
         mirror_paused: s.mirror.is_paused(),
         unreal: s.unreal,
+        budgets: s.budgets.clone(),
     }))
 }
 
@@ -229,6 +233,33 @@ async fn parts(
     check_token(&s, &headers)?;
     let parts = s.server.parts(q.file.as_deref()).await?;
     Ok(Json(PartsResponse { v: 1, parts }))
+}
+
+/// v8: Blender saved a .blend that maps to no asset. One asset, one part, owned by this user.
+async fn create_asset(
+    State(s): State<Shared>,
+    headers: HeaderMap,
+    Json(body): Json<AssetCreateRequest>,
+) -> Result<(StatusCode, Json<AssetCreateResponse>), ApiError> {
+    check_token(&s, &headers)?;
+    if body.kind != "object" && body.kind != "environment" {
+        return Err(ApiError(
+            StatusCode::BAD_REQUEST,
+            "bad_request",
+            "kind is object or environment".into(),
+        ));
+    }
+    let part = s
+        .server
+        .create_asset(
+            &s.user.id,
+            &body.name,
+            &body.file,
+            &body.kind,
+            body.group.as_deref(),
+        )
+        .await?;
+    Ok((StatusCode::CREATED, Json(AssetCreateResponse { v: 1, part })))
 }
 
 async fn open_part(
@@ -790,6 +821,7 @@ pub async fn bind(
         spool_dir,
         mode: opts.mode,
         unreal: me.features.unreal,
+        budgets: project.budgets,
     });
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", opts.port))
         .await

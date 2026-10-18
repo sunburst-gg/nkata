@@ -51,6 +51,16 @@ class AddonState:
     online: list[dict[str, Any]] = field(default_factory=list)
     startable: list[dict[str, Any]] = field(default_factory=list)
     publish_line: str = ""
+    # v8 (step 12): the project this computer serves, the budgets from the agent, the asset
+    # kind per part, the line after Add to project, and which comments the artist has seen.
+    project_name: str = ""
+    budgets: dict[str, Any] | None = None
+    kind: dict[str, str] = field(default_factory=dict)
+    added_line: str = ""
+    seen_comments: set[str] = field(default_factory=set)
+    # The last live check run (monotonic seconds) and whether the scene changed since.
+    checks_at: float = 0.0
+    scene_dirty: bool = False
     # When the open file was opened, ISO 8601 UTC, for the version's opened_at.
     opened_at: str | None = None
     error: str = ""

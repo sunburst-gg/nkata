@@ -171,6 +171,15 @@ def install(collections: dict[str, FakeCollection], filepath: str) -> types.Modu
                     f.write(b"\x89PNG")
             return {"FINISHED"}
 
+        @staticmethod
+        def render(write_still: bool = False) -> set[str]:
+            r = bpy.context.scene.render
+            ops.calls.append(("render.render", {"write_still": write_still, "filepath": r.filepath, "size": (r.resolution_x, r.resolution_y), "engine": r.engine}))
+            if write_still:
+                with open(r.filepath, "wb") as f:
+                    f.write(b"\x89PNG")
+            return {"FINISHED"}
+
     class WmOps:
         @staticmethod
         def save_as_mainfile(filepath: str) -> set[str]:
@@ -180,6 +189,27 @@ def install(collections: dict[str, FakeCollection], filepath: str) -> types.Modu
             bpy.data.filepath = filepath
             for handler in list(bpy.app.handlers.save_post):
                 handler(None)
+            return {"FINISHED"}
+
+        @staticmethod
+        def open_mainfile(filepath: str) -> set[str]:
+            ops.calls.append(("wm.open_mainfile", {"filepath": filepath}))
+            bpy.data.filepath = filepath
+            for handler in list(bpy.app.handlers.load_post):
+                handler(None)
+            return {"FINISHED"}
+
+    class FileOps:
+        @staticmethod
+        def pack_all() -> set[str]:
+            ops.calls.append(("file.pack_all", {}))
+            for img in bpy.data.images:
+                img.packed_file = True
+            return {"FINISHED"}
+
+        @staticmethod
+        def make_paths_absolute() -> set[str]:
+            ops.calls.append(("file.make_paths_absolute", {}))
             return {"FINISHED"}
 
     class ObjectOps:
@@ -218,20 +248,29 @@ def install(collections: dict[str, FakeCollection], filepath: str) -> types.Modu
 
             return _Ctx()
 
-    bpy.ops = types.SimpleNamespace(collection=CollectionOps, export_scene=ExportSceneOps, wm=WmOps, render=RenderOps, object=ObjectOps)
-    Context.scene.render = types.SimpleNamespace(filepath="", image_settings=types.SimpleNamespace(file_format="PNG"))
+    bpy.ops = types.SimpleNamespace(collection=CollectionOps, export_scene=ExportSceneOps, wm=WmOps, render=RenderOps, object=ObjectOps, file=FileOps)
+    Context.scene.render = types.SimpleNamespace(filepath="", image_settings=types.SimpleNamespace(file_format="PNG"), resolution_x=1920, resolution_y=1080, resolution_percentage=100, engine="CYCLES")
+    Context.scene.camera = None
+    Context.scene.eevee = types.SimpleNamespace(taa_render_samples=64)
     bpy.context = Context
     linked: list[Any] = []
-    Context.scene.collection = types.SimpleNamespace(children=types.SimpleNamespace(link=linked.append, linked=linked))
-    bpy.data = types.SimpleNamespace(collections=FakeCollections(collections), filepath=filepath, images=[types.SimpleNamespace(name="T_Face_D", size=(2048, 2048))])
-    bpy.app = types.SimpleNamespace(handlers=types.SimpleNamespace(save_post=[], load_post=[]), timers=types.SimpleNamespace(is_registered=lambda _f: False, register=lambda *_a, **_k: None, unregister=lambda _f: None))
+    scene_objects: list[Any] = []
+    Context.scene.collection = types.SimpleNamespace(children=types.SimpleNamespace(link=linked.append, linked=linked), objects=types.SimpleNamespace(link=scene_objects.append, linked=scene_objects))
+    bpy.data = types.SimpleNamespace(
+        collections=FakeCollections(collections), filepath=filepath,
+        images=[types.SimpleNamespace(name="T_Face_D", size=(2048, 2048), filepath="", packed_file=None)],
+        cameras=types.SimpleNamespace(new=lambda name: types.SimpleNamespace(name=name)),
+        objects=types.SimpleNamespace(new=lambda name, data: types.SimpleNamespace(name=name, data=data, location=(0, 0, 0), rotation_euler=(0, 0, 0)), remove=lambda _o: None),
+    )
+    bpy.path = types.SimpleNamespace(abspath=lambda p: p)
+    bpy.app = types.SimpleNamespace(handlers=types.SimpleNamespace(save_post=[], load_post=[], depsgraph_update_post=[]), timers=types.SimpleNamespace(is_registered=lambda _f: False, register=lambda *_a, **_k: None, unregister=lambda _f: None))
     Context.scene.cursor = types.SimpleNamespace(location=(0.5, 0.25, 0.0))
 
     class Operator:
         def report(self, _kind: set[str], message: str) -> None:
             FakeOps.reports.append(message)
 
-    bpy.types = types.SimpleNamespace(Operator=Operator, Panel=object, Context=object, SpaceView3D=None, WindowManager=types.SimpleNamespace())
+    bpy.types = types.SimpleNamespace(Operator=Operator, Panel=object, Context=object, SpaceView3D=None, WindowManager=types.SimpleNamespace(), RenderSettings=None)
     Context.window_manager = types.SimpleNamespace(nkata_note="", nkata_note_engineering="", nkata_details_open=False)
     bpy.props = types.SimpleNamespace(StringProperty=lambda **_k: "", BoolProperty=lambda **_k: False, IntProperty=lambda **_k: 0)
     bpy.utils = types.SimpleNamespace(register_class=lambda _c: None, unregister_class=lambda _c: None)

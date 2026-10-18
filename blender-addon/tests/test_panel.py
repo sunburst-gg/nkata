@@ -1,4 +1,6 @@
-"""The N-panel's seven elements and the open flow, with bpy stubbed and a fake agent."""
+"""The v8 N-panel (handoff/v8/PROMPTS.md, step 12) with bpy stubbed and a fake agent: the five
+elements top to bottom, Add to {project}, the live checks and Fix, Publish with the app's
+labels, comments with Jump to pin, the heartbeat, and the open flow."""
 
 from __future__ import annotations
 
@@ -19,22 +21,22 @@ from . import bpy_stub
 ID = "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 ID2 = "01BX5ZZKBKACTAV9WEVGEMMVRZ"
 AT = "2026-10-05T12:00:00.000Z"
-USER = {"id": ID2, "name": "Ada", "avatar_url": None}
-HOLDER = {"id": "01CX5ZZKBKACTAV9WEVGEMMVRA", "name": "Chidi", "avatar_url": None}
+USER = {"id": ID2, "name": "Ada Okafor", "avatar_url": None}
+CHIDI = {"id": "01CX5ZZKBKACTAV9WEVGEMMVRA", "name": "Chidi Eze", "avatar_url": None}
 PART = {
-    "id": ID, "asset_id": ID2, "asset_name": "Ojukwu", "name": "face", "state": "draft", "owner": USER, "lock": None, "gate": {"after": []},
-    "mapping": {"kind": "blend_collection", "file": "Ojukwu/face.blend", "collection": "face"}, "kind": "character", "export_name": "SK_Ojukwu_face",
-    "checks": [{"id": "unit_scale", "severity": "block", "params": {}}, {"id": "name_pattern", "severity": "block", "params": {"pattern": "SK_.*"}}, {"id": "triangle_budget", "severity": "block", "params": {"max": 60000}}],
-    "reference_files": ["Ojukwu/ref/concept.png"], "waiting_on": [],
+    "id": ID, "asset_id": ID2, "asset_name": "Radio", "name": "model", "state": "draft", "owner": USER, "lock": None, "gate": {"after": []},
+    "mapping": {"kind": "blend_collection", "file": "Props/Radio/Radio.blend", "collection": "model"}, "kind": "prop", "export_name": "SM_Radio",
+    "checks": [], "reference_files": [], "waiting_on": [],
 }
+BUDGETS = {"prop": 30000, "vehicle": 60000, "character": 80000, "environment": 2000000, "max_texture": None}
 
 
 class FakeAgent(BaseHTTPRequestHandler):
-    unreal = True
     calls: list[tuple[str, str, Any]] = []
-    held_by: dict[str, Any] | None = None
     comments: list[dict[str, Any]] = []
-    on_save: bool = True
+    parts: list[dict[str, Any]] = [PART]
+    budgets: dict[str, Any] | None = BUDGETS
+    online: list[dict[str, Any]] = []
 
     def log_message(self, *_a: Any) -> None:
         return
@@ -50,9 +52,12 @@ class FakeAgent(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         FakeAgent.calls.append(("GET", self.path, None))
         if self.path == "/me":
-            return self._json(200, {"v": 1, "user": USER, "project": {"id": ID, "name": "P", "folder_name": "p"}, "package_version": "0.1.0", "online": True, "spool_dir": "/tmp/spool", "mode": "sync", "mirror_paused": False, "unreal": FakeAgent.unreal})
+            me = {"v": 1, "user": USER, "project": {"id": ID, "name": "Rising Sun", "folder_name": "rising-sun"}, "package_version": "0.1.0", "online": True, "spool_dir": "/tmp/spool", "mode": "sync", "mirror_paused": False, "unreal": False}
+            if FakeAgent.budgets:
+                me["budgets"] = FakeAgent.budgets
+            return self._json(200, me)
         if self.path == "/parts" or self.path.startswith("/parts?"):
-            return self._json(200, {"v": 1, "parts": [PART]})
+            return self._json(200, {"v": 1, "parts": FakeAgent.parts})
         if self.path.endswith("/comments"):
             return self._json(200, {"v": 1, "comments": FakeAgent.comments})
         return self._json(404, {"v": 1, "error": {"code": "not_found", "message": self.path}})
@@ -62,18 +67,20 @@ class FakeAgent(BaseHTTPRequestHandler):
         body = json.loads(self.rfile.read(n)) if n else None
         FakeAgent.calls.append(("POST", self.path, body))
         if self.path.endswith("/open"):
-            if FakeAgent.held_by:
-                return self._json(409, {"v": 1, "granted": False, "lock": {"holder": FakeAgent.held_by, "granted_at": AT, "heartbeat_at": AT, "expires_at": AT, "stale": False}})
             return self._json(200, {"v": 1, "granted": True, "lock": {"holder": USER, "granted_at": AT, "heartbeat_at": AT, "expires_at": AT, "stale": False}})
         if self.path == "/presence":
-            return self._json(200, {"v": 1, "online": [{"user": USER, "part_id": body["part_id"], "since": AT, "last_seen": AT}, {"user": HOLDER, "part_id": None, "since": AT, "last_seen": AT}]})
+            return self._json(200, {"v": 1, "online": [{"user": USER, "part_id": body["part_id"], "since": AT, "last_seen": AT}, *FakeAgent.online]})
+        if self.path == "/assets":
+            made = {**PART, "id": "01NEWPART0000000000000000A", "asset_name": body["name"], "mapping": {"kind": "blend_collection", "file": body["file"], "collection": "model"}}
+            FakeAgent.parts = [*FakeAgent.parts, made]
+            return self._json(201, {"v": 1, "part": made})
         if self.path.endswith("/publish"):
             blocked = [r for r in body["check_results"] if not r["passed"] and r["severity"] == "block"]
             if blocked:
                 return self._json(200, {"v": 1, "published": False, "version_id": ID, "state": "draft", "blocked_by": blocked, "render_needed": False})
-            return self._json(200, {"v": 1, "published": True, "version_id": ID, "state": "ready" if body["ready"] else "draft", "blocked_by": [], "render_needed": bool(body["ready"])})
+            return self._json(200, {"v": 1, "published": True, "version_id": ID, "state": "draft", "blocked_by": [], "render_needed": False})
         if self.path.endswith("/comments"):
-            pin = {"id": ID, "part_id": ID, "version_id": ID2, "author": USER, "point": body["point"], "normal": body["normal"], "body": body["body"], "kind": body.get("kind", "pin"), "resolved_at": None, "created_at": AT}
+            pin = {"id": f"01C0MMENT000000000000000{len(FakeAgent.comments) + 1:02d}"[:26], "part_id": ID, "version_id": ID2, "author": USER, "point": body["point"], "normal": body["normal"], "body": body["body"], "kind": body.get("kind", "pin"), "resolved_at": None, "created_at": AT}
             FakeAgent.comments.append(pin)
             return self._json(201, {"v": 1, "comment": pin})
         if self.path.endswith("/checks"):
@@ -82,12 +89,7 @@ class FakeAgent(BaseHTTPRequestHandler):
             return self._json(201, {"v": 1, "version_id": ID, "mirror": "skipped"})
         if self.path.endswith("/close"):
             return self._json(200, {"v": 1, "released": True})
-        if self.path.endswith("/mirror/on-save"):
-            FakeAgent.on_save = bool(body["on_save"])
-            return self._json(200, {"v": 1, "mirror": {"part_id": ID, "status": "pending", "version_id": ID, "at": None, "mirror_ms": None, "message": "" if FakeAgent.on_save else "Mirror on save is off", "failures": 0, "halted": False, "on_save": FakeAgent.on_save}})
         if self.path.endswith("/render"):
-            return self._json(200, {"v": 1, "version_id": ID, "stored": True})
-        if self.path.endswith("/export"):
             return self._json(200, {"v": 1, "version_id": ID, "stored": True})
         return self._json(404, {"v": 1, "error": {"code": "not_found", "message": self.path}})
 
@@ -103,14 +105,14 @@ class FakeLayout:
     def label(self, text: str = "", icon: str = "") -> None:
         self.lines.append(f"label:{text}")
 
-    def operator(self, idname: str, text: str = "", icon: str = "") -> Any:
-        self.lines.append(f"{'op' if self.enabled else 'op-off'}:{idname}:{text}")
+    def operator(self, idname: str, text: str = "", icon: str = "", depress: bool = False) -> Any:
+        self.lines.append(f"op:{idname}:{text}" + (":on" if depress else ""))
         return mock.MagicMock()
 
     def prop(self, data: Any, name: str, text: str = "", **_kw: Any) -> None:
         self.lines.append(f"prop:{name}:{getattr(data, name, '')}")
 
-    def row(self) -> FakeLayout:
+    def row(self, align: bool = False) -> FakeLayout:
         return FakeLayout(self.lines)
 
     def box(self) -> FakeLayout:
@@ -121,36 +123,36 @@ class FakeLayout:
 class PanelTest(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
-        root = Path(self.tmp.name) / "rising-sun"
-        (root / ".nkata-agent").mkdir(parents=True)
-        (root / ".nkata-agent" / "token").write_text("tok")
-        self.blend = root / "Ojukwu" / "face.blend"
-        self.blend.parent.mkdir()
+        self.root = Path(self.tmp.name) / "rising-sun"
+        (self.root / ".nkata-agent").mkdir(parents=True)
+        (self.root / ".nkata-agent" / "token").write_text("tok")
+        self.blend = self.root / "Props" / "Radio" / "Radio.blend"
+        self.blend.parent.mkdir(parents=True)
         self.blend.write_bytes(b"")
-        (root / "Ojukwu" / "ref").mkdir()
-        (root / "Ojukwu" / "ref" / "concept.png").write_bytes(b"png")
         FakeAgent.calls = []
-        FakeAgent.held_by = None
         FakeAgent.comments = []
-        FakeAgent.on_save = True
-        FakeAgent.unreal = True
+        FakeAgent.parts = [PART]
+        FakeAgent.budgets = BUDGETS
+        FakeAgent.online = []
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), FakeAgent)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
-        self.face = bpy_stub.FakeObject("face body", coords=[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0], materials=["M_Skin"])
-        self.collection = bpy_stub.FakeCollection("face", [self.face, bpy_stub.FakeObject("Armature", kind="ARMATURE", bones=20)], [bpy_stub.FakeExporter()])
-        self.bpy = bpy_stub.install({"face": self.collection}, str(self.blend))
-        self.bpy.context.scene.unit_settings.scale_length = 0.01
+        self.radio = bpy_stub.FakeObject("Radio", coords=[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0], materials=["M_Radio"])
+        self.collection = bpy_stub.FakeCollection("model", [self.radio], [bpy_stub.FakeExporter()])
+        self.bpy = bpy_stub.install({"model": self.collection}, str(self.blend))
         from nkata import panel, save_hook, state
 
         state.STATE.part = None
         state.STATE.last_hashes.clear()
         state.STATE.checks.clear()
-        state.STATE.mirror.clear()
         state.STATE.comments.clear()
+        state.STATE.kind.clear()
+        state.STATE.seen_comments.clear()
         state.STATE.online = []
-        state.STATE.startable = []
         state.STATE.error = ""
         state.STATE.publish_line = ""
+        state.STATE.added_line = ""
+        state.STATE.project_name = ""
+        state.STATE.budgets = None
         state.STATE.card.clear()
         self.bpy.context.window_manager.nkata_note = ""
         self.bpy.context.window_manager.nkata_note_engineering = ""
@@ -161,11 +163,8 @@ class PanelTest(unittest.TestCase):
         self.env.start()
         self.listener = mock.patch.object(save_hook, "_ensure_listener", lambda _c: None)
         self.listener.start()
-        self.opened = mock.patch.object(panel, "open_with_os", lambda p: FakeAgent.calls.append(("OPEN", str(p), None)))
-        self.opened.start()
 
     def tearDown(self) -> None:
-        self.opened.stop()
         self.listener.stop()
         self.env.stop()
         self.server.shutdown()
@@ -178,275 +177,216 @@ class PanelTest(unittest.TestCase):
         p.draw(None)
         return layout.lines
 
-    def test_open_takes_the_lock_and_the_panel_shows_all_seven_elements(self) -> None:
+    def test_open_reads_the_project_and_the_budgets_and_the_panel_shows_the_five_elements(self) -> None:
         out = self.save_hook.handle_open(str(self.blend))
         self.assertTrue(out["granted"])
-        self.assertEqual(self.state.part["lock"]["holder"]["name"], "Ada")
-        self.assertEqual([c[1] for c in FakeAgent.calls if c[0] == "POST"], [f"/parts/{ID}/open", "/presence", ])
+        self.assertEqual(self.state.project_name, "Rising Sun")
+        self.assertEqual(self.state.budgets, BUDGETS)
+        self.assertEqual(self.state.kind[ID], "object", "Props is an object folder")
         lines = self.draw()
         text = "\n".join(lines)
-        self.assertIn("label:Ojukwu / face · Draft · Ada · Open by Ada", text)
-        self.assertIn("label:Not mirrored yet", text)
-        self.assertIn("label:Reference", text)
-        self.assertIn("op:nkata.open_reference:concept.png", text)
-        self.assertIn("label:Checks", text)
-        self.assertIn("label:Checks run on save and on Publish", text)
-        self.assertIn("label:No comments yet", text)
-        self.assertIn("op:nkata.reply:Reply", text)
-        # No note yet: the note field is drawn and Publish waits for it.
+        self.assertIn("label:Connected to Rising Sun", text)
+        self.assertIn("op:nkata.set_kind:Object:on", text)
+        self.assertIn("op:nkata.set_kind:Environment", text)
+        self.assertIn("label:Only you in the project now", text)
+        self.assertIn("label:Not checked yet.", text)
+        self.assertIn("label:No new comments", text)
         self.assertIn("prop:nkata_note:", text)
-        self.assertIn("op-off:nkata.publish:Publish", text)
-        self.assertIn("op-off:nkata.publish:Mark Ready", text)
-        self.assertIn("label:Here: Chidi", text)
-        order = [lines.index(x) for x in ("label:Ojukwu / face · Draft · Ada · Open by Ada", "label:Not mirrored yet", "label:Reference", "label:Checks", "label:Comments", "op-off:nkata.publish:Publish", "label:Here: Chidi")]
-        self.assertEqual(order, sorted(order), "the seven elements keep their order")
+        self.assertIn("op:nkata.publish:Publish, after the red one", text, "nothing checked reads as red")
+        order = [lines.index(x) for x in ("label:Connected to Rising Sun", "label:Only you in the project now", "label:Not checked yet.", "label:No new comments", "op:nkata.publish:Publish, after the red one")]
+        self.assertEqual(order, sorted(order), "the five elements keep their order")
+        for banned in ("Draft", "Locked", "Mark Ready", "Mirror", "gate", "state", "Reference"):
+            self.assertNotIn(banned, text)
 
-    def test_with_unreal_off_the_panel_has_no_mirror_line(self) -> None:
-        """Unreal is Coming soon: the mirror row and its toggle are not drawn. Six elements stay."""
-        FakeAgent.unreal = False
-        self.save_hook.handle_open(str(self.blend))
-        lines = self.draw()
-        text = "\n".join(lines)
-        self.assertNotIn("Not mirrored yet", text)
-        self.assertNotIn("nkata.mirror_on_save", text)
-        self.assertIn("label:Reference", text)
-        self.assertIn("op-off:nkata.publish:Publish", text)
-
-    def test_mirror_on_save_toggles_from_the_panel_and_the_line_says_why(self) -> None:
-        self.save_hook.handle_open(str(self.blend))
-        self.assertIn("op:nkata.mirror_on_save:Mirror on save: On", self.draw())
-        op = self.panel.NKATA_OT_mirror_on_save()
-        op.on_save = False
-        self.assertEqual(op.execute(None), {"FINISHED"})
-        lines = self.draw()
-        self.assertIn("op:nkata.mirror_on_save:Mirror on save: Off", lines)
-        self.assertIn("label:Mirror on save is off", lines)
-        self.assertEqual([c for c in FakeAgent.calls if c[1].endswith("/mirror/on-save")][-1][2], {"v": 1, "on_save": False})
-        # A save still versions while it is off.
-        self.save_hook.handle_save(str(self.blend))
-        self.assertTrue(any(c[1] == f"/parts/{ID}/saved" for c in FakeAgent.calls))
-        saved = [c for c in FakeAgent.calls if c[1] == f"/parts/{ID}/saved"][-1][2]
-        self.assertRegex(saved["opened_at"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
-
-    def test_a_held_part_shows_the_holder(self) -> None:
-        FakeAgent.held_by = HOLDER
-        out = self.save_hook.handle_open(str(self.blend))
-        self.assertFalse(out["granted"])
-        self.assertIn("Chidi has this part", self.state.error)
-        self.assertIn("label:Ojukwu / face · Draft · Ada · Open by Chidi", self.draw())
-
-    def test_a_save_runs_the_checks_and_fix_applies_scale_and_names(self) -> None:
+    def test_a_save_runs_the_four_checks_with_the_project_budget_and_fix_turns_them_green(self) -> None:
+        self.bpy.context.scene.unit_settings.scale_length = 0.01
+        self.bpy.data.images = [types.SimpleNamespace(name="radio diffuse", size=(2048, 2048), filepath="", packed_file=None)]
         self.save_hook.handle_open(str(self.blend))
         self.save_hook.handle_save(str(self.blend))
         results = self.state.checks[ID]
-        self.assertEqual([r["check_id"] for r in results], ["unit_scale", "name_pattern", "triangle_budget"])
-        self.assertEqual([r["passed"] for r in results], [False, False, True])
-        recorded = [c for c in FakeAgent.calls if c[1] == f"/parts/{ID}/checks"]
-        self.assertEqual(len(recorded[0][2]["results"]), 3)
+        self.assertEqual([r["check_id"] for r in results], ["texture_names", "unit_scale", "uv_set_present", "triangle_budget"])
+        self.assertEqual([r["passed"] for r in results], [False, False, True, True])
+        self.assertEqual(results[3]["message"], "", "the budget from the project, 30,000, holds one triangle")
         text = "\n".join(self.draw())
-        self.assertIn("label:Scale: unit scale is 0.01, expected 1.0", text)
+        self.assertIn("label:Rename the images T_<asset>_<map>. Fix does it.", text)
+        self.assertIn("label:Apply scale in Blender. Fix does it.", text)
+        self.assertIn("label:1 triangles, within budget of 30,000", text)
         self.assertIn("op:nkata.fix_checks:Fix", text)
-        op = self.panel.NKATA_OT_fix_checks()
-        self.assertEqual(op.execute(None), {"FINISHED"})
+        self.assertIn("op:nkata.publish:Publish, after the red one", text)
+        self.assertEqual(self.panel.NKATA_OT_fix_checks().execute(None), {"FINISHED"})
         self.assertEqual(self.bpy.context.scene.unit_settings.scale_length, 1.0)
-        self.assertEqual(self.face.name, "SK_face_body")
+        self.assertEqual(self.bpy.data.images[0].name, "T_radio_diffuse")
         self.assertTrue(all(r["passed"] for r in self.state.checks[ID]))
-        self.assertIn("label:Scale 1 (fixed)", "\n".join(self.draw()))
-
-    def test_fix_moves_the_origin_to_the_base_and_leaves_the_mesh_where_it_was(self) -> None:
-        """A cube whose origin sits half a metre under its base: Fix moves the origin to the base
-        and the mesh the other way in object space, so nothing in the viewport moves."""
-        crate = bpy_stub.FakeObject("SM_Crate", coords=[0.0, 0.0, 0.5, 1.0, 0.0, 0.5, 0.0, 1.0, 1.5], location=(2.0, 0.0, 1.0))
-        self.collection.all_objects = [crate]
-        self.state.part = {**PART, "checks": [{"id": "pivot_at_base", "severity": "block", "params": {}}]}
-        self.save_hook.handle_open(str(self.blend))
-        self.state.part = {**self.state.part, "checks": [{"id": "pivot_at_base", "severity": "block", "params": {}}]}
-        results = self.panel.run_checks(self.state.part, fix=False)
-        self.assertFalse(results[0]["passed"])
-        self.assertEqual(self.panel.NKATA_OT_fix_checks().execute(None), {"FINISHED"})
-        # Origin was at z 1.0 with the mesh base at z 1.5 in the world: the origin rises to the
-        # base and the mesh drops by the same half metre in object space.
-        self.assertEqual(crate.matrix_world[2][3], 1.5)
-        self.assertEqual(crate.data.vertices.flat[2], 0.0)
-        self.assertEqual(crate.data.vertices.flat[8], 1.0)
-        self.assertTrue(self.state.checks[ID][0]["passed"])
-        self.assertTrue(self.state.checks[ID][0]["auto_fixed"])
-
-    def test_the_four_blocking_checks_read_as_lines_with_numbers_and_fix_renames_textures(self) -> None:
-        """Green lines carry the number. A texture off the pattern blocks, and Fix renames the image."""
-        self.bpy.data.images = [types.SimpleNamespace(name="face diffuse", size=(2048, 2048))]
-        specs = [
-            {"id": "texture_names", "severity": "block", "params": {"pattern": "T_.*"}},
-            {"id": "unit_scale", "severity": "block", "params": {}},
-            {"id": "uv_set_present", "severity": "block", "params": {}},
-            {"id": "triangle_budget", "severity": "block", "params": {"max": 60000}},
-            {"id": "name_pattern", "severity": "warn", "params": {"pattern": "SK_.*"}},
-        ]
-        self.bpy.context.scene.unit_settings.scale_length = 1.0
-        self.save_hook.handle_open(str(self.blend))
-        self.state.part = {**self.state.part, "checks": specs}
-        self.panel.run_checks(self.state.part, fix=False)
-        lines = self.draw()
-        text = "\n".join(lines)
-        self.assertIn("label:Texture names: 1 textures not T_.*: face diffuse", text)
+        text = "\n".join(self.draw())
+        self.assertIn("label:Textures named · 1", text)
         self.assertIn("label:Scale 1", text)
-        self.assertIn("label:UVs present · 1 set", text)
-        self.assertIn("label:Tris within budget · 1 of 60,000", text)
-        naming = next(line for line in lines if line.startswith("label:Naming"))
-        self.assertLess(lines.index("label:Tris within budget · 1 of 60,000"), lines.index(naming), "blocking checks come first")
-        self.assertEqual(self.panel.NKATA_OT_fix_checks().execute(None), {"FINISHED"})
-        self.assertEqual(self.bpy.data.images[0].name, "T_face_diffuse")
-        self.assertIn("label:Textures named · 1 (fixed)", "\n".join(self.draw()))
+        self.assertIn("op:nkata.publish:Publish, after the note", text)
+        # The GLB and the manifest sit next to the .blend, with the four checks inside.
+        glb = self.blend.with_suffix(".glb")
+        self.assertTrue(glb.is_file())
+        manifest = json.loads(self.blend.with_suffix(".manifest.json").read_text())
+        self.assertEqual(manifest["asset_kind"], "object")
+        self.assertEqual([c["key"] for c in manifest["checks"]], ["textures", "scale", "uv", "tris"])
+        self.assertEqual([c["pass"] for c in manifest["checks"]], [False, False, True, True])
+        saved = [c for c in FakeAgent.calls if c[1] == f"/parts/{ID}/saved"][-1][2]
+        self.assertEqual(saved["spool_path"], str(glb))
 
-    def test_fix_leaves_edit_mode_first(self) -> None:
-        """In edit mode a mesh write is dropped and the origin move would shift the object."""
-        self.bpy.context.mode = "EDIT_MESH"
-        self.state.part = {**PART, "checks": [{"id": "pivot_at_base", "severity": "block", "params": {}}]}
+    def test_the_budget_follows_the_kind_the_artist_picks(self) -> None:
         self.save_hook.handle_open(str(self.blend))
-        self.state.part = {**self.state.part, "checks": [{"id": "pivot_at_base", "severity": "block", "params": {}}]}
-        self.assertEqual(self.panel.NKATA_OT_fix_checks().execute(None), {"FINISHED"})
-        self.assertIn(("object.mode_set", {"mode": "OBJECT"}), self.bpy._ops.calls)
-        self.assertEqual(self.bpy.context.mode, "OBJECT")
-
-    def test_publish_is_blocked_then_passes_and_marks_ready(self) -> None:
-        self.save_hook.handle_open(str(self.blend))
-        self.face.name = "SK_Face"
-        op = self.panel.NKATA_OT_publish()
-        op.ready = True
-        # No note: nothing publishes, the artist is told what to write.
-        self.assertEqual(op.execute(None), {"CANCELLED"})
-        self.assertIn("Write one line on what you did before Publish", bpy_stub.FakeOps.reports[-1])
-        self.bpy.context.window_manager.nkata_note = "Face blocked in, eyes still rough"
-        self.bpy.context.window_manager.nkata_note_engineering = "Skin uses the shared T_Skin set."
-        self.assertIn("op:nkata.publish:Publish", self.draw())
-        # Fix is part of Publish: the scale fixes itself, so this publishes and marks Ready.
+        op = self.panel.NKATA_OT_set_kind()
+        op.kind = "environment"
         self.assertEqual(op.execute(None), {"FINISHED"})
-        self.assertEqual(self.bpy.context.window_manager.nkata_note, "", "the note clears after Publish")
-        self.assertEqual(self.state.part["state"], "ready")
-        self.assertEqual(self.state.publish_line, "Published and marked Ready")
-        published = [c for c in FakeAgent.calls if c[1] == f"/parts/{ID}/publish"]
-        self.assertEqual(published[-1][2]["ready"], True)
-        self.assertEqual(published[-1][2]["note"], "Face blocked in, eyes still rough")
-        self.assertEqual(published[-1][2]["note_engineering"], "Skin uses the shared T_Skin set.")
-        self.assertTrue(all(r["passed"] for r in published[-1][2]["check_results"]))
-        # Publish exports the FBX for the engineer, named from the template, and posts it.
-        fbx = [c for c in self.bpy._ops.calls if c[0] == "export_scene.fbx"]
-        self.assertEqual(len(fbx), 1)
-        self.assertTrue(fbx[0][1]["filepath"].endswith(f"{ID}.SK_Ojukwu_face.fbx"), fbx[0][1]["filepath"])
-        self.assertTrue(fbx[0][1]["use_active_collection"])
-        self.assertEqual(fbx[0][1]["object_types"], {"MESH", "ARMATURE"})
-        exported = [c for c in FakeAgent.calls if c[1] == f"/parts/{ID}/export"]
-        self.assertEqual(len(exported), 1)
-        self.assertTrue(Path(exported[0][2]["path"]).is_file())
-        # The fake agent says UE5 gave no capture, so Blender's viewport render is posted.
-        rendered = [c for c in FakeAgent.calls if c[1] == f"/parts/{ID}/render"]
-        self.assertEqual(len(rendered), 1)
-        self.assertTrue(rendered[0][2]["path"].endswith(f"{ID}.render.png"))
-        self.assertTrue(Path(rendered[0][2]["path"]).is_file())
-        self.assertEqual([c[0] for c in self.bpy._ops.calls if c[0] == "render.opengl"], ["render.opengl"])
-        self.assertEqual(self.bpy.context.scene.render.filepath, "")
-        # A failure Nkata cannot fix blocks.
-        self.state.part = {**PART, "checks": [{"id": "triangle_budget", "severity": "block", "params": {"max": 0}}]}
-        self.bpy.context.window_manager.nkata_note = "Too many tris, trying anyway"
-        op2 = self.panel.NKATA_OT_publish()
-        op2.ready = False
-        self.assertEqual(op2.execute(None), {"CANCELLED"})
-        self.assertEqual(self.state.publish_line, "1 checks block: Triangle budget")
-
-    def test_reply_pins_a_comment_at_the_cursor_and_events_update_the_list(self) -> None:
+        self.assertEqual(self.state.kind[ID], "environment")
+        self.assertEqual(json.loads(self.blend.with_suffix(".nkata.json").read_text())["kind"], "environment")
+        self.assertEqual(self.panel.asset_budget(self.state.part), 2_000_000)
+        self.assertIn("op:nkata.set_kind:Environment:on", self.draw())
+        # The pick survives the next open.
         self.save_hook.handle_open(str(self.blend))
-        op = self.panel.NKATA_OT_reply()
-        op.body = "Nose wider."
-        self.assertEqual(op.execute(self.bpy.context), {"FINISHED"})
+        self.assertEqual(self.state.kind[ID], "environment")
+
+    def test_an_environment_save_renders_the_still_and_posts_it(self) -> None:
+        self.save_hook.handle_open(str(self.blend))
+        op = self.panel.NKATA_OT_set_kind()
+        op.kind = "environment"
+        self.assertEqual(op.execute(None), {"FINISHED"})
+        self.save_hook.handle_save(str(self.blend))
+        renders = [c for c in self.bpy._ops.calls if c[0] == "render.render"]
+        self.assertEqual(len(renders), 1)
+        self.assertEqual(renders[0][1]["size"], (1600, 1000))
+        self.assertTrue(self.blend.with_suffix(".png").is_file())
+        posted = [c for c in FakeAgent.calls if c[1] == f"/parts/{ID}/render"]
+        self.assertEqual(posted[0][2]["path"], str(self.blend.with_suffix(".png")))
+        self.assertEqual(self.bpy.context.scene.render.engine, "CYCLES", "the render settings come back")
+        self.assertIsNone(self.bpy.context.scene.camera)
+
+    def test_publish_needs_green_checks_and_a_note_then_publishes_with_the_labels(self) -> None:
+        self.save_hook.handle_open(str(self.blend))
+        self.bpy.context.scene.unit_settings.scale_length = 0.01
+        op = self.panel.NKATA_OT_publish()
+        self.assertEqual(op.execute(None), {"CANCELLED"})
+        self.assertEqual(self.state.publish_line, "Write one line on what changed first.", "Fix runs first, so only the note is missing")
+        self.bpy.context.window_manager.nkata_note = "Dial added."
+        self.bpy.context.window_manager.nkata_note_engineering = "Pivot at the base."
+        self.assertIn("op:nkata.publish:Publish", self.draw())
+        self.assertEqual(op.execute(None), {"FINISHED"})
+        self.assertEqual(self.state.publish_line, "Published. The team can see it now.")
+        self.assertEqual(self.bpy.context.window_manager.nkata_note, "")
+        published = [c for c in FakeAgent.calls if c[1] == f"/parts/{ID}/publish"][-1][2]
+        self.assertEqual(published["note"], "Dial added.")
+        self.assertEqual(published["note_engineering"], "Pivot at the base.")
+        self.assertFalse(published["ready"])
+        self.assertTrue(all(r["passed"] for r in published["check_results"]))
+        self.assertEqual([c for c in self.bpy._ops.calls if c[0] == "export_scene.fbx"], [], "FBX only on demand (Decisions 15)")
+
+    def test_comments_arrive_as_new_with_jump_to_pin_and_a_reply_pins_at_the_cursor(self) -> None:
+        self.save_hook.handle_open(str(self.blend))
+        self.state.apply_event({"kind": "comment.created", "comment": {"id": "other", "part_id": ID, "body": "Loosen the ridge.", "author": CHIDI, "point": [0, 0, 1], "resolved_at": None}})
+        text = "\n".join(self.draw())
+        self.assertIn("label:Chidi: Loosen the ridge.", text)
+        self.assertIn("op:nkata.frame_pin:Jump to pin", text)
+        jump = self.panel.NKATA_OT_frame_pin()
+        jump.index = 0
+        ctx = types.SimpleNamespace(scene=self.bpy.context.scene, screen=types.SimpleNamespace(areas=[]), temp_override=self.bpy.context.temp_override)
+        self.assertEqual(jump.execute(ctx), {"FINISHED"})
+        self.assertEqual(tuple(self.bpy.context.scene.cursor.location), (0.0, 0.0, 1.0))
+        self.assertIn("label:No new comments", "\n".join(self.draw()), "a pin jumped to is seen")
+        reply = self.panel.NKATA_OT_reply()
+        reply.body = "Done."
+        self.bpy.context.scene.cursor.location = (0.5, 0.25, 0.0)
+        self.assertEqual(reply.execute(self.bpy.context), {"FINISHED"})
         sent = [c for c in FakeAgent.calls if c[1] == f"/parts/{ID}/comments" and c[0] == "POST"][0][2]
         self.assertEqual(sent["point"], [0.5, 0.25, 0.0])
-        self.assertEqual(len(self.state.comments[ID]), 1)
-        self.state.apply_event({"kind": "comment.created", "comment": {"id": "other", "part_id": ID, "body": "Chin.", "author": HOLDER, "point": [0, 0, 0], "resolved_at": None}})
-        self.state.apply_event({"kind": "comment.created", "comment": {"id": "other", "part_id": ID, "body": "Chin.", "author": HOLDER, "point": [0, 0, 0], "resolved_at": None}})
-        self.assertEqual(len(self.state.comments[ID]), 2, "an event seen twice adds one pin")
-        text = "\n".join(self.draw())
-        self.assertIn("label:Ada: Nose wider.", text)
-        self.assertIn("label:Chidi: Chin.", text)
-        self.state.apply_event({"kind": "part.state", "part_id": ID, "from": "draft", "to": "ready"})
-        self.assertEqual(self.state.part["state"], "ready")
-        self.state.apply_event({"kind": "presence.changed", "online": [{"user": HOLDER, "part_id": ID, "since": AT, "last_seen": AT}]})
-        self.assertIn("label:Here: Chidi in this part", "\n".join(self.draw()))
-        self.state.apply_event({"kind": "lock.requested", "part_id": ID, "requester": HOLDER, "holder_id": ID2})
-        self.assertIn("Chidi asked to open this part", self.state.publish_line)
+        self.assertIn("label:No new comments", "\n".join(self.draw()), "my own comment is not new to me")
 
-    def test_open_of_a_file_brought_in_from_the_folder_names_its_only_collection(self) -> None:
-        """An asset made from an existing .blend: the file's one collection is not named after the
-        part yet. Open renames it, so the save hook finds the objects to hash and export."""
-        self.collection.name = "Collection"
-        self.bpy = bpy_stub.install({"Collection": self.collection}, str(self.blend))
-        out = self.save_hook.handle_open(str(self.blend))
-        self.assertTrue(out["granted"])
-        self.assertEqual(self.collection.name, "face")
-        self.assertIs(self.bpy.data.collections.get("face"), self.collection)
-
-    def test_open_of_a_file_with_many_collections_adds_the_part_collection(self) -> None:
-        other = bpy_stub.FakeCollection("Props", [])
-        self.collection.name = "Collection"
-        self.bpy = bpy_stub.install({"Collection": self.collection, "Props": other}, str(self.blend))
+    def test_the_team_shows_who_is_in_the_project_and_in_this_file(self) -> None:
+        FakeAgent.online = [{"user": CHIDI, "part_id": ID, "since": AT, "last_seen": AT}]
         self.save_hook.handle_open(str(self.blend))
-        self.assertEqual(self.collection.name, "Collection")
-        made = self.bpy.data.collections.get("face")
-        self.assertIsNotNone(made)
-        self.assertIn(made, self.bpy.context.scene.collection.children.linked)
+        self.assertIn("label:C Chidi · in this file", self.draw())
+        self.state.apply_event({"kind": "presence.changed", "online": [{"user": CHIDI, "part_id": None, "since": AT, "last_seen": AT}]})
+        self.assertIn("label:C Chidi", self.draw())
 
-    def test_start_a_part_names_the_collection_and_saves_where_the_part_lives(self) -> None:
-        """A new project: no file yet. The panel lists my parts from the agent's pointer, and one
-        click names the collection and saves the file at the mapped path, which takes the lock."""
-        root = self.blend.parents[1]
-        self.blend.unlink()
+    def test_the_heartbeat_carries_the_open_file_every_twenty_seconds(self) -> None:
+        self.save_hook.handle_open(str(self.blend))
+        FakeAgent.calls = []
+        self.panel._heartbeat.last = -1e9
+        self.panel.live_tick()
+        beats = [c for c in FakeAgent.calls if c[1] == "/presence"]
+        self.assertEqual(len(beats), 1)
+        self.assertEqual(beats[0][2], {"v": 1, "part_id": ID, "file": "Props/Radio/Radio.blend"})
+        self.panel.live_tick()
+        self.assertEqual(len([c for c in FakeAgent.calls if c[1] == "/presence"]), 1, "not again within 20 s")
+
+    def test_checks_re_run_on_a_scene_change_at_most_every_two_seconds(self) -> None:
+        self.save_hook.handle_open(str(self.blend))
+        self.panel._throttle.last = -1e9
+        self.panel._throttle.dirty = False
+        self.panel.live_tick()
+        self.assertNotIn(ID, self.state.checks, "nothing changed, nothing ran")
+        self.panel.on_depsgraph_update()
+        self.panel.live_tick()
+        self.assertIn(ID, self.state.checks)
+        self.assertTrue(all(r["passed"] for r in self.state.checks[ID]))
+        self.assertIn("label:1 triangles, within budget of 30,000", self.draw())
+
+    def test_a_file_outside_the_project_offers_add_to_project_and_the_move_keeps_textures(self) -> None:
+        outside = Path(self.tmp.name) / "Desktop" / "Lamp.blend"
+        outside.parent.mkdir()
+        outside.write_bytes(b"BLENDER")
+        self.bpy = bpy_stub.install({"model": self.collection}, str(outside))
+        self.bpy.data.images = [types.SimpleNamespace(name="T_Lamp_D", size=(1024, 1024), filepath=str(outside.with_name("T_Lamp_D.png")), packed_file=None)]
         home = Path(self.tmp.name) / "home"
         (home / ".nkata").mkdir(parents=True)
-        (home / ".nkata" / "agent.json").write_text(json.dumps({"v": 1, "folder": str(root), "port": 7420}))
-        self.collection.name = "Collection"
-        self.bpy = bpy_stub.install({"Collection": self.collection}, "")
+        (home / ".nkata" / "agent.json").write_text(json.dumps({"v": 1, "folder": str(self.root), "port": 7420}))
         self.save_hook.register()
         with mock.patch.dict(os.environ, {"HOME": str(home)}):
             lines = self.draw()
-            self.assertIn("label:Save this file as a part, or start one", lines)
-            self.assertIn("op:nkata.find_parts:Find my parts", lines)
-            self.assertEqual(self.panel.NKATA_OT_find_parts().execute(None), {"FINISHED"})
-            self.assertIn("op:nkata.start_part:Ojukwu / face", self.draw())
-            start = self.panel.NKATA_OT_start_part()
-            start.part_id = ID
-            self.assertEqual(start.execute(None), {"FINISHED"})
-        self.assertEqual(self.collection.name, "face")
-        self.assertEqual(Path(self.bpy.data.filepath), self.blend)
-        self.assertTrue(self.blend.is_file())
-        self.assertEqual(self.state.part["id"], ID)
-        posts = [c[1] for c in FakeAgent.calls if c[0] == "POST"]
-        self.assertIn(f"/parts/{ID}/saved", posts)
-        self.assertIn(f"/parts/{ID}/open", posts)
-        self.assertIn("label:Ojukwu / face · Draft · Ada · Open by Ada", self.draw())
-        self.assertEqual(self.state.startable, [])
-        # Without the pointer, the panel says what to do.
-        with mock.patch.dict(os.environ, {"HOME": self.tmp.name}):
-            self.bpy = bpy_stub.install({"Collection": self.collection}, "")
-            self.assertEqual(self.panel.NKATA_OT_find_parts().execute(None), {"CANCELLED"})
-            self.assertIn("Open the project in the Nkata app first", bpy_stub.FakeOps.reports[-1])
+            self.assertIn("op:nkata.add_to_project:Add to rising-sun", lines)
+            op = self.panel.NKATA_OT_add_to_project()
+            self.assertEqual(op.execute(None), {"FINISHED"})
+        target = self.root / "Objects" / "Lamp" / "Lamp.blend"
+        self.assertTrue(target.is_file())
+        self.assertFalse(outside.exists(), "the old file is gone")
+        self.assertEqual(Path(self.bpy.data.filepath), target)
+        calls = [c[0] for c in self.bpy._ops.calls]
+        self.assertIn("file.pack_all", calls, "a texture that is not on disk is packed")
+        self.assertIn("wm.open_mainfile", calls)
+        self.assertIn("Added to", self.state.added_line)
+        self.assertIn("Textures packed", self.state.added_line)
+        # The save made the asset: one file, one part, this person's, as an object in Objects.
+        made = [c for c in FakeAgent.calls if c[1] == "/assets"]
+        self.assertEqual(made[0][2], {"v": 1, "name": "Lamp", "file": "Objects/Lamp/Lamp.blend", "kind": "object", "group": "Objects"})
+        self.assertEqual(self.state.part["mapping"]["file"], "Objects/Lamp/Lamp.blend")
 
-    def test_open_reference_opens_the_file_on_this_machine(self) -> None:
-        self.save_hook.handle_open(str(self.blend))
-        op = self.panel.NKATA_OT_open_reference()
-        op.path = "Ojukwu/ref/concept.png"
-        self.assertEqual(op.execute(None), {"FINISHED"})
-        self.assertTrue(any(c[0] == "OPEN" and c[1].endswith("concept.png") for c in FakeAgent.calls))
-        op.path = "Ojukwu/ref/missing.png"
-        self.assertEqual(op.execute(None), {"CANCELLED"})
+    def test_add_to_project_relinks_when_every_texture_is_on_disk(self) -> None:
+        outside = Path(self.tmp.name) / "Desktop" / "Lamp.blend"
+        outside.parent.mkdir()
+        outside.write_bytes(b"BLENDER")
+        tex = outside.with_name("T_Lamp_D.png")
+        tex.write_bytes(b"png")
+        self.bpy = bpy_stub.install({"model": self.collection}, str(outside))
+        self.bpy.data.images = [types.SimpleNamespace(name="T_Lamp_D", size=(1024, 1024), filepath=str(tex), packed_file=None)]
+        home = Path(self.tmp.name) / "home"
+        (home / ".nkata").mkdir(parents=True)
+        (home / ".nkata" / "agent.json").write_text(json.dumps({"v": 1, "folder": str(self.root), "port": 7420}))
+        with mock.patch.dict(os.environ, {"HOME": str(home)}):
+            self.assertEqual(self.panel.NKATA_OT_add_to_project().execute(None), {"FINISHED"})
+        calls = [c[0] for c in self.bpy._ops.calls]
+        self.assertIn("file.make_paths_absolute", calls)
+        self.assertNotIn("file.pack_all", calls)
+        self.assertIn("Textures relinked", self.state.added_line)
+
+    def test_without_the_app_the_panel_says_so(self) -> None:
+        self.bpy = bpy_stub.install({"model": self.collection}, "")
+        with mock.patch.dict(os.environ, {"HOME": self.tmp.name}):
+            self.assertIn("label:Open the project in Nkata first", self.draw())
+            self.assertEqual(self.panel.NKATA_OT_add_to_project().execute(None), {"CANCELLED"})
 
 
 class PinsTest(unittest.TestCase):
     def test_pure_helpers(self) -> None:
         from nkata import pins
 
-        self.assertEqual(pins.pin_color({"resolved_at": None}), pins.OPEN_COLOR)
-        self.assertEqual(pins.pin_color({"resolved_at": AT}), pins.RESOLVED_COLOR)
         self.assertEqual(pins.pin_label(0, {"body": "Steam reads too strong in the key light here"}), "1 Steam reads too strong in the k…")
-        self.assertEqual(pins.pin_label(2, {"body": "Short"}), "3 Short")
         self.assertFalse(pins.detached((0, 0, 0), 0.01))
         self.assertTrue(pins.detached((0, 0, 0), 0.2))
         self.assertFalse(pins.detached((0, 0, 0), None))

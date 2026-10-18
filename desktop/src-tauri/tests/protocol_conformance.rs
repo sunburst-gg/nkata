@@ -93,7 +93,14 @@ fn samples() -> Vec<(&'static str, Value)> {
                 spool_dir: "/x".into(),
                 mode: AgentMode::Stream,
                 mirror_paused: false,
-                unreal: false
+                unreal: false,
+                budgets: Some(Budgets {
+                    prop: 30_000,
+                    vehicle: 60_000,
+                    character: 80_000,
+                    environment: 2_000_000,
+                    max_texture: None
+                })
             }),
         ),
         (

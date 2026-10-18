@@ -112,6 +112,16 @@ pub struct CheckSpec {
     pub params: serde_json::Map<String, serde_json::Value>,
 }
 
+/// Triangle budgets per kind and the texture limit (shared common Budgets, v8 Decisions 12).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Budgets {
+    pub prop: u64,
+    pub vehicle: u64,
+    pub character: u64,
+    pub environment: u64,
+    pub max_texture: Option<u64>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ProjectRef {
     pub id: String,
@@ -139,6 +149,27 @@ pub struct MeResponse {
     pub mirror_paused: bool,
     /// False while Unreal is Coming soon: no mirror, no capture, the panel hides the mirror line.
     pub unreal: bool,
+    /// The project's budgets, for the add-on's checks. None on an older server.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub budgets: Option<Budgets>,
+}
+
+/// POST /assets from Blender: a saved .blend that maps to no asset yet becomes one (v8 step 12).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AssetCreateRequest {
+    pub v: u8,
+    pub name: String,
+    /// The .blend, project relative with forward slashes.
+    pub file: String,
+    /// "object" or "environment".
+    pub kind: String,
+    pub group: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AssetCreateResponse {
+    pub v: u8,
+    pub part: PartSummary,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -466,6 +497,9 @@ pub struct PresenceEntry {
 pub struct PresenceRequest {
     pub v: u8,
     pub part_id: Option<String>,
+    /// v8: the open .blend, project relative. Optional; the strip reads the part.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

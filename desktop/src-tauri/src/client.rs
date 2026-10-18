@@ -119,6 +119,9 @@ pub struct ServerProject {
     pub name: String,
     pub folder_name: String,
     pub package_version: String,
+    /// v8 budgets per project. Absent on an older server.
+    #[serde(default)]
+    pub budgets: Option<crate::protocol::Budgets>,
 }
 
 /// Lock call outcome. The server answers 200 when granted and 409 with the holder when held.
@@ -246,6 +249,41 @@ impl ServerClient {
         }
         let w: Wrap = self.get(&path).await?;
         Ok(w.parts)
+    }
+
+    /// v8: one asset from one .blend, with one part the caller owns. The server picks the
+    /// template by kind (Object or Environment) and seeds it into the project when missing.
+    pub async fn create_asset(
+        &self,
+        user_id: &str,
+        name: &str,
+        file: &str,
+        kind: &str,
+        group: Option<&str>,
+    ) -> Result<PartSummary> {
+        #[derive(Deserialize)]
+        struct Wrap {
+            parts: Vec<PartSummary>,
+        }
+        let template = if kind == "environment" {
+            "Environment"
+        } else {
+            "Object"
+        };
+        let body = serde_json::json!({
+            "project_id": self.project_id,
+            "template_name": template,
+            "name": name,
+            "parts": ["model"],
+            "owners": { "model": user_id },
+            "files": { "model": file },
+            "group": group,
+        });
+        let w: Wrap = self.post("/assets", &body).await?;
+        w.parts
+            .into_iter()
+            .next()
+            .ok_or_else(|| AgentError::Config("POST /assets answered with no part".into()))
     }
 
     pub async fn part(&self, part_id: &str) -> Result<PartSummary> {

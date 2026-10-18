@@ -99,9 +99,18 @@ class AgentClient:
         body = shared.validate_ReviewRequest({"v": 1, "score": score, "decision": decision, "note": note}).to_dict()
         return shared.validate_ReviewResponse(self._call("POST", f"/parts/{part_id}/review", body))
 
-    def presence(self, part_id: str | None) -> Any:
-        body = shared.validate_PresenceRequest({"v": 1, "part_id": part_id}).to_dict()
+    def presence(self, part_id: str | None, file: str | None = None) -> Any:
+        """The heartbeat: where this person is, and which .blend is open (v8)."""
+        body: dict[str, Any] = {"v": 1, "part_id": part_id}
+        if file:
+            body["file"] = file
+        body = shared.validate_PresenceRequest(body).to_dict()
         return shared.validate_PresenceResponse(self._call("POST", "/presence", body))
+
+    def create_asset(self, name: str, file: str, kind: str, group: str | None) -> dict[str, Any]:
+        """v8: a saved .blend that maps to no asset becomes one, with one part this person owns."""
+        body = shared.validate_AssetCreateRequest({"v": 1, "name": name, "file": file, "kind": kind, "group": group}).to_dict()
+        return shared.validate_AssetCreateResponse(self._call("POST", "/assets", body)).part.to_dict()
 
     def mirror_state(self, part_id: str) -> Any:
         return shared.validate_MirrorStateResponse(self._call("GET", f"/parts/{part_id}/mirror")).mirror
