@@ -4,7 +4,10 @@
 // Step 4: (d) still capture: after the model loads and the first frame renders, the canvas is
 // captured once into a module Map keyed by src and size, and _release sets that still as the
 // poster before the context is freed, so a card past the pool cap never goes blank; (e) the pool
-// is exposed as window.__nkataPool for the dev Tweaks' "live contexts n / 8".
+// is exposed as window.__nkataPool for the dev Tweaks' "live contexts n / 8"; (f) a released
+// viewer boots again on a fresh canvas, because a canvas whose context was force-lost cannot
+// hand out a new one and three.js then fails on getContext; (g) data-live marks a viewer that
+// holds a context, so a card can show the ghost placeholder while it has neither context nor still.
 // NKATA (a): the npm package, not an import map.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -47,8 +50,10 @@ class NkViewer extends HTMLElement {
   _captureStill() { try { const key = this._stillKey(); if (NkViewer._stills.has(key)) return; const url = this._canvas.toDataURL('image/webp', 0.9); NkViewer._stills.set(key, url); } catch (e) { /* a tainted or lost canvas yields no still; the ghost stays */ } }
   get still() { return NkViewer._stills.get(this._stillKey()) || null; }
   _release(force) { const P = NkViewer._pool; const k = P.indexOf(this); if (k >= 0) P.splice(k, 1); if (!this._renderer) return; cancelAnimationFrame(this._raf);
-    if (this._model) { const still = this.still; if (still) { this._poster.style.backgroundImage = 'url(' + still + ')'; this._poster.style.opacity = 1; this.setAttribute('data-still', 'true'); } } /* NKATA (d) */ if (this._ro) this._ro.disconnect(); if (this._model) { this._scene.remove(this._model); this._model = null; } this._renderer.dispose(); if (this._renderer.forceContextLoss) this._renderer.forceContextLoss(); this._renderer = null; this._loadingSrc = null; this._loading.style.opacity = 0; }
+    if (this._model) { const still = this.still; if (still) { this._poster.style.backgroundImage = 'url(' + still + ')'; this._poster.style.opacity = 1; this.setAttribute('data-still', 'true'); } } /* NKATA (d) */ if (this._ro) this._ro.disconnect(); if (this._model) { this._scene.remove(this._model); this._model = null; } this._renderer.dispose(); if (this._renderer.forceContextLoss) this._renderer.forceContextLoss(); this._renderer = null; this._spent = true; this.removeAttribute('data-live'); this._loadingSrc = null; this._loading.style.opacity = 0; } // NKATA (f, g)
   _boot() {
+    if (this._spent) { const fresh = document.createElement('canvas'); this._canvas.replaceWith(fresh); this._canvas = fresh; this._spent = false; } // NKATA (f)
+    this.setAttribute('data-live', 'true'); // NKATA (g)
     const r = this._renderer = new THREE.WebGLRenderer({ canvas: this._canvas, antialias: true, alpha: true });
     r.setPixelRatio(Math.min(2, window.devicePixelRatio));
     r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.1;
@@ -65,7 +70,7 @@ class NkViewer extends HTMLElement {
     this._canvas.addEventListener('pointerup', (e) => { if (!this._down) return; const moved = Math.hypot(e.clientX - this._down[0], e.clientY - this._down[1]); this._down = null; if (moved < 4 && this._pinOn) this._dropPin(e); });
     this._resize(); this._tick(); this._load(); if (this._card) { this._hint.style.display = 'none'; const host = this.parentElement && this.parentElement.parentElement ? this.parentElement.parentElement : this; if (!this._hovBound) { this._hovBound = true; host.addEventListener('mouseenter', () => { if (this._controls) { this._controls.autoRotate = true; this._controls.autoRotateSpeed = 1.2; } }); host.addEventListener('mouseleave', () => { if (this._controls) this._controls.autoRotate = false; }); } } if (false) { const host = this.parentElement && this.parentElement.parentElement ? this.parentElement.parentElement : this; host.addEventListener('mouseenter', () => { this._controls.autoRotate = true; this._controls.autoRotateSpeed = 1.2; }); host.addEventListener('mouseleave', () => { this._controls.autoRotate = false; }); if (this._hint) this._hint.style.display = 'none'; }
   }
-  disconnectedCallback() { if (this._io) { this._io.disconnect(); this._release(); return; } cancelAnimationFrame(this._raf); if (this._ro) this._ro.disconnect(); if (this._renderer) { this._renderer.dispose(); this._renderer.forceContextLoss && this._renderer.forceContextLoss(); } }
+  disconnectedCallback() { if (this._io) { this._io.disconnect(); this._release(); return; } cancelAnimationFrame(this._raf); if (this._ro) this._ro.disconnect(); if (this._renderer) { this._renderer.dispose(); this._renderer.forceContextLoss && this._renderer.forceContextLoss(); this._renderer = null; this._spent = true; this.removeAttribute('data-live'); } } // NKATA (f, g)
   attributeChangedCallback(n, _o, v) { if (n === 'src' && this._scene) this._load(); if (n === 'bg') this.style.background = v || ''; if (n === 'pins') { try { this._pins = JSON.parse(v || '[]'); } catch (e) { this._pins = []; } this._renderPins(); }
     if (n === 'active-pin' || n === 'activepin') { this._active = v || null; this._renderPins(); }
     if (n === 'pinning' && this._hint) { const on = v != null && v !== '' && v !== 'false'; this._pinOn = on; this._hint.style.display = on ? 'none' : ''; this._hint.textContent = on ? '' : 'Drag to orbit · Scroll to zoom · Right drag to pan'; this._canvas.style.cursor = on ? 'crosshair' : ''; }

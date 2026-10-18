@@ -14,21 +14,25 @@ export interface CardProps { asset: Asset; projectColor: string; corner: Corner;
 export function ObjectCard({ asset, projectColor, corner, pulse, fill, onOpen }: CardProps) {
   const [loaded, setLoaded] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  // The ghost shows until the first frame rendered or a still exists. The viewer sets data-still
-  // on release once it has one.
-  const [hasStill, setHasStill] = useState(false);
+  // The ghost shows while the viewer holds no context (data-live) and has no still (data-still):
+  // past the pool cap, or before the first frame rendered.
+  const [state, setState] = useState({ live: false, still: false });
   useEffect(() => {
     const el = ref.current?.querySelector("nk-viewer");
     if (!el) return;
-    const mo = new MutationObserver(() => setHasStill(el.hasAttribute("data-still")));
-    mo.observe(el, { attributes: true, attributeFilter: ["data-still"] });
+    const read = () => setState({ live: el.hasAttribute("data-live"), still: el.hasAttribute("data-still") });
+    const mo = new MutationObserver(read);
+    mo.observe(el, { attributes: true, attributeFilter: ["data-still", "data-live"] });
+    read();
     return () => mo.disconnect();
   }, []);
+  const hasStill = state.still;
+  const ghost = !(state.live && loaded) && !hasStill;
   const anim = pulse ? "nk-pulse-once 1.1s ease-out" : fill ? "nk-fill 800ms ease-out" : undefined;
   return (
     <div ref={ref} className="nk-card" role="link" tabIndex={0} onClick={onOpen} onKeyDown={(e) => { if (e.key === "Enter") onOpen(); }} style={{ display: "flex", flexDirection: "column", gap: 12, cursor: "pointer", outline: "none" }}>
       <Stage projectColor={projectColor} radius={12} aspect="4/3" shadow grid={false} style={{ animation: anim }}>
-        {!loaded && !hasStill ? <Ghost /> : null}
+        {ghost ? <Ghost /> : null}
         <div aria-hidden="true" style={{ position: "absolute", left: "22%", right: "22%", bottom: "10%", height: "8%", borderRadius: "50%", background: "radial-gradient(ellipse at center, var(--contact), transparent 70%)" }} />
         <NkViewer src={asset.glb} hoverRotate onLoaded={() => setLoaded(true)} style={{ position: "absolute", inset: 0, pointerEvents: "none" }} />
         <CornerPill kind={corner} />

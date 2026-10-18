@@ -25,3 +25,6 @@ button { cursor: pointer; }
 .nk-chip:hover { background: var(--hover); }
 .nk-plus:hover { border-color: var(--ink) !important; }
 @media (prefers-reduced-motion: reduce) { .nk-card:hover { transform: none; } .nk-card:hover .nk-env-drift { background-position: 30% center; } }
+
+/* The viewer's loading and error text, on the lit stage: quiet mono in ink. */
+nk-viewer { --nk-loading-color: var(--ink40); --nk-loading-font: 400 12px var(--mono); --nk-loading-shadow: none; }
