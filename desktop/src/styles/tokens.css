@@ -27,6 +27,8 @@
   --pulse-0: rgba(217, 149, 36, 0);
   /* Text on a person color or a dark pill. */
   --on-color: #FFFFFF;
+  /* The dim behind a dialog. */
+  --overlay: rgba(23, 24, 27, .3);
   /* A dark translucent pill over a render, and its text. */
   --scrim: rgba(23, 24, 27, .55); --scrim-fg: #F2EEE8;
   /* The contact shadow under a model on a card. */

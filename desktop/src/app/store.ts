@@ -144,7 +144,8 @@ export const useStore = create<AppState>((set, get) => ({
         return { journeyState: { ...s.journeyState, [e.personId]: next }, journeys: { ...s.journeys, [e.personId]: next.journey } };
       });
     }
-    if (e.type === "published") set({ saved: {} });
+    // A published or decided asset moves to the top of the wall, without the saved pulse.
+    if (e.type === "published" || e.type === "approved" || e.type === "changesRequested") set((s) => ({ saved: { ...(e.type === "published" ? {} : s.saved), [e.assetId]: Date.now() } }));
     void get().refresh();
   },
 }));
