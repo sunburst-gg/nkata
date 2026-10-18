@@ -17,6 +17,8 @@ set -a
 source ./scripts/testenv.sh up
 set +a
 
+node scripts/lint-colors.mjs
+node scripts/lint-copy.mjs
 pnpm -r typecheck
 pnpm -r test
 pnpm --filter @nkata/desktop build

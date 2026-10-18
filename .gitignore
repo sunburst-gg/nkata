@@ -15,3 +15,7 @@ shots/
 # Python build output
 __pycache__/
 *.pyc
+
+# Fixture models, fetched by scripts/fetch-fixtures.sh
+desktop/public/fixtures/glb/
+desktop/public/fixtures/renders/

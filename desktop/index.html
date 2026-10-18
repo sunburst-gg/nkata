@@ -1,14 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Nkata</title>
     <link rel="icon" type="image/png" href="/favicon.png" />
-    <script>
-      // Apply the stored theme before paint so there is no flash. Light is the default.
-      try { var t = localStorage.getItem("nkata.theme"); if (t !== "dark") document.documentElement.setAttribute("data-theme", "light"); } catch (e) { document.documentElement.setAttribute("data-theme", "light"); }
-    </script>
   </head>
   <body>
     <div id="root"></div>

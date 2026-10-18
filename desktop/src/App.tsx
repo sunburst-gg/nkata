@@ -1,64 +1,28 @@
-// Routes. Hash based so the Tauri window serves one index.html. See DECISIONS.md.
-import { useEffect } from "react";
-import { HashRouter, Navigate, Route, Routes, useLocation } from "react-router";
-import { applyTheme, useStore } from "@/store";
-import { Toaster } from "@/components/Toast";
-import { TooltipProvider } from "@/components/Tooltip";
-import { Asset } from "@/screens/Asset";
-import { Connections } from "@/screens/Connections";
-import { CreateStudio } from "@/screens/CreateStudio";
-import { Mentions } from "@/screens/Mentions";
-import { Name } from "@/screens/Name";
-import { NewProject } from "@/screens/NewProject";
-import { Part } from "@/screens/Part";
-import { Project } from "@/screens/Project";
-import { Settings } from "@/screens/Settings";
-import { Board } from "@/screens/Board";
-import { AppShell } from "@/screens/Shell";
-import { SignIn } from "@/screens/SignIn";
-import { Welcome } from "@/screens/Welcome";
+// Step 1: one screen. The lit stage from the prototype's asset page (cyclorama gradient tinted by
+// the project color, the floor grid fading out radially) with one model turning on it, and a
+// temporary theme toggle in the corner. Later steps replace this with the shell.
+import { useEffect, useState } from "react";
+import { NkViewer } from "@/viewer/NkViewer";
+import { applyTheme, setTheme, themeNow, type Theme } from "@/app/theme";
+import { Stage } from "@/ui/stage/Stage";
 
-function ScrollReset() {
-  const { pathname } = useLocation();
-  useEffect(() => { document.querySelector("main > div")?.scrollTo(0, 0); }, [pathname]);
-  return null;
-}
-
-export function AppRoutes() {
-  return (
-    <Routes>
-      <Route path="/" element={<Navigate to="/signin" replace />} />
-      <Route path="/signin" element={<SignIn />} />
-      <Route path="/name" element={<Name />} />
-      <Route path="/studio" element={<CreateStudio />} />
-      <Route path="/settings/:tab?" element={<Settings />} />
-      <Route element={<AppShell />}>
-        <Route path="/welcome" element={<Welcome />} />
-        <Route path="/new" element={<NewProject />} />
-        <Route path="/connections" element={<Connections />} />
-        <Route path="/mentions" element={<Mentions />} />
-        <Route path="/p/:project" element={<Project />} />
-        <Route path="/p/:project/board" element={<Board />} />
-        <Route path="/p/:project/a/:asset" element={<Asset />} />
-        <Route path="/p/:project/a/:asset/:part" element={<Part />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/signin" replace />} />
-    </Routes>
-  );
-}
+// Rising Sun is the first swatch.
+const RISING_SUN = "var(--swatch-1)";
 
 export function App() {
-  const theme = useStore((s) => s.theme);
-  useEffect(() => applyTheme(theme), [theme]);
+  const [theme, setThemeState] = useState<Theme>(() => themeNow());
+  useEffect(() => { applyTheme("light"); setThemeState("light"); }, []);
+  const toggle = () => setThemeState(setTheme(theme === "light" ? "dark" : "light"));
   return (
-    <HashRouter>
-      <TooltipProvider>
-        <div className="flex h-full min-w-[1280px] flex-col bg-canvas text-heading">
-          <ScrollReset />
-          <AppRoutes />
-          <Toaster />
-        </div>
-      </TooltipProvider>
-    </HashRouter>
+    <div style={{ minHeight: "100vh", minWidth: 1280, display: "flex", alignItems: "center", justifyContent: "center", padding: 48, background: "var(--canvas)" }}>
+      <div style={{ width: "min(100%, 1100px)" }}>
+        <Stage projectColor={RISING_SUN} radius={16} aspect="16/10" shadow>
+          <NkViewer src="/fixtures/glb/Lantern.glb" autorotate={0.5} style={{ position: "absolute", inset: 0 }} />
+        </Stage>
+      </div>
+      <button type="button" onClick={toggle} aria-label="Theme" style={{ position: "fixed", right: 24, top: 24, height: 32, padding: "0 12px", borderRadius: "var(--r-6)", border: "1px solid var(--line)", background: "var(--raised)", color: "var(--ink80)", font: "500 var(--t-13) var(--sans)", boxShadow: "var(--shadow)" }}>
+        {theme === "light" ? "Dark" : "Light"}
+      </button>
+    </div>
   );
 }

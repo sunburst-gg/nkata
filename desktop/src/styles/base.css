@@ -1,0 +1,13 @@
+/* Base styles, from the prototype's html, body rules. Tabular numbers everywhere. */
+@import "./tokens.css";
+@import "./fonts.css";
+@import "./motion.css";
+
+html, body { margin: 0; height: 100%; font-family: var(--sans); -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
+body { background: var(--canvas); color: var(--ink80); font: 400 var(--t-15)/1.5 var(--sans); }
+#root { min-height: 100%; }
+a { color: inherit; text-decoration: none; }
+a:hover { color: var(--amber); }
+input, button, textarea, select { font-family: inherit; }
+button { cursor: pointer; }
+*, *::before, *::after { box-sizing: border-box; }

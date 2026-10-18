@@ -1,0 +1,13 @@
+/* The seven keyframes, copied verbatim from the prototype <style>. 150 ms for state changes,
+   300 ms for panels, --ease for both. Reduced motion turns every one of them off. */
+@keyframes nk-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes nk-breathe{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.8)}}
+@keyframes nk-drop{0%{transform:translateY(-14px) scale(.6);opacity:0}60%{transform:translateY(2px) scale(1.08);opacity:1}100%{transform:translateY(0) scale(1)}}
+@keyframes nk-stamp{0%{transform:scale(1.6) rotate(-10deg);opacity:0}40%{transform:scale(1) rotate(-6deg);opacity:1}100%{transform:scale(1) rotate(-6deg);opacity:1}}
+@keyframes nk-fill{from{filter:saturate(0) brightness(1.6) contrast(.6);opacity:.3}to{filter:none;opacity:1}}
+@keyframes nk-pulse-once{0%{box-shadow:0 0 0 0 var(--pulse)}100%{box-shadow:0 0 0 16px var(--pulse-0)}}
+@keyframes nk-fadein{from{opacity:0}to{opacity:1}}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}

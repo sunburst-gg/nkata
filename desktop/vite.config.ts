@@ -1,13 +1,12 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath } from "node:url";
 
 // Tauri expects a fixed port and no HMR over the network. https://v2.tauri.app/start/frontend/vite/
 const host = process.env["TAURI_DEV_HOST"];
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react()],
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   clearScreen: false,
   server: {
@@ -25,6 +24,7 @@ export default defineConfig({
   },
   test: {
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    exclude: ["src/parked/**", "node_modules/**"],
     environment: "node",
   },
 });

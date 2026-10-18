@@ -1,31 +1,10 @@
-/* Geist and Geist Mono from the geist npm package, Newsreader from @fontsource-variable/newsreader,
-   bundled by Vite. No network fonts. Newsreader carries the optical size axis for titles. */
-@font-face {
-  font-family: "Geist";
-  src: url("../../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2") format("woff2");
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: block;
-}
-@font-face {
-  font-family: "Geist Mono";
-  src: url("../../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2") format("woff2");
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: block;
-}
-@font-face {
-  font-family: "Newsreader";
-  src: url("../../node_modules/@fontsource-variable/newsreader/files/newsreader-latin-opsz-normal.woff2") format("woff2-variations");
-  font-weight: 200 800;
-  font-style: normal;
-  font-display: block;
-}
-@font-face {
-  font-family: "Newsreader";
-  src: url("../../node_modules/@fontsource-variable/newsreader/files/newsreader-latin-ext-opsz-normal.woff2") format("woff2-variations");
-  font-weight: 200 800;
-  font-style: normal;
-  font-display: block;
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
+/* Bundled fonts, no network. Geist and Geist Mono (Vercel, OFL 1.1) from the geist package,
+   Newsreader (Production Type, OFL 1.1) from @fontsource-variable/newsreader, copied into
+   src/assets/fonts so the app works offline. Licenses sit next to the files. */
+@font-face { font-family: "Geist"; src: url("../assets/fonts/Geist-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: block; }
+@font-face { font-family: "Geist"; src: url("../assets/fonts/Geist-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: block; }
+@font-face { font-family: "Geist"; src: url("../assets/fonts/Geist-SemiBold.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: block; }
+@font-face { font-family: "Geist Mono"; src: url("../assets/fonts/GeistMono-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: block; }
+@font-face { font-family: "Geist Mono"; src: url("../assets/fonts/GeistMono-Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: block; }
+/* One variable file carries weight and the optical size axis 6..72. */
+@font-face { font-family: "Newsreader"; src: url("../assets/fonts/Newsreader-opsz.woff2") format("woff2-variations"), url("../assets/fonts/Newsreader-opsz.woff2") format("woff2"); font-weight: 200 800; font-style: normal; font-display: block; }

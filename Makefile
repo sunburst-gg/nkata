@@ -1,12 +1,16 @@
-.PHONY: hooks dev dev-down test addon-vendor addon ue e2e quality fixtures proto
+.PHONY: hooks dev dev-down test addon-vendor addon ue e2e quality fixtures proto fixtures-v8
 
 # One-time: route git hooks to the repo's .githooks folder.
 hooks:
 	git config core.hooksPath .githooks
 
 # Local stack: Postgres 16 and RustFS (S3) in Docker.
-dev:
+dev: fixtures-v8
 	docker compose -f infra/docker-compose.yml up -d --wait
+
+# The v8 fixture models and renders, fetched once (git-ignored).
+fixtures-v8:
+	@[ -s desktop/public/fixtures/glb/Lantern.glb ] || ./scripts/fetch-fixtures.sh
 
 dev-down:
 	docker compose -f infra/docker-compose.yml down -v

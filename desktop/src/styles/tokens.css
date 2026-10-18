@@ -1,3 +1,35 @@
-@import "tokens/colors.css";
-@import "tokens/typography.css";
-@import "tokens/spacing.css";
+/* The v8 tokens. The two [data-theme] blocks are copied verbatim from the prototype <style>
+   (handoff/v8/Nkata App v8.dc.html). Everything else here names a value the prototype writes
+   inline, so components never carry a color, a radius or a duration of their own. */
+[data-theme="light"]{--canvas:#FFFFFF;--raised:#FFFFFF;--ink:#17181B;--ink80:rgba(23,24,27,.8);--ink60:rgba(23,24,27,.6);--ink40:rgba(23,24,27,.4);--line:rgba(23,24,27,.08);--hover:rgba(23,24,27,.05);--stage-top:#ECE8E1;--stage-bot:#D9D3C9;--grid:rgba(23,24,27,.06);--amber:#E9A23B;--amber-fg:#17181B;--shadow:0 1px 2px rgba(23,24,27,.04),0 8px 24px rgba(23,24,27,.06);--shadow-lift:0 2px 4px rgba(23,24,27,.06),0 16px 40px rgba(23,24,27,.1)}
+[data-theme="dark"]{--canvas:#1A1816;--raised:#24211E;--ink:#F2EEE8;--ink80:rgba(242,238,232,.84);--ink60:rgba(242,238,232,.62);--ink40:rgba(242,238,232,.42);--line:rgba(242,238,232,.1);--hover:rgba(242,238,232,.05);--stage-top:#2B2724;--stage-bot:#17140F;--grid:rgba(242,238,232,.06);--amber:#F2B04A;--amber-fg:#17181B;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);--shadow-lift:0 2px 4px rgba(0,0,0,.4),0 16px 40px rgba(0,0,0,.5)}
+
+:root {
+  /* Type */
+  --sans: Geist, system-ui, sans-serif;
+  --mono: "Geist Mono", ui-monospace, monospace;
+  --serif: Newsreader, Georgia, serif;
+  --t-40: 40px; --t-28: 28px; --t-20: 20px; --t-15: 15px; --t-13: 13px; --t-11: 11px;
+  /* Radii */
+  --r-6: 6px; --r-12: 12px; --r-16: 16px;
+  /* Motion */
+  --ease: cubic-bezier(.2, 0, 0, 1);
+  --t-fast: 150ms;
+  --t-panel: 300ms;
+  /* People. One per person, on the avatar ring, the presence dot, pins and toasts. */
+  --p-terracotta: #B5553B; --p-ochre: #C28E2B; --p-olive: #6E7F3A; --p-teal: #2F7F7A;
+  --p-indigo: #4F6D9C; --p-plum: #7A4E8C; --p-rose: #A4567A; --p-slate: #5B6775;
+  /* Pass and fail dots, the toast pill. */
+  --ok: #5A9E6F; --bad: #C94C3A;
+  --toast-bg: #17181B; --toast-fg: #F2EEE8;
+  /* The pulse ring around a card that just saved (the prototype's rgba(217,149,36,.55)). */
+  --pulse: rgba(217, 149, 36, .55);
+  --pulse-0: rgba(217, 149, 36, 0);
+  /* Text on a person color or a dark pill. */
+  --on-color: #FFFFFF;
+  /* The opaque end of a mask. Not a color anyone sees. */
+  --mask-ink: #000;
+  /* The eight project swatches, as the prototype's New project screen offers them. */
+  --swatch-1: #8A6B5B; --swatch-2: #2F6B5E; --swatch-3: #4F6D9C; --swatch-4: #7A4E8C;
+  --swatch-5: #C28E2B; --swatch-6: #6E7F3A; --swatch-7: #A4567A; --swatch-8: #5B6775;
+}
