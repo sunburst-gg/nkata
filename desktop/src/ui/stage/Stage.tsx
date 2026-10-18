@@ -10,8 +10,8 @@ export interface StageProps {
   /** CSS aspect-ratio, "16/10" on the asset page, "4/3" on a card. */
   aspect?: string;
   shadow?: boolean;
-  /** Grid cell in px. 40 on the asset page, 48 on the wall card. */
-  grid?: 40 | 48;
+  /** Grid cell in px. 40 on the asset page, 48 on the zero state. false on a card. */
+  grid?: 40 | 48 | false;
   children?: ReactNode;
   className?: string;
   style?: CSSProperties;
@@ -27,7 +27,7 @@ export function Stage({ projectColor, radius = 16, aspect = "16/10", shadow = fa
   const mask = grid === 48 ? "radial-gradient(ellipse at 50% 75%, var(--mask-ink) 10%, transparent 60%)" : "radial-gradient(ellipse at 50% 75%, var(--mask-ink) 15%, transparent 65%)";
   return (
     <div className={className} style={{ aspectRatio: aspect, borderRadius: radius, overflow: "hidden", position: "relative", background: `linear-gradient(180deg, ${top}, ${bot})`, boxShadow: shadow ? "var(--shadow)" : undefined, ...style }}>
-      <div aria-hidden="true" style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px)", backgroundSize: `${grid}px ${grid}px`, maskImage: mask, WebkitMaskImage: mask }} />
+      {grid ? <div aria-hidden="true" style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px)", backgroundSize: `${grid}px ${grid}px`, maskImage: mask, WebkitMaskImage: mask }} /> : null}
       {children}
     </div>
   );

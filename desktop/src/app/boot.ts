@@ -30,5 +30,7 @@ export async function bootMock(t: Tweaks): Promise<MockDataSource> {
   useStore.setState({ projectId: land.projectId, assetId: land.assetId, screen: land.screen });
   await useStore.getState().boot(mock, mock.me, t.stage);
   useStore.getState().setTheme(t.theme);
+  // The mock and the store, for the browser checks and the shots harness (dev only).
+  if (import.meta.env.DEV) Object.assign(window, { __nkataMock: mock, __nkataStore: useStore });
   return mock;
 }

@@ -6,6 +6,7 @@ import type { DataEvent, DataSource } from "@/data/DataSource";
 import type { Asset, Comment, Member, Mention, Person, Project, Studio } from "@/data/types";
 import type { Stage } from "@/data/mock";
 import type { Filter } from "./selectors";
+import { apply as applyJourney, type MemberState } from "./journey";
 import { applyTheme, setPerson as setThemePerson, setTheme as storeTheme, type Theme, type ThemeChoice } from "./theme";
 
 export type Screen = "zeroStudio" | "zeroProject" | "arrival" | "project" | "asset" | "mentions" | "connections" | "newProject" | "signIn" | "settings" | "projectSettings";
@@ -22,6 +23,9 @@ export interface AppState {
   projectId: string | null;
   assets: Asset[];
   members: Member[];
+  /** The team strip machine, per person, over the roster from the source. */
+  journeys: Record<string, Member["journey"]>;
+  journeyState: Record<string, MemberState>;
   comments: Record<string, Comment[]>;
   mentions: Mention[];
   /** assetId → saved at, for the pulse and the order. */
@@ -59,7 +63,7 @@ let toastTimer: ReturnType<typeof setTimeout> | undefined;
 let unsubscribe: (() => void) | null = null;
 
 export const useStore = create<AppState>((set, get) => ({
-  source: null, stage: "studio", me: null, studio: null, projects: [], projectId: null, assets: [], members: [], comments: {}, mentions: [],
+  source: null, stage: "studio", me: null, studio: null, projects: [], projectId: null, assets: [], members: [], journeys: {}, journeyState: {}, comments: {}, mentions: [],
   saved: {}, pulse: null, theme: "light", themeChoice: "light", screen: "project", assetId: null, stop: null, filter: "Everything", group: "All",
   notesSeen: {}, firstSaveFilled: false, toast: null, inviteOpen: false, publishOpen: false,
 
@@ -67,7 +71,7 @@ export const useStore = create<AppState>((set, get) => ({
     unsubscribe?.();
     unsubscribe = source.subscribe((e) => get().onEvent(e));
     const theme = setThemePerson(me.id);
-    set({ source, me, stage, theme, saved: {}, pulse: null, filter: "Everything", group: "All", stop: null, notesSeen: {}, firstSaveFilled: stage === "firstsave" || stage === "firstcomment", toast: null });
+    set({ source, me, stage, theme, saved: {}, pulse: null, filter: "Everything", group: "All", stop: null, notesSeen: {}, firstSaveFilled: stage === "firstsave" || stage === "firstcomment", toast: null, journeys: {}, journeyState: {} });
     await get().refresh();
   },
 
@@ -114,6 +118,22 @@ export const useStore = create<AppState>((set, get) => ({
     if (e.type === "saved") {
       set((s) => ({ saved: { ...s.saved, [e.assetId]: Date.now() }, pulse: e.assetId, firstSaveFilled: true }));
       setTimeout(() => { if (get().pulse === e.assetId) set({ pulse: null }); }, 1200);
+      void get().refresh().then(() => {
+        const { assets, members, me } = get();
+        const asset = assets.find((a) => a.id === e.assetId);
+        if (!asset) return;
+        const who = e.by === me?.id ? "You" : (members.find((m) => m.person.id === e.by)?.person.first ?? asset.owner.first);
+        get().showToast(`${who} saved ${asset.name}.`, asset.owner.color, asset.render ?? "/fixtures/renders/compound-ground.png", () => get().go("asset", { assetId: asset.id }));
+      });
+      return;
+    }
+    if (e.type === "memberChanged" || e.type === "presence") {
+      const now = Date.now();
+      set((s) => {
+        const prev = s.journeyState[e.personId] ?? { journey: s.members.find((m) => m.person.id === e.personId)?.journey ?? "invited", lastBeat: null };
+        const next = applyJourney(prev, e.type === "memberChanged" ? { type: "memberChanged", journey: e.journey } : { type: "presence", file: e.file }, now);
+        return { journeyState: { ...s.journeyState, [e.personId]: next }, journeys: { ...s.journeys, [e.personId]: next.journey } };
+      });
     }
     if (e.type === "published") set({ saved: {} });
     void get().refresh();

@@ -27,6 +27,10 @@
   --pulse-0: rgba(217, 149, 36, 0);
   /* Text on a person color or a dark pill. */
   --on-color: #FFFFFF;
+  /* A dark translucent pill over a render, and its text. */
+  --scrim: rgba(23, 24, 27, .55); --scrim-fg: #F2EEE8;
+  /* The contact shadow under a model on a card. */
+  --contact: rgba(0, 0, 0, .3);
   /* The opaque end of a mask. Not a color anyone sees. */
   --mask-ink: #000;
   /* The eight project swatches, as the prototype's New project screen offers them. */

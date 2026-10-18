@@ -7,6 +7,8 @@
 @keyframes nk-fill{from{filter:saturate(0) brightness(1.6) contrast(.6);opacity:.3}to{filter:none;opacity:1}}
 @keyframes nk-pulse-once{0%{box-shadow:0 0 0 0 var(--pulse)}100%{box-shadow:0 0 0 16px var(--pulse-0)}}
 @keyframes nk-fadein{from{opacity:0}to{opacity:1}}
+/* The ghost placeholder on a card turns slowly, as the ghost model does. */
+@keyframes nk-ghost-turn{from{transform:rotateY(0deg)}to{transform:rotateY(360deg)}}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }

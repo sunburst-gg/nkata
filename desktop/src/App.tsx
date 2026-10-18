@@ -11,6 +11,7 @@ import { NkViewer } from "@/viewer/NkViewer";
 import { AppShell } from "@/ui/shell/AppShell";
 import { Stage } from "@/ui/stage/Stage";
 import { Toaster } from "@/ui/toast/Toaster";
+import { Wall } from "@/screens/Wall";
 
 function Placeholder() {
   const screen = useStore((s) => s.screen);
@@ -39,7 +40,7 @@ export function App() {
       <Toaster />
     </div>
   ) : (
-    <AppShell><Placeholder /></AppShell>
+    <AppShell>{screen === "project" ? <Wall /> : <Placeholder />}</AppShell>
   );
   return (
     <>

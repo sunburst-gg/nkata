@@ -1,7 +1,10 @@
-// Ported from handoff/v8/nk-viewer.js. Three changes, each marked NKATA below and logged in
-// docs/decisions.md (v8, step 1): three resolves from the npm package, the host background is
-// transparent, and the loading and error text read their color and font from the host's
-// custom properties. The pool, pins, ghost and autorotate code is untouched.
+// Ported from handoff/v8/nk-viewer.js. Changes are marked NKATA and logged in docs/decisions.md.
+// Step 1: (a) three resolves from the npm package, (b) the host background is transparent,
+// (c) the loading and error text read their color and font from the host's custom properties.
+// Step 4: (d) still capture: after the model loads and the first frame renders, the canvas is
+// captured once into a module Map keyed by src and size, and _release sets that still as the
+// poster before the context is freed, so a card past the pool cap never goes blank; (e) the pool
+// is exposed as window.__nkataPool for the dev Tweaks' "live contexts n / 8".
 // NKATA (a): the npm package, not an import map.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -38,7 +41,13 @@ class NkViewer extends HTMLElement {
     this._boot();
   }
   _acquire() { if (this._renderer) return; const P = NkViewer._pool; while (P.length >= 8) { const old = P.shift(); if (old) old._release(true); } P.push(this); this._boot(); }
-  _release(force) { const P = NkViewer._pool; const k = P.indexOf(this); if (k >= 0) P.splice(k, 1); if (!this._renderer) return; cancelAnimationFrame(this._raf); if (this._ro) this._ro.disconnect(); if (this._model) { this._scene.remove(this._model); this._model = null; } this._renderer.dispose(); if (this._renderer.forceContextLoss) this._renderer.forceContextLoss(); this._renderer = null; this._loadingSrc = null; this._loading.style.opacity = 0; }
+  // NKATA (d): the still of this src at this size, captured once, shown as the poster while the
+  // context is released. Keyed by src and size so a resized card captures again.
+  _stillKey() { return (this.getAttribute('src') || '') + '@' + this.clientWidth + 'x' + this.clientHeight + '@' + Math.min(2, window.devicePixelRatio); }
+  _captureStill() { try { const key = this._stillKey(); if (NkViewer._stills.has(key)) return; const url = this._canvas.toDataURL('image/webp', 0.9); NkViewer._stills.set(key, url); } catch (e) { /* a tainted or lost canvas yields no still; the ghost stays */ } }
+  get still() { return NkViewer._stills.get(this._stillKey()) || null; }
+  _release(force) { const P = NkViewer._pool; const k = P.indexOf(this); if (k >= 0) P.splice(k, 1); if (!this._renderer) return; cancelAnimationFrame(this._raf);
+    if (this._model) { const still = this.still; if (still) { this._poster.style.backgroundImage = 'url(' + still + ')'; this._poster.style.opacity = 1; this.setAttribute('data-still', 'true'); } } /* NKATA (d) */ if (this._ro) this._ro.disconnect(); if (this._model) { this._scene.remove(this._model); this._model = null; } this._renderer.dispose(); if (this._renderer.forceContextLoss) this._renderer.forceContextLoss(); this._renderer = null; this._loadingSrc = null; this._loading.style.opacity = 0; }
   _boot() {
     const r = this._renderer = new THREE.WebGLRenderer({ canvas: this._canvas, antialias: true, alpha: true });
     r.setPixelRatio(Math.min(2, window.devicePixelRatio));
@@ -75,7 +84,7 @@ class NkViewer extends HTMLElement {
     this._loadingSrc = src; const token = this._token = (this._token || 0) + 1;
     if (this._model) { this._scene.remove(this._model); this._model = null; }
     this._loading.style.opacity = 1; this._loading.textContent = 'Loading model'; this._poster.style.opacity = 1;
-    const finish = () => { if (token !== this._token) return; this._done = token; this._loading.style.opacity = 0; this._poster.style.opacity = 0; };
+    const finish = () => { if (token !== this._token) return; this._done = token; this._loading.style.opacity = 0; this._poster.style.opacity = 0; this.removeAttribute('data-still'); };
     new GLTFLoader().load(src, (g) => {
       if (token !== this._token) return;
       try {
@@ -86,6 +95,7 @@ class NkViewer extends HTMLElement {
       this._camera.position.set(d * 1.1, d * .6, d * 1.5); this._camera.near = d / 100; this._camera.far = d * 20; this._camera.updateProjectionMatrix();
       this._controls.target.set(0, 0, 0); this._controls.minDistance = d * .4; this._controls.maxDistance = d * 5; this._controls.update();
       } finally { finish(); }
+      this._captureAfter = 2; // NKATA (d): capture a still two frames after the load
       this.dispatchEvent(new CustomEvent('nk-loaded', { bubbles: true }));
     }, (p) => { if (token !== this._token || this._done === token) return; if (p.total) this._loading.textContent = 'Loading model · ' + Math.round(p.loaded / p.total * 100) + '%'; }, () => { if (token !== this._token) return; this._loadingSrc = null; this._loading.textContent = 'Model did not load. Showing the last render.'; });
   }
@@ -106,6 +116,7 @@ class NkViewer extends HTMLElement {
     if (!this._renderer) return;
     this._raf = requestAnimationFrame(() => this._tick());
     this._controls.update(); this._renderer.render(this._scene, this._camera);
+    if (this._captureAfter != null && this._model && !(this.hasAttribute('ghost') && this.getAttribute('ghost') !== 'false')) { if (this._captureAfter-- <= 0) { this._captureAfter = null; this._captureStill(); } } // NKATA (d)
     if (!this._pinEls || !this._pinEls.length) return;
     const w = this.clientWidth, h = this.clientHeight, camPos = this._camera.position;
     this._pins.forEach((p, i) => {
@@ -119,4 +130,6 @@ class NkViewer extends HTMLElement {
   }
 }
 NkViewer._pool = [];
+NkViewer._stills = new Map(); // NKATA (d)
+if (typeof window !== 'undefined') window.__nkataPool = NkViewer._pool; // NKATA (e)
 customElements.define('nk-viewer', NkViewer);

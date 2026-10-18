@@ -14,3 +14,14 @@ button { cursor: pointer; }
 
 /* Hover on nav rows and menu items, as the prototype's style-hover. */
 .nk-nav:hover, .nk-menu-item:hover, .nk-menu-item[data-highlighted] { background: var(--hover); }
+
+/* The wall: 3 columns, 4 from 1440 px, 24 px gutters. */
+.nk-wall-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+@media (min-width: 1440px) { .nk-wall-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.nk-card { transition: transform var(--t-fast) var(--ease); }
+.nk-card:hover { transform: translateY(-2px); }
+.nk-env-drift { transition: background-position 4s linear; }
+.nk-card:hover .nk-env-drift { background-position: 70% center; }
+.nk-chip:hover { background: var(--hover); }
+.nk-plus:hover { border-color: var(--ink) !important; }
+@media (prefers-reduced-motion: reduce) { .nk-card:hover { transform: none; } .nk-card:hover .nk-env-drift { background-position: 30% center; } }
