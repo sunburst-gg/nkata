@@ -13,6 +13,8 @@ import { Stage } from "@/ui/stage/Stage";
 import { Toaster } from "@/ui/toast/Toaster";
 import { Wall } from "@/screens/Wall";
 import { AssetScreen } from "@/screens/Asset";
+import { Zero } from "@/screens/Zero";
+import { Arrival } from "@/screens/Arrival";
 
 function Placeholder() {
   const screen = useStore((s) => s.screen);
@@ -36,10 +38,10 @@ export function App() {
   useEffect(() => { void bootMock(tweaks).then(setMock); }, [tweaks]);
   const screen = useStore((s) => s.screen);
   const body = BARE.has(screen) ? (
-    <div style={{ minHeight: "100vh", minWidth: 1280, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--canvas)" }}>
-      <Placeholder />
+    <>
+      {screen === "zeroStudio" ? <Zero which="studio" /> : screen === "zeroProject" ? <Zero which="project" /> : screen === "arrival" ? <Arrival /> : <div style={{ minHeight: "100vh", minWidth: 1280, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--canvas)" }}><Placeholder /></div>}
       <Toaster />
-    </div>
+    </>
   ) : (
     <AppShell>{screen === "project" ? <Wall /> : screen === "asset" ? <AssetScreen /> : <Placeholder />}</AppShell>
   );

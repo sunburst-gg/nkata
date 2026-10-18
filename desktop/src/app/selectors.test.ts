@@ -89,11 +89,11 @@ describe("stage=empty", () => {
 });
 
 describe("stage=joining", () => {
-  it("artist: three of Ada's cards, Emeka as Lead, Ada as You, journey done", async () => {
+  it("artist: three of the team's cards, Emeka as Lead, Ada as You, one journey step left", async () => {
     const { assets, members, me } = await load("joining", "artist");
-    expect(assets.map((a) => [a.name, a.owner.first])).toEqual([["Radio", "Ada"], ["Chair", "Ada"], ["Helmet", "Ada"]]);
+    expect(assets.map((a) => [a.name, a.owner.first])).toEqual([["Radio", "Chidi"], ["Chair", "Ngozi"], ["Helmet", "Tobe"]]);
     expect(members.map((m) => stripLabel(m, me))).toEqual(["Lead", "You"]);
-    expect(journey(assets, members, me, "joining")).toMatchObject({ done: 3, open: false, nextAction: "Open Blender and save" });
+    expect(journey(assets, members, me, "joining")).toMatchObject({ done: 2, open: true, nextAction: "Open Blender and save" });
   });
 });
 

@@ -28,3 +28,7 @@ button { cursor: pointer; }
 
 /* The viewer's loading and error text, on the lit stage: quiet mono in ink. */
 nk-viewer { --nk-loading-color: var(--ink40); --nk-loading-font: 400 12px var(--mono); --nk-loading-shadow: none; }
+
+/* The sidebar slides in once, after the zero state. */
+@keyframes nk-slide { from { transform: translateX(-248px); opacity: 0; } to { transform: none; opacity: 1; } }
+.nk-slide-in > aside { animation: nk-slide var(--t-panel) var(--ease) both; }

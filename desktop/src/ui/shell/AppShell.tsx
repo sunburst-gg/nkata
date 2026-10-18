@@ -7,9 +7,10 @@ import { Breadcrumbs, Sidebar } from "./Sidebar";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const viewer = useStore((s) => s.me?.role === "viewer");
+  const slideIn = useStore((s) => s.slideIn);
   return (
     <div style={{ minHeight: "100vh", minWidth: 1280, display: "flex", background: "var(--canvas)", color: "var(--ink80)", position: "relative" }}>
-      <Sidebar />
+      <div style={{ display: "contents" }} className={slideIn ? "nk-slide-in" : undefined}><Sidebar /></div>
       <main style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", minHeight: "100vh" }}>
         <header style={{ height: 56, flexShrink: 0, display: "flex", alignItems: "center", gap: 16, padding: "0 40px" }}>
           <Breadcrumbs />

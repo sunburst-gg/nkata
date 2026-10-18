@@ -21,7 +21,7 @@
   --p-indigo: #4F6D9C; --p-plum: #7A4E8C; --p-rose: #A4567A; --p-slate: #5B6775;
   /* Pass and fail dots, the toast pill. */
   --ok: #5A9E6F; --bad: #C94C3A;
-  --toast-bg: #17181B; --toast-fg: #F2EEE8;
+  --toast-bg: #17181B; --toast-fg: #F2EEE8; --toast-fg-60: rgba(242, 238, 232, .6);
   /* The pulse ring around a card that just saved (the prototype's rgba(217,149,36,.55)). */
   --pulse: rgba(217, 149, 36, .55);
   --pulse-0: rgba(217, 149, 36, 0);
@@ -31,11 +31,12 @@
   --overlay: rgba(23, 24, 27, .3);
   /* A dark translucent pill over a render, and its text. */
   --scrim: rgba(23, 24, 27, .55); --scrim-fg: #F2EEE8;
+  /* The floor shade at the foot of the arrival stage. */
+  --floor-shade: rgba(0, 0, 0, .08);
   /* The contact shadow under a model on a card. */
   --contact: rgba(0, 0, 0, .3);
   /* The opaque end of a mask. Not a color anyone sees. */
   --mask-ink: #000;
-  /* The eight project swatches, as the prototype's New project screen offers them. */
-  --swatch-1: #8A6B5B; --swatch-2: #2F6B5E; --swatch-3: #4F6D9C; --swatch-4: #7A4E8C;
-  --swatch-5: #C28E2B; --swatch-6: #6E7F3A; --swatch-7: #A4567A; --swatch-8: #5B6775;
+  /* The two project colors the prototype ships with. New projects pick one of the eight person colors. */
+  --swatch-1: #8A6B5B; --swatch-2: #2F6B5E;
 }

@@ -52,6 +52,10 @@ export interface AppState {
   /** The older Version picked for Compare. */
   compareWith: number | null;
   stamp: boolean;
+  /** Arrival setup rows done, in order. */
+  setupDone: string[];
+  /** The sidebar slides in once, after the zero state. */
+  slideIn: boolean;
   // actions
   boot(source: DataSource, me: Person, stage: Stage): Promise<void>;
   refresh(): Promise<void>;
@@ -74,13 +78,13 @@ export const useStore = create<AppState>((set, get) => ({
   source: null, stage: "studio", me: null, studio: null, projects: [], projectId: null, assets: [], members: [], journeys: {}, journeyState: {}, comments: {}, mentions: [],
   saved: {}, pulse: null, theme: "light", themeChoice: "light", screen: "project", assetId: null, stop: null, filter: "Everything", group: "All",
   notesSeen: {}, firstSaveFilled: false, toast: null, inviteOpen: false, publishOpen: false,
-  pendingPin: null, activePin: null, draft: "", compare: false, compareWith: null, stamp: false,
+  pendingPin: null, activePin: null, draft: "", compare: false, compareWith: null, stamp: false, setupDone: [], slideIn: false,
 
   async boot(source, me, stage) {
     unsubscribe?.();
     unsubscribe = source.subscribe((e) => get().onEvent(e));
     const theme = setThemePerson(me.id);
-    set({ source, me, stage, theme, saved: {}, pulse: null, filter: "Everything", group: "All", stop: null, notesSeen: {}, firstSaveFilled: stage === "firstsave" || stage === "firstcomment", toast: null, journeys: {}, journeyState: {} });
+    set({ source, me, stage, theme, saved: {}, pulse: null, filter: "Everything", group: "All", stop: null, notesSeen: readNotes(me.id), firstSaveFilled: stage === "firstsave" || stage === "firstcomment", toast: null, journeys: {}, journeyState: {}, setupDone: [], slideIn: false });
     await get().refresh();
   },
 
@@ -113,7 +117,7 @@ export const useStore = create<AppState>((set, get) => ({
   setGroup: (group) => set({ group }),
   setStop: (stop) => set((s) => (s.compare && typeof stop === "number" && stop !== (s.assets.find((a) => a.id === s.assetId)?.versions[0]?.n ?? 0) ? { compareWith: stop } : { stop })),
   setTheme(choice) { set({ themeChoice: choice, theme: storeTheme(choice) }); },
-  markNoteSeen: (key) => set((s) => ({ notesSeen: { ...s.notesSeen, [key]: true } })),
+  markNoteSeen: (key) => set((s) => { const notesSeen: Record<string, true> = { ...s.notesSeen, [key]: true as const }; writeNotes(s.me?.id ?? "anon", notesSeen); return { notesSeen }; }),
 
   showToast(text, color, thumb, go) {
     clearTimeout(toastTimer);
@@ -136,6 +140,7 @@ export const useStore = create<AppState>((set, get) => ({
       });
       return;
     }
+    if (e.type === "setup") { set((s) => ({ setupDone: s.setupDone.includes(e.step) ? s.setupDone : [...s.setupDone, e.step] })); return; }
     if (e.type === "memberChanged" || e.type === "presence") {
       const now = Date.now();
       set((s) => {
@@ -149,6 +154,14 @@ export const useStore = create<AppState>((set, get) => ({
     void get().refresh();
   },
 }));
+
+/** First-time notes, dismissed once per person per idea, kept per person. */
+function readNotes(person: string): Record<string, true> {
+  try { const v = localStorage.getItem(`nkata.notes.${person}`); return v ? (JSON.parse(v) as Record<string, true>) : {}; } catch { return {}; }
+}
+function writeNotes(person: string, notes: Record<string, true>): void {
+  try { localStorage.setItem(`nkata.notes.${person}`, JSON.stringify(notes)); } catch { /* private mode: lasts the session */ }
+}
 
 /** Keep the document in step with the store's theme on first import. */
 applyTheme("light");

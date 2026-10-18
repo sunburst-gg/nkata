@@ -11,7 +11,9 @@ export type DataEvent =
   | { type: "changesRequested"; assetId: string; version: number }
   | { type: "commented"; assetId: string; commentId: string }
   | { type: "memberChanged"; personId: string; journey: Journey }
-  | { type: "presence"; personId: string; file: string | null };
+  | { type: "presence"; personId: string; file: string | null }
+  /** First run: one row of the setup list is done (step 9 folds this into the Blender states). */
+  | { type: "setup"; step: "blender" | "addon" | "project"; meta: string };
 
 export type Unsubscribe = () => void;
 

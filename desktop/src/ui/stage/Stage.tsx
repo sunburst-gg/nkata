@@ -17,9 +17,10 @@ export interface StageProps {
   style?: CSSProperties;
 }
 
-export function stageGradient(projectColor?: string): { top: string; bot: string } {
+export function stageGradient(projectColor?: string, strength: "card" | "zero" = "card"): { top: string; bot: string } {
   if (!projectColor) return { top: "var(--stage-top)", bot: "var(--stage-bot)" };
-  return { top: `color-mix(in oklab, var(--stage-top) 90%, ${projectColor})`, bot: `color-mix(in oklab, var(--stage-bot) 86%, ${projectColor})` };
+  const [a, b] = strength === "zero" ? [88, 84] : [90, 86];
+  return { top: `color-mix(in oklab, var(--stage-top) ${a}%, ${projectColor})`, bot: `color-mix(in oklab, var(--stage-bot) ${b}%, ${projectColor})` };
 }
 
 export function Stage({ projectColor, radius = 16, aspect = "16/10", shadow = false, grid = 40, children, className, style }: StageProps) {

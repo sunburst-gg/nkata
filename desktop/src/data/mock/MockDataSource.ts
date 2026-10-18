@@ -101,7 +101,9 @@ export class MockDataSource implements DataSource {
       };
     });
     if (stage === "arrival" || stage === "empty" || stage === "nostudio" || stage === "noproject") all = [];
-    else if (stage === "joining") all = all.slice(0, 3).map((a) => ({ ...a, owner: "A", live: false }));
+    // The prototype hands the three joining cards to Ada; here they are the team's work, so the
+    // slim "Your turn" bar and the journey's third step mean something (docs/decisions.md, v8 step 7).
+    else if (stage === "joining") all = all.slice(0, 3).map((a, i) => ({ ...a, owner: (["C", "N", "T"] as Key[])[i]!, live: false }));
     // The prototype reuses all[1] (Chair, Chidi's) under the name Market lantern. The owner is Ada
     // here and the model is the lantern: this stage is Ada's first save (docs/decisions.md, v8 step 2).
     else if (stage === "firstsave" || stage === "firstcomment") all = [{ ...all[1]!, name: "Market lantern", owner: "A", glb: GLB("Lantern"), version: 1, note: "", live: true, approved: false, waitingOnLead: false, time: "Just now", prevTris: null, mentionsMe: stage === "firstcomment" }];
@@ -344,6 +346,12 @@ export class MockDataSource implements DataSource {
     const members = await this.listMembers(RISING_SUN.id);
     const moved = members.find((m) => m.person.email) ?? members.find((m) => m.person.id === "A") ?? members[0];
     if (moved) this.emit({ type: "memberChanged", personId: moved.person.id, journey: moved.journey });
+  }
+
+  /** First run, artist: the three setup rows tick 700 ms apart, as events, never a timer in the UI. */
+  startArrivalSetup(): void {
+    const rows: { step: "blender" | "addon" | "project"; meta: string }[] = [{ step: "blender", meta: "4.2.3" }, { step: "addon", meta: "" }, { step: "project", meta: "Show in Finder" }];
+    rows.forEach((r, i) => setTimeout(() => this.emit({ type: "setup", step: r.step, meta: r.meta }), 700 * (i + 1)));
   }
 
   /** For tests: the approved count the prototype shows. */

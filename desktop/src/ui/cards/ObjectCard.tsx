@@ -1,7 +1,7 @@
 // Object card: the lit stage edge to edge tinted by the project color, the model on a contact
 // shadow, hover turns it (the viewer's hover-rotate). The pooled viewer caps live contexts at 8;
 // a card outside the viewport or past the cap shows its cached still, and the ghost before one exists.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Asset } from "@/data/types";
 import { Stage } from "@/ui/stage/Stage";
 import { NkViewer } from "@/viewer/NkViewer";
@@ -9,9 +9,9 @@ import { CardMeta } from "./CardMeta";
 import { CornerPill, type Corner } from "./CornerPill";
 import { Ghost } from "./Ghost";
 
-export interface CardProps { asset: Asset; projectColor: string; corner: Corner; pulse?: boolean; fill?: boolean; onOpen: () => void }
+export interface CardProps { asset: Asset; projectColor: string; corner: Corner; pulse?: boolean; fill?: boolean; onOpen: () => void; note?: ReactNode }
 
-export function ObjectCard({ asset, projectColor, corner, pulse, fill, onOpen }: CardProps) {
+export function ObjectCard({ asset, projectColor, corner, pulse, fill, onOpen, note }: CardProps) {
   const [loaded, setLoaded] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   // The ghost shows while the viewer holds no context (data-live) and has no still (data-still):
@@ -36,6 +36,7 @@ export function ObjectCard({ asset, projectColor, corner, pulse, fill, onOpen }:
         <div aria-hidden="true" style={{ position: "absolute", left: "22%", right: "22%", bottom: "10%", height: "8%", borderRadius: "50%", background: "radial-gradient(ellipse at center, var(--contact), transparent 70%)" }} />
         <NkViewer src={asset.glb} hoverRotate onLoaded={() => setLoaded(true)} style={{ position: "absolute", inset: 0, pointerEvents: "none" }} />
         <CornerPill kind={corner} />
+        {note}
       </Stage>
       <CardMeta asset={asset} />
     </div>
