@@ -1,10 +1,9 @@
-"""Comment pins in the 3D viewport. A gpu overlay draws one mark per pin at the comment's point
-in the part's local space; the N-panel list frames the view on a pin. Same mark in both editors
-(docs/product.md, open questions, Design).
+"""Comment pins in the 3D viewport (v8 step 13). A gpu overlay draws each pin at its world
+position in the commenter's color, a small octahedron with the depth test on, so geometry hides
+it. "Jump to pin" frames the view on it. The app draws the same person colors.
 
 gpu: https://docs.blender.org/api/current/gpu.html
-blf: https://docs.blender.org/api/current/blf.html
-Pure helpers (pin_color, pin_label, detached) run without bpy."""
+Pure helpers (person_color, pin_label, detached, octahedron) run without bpy."""
 
 from __future__ import annotations
 
@@ -21,16 +20,37 @@ except ImportError:  # pragma: no cover - plain Python tests stub bpy and have n
 
 from .state import STATE
 
-PIN_RADIUS_PX = 6.0
-OPEN_COLOR = (1.0, 0.62, 0.2, 1.0)
-RESOLVED_COLOR = (0.45, 0.45, 0.45, 0.8)
+PIN_RADIUS_M = 0.04
 DETACHED_M = 0.05
+RESOLVED_ALPHA = 0.5
+
+# The eight person colors, as the app's tokens list them (desktop/src/styles/tokens.css).
+PERSON_COLORS: tuple[tuple[float, float, float], ...] = (
+    (0.710, 0.333, 0.231),  # terracotta
+    (0.761, 0.557, 0.169),  # ochre
+    (0.431, 0.498, 0.227),  # olive
+    (0.184, 0.498, 0.478),  # teal
+    (0.310, 0.427, 0.612),  # indigo
+    (0.478, 0.306, 0.549),  # plum
+    (0.643, 0.337, 0.478),  # rose
+    (0.357, 0.404, 0.459),  # slate
+)
 
 _handle: Any = None
 
 
-def pin_color(comment: dict[str, Any]) -> tuple[float, float, float, float]:
-    return RESOLVED_COLOR if comment.get("resolved_at") else OPEN_COLOR
+def color_index(person_id: str) -> int:
+    """The same hash the app uses (desktop/src/data/live/wire.ts colorOf): h = h * 31 + code."""
+    h = 0
+    for ch in person_id:
+        h = (h * 31 + ord(ch)) & 0xFFFFFFFF
+    return h % len(PERSON_COLORS)
+
+
+def person_color(comment: dict[str, Any]) -> tuple[float, float, float, float]:
+    author = comment.get("author") or {}
+    r, g, b = PERSON_COLORS[color_index(str(author.get("id") or ""))]
+    return (r, g, b, RESOLVED_ALPHA if comment.get("resolved_at") else 1.0)
 
 
 def pin_label(index: int, comment: dict[str, Any]) -> str:
@@ -47,6 +67,19 @@ def detached(point: tuple[float, float, float], nearest_surface_m: float | None)
     return nearest_surface_m is not None and nearest_surface_m > DETACHED_M
 
 
+def octahedron(center: tuple[float, float, float], r: float) -> list[tuple[float, float, float]]:
+    """Eight triangles around the point, as a flat vertex list for a TRIS batch."""
+    x, y, z = center
+    top, bottom = (x, y, z + r), (x, y, z - r)
+    ring = [(x + r, y, z), (x, y + r, z), (x - r, y, z), (x, y - r, z)]
+    out: list[tuple[float, float, float]] = []
+    for i in range(4):
+        a, b = ring[i], ring[(i + 1) % 4]
+        out += [top, a, b]
+        out += [bottom, b, a]
+    return out
+
+
 def comments_for_open_part() -> list[dict[str, Any]]:
     part = STATE.part
     if part is None:
@@ -55,38 +88,21 @@ def comments_for_open_part() -> list[dict[str, Any]]:
 
 
 def _draw() -> None:  # pragma: no cover - needs a viewport
-    import blf
-    from bpy_extras import view3d_utils
-
     comments = comments_for_open_part()
     if not comments:
         return
-    region = bpy.context.region
-    rv3d = bpy.context.region_data
     shader = gpu.shader.from_builtin("UNIFORM_COLOR")
     gpu.state.blend_set("ALPHA")
-    for i, c in enumerate(comments):
+    # Depth test on: geometry in front hides the pin, as it does in the app's viewer.
+    gpu.state.depth_test_set("LESS_EQUAL")
+    gpu.state.depth_mask_set(False)
+    for c in comments:
         point = tuple(float(v) for v in c["point"])
-        screen = view3d_utils.location_3d_to_region_2d(region, rv3d, point)
-        if screen is None:
-            continue
-        x, y = screen
-        verts = [(x + PIN_RADIUS_PX * dx, y + PIN_RADIUS_PX * dy) for dx, dy in _circle()]
-        batch = batch_for_shader(shader, "TRI_FAN", {"pos": [(x, y), *verts]})
-        shader.uniform_float("color", pin_color(c))
-        with gpu.matrix.push_pop():
-            gpu.matrix.load_projection_matrix(gpu.matrix.get_projection_matrix())
-            batch.draw(shader)
-        blf.position(0, x + PIN_RADIUS_PX + 3, y - 4, 0)
-        blf.size(0, 12)
-        blf.draw(0, pin_label(i, c))
+        batch = batch_for_shader(shader, "TRIS", {"pos": octahedron(point, PIN_RADIUS_M)})
+        shader.uniform_float("color", person_color(c))
+        batch.draw(shader)
+    gpu.state.depth_test_set("NONE")
     gpu.state.blend_set("NONE")
-
-
-def _circle(n: int = 16) -> list[tuple[float, float]]:
-    import math
-
-    return [(math.cos(2 * math.pi * k / n), math.sin(2 * math.pi * k / n)) for k in range(n + 1)]
 
 
 def frame(context: Any, point: list[float] | tuple[float, ...]) -> None:
@@ -103,7 +119,7 @@ def register() -> None:
     global _handle
     if bpy is None or gpu is None or _handle is not None:
         return
-    _handle = bpy.types.SpaceView3D.draw_handler_add(_draw, (), "WINDOW", "POST_PIXEL")
+    _handle = bpy.types.SpaceView3D.draw_handler_add(_draw, (), "WINDOW", "POST_VIEW")
 
 
 def unregister() -> None:

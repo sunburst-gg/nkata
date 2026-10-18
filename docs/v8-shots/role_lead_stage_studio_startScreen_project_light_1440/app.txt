@@ -1,0 +1,180 @@
+S
+Sunburst
+Mentions
+6
+Projects
+Rising Sun
+Try Nkata
+sample
+New project
+Connections
+E
+Emeka Nnamdi
+Lead
+Rising Sun
+E
+You
+A
+In Blender
+C
+In Blender
+N
+In Blender
+T
+Blender
+K
+Blender
+D
+Blender
+F
+Looking
+Everything
+Mine
+Needs my eyes
+9
+Approved
+11
+Props
+· 21
+Live
+Radio
+Dial glass added. Knobs turn.
+A
+Ada · 2 min ago
+Live
+Chair
+Seat fabric has sheen now. Legs straightened.
+C
+Chidi · 2 min ago
+Helmet
+Scratches follow the strap now.
+N
+Ngozi · 2 min ago
+Market lantern
+Hinge worn, glass dirtied. Emissive in R.
+T
+Tobe · 18 min ago
+Needs your eyes
+Press camera
+Bellows rebuilt. Brass pass done.
+K
+Kemi · 18 min ago
+Needs your eyes
+Soldier (blockout)
+Proportions only. No textures yet.
+D
+Dayo · 1 h ago
+Toy car
+Wheels true. Paint chipped at the edges.
+A
+Ada · 1 h ago
+Helmet 2
+Scratches follow the strap now.
+K
+Kemi · Today
+Market lantern 2
+Hinge worn, glass dirtied. Emissive in R.
+D
+Dayo · Today
+Press camera 2
+Bellows rebuilt. Brass pass done.
+A
+Ada · Yesterday
+Needs your eyes
+Soldier (blockout) 2
+Proportions only. No textures yet.
+C
+Chidi · Yesterday
+Toy car 2
+Wheels true. Paint chipped at the edges.
+N
+Ngozi · Yesterday
+Canteen 2
+Dents on the base. Label texture on the sheet.
+T
+Tobe · Yesterday
+Needs your eyes
+Radio 2
+Dial glass added. Knobs turn.
+K
+Kemi · Yesterday
+Press camera 3
+Bellows rebuilt. Brass pass done.
+N
+Ngozi · 3 days ago
+Soldier (blockout) 3
+Proportions only. No textures yet.
+T
+Tobe · 3 days ago
+Toy car 3
+Wheels true. Paint chipped at the edges.
+K
+Kemi · Last week
+Canteen 3
+Dents on the base. Label texture on the sheet.
+D
+Dayo · Last week
+Radio 3
+Dial glass added. Knobs turn.
+A
+Ada · Last week
+Needs your eyes
+Chair 3
+Seat fabric has sheen now. Legs straightened.
+C
+Chidi · Last week
+Helmet 3
+Scratches follow the strap now.
+N
+Ngozi · Last week
+Environments
+· 9
+Environment
+Needs your eyes
+Compound overview
+Roof planes aligned. Shadows read right from above.
+C
+Chidi · 1 h ago
+Environment
+Courtyard
+Washing line added. Chairs are separate objects.
+N
+Ngozi · 3 h ago
+Environment
+Interior set
+Pots and baskets placed. Floor decal fixed.
+T
+Tobe · 3 h ago
+Environment
+Compound overview 2
+Roof planes aligned. Shadows read right from above.
+D
+Dayo · 2 days ago
+Environment
+Courtyard 2
+Washing line added. Chairs are separate objects.
+A
+Ada · 2 days ago
+Environment
+Needs your eyes
+Interior set 2
+Pots and baskets placed. Floor decal fixed.
+C
+Chidi · 2 days ago
+Environment
+Compound overview 3
+Roof planes aligned. Shadows read right from above.
+T
+Tobe · 2 wk ago
+Environment
+Needs your eyes
+Courtyard 3
+Washing line added. Chairs are separate objects.
+K
+Kemi · 2 wk ago
+Environment
+Interior set 3
+Pots and baskets placed. Floor decal fixed.
+D
+Dayo · 3 wk ago
+Tweaks

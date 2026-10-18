@@ -13,7 +13,8 @@ from typing import Any
 import bpy
 from bpy.app.handlers import persistent
 
-from . import checks, export, hashing, ids, manifest, mapping
+from . import checks, export, hashing, live, manifest, mapping
+from . import kind as kind_rules
 from .agent_client import AgentClient, AgentError, EventListener
 from .log import log
 from .state import STATE
@@ -75,6 +76,24 @@ def collect(collection: Any) -> Collected:
     return Collected(hashes, infos, armature, bone_count)
 
 
+def scene_bounds(collection: Any | None = None) -> list[kind_rules.Bounds]:
+    """World bounds per mesh, for the kind decision. The whole file when no collection is given."""
+    objects = collection.all_objects if collection is not None else [o for c in bpy.data.collections.values() for o in c.all_objects]
+    out: list[kind_rules.Bounds] = []
+    for obj in objects:
+        if obj.type != "MESH":
+            continue
+        lo, hi = manifest.bounds_of([_world_corner(obj, c) for c in obj.bound_box])
+        out.append((lo, hi))
+    return out
+
+
+def scene_skinned(collection: Any | None = None) -> bool:
+    """An armature with a skinned mesh means a character."""
+    objects = collection.all_objects if collection is not None else [o for c in bpy.data.collections.values() for o in c.all_objects]
+    return any(obj.type == "ARMATURE" for obj in objects) and any(obj.type == "MESH" for obj in objects)
+
+
 def gather_facts(collection: Any, skeletons: dict[str, tuple[str, ...]] | None = None) -> checks.SceneFacts:
     """What the Blender checks look at, read once from the scene. Textures are the images the
     collection's materials use; with no material graph the whole file's images count."""
@@ -107,21 +126,16 @@ def unit_scale_now() -> float:
 
 
 def run_part_checks(part: dict[str, Any], collection: Any) -> list[dict[str, Any]]:
-    """The part's Blender checks on the scene as saved, kept in STATE for the panel. No fixes."""
-    specs = part.get("checks") or []
-    if not specs:
-        return []
+    """The four v8 checks on the scene as saved, with the budget from the project (never a
+    number from this file), kept in STATE for the panel and the manifest. No fixes."""
     facts = gather_facts(collection)
-    results, _ = checks.run_checks(
-        [c["id"] for c in specs],
-        {c["id"]: dict(c.get("params") or {}) for c in specs},
-        {c["id"]: c["severity"] for c in specs},
-        facts,
-        fix=False,
-    )
+    group = kind_rules.group_of(STATE.rel_file or "")
+    budget = live.budget_for(STATE.budgets, STATE.kind.get(part["id"], "object"), group, part.get("budget"))
+    results, _ = live.run_four(facts, budget, (STATE.budgets or {}).get("max_texture"), fix=False)
     with STATE.lock:
         STATE.checks[part["id"]] = results
         STATE.card[part["id"]] = checks.summary(facts)
+        STATE.checks_at = time.monotonic()
     return results
 
 
@@ -143,11 +157,18 @@ def handle_save(filepath: str) -> dict[str, Any]:
     _ensure_listener(client)
     rel = mapping.relative_file(root, path)
     part = mapping.part_for_file(client.parts(rel), rel)
+    asset_kind = kind_rules.decide(rel, scene_bounds(), scene_skinned(), kind_rules.read_remembered(path))
+    if part is None and not rel.startswith("."):
+        # v8: a .blend saved into the project is an asset. One file, one part, this person's.
+        part = client.create_asset(path.stem, rel, asset_kind, kind_rules.group_of(rel))
+        log("asset.created", part_id=part["id"], file=rel, kind=asset_kind)
     with STATE.lock:
         previous = STATE.part
         STATE.part = part
         STATE.rel_file = rel
         STATE.error = ""
+        if part is not None:
+            STATE.kind[part["id"]] = asset_kind
     if part is None:
         return {"skipped": f"no part maps to {rel}"}
     # A file that became a part while open (Create asset, From files in the folder) has had no
@@ -170,22 +191,39 @@ def handle_save(filepath: str) -> dict[str, Any]:
     if changed and refused:
         log("export.refused", part_id=part["id"], problems=refused)
         changed = False
+    results = run_part_checks(part, collection)
+    rows = live.lines(results, STATE.card.get(part["id"], {}), live.budget_for(STATE.budgets, asset_kind, kind_rules.group_of(rel), part.get("budget")))
+    still_path: Path | None = None
     if changed:
-        me = client.me()
-        version_name = ids.new_id()
-        spool = Path(me.spool_dir) / part["id"] / f"{version_name}.glb"
+        # v8 (step 13): the GLB and its manifest sit next to the .blend, textures embedded, Y up,
+        # modifiers and scale applied, no Draco. The agent uploads from there.
+        glb = path.with_suffix(".glb")
         t = time.monotonic()
-        how = export.export_collection(collection, spool, kind)
+        how = export.export_collection(collection, glb, kind, skins=got.armature is not None)
         export_ms = int((time.monotonic() - t) * 1000)
         manifest_data = manifest.build_manifest(
             infos, got.armature, part.get("mapping", {}).get("path"), kind, got.bone_count,
             textures=[(t.name, t.width, t.height) for t in texture_facts()], unit_scale=unit_scale_now(),
+            asset_kind=asset_kind, checks=live.manifest_checks(rows),
         )
-        manifest.write_manifest(spool.with_name(f"{version_name}.manifest.json"), manifest_data)
-        spool_path = str(spool)
-        log("export.done", part_id=part["id"], kind=kind, how=how, export_ms=export_ms, objects=len(infos))
+        manifest.write_manifest(path.with_suffix(".manifest.json"), manifest_data)
+        spool_path = str(glb)
+        log("export.done", part_id=part["id"], kind=kind, asset_kind=asset_kind, how=how, export_ms=export_ms, objects=len(infos))
+        if asset_kind == "environment":
+            # The still is the wall card and the poster: 1600x1000 from the scene camera or an
+            # eye-height default, Eevee at low samples. Objects need none; the app captures its own.
+            try:
+                t = time.monotonic()
+                still_path = export.render_still(path.with_suffix(".png"))
+                log("still.done", part_id=part["id"], render_ms=int((time.monotonic() - t) * 1000))
+            except (RuntimeError, OSError) as e:
+                log("still.failed", part_id=part["id"], error=str(e))
     res = client.saved(part["id"], changed, spool_path, manifest_data, rel, STATE.opened_at)
-    results = run_part_checks(part, collection)
+    if still_path is not None:
+        try:
+            client.render(part["id"], str(still_path))
+        except AgentError as e:
+            log("still.post_failed", part_id=part["id"], error=str(e))
     if results:
         try:
             client.record_checks(part["id"], results)
@@ -234,14 +272,21 @@ def handle_open(filepath: str) -> dict[str, Any]:
     rel = mapping.relative_file(root, path)
     me = client.me()
     part = mapping.part_for_file(client.parts(rel), rel)
+    asset_kind = kind_rules.decide(rel, scene_bounds(), scene_skinned(), kind_rules.read_remembered(path))
     with STATE.lock:
         STATE.me = me.user.to_dict()
         STATE.unreal = bool(me.unreal)
+        STATE.project_name = str(getattr(me.project, "name", "") or "")
+        budgets = getattr(me, "budgets", None)
+        STATE.budgets = budgets.to_dict() if budgets is not None and hasattr(budgets, "to_dict") else (dict(budgets) if isinstance(budgets, dict) else None)
         STATE.part = part
         STATE.rel_file = rel
         STATE.error = ""
         STATE.publish_line = ""
+        STATE.added_line = ""
         STATE.opened_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        if part is not None:
+            STATE.kind[part["id"]] = asset_kind
     if part is None:
         return {"skipped": f"no part maps to {rel}"}
     ensure_collection(str(part["mapping"]["collection"]))

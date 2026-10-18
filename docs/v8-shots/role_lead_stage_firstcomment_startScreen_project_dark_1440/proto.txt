@@ -1,0 +1,52 @@
+S
+Sunburst
+Mentions
+1
+Projects
+Rising Sun
+Try Nkata
+sample
+New project
+Connections
+E
+Emeka Nnamdi
+Lead
+Rising Sun
+/
+Market lantern
+Market lantern
+C
+Chidi
+in Blender now
+market_lantern.blend
+Live, Chidi is saving
+Versions
+Live
+Live
+just now
+Latest save. Not handed off yet.
+v1
+Just now
+Saved, not published yet.
+Chidi is still working on this. No note until Publish.
+What you are getting first Version
+Polycount
+48,000
+first Version
+Textures
+3 named to the sheet
+new
+Scale
+1.00
+metres
+UV sets
+1
+same
+Comments
+E
+Emeka
+Just now
+Roof reads too stiff. Loosen the ridge.
+HELL YES
+Request changes with a pin in under a minute.
+passes: every fact once, Approve one move from the model

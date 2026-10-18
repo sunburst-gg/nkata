@@ -17,6 +17,10 @@ from . import bpy_stub
 
 ID = "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 ID2 = "01BX5ZZKBKACTAV9WEVGEMMVRZ"
+NEW_PART = {
+    "id": "01NEWPART0000000000000000A", "asset_id": ID2, "asset_name": "face", "name": "model", "state": "draft", "owner": {"id": ID, "name": "Ada", "avatar_url": None}, "lock": None,
+    "gate": {"after": []}, "mapping": {"kind": "blend_collection", "file": "Ojukwu/face.blend", "collection": "model"}, "kind": "prop", "export_name": "SM_face", "checks": [], "reference_files": [], "waiting_on": [],
+}
 
 
 class FakeAgent(BaseHTTPRequestHandler):
@@ -25,6 +29,7 @@ class FakeAgent(BaseHTTPRequestHandler):
     saved: list[dict[str, Any]] = []
     opened: list[str] = []
     parts: list[dict[str, Any]] = []
+    created: list[dict[str, Any]] = []
 
     def log_message(self, *_a: Any) -> None:
         return
@@ -63,6 +68,14 @@ class FakeAgent(BaseHTTPRequestHandler):
             return self._json(200, {"v": 1, "granted": True, "lock": {"holder": {"id": ID2, "name": "Ada", "avatar_url": None}, "granted_at": at, "heartbeat_at": at, "expires_at": at, "stale": False}})
         if self.path == "/presence":
             return self._json(200, {"v": 1, "online": []})
+        if self.path == "/assets":
+            FakeAgent.created.append(body)
+            base = self.parts[0] if self.parts else NEW_PART
+            made = {**base, "id": "01NEWPART0000000000000000A", "asset_name": body["name"], "mapping": {"kind": "blend_collection", "file": body["file"], "collection": "model"}}
+            FakeAgent.parts = [*FakeAgent.parts, made]
+            return self._json(201, {"v": 1, "part": made})
+        if self.path.endswith("/render"):
+            return self._json(200, {"v": 1, "version_id": ID, "stored": True})
         return self._json(404, {"v": 1, "error": {"code": "not_found", "message": self.path}})
 
 
@@ -78,6 +91,7 @@ class SaveHookTest(unittest.TestCase):
         FakeAgent.spool_dir = str(root / ".nkata-agent" / "spool")
         FakeAgent.saved = []
         FakeAgent.opened = []
+        FakeAgent.created = []
         FakeAgent.parts = [{"id": ID, "asset_id": ID2, "asset_name": "Ojukwu", "name": "face", "state": "draft", "owner": None, "lock": None, "gate": {"after": []}, "mapping": {"kind": "blend_collection", "file": "Ojukwu/face.blend", "collection": "face"}, "kind": "character", "checks": [{"id": "unit_scale", "severity": "block", "params": {}}, {"id": "triangle_budget", "severity": "block", "params": {"max": 60000}}], "reference_files": ["Ojukwu/ref/concept.png"], "waiting_on": []}]
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), FakeAgent)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
@@ -110,7 +124,7 @@ class SaveHookTest(unittest.TestCase):
         self.assertEqual(len(FakeAgent.saved), 1)
         req = FakeAgent.saved[0]
         self.assertTrue(Path(req["spool_path"]).is_file())
-        self.assertTrue(req["spool_path"].startswith(FakeAgent.spool_dir + "/" + ID + "/"))
+        self.assertEqual(req["spool_path"], str(self.blend.with_suffix(".glb")), "v8: the GLB sits next to the .blend")
         self.assertEqual(req["manifest"]["objects"][0]["name"], "Face")
         self.assertEqual(req["manifest"]["objects"][0]["triangles"], 1)
         self.assertEqual(req["manifest"]["objects"][0]["materials"], ["M_Skin"])
@@ -125,7 +139,9 @@ class SaveHookTest(unittest.TestCase):
         self.assertEqual(req["manifest"]["unit_scale"], 1.0)
         self.assertEqual(req["source_file"], "Ojukwu/face.blend")
         self.assertEqual(self.bpy._ops.calls[0][0], "collection.exporter_export")
-        self.assertTrue(any(p.name.endswith(".manifest.json") for p in Path(req["spool_path"]).parent.iterdir()))
+        self.assertTrue(self.blend.with_suffix(".manifest.json").is_file())
+        self.assertEqual(req["manifest"]["asset_kind"], "object")
+        self.assertEqual([c["key"] for c in req["manifest"]["checks"]], ["textures", "scale", "uv", "tris"])
         self.assertEqual(self.state.mirror_for(ID).status, "pending")
 
         second = self.save_hook.handle_save(str(self.blend))
@@ -222,11 +238,15 @@ class SaveHookTest(unittest.TestCase):
         self.assertIn("skipped", out)
         self.assertEqual(FakeAgent.saved, [])
 
-    def test_file_without_a_part_is_skipped(self) -> None:
+    def test_a_file_without_a_part_becomes_an_asset_of_mine_on_save(self) -> None:
+        """v8: a .blend saved into the project is an asset. One file, one part, this person's."""
         FakeAgent.parts = []
         out = self.save_hook.handle_save(str(self.blend))
-        self.assertIn("skipped", out)
-        self.assertIsNone(self.state.part)
+        self.assertEqual(len(FakeAgent.created), 1)
+        self.assertEqual(FakeAgent.created[0], {"v": 1, "name": "face", "file": "Ojukwu/face.blend", "kind": "object", "group": "Ojukwu"})
+        self.assertEqual(out["part_id"], "01NEWPART0000000000000000A")
+        self.assertTrue(out["changed"])
+        self.assertEqual(self.state.part["mapping"]["file"], "Ojukwu/face.blend")
 
     def test_agent_down_raises_a_typed_error_and_the_handler_keeps_the_save(self) -> None:
         with mock.patch.dict(os.environ, {"NKATA_AGENT_URL": "http://127.0.0.1:1"}):

@@ -25,9 +25,10 @@ def find_gltf_exporter(collection: Any) -> tuple[int, Any] | None:
     return None
 
 
-def export_collection(collection: Any, filepath: Path, kind: str = "character") -> str:
+def export_collection(collection: Any, filepath: Path, kind: str = "character", skins: bool | None = None) -> str:
     """Exports the collection to filepath. Returns which path ran: 'exporter' or 'fallback'.
-    A character exports with its armature and skin weights; a prop exports meshes only."""
+    A character exports with its armature and skin weights; a prop exports meshes only. v8
+    passes `skins` from the scene (an armature present) so a rigged object keeps its rig."""
     filepath.parent.mkdir(parents=True, exist_ok=True)
     found = find_gltf_exporter(collection)
     if found is not None:
@@ -44,10 +45,12 @@ def export_collection(collection: Any, filepath: Path, kind: str = "character") 
     if layer is not None:
         bpy.context.view_layer.active_layer_collection = layer
     try:
-        skins = kind == "character"
+        skins = kind == "character" if skins is None else skins
+        # Textures embedded, Y up (the exporter's default), modifiers and scale applied, no Draco.
+        # Blender's exporter offers no meshopt; environments ship uncompressed (docs/decisions.md).
         result = bpy.ops.export_scene.gltf(
             filepath=str(filepath), export_format="GLB", use_active_collection=True, export_apply=True,
-            export_skins=skins, export_animations=False, export_morph=skins,
+            export_skins=skins, export_animations=False, export_morph=skins, export_draco_mesh_compression_enable=False,
         )
     finally:
         if layer is not None:
@@ -87,3 +90,50 @@ def _layer_collection(layer: Any, name: str) -> Any | None:
         if found is not None:
             return found
     return None
+
+
+STILL_SIZE = (1600, 1000)
+STILL_SAMPLES = 8
+EYE_HEIGHT_M = 1.6
+
+
+def render_still(filepath: Path) -> Path:
+    """The environment's still: 1600x1000 from the scene camera, or a default eye-height camera,
+    Eevee at low samples, under 3 s. The previous render settings come back after.
+    https://docs.blender.org/api/current/bpy.ops.render.html#bpy.ops.render.render"""
+    scene = bpy.context.scene
+    render = scene.render
+    previous = (render.filepath, render.image_settings.file_format, render.resolution_x, render.resolution_y, render.resolution_percentage, render.engine)
+    made_camera = None
+    try:
+        if scene.camera is None:
+            data = bpy.data.cameras.new("Nkata still")
+            made_camera = bpy.data.objects.new("Nkata still", data)
+            scene.collection.objects.link(made_camera)
+            made_camera.location = (0.0, -8.0, EYE_HEIGHT_M)
+            made_camera.rotation_euler = (1.4, 0.0, 0.0)
+            scene.camera = made_camera
+        render.engine = "BLENDER_EEVEE_NEXT" if "BLENDER_EEVEE_NEXT" in _engines() else "BLENDER_EEVEE"
+        eevee = getattr(scene, "eevee", None)
+        if eevee is not None and hasattr(eevee, "taa_render_samples"):
+            eevee.taa_render_samples = STILL_SAMPLES
+        render.resolution_x, render.resolution_y = STILL_SIZE
+        render.resolution_percentage = 100
+        render.filepath = str(filepath)
+        render.image_settings.file_format = "PNG"
+        result = bpy.ops.render.render(write_still=True)
+    finally:
+        render.filepath, render.image_settings.file_format, render.resolution_x, render.resolution_y, render.resolution_percentage, render.engine = previous
+        if made_camera is not None:
+            scene.camera = None
+            bpy.data.objects.remove(made_camera)
+    if "FINISHED" not in result or not filepath.is_file():
+        raise RuntimeError(f"still render returned {result}")
+    return filepath
+
+
+def _engines() -> list[str]:
+    try:
+        return [item.identifier for item in bpy.types.RenderSettings.bl_rna.properties["engine"].enum_items]
+    except (AttributeError, KeyError, TypeError):
+        return []

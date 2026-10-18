@@ -34,6 +34,8 @@ def build_manifest(
     bone_count: int | None = None,
     textures: list[tuple[str, int, int]] | None = None,
     unit_scale: float | None = None,
+    asset_kind: str | None = None,
+    checks: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Validated against the shared schema before it leaves the add-on. Textures and the unit
     scale feed the publish card (docs/tasks/07-blender-first.md, slice 4)."""
@@ -61,6 +63,11 @@ def build_manifest(
     }
     if unit_scale is not None:
         data["unit_scale"] = float(unit_scale)
+    # v8 (step 13): the wall's kind and the four checks with their sentences and fixes.
+    if asset_kind is not None:
+        data["asset_kind"] = asset_kind
+    if checks is not None:
+        data["checks"] = [dict(c) for c in checks]
     return shared.validate_ObjectManifest(data).to_dict()
 
 
