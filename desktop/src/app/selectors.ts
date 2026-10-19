@@ -22,6 +22,11 @@ export function openPinsLine(asset: Asset): string | null {
   return null;
 }
 
+/** The open pins an approval of Version n would waive: not done, on that Version or an earlier one. */
+export function openPinsUpTo(comments: readonly Comment[], n: number): Comment[] {
+  return comments.filter((c) => !!c.pin && !c.done && typeof c.version === "number" && c.version <= n);
+}
+
 /** A pin made on an earlier Version than the one shown: drawn as a ghost, listed as "from v1". */
 export function carried(comment: Comment, shownN: number): boolean {
   return typeof comment.version === "number" && comment.version < shownN;

@@ -19,7 +19,7 @@ Done means each sub-step's gate holds and `make test` is green.
 - [x] 3. Pins carry forward on Publish. The new Version shows the pins still open on the one
       before as ghosts: same spot, dotted ring, "from v1" in the list, until someone marks them
       done. Publish is never blocked by an open pin.
-- [ ] 4. The lead's second look. Approve with open pins asks once, "2 pins still open. Approve
+- [x] 4. The lead's second look. Approve with open pins asks once, "2 pins still open. Approve
       anyway?", and yes marks them waived. A new Version after a send back returns to the lead's
       Needs my eyes.
 

@@ -1,12 +1,13 @@
 // The asset page: serif name, owner, "in Blender now" when live, the stage with pins, the action
 // bar, the Versions row, and on the right the note, the facts and the comments.
 import { useEffect, useState } from "react";
-import { openPinsLine } from "@/app/selectors";
+import { openPinsLine, openPinsUpTo } from "@/app/selectors";
 import { useStore } from "@/app/store";
 import { isArtist } from "@/auth/permissions";
 import { useCan } from "@/auth/useCan";
 import { ActionBar } from "@/ui/asset/ActionBar";
 import { BudgetDialog } from "@/ui/asset/BudgetDialog";
+import { ApproveOpenPinsDialog } from "@/ui/asset/ApproveOpenPinsDialog";
 import { AssetStage } from "@/ui/asset/AssetStage";
 import { Compare } from "@/ui/asset/Compare";
 import { Facts } from "@/ui/asset/Facts";
@@ -39,12 +40,23 @@ export function AssetScreen() {
   const file = `${asset.name.toLowerCase().replace(/ /g, "_")}.blend`;
   const shownN = shown === "live" ? (asset.versions[0]?.n ?? 1) : shown;
   const pinsLine = openPinsLine(asset);
+  // Approve with pins still open asks once; yes marks them done with the approval (v8 step 14).
+  const [approveOpen, setApproveOpen] = useState(false);
+  const stillOpen = openPinsUpTo(comments, shownN);
   const approve = async () => {
     if (!source) return;
+    if (stillOpen.length) { setApproveOpen(true); return; }
+    await approveNow();
+  };
+  const approveNow = async () => {
+    if (!source) return;
+    setApproveOpen(false);
+    for (const c of stillOpen) await source.resolveComment(asset.id, c.id, true);
     await source.approve(asset.id, shownN);
     useStore.setState({ stamp: true, stop: null });
     setTimeout(() => useStore.setState({ stamp: false }), 1400);
-    toast(`Approved v${shownN}. ${asset.owner.first} knows.`, "var(--ok)");
+    const waived = stillOpen.length ? ` ${stillOpen.length} pin${stillOpen.length === 1 ? "" : "s"} marked done.` : "";
+    toast(`Approved v${shownN}.${waived} ${asset.owner.first} knows.`, "var(--ok)");
   };
   // Request changes needs a pin or a written line from me on this Version (Decisions 13).
   const requestChanges = async () => {
@@ -83,6 +95,7 @@ export function AssetScreen() {
       </div>
       {artist ? <PublishDialog asset={asset} open={publishOpen} onOpenChange={setPublishOpen} /> : null}
       {canBudget ? <BudgetDialog asset={asset} open={budgetOpen} onOpenChange={setBudgetOpen} /> : null}
+      <ApproveOpenPinsDialog open={approveOpen} count={stillOpen.length} version={shownN} onOpenChange={setApproveOpen} onApprove={() => void approveNow()} />
     </div>
   );
 }

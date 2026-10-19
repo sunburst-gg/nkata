@@ -3,8 +3,8 @@
 // for the artist), read from the v8 prototype with the Tweaks (docs/v8-shots/proto-words.json).
 import { describe, expect, it } from "vitest";
 import { ME, MockDataSource, RISING_SUN } from "@/data/mock";
-import { needsMe } from "@/data/rules";
-import { applyFilter, canResolve, cardOrder, carried, openPinsLine, factsWithDeltas, filterCounts, journey, modelOf, publishState, sectionsByGroup, stripLabel, trisDelta, canReview } from "./selectors";
+import { needsMe, waitingOnLead } from "@/data/rules";
+import { applyFilter, canResolve, cardOrder, carried, openPinsLine, openPinsUpTo, factsWithDeltas, filterCounts, journey, modelOf, publishState, sectionsByGroup, stripLabel, trisDelta, canReview } from "./selectors";
 
 async function load(stage: "studio" | "empty" | "joining" | "firstsave" | "firstcomment", role: "lead" | "artist" | "viewer") {
   const mock = new MockDataSource({ stage, role });
@@ -175,5 +175,21 @@ describe("open pins on a sent back Version", () => {
     expect(needsMe([sentBack], ME.artist).map((a) => a.id)).toEqual([sentBack.id]);
     expect(needsMe([{ ...sentBack, pins: { open: 0, total: 3 } }], ME.artist)).toEqual([]);
     expect(needsMe([{ ...sentBack, owner: ME.lead }], ME.artist)).toEqual([]);
+  });
+});
+
+describe("the lead's second look", () => {
+  it("approving a Version waives the open pins on it and before it, not later or done ones; a Version published after a send back waits on the lead again", async () => {
+    const { assets } = await load("studio", "lead");
+    const base = assets.find((a) => a.owner.id === ME.artist.id && !a.live && a.versions.length > 1)!;
+    const pin = (id: string, version: number | "live", done = false) => ({ id, assetId: base.id, version, author: ME.lead, text: "x", at: "now", pin: [0, 0, 0] as [number, number, number], ...(done ? { done } : {}) });
+    const comments = [pin("a", 1), pin("b", 2), pin("c", 2, true), pin("d", 3), pin("e", "live"), { ...pin("f", 2), pin: undefined }];
+    expect(openPinsUpTo(comments, 2).map((c) => c.id)).toEqual(["a", "b"]);
+    expect(openPinsUpTo(comments, 1).map((c) => c.id)).toEqual(["a"]);
+    const [v2, v1, ...rest] = base.versions;
+    const afterSendBack = { ...base, versions: [{ ...v2!, note: "Jaw softened.", approved: false, changesRequested: false }, { ...v1!, changesRequested: true, approved: false }, ...rest], pins: { open: 1, total: 1, from: v1!.n } };
+    expect(waitingOnLead(afterSendBack)).toBe(true);
+    expect(needsMe([afterSendBack], ME.lead).map((a) => a.id)).toEqual([afterSendBack.id]);
+    expect(needsMe([afterSendBack], ME.artist)).toEqual([]);
   });
 });
