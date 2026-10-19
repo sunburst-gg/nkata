@@ -114,10 +114,11 @@ pub fn parse_blender_version(stdout: &str) -> Option<String> {
 pub const SHARED_IN_ADDON: &str = "nkata/nkata_shared";
 
 /// Zips the add-on folder with `blender_manifest.toml` at the root, as `extension build` does.
-/// The add-on imports `nkata.nkata_shared`. When the folder has no vendored copy, the files
-/// under `shared_py` are written at that path instead, so a fresh checkout and a bundle both
-/// install an add-on that enables. Without either the zip would install and then fail to
-/// enable, which is the error this guards against.
+/// The add-on imports `nkata.nkata_shared`. The files under `shared_py` are written at that
+/// path and a vendored copy in the folder is left out, so the add-on always carries the types
+/// this build speaks; the vendored copy is used only when shared/py is missing. A stale copy
+/// made the panel reject the agent's own /me reply (docs/decisions.md, 2026-10-19). Without
+/// either the zip would install and then fail to enable, which the error guards against.
 pub fn extension_zip(addon_dir: &Path, shared_py: Option<&Path>, out: &Path) -> Result<()> {
     if !addon_dir.join("blender_manifest.toml").is_file() {
         return Err(AgentError::Config(format!(
@@ -126,19 +127,14 @@ pub fn extension_zip(addon_dir: &Path, shared_py: Option<&Path>, out: &Path) -> 
         )));
     }
     let vendored = addon_dir.join(SHARED_IN_ADDON);
-    let shared_py = if vendored.join("__init__.py").is_file() {
-        None
-    } else {
-        match shared_py {
-            Some(dir) if dir.join("__init__.py").is_file() => Some(dir),
-            _ => {
-                let what = format!("{} has no {SHARED_IN_ADDON}", addon_dir.display());
-                return Err(AgentError::Config(format!(
-                    "{what} and shared/py was not found. Run make addon-vendor."
-                )));
-            }
-        }
-    };
+    let shared_py = shared_py.filter(|dir| dir.join("__init__.py").is_file());
+    if shared_py.is_none() && !vendored.join("__init__.py").is_file() {
+        let what = format!("{} has no {SHARED_IN_ADDON}", addon_dir.display());
+        return Err(AgentError::Config(format!(
+            "{what} and shared/py was not found. Run make addon-vendor."
+        )));
+    }
+    let skip_vendored = shared_py.is_some();
     if let Some(parent) = out.parent() {
         std::fs::create_dir_all(parent).map_err(|e| AgentError::io(parent, e))?;
     }
@@ -154,7 +150,9 @@ pub fn extension_zip(addon_dir: &Path, shared_py: Option<&Path>, out: &Path) -> 
         for entry in WalkDir::new(root)
             .sort_by_file_name()
             .into_iter()
-            .filter_entry(|e| !skipped(e.path()))
+            .filter_entry(|e| {
+                !skipped(e.path()) && !(skip_vendored && e.path().starts_with(&vendored))
+            })
             .flatten()
         {
             let path = entry.path();
@@ -506,14 +504,43 @@ mod tests {
     }
 
     #[test]
-    fn the_zip_keeps_the_vendored_copy_when_the_add_on_has_one() {
+    fn the_zip_prefers_shared_py_over_a_stale_vendored_copy() {
+        let tmp = tempfile::tempdir().unwrap();
+        let addon = unvendored_addon(tmp.path());
+        let vendored = addon.join(SHARED_IN_ADDON);
+        std::fs::create_dir_all(&vendored).unwrap();
+        std::fs::write(vendored.join("__init__.py"), "VENDORED = True\n").unwrap();
+        std::fs::write(vendored.join("stale.py"), "").unwrap();
+        let out = tmp.path().join("addon.zip");
+        extension_zip(&addon, Some(&shared_py()), &out).unwrap();
+        let names = zip_names(&out);
+        assert!(
+            names.contains(&"nkata/nkata_shared/common.py".to_string()),
+            "{names:?}"
+        );
+        assert!(
+            !names.contains(&"nkata/nkata_shared/stale.py".to_string()),
+            "{names:?}"
+        );
+        assert_eq!(
+            names
+                .iter()
+                .filter(|n| n.ends_with("nkata_shared/__init__.py"))
+                .count(),
+            1,
+            "{names:?}"
+        );
+    }
+
+    #[test]
+    fn the_zip_keeps_the_vendored_copy_when_shared_py_is_missing() {
         let tmp = tempfile::tempdir().unwrap();
         let addon = unvendored_addon(tmp.path());
         let vendored = addon.join(SHARED_IN_ADDON);
         std::fs::create_dir_all(&vendored).unwrap();
         std::fs::write(vendored.join("__init__.py"), "VENDORED = True\n").unwrap();
         let out = tmp.path().join("addon.zip");
-        extension_zip(&addon, Some(&shared_py()), &out).unwrap();
+        extension_zip(&addon, None, &out).unwrap();
         let names = zip_names(&out);
         assert!(names.contains(&"nkata/nkata_shared/__init__.py".to_string()));
         assert!(

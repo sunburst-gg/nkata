@@ -66,8 +66,8 @@ fn addon_dir() -> Option<PathBuf> {
     )
 }
 
-/// The generated shared Python types, zipped into the add-on as nkata/nkata_shared when the
-/// add-on folder has no vendored copy (tools::extension_zip).
+/// The generated shared Python types, zipped into the add-on as nkata/nkata_shared in place
+/// of any vendored copy (tools::extension_zip).
 fn shared_py_dir() -> Option<PathBuf> {
     shipped_dir("NKATA_SHARED_PY", "shared/py", "common.py")
 }
