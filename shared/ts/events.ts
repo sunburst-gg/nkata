@@ -4,7 +4,7 @@
 import { z } from "zod";
 import { CommentPin, LockInfo, MirrorStatus, PartState, ReviewDecision, Timestamp, Training, Ulid, UserRef } from "./common.js";
 
-export const ServerEventKind = z.enum(["presence.changed", "lock.granted", "lock.released", "lock.requested", "version.created", "mirror.result", "part.state", "comment.created", "review.decided", "gate.opened", "studio.training"]);
+export const ServerEventKind = z.enum(["presence.changed", "lock.granted", "lock.released", "lock.requested", "version.created", "mirror.result", "part.state", "comment.created", "comment.resolved", "review.decided", "gate.opened", "studio.training"]);
 export type ServerEventKind = z.infer<typeof ServerEventKind>;
 
 export const PresenceEntry = z.strictObject({
@@ -108,6 +108,17 @@ export const CommentCreated = z.strictObject({
 });
 export type CommentCreated = z.infer<typeof CommentCreated>;
 
+/** A pin marked done, or reopened: the comment carries resolved_at, null again on reopen (v8 step 14). */
+export const CommentResolved = z.strictObject({
+  "v": z.literal(1),
+  "kind": z.literal("comment.resolved"),
+  "project_id": Ulid,
+  "actor_id": Ulid,
+  "at": Timestamp,
+  "comment": CommentPin,
+});
+export type CommentResolved = z.infer<typeof CommentResolved>;
+
 export const ReviewDecided = z.strictObject({
   "v": z.literal(1),
   "kind": z.literal("review.decided"),
@@ -146,7 +157,7 @@ export const StudioTraining = z.strictObject({
 export type StudioTraining = z.infer<typeof StudioTraining>;
 
 /** Server to client. Discriminated on kind. */
-export const ServerEvent = z.discriminatedUnion("kind", [PresenceChanged, LockGranted, LockReleased, LockRequested, VersionCreated, MirrorResult, PartStateChanged, CommentCreated, ReviewDecided, GateOpened, StudioTraining]);
+export const ServerEvent = z.discriminatedUnion("kind", [PresenceChanged, LockGranted, LockReleased, LockRequested, VersionCreated, MirrorResult, PartStateChanged, CommentCreated, CommentResolved, ReviewDecided, GateOpened, StudioTraining]);
 export type ServerEvent = z.infer<typeof ServerEvent>;
 
 export const PresenceHeartbeat = z.strictObject({

@@ -79,6 +79,13 @@ class FakeAgent(BaseHTTPRequestHandler):
             if blocked:
                 return self._json(200, {"v": 1, "published": False, "version_id": ID, "state": "draft", "blocked_by": blocked, "render_needed": False})
             return self._json(200, {"v": 1, "published": True, "version_id": ID, "state": "draft", "blocked_by": [], "render_needed": False})
+        if self.path.endswith("/resolve") or self.path.endswith("/reopen"):
+            cid = self.path.split("/")[-2]
+            for c in FakeAgent.comments:
+                if c["id"] == cid:
+                    c["resolved_at"] = AT if self.path.endswith("/resolve") else None
+                    return self._json(200, {"v": 1, "comment": c})
+            return self._json(404, {"v": 1, "error": {"code": "not_found", "message": cid}})
         if self.path.endswith("/comments"):
             pin = {"id": f"01C0MMENT000000000000000{len(FakeAgent.comments) + 1:02d}"[:26], "part_id": ID, "version_id": ID2, "author": USER, "point": body["point"], "normal": body["normal"], "body": body["body"], "kind": body.get("kind", "pin"), "resolved_at": None, "created_at": AT}
             FakeAgent.comments.append(pin)
@@ -297,6 +304,32 @@ class PanelTest(unittest.TestCase):
         sent = [c for c in FakeAgent.calls if c[1] == f"/parts/{ID}/comments" and c[0] == "POST"][0][2]
         self.assertEqual(sent["point"], [0.5, 0.25, 0.0])
         self.assertIn("label:No new comments", "\n".join(self.draw()), "my own comment is not new to me")
+
+    def test_a_pin_is_marked_done_from_the_panel_and_the_app_can_do_it_too(self) -> None:
+        self.save_hook.handle_open(str(self.blend))
+        FakeAgent.comments.append({"id": "01C0MMENT0000000000000000A", "part_id": ID, "version_id": ID2, "author": CHIDI, "point": [0, 0, 1], "normal": [0, 0, 1], "body": "Loosen the ridge.", "kind": "pin", "resolved_at": None, "created_at": AT})
+        self.state.apply_event({"kind": "comment.created", "comment": dict(FakeAgent.comments[0])})
+        text = "\n".join(self.draw())
+        self.assertIn("op:nkata.settle_pin:Done", text, "a new open pin offers Done")
+        jump = self.panel.NKATA_OT_frame_pin()
+        jump.index = 0
+        ctx = types.SimpleNamespace(scene=self.bpy.context.scene, screen=types.SimpleNamespace(areas=[]), temp_override=self.bpy.context.temp_override)
+        jump.execute(ctx)
+        text = "\n".join(self.draw())
+        self.assertIn("label:Still open: 1", text, "a seen pin that is not done stays listed")
+        done = self.panel.NKATA_OT_settle_pin()
+        done.index = 0
+        done.done = True
+        self.assertEqual(done.execute(self.bpy.context), {"FINISHED"})
+        self.assertEqual([c[1] for c in FakeAgent.calls if c[1].endswith("/resolve")], [f"/parts/{ID}/comments/01C0MMENT0000000000000000A/resolve"])
+        self.assertEqual(self.state.comments[ID][0]["resolved_at"], AT)
+        text = "\n".join(self.draw())
+        self.assertNotIn("Still open", text)
+        self.assertNotIn("op:nkata.settle_pin:Done", text)
+        # The lead reopens it in the app: the event arrives whole and the pin is open again.
+        self.state.apply_event({"kind": "comment.resolved", "comment": {**FakeAgent.comments[0], "resolved_at": None}})
+        self.assertIsNone(self.state.comments[ID][0]["resolved_at"])
+        self.assertIn("label:Still open: 1", "\n".join(self.draw()))
 
     def test_the_team_shows_who_is_in_the_project_and_in_this_file(self) -> None:
         FakeAgent.online = [{"user": CHIDI, "part_id": ID, "since": AT, "last_seen": AT}]

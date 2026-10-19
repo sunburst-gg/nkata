@@ -197,6 +197,8 @@ pub fn router(state: Shared) -> Router {
         .route("/parts/{id}/publish", post(publish))
         .route("/parts/{id}/checks", post(checks))
         .route("/parts/{id}/comments", get(comments).post(create_comment))
+        .route("/parts/{id}/comments/{cid}/resolve", post(resolve_comment))
+        .route("/parts/{id}/comments/{cid}/reopen", post(reopen_comment))
         .route("/parts/{id}/review", post(review))
         .route("/presence", post(presence))
         .route("/events", get(events))
@@ -668,6 +670,28 @@ async fn comments(
         v: 1,
         comments: s.server.comments(&id).await?,
     }))
+}
+
+/// Done on a pin, and its reverse (v8 step 14). The server decides who may; the reply is the
+/// comment as it now stands, in the create response's shape.
+async fn resolve_comment(
+    State(s): State<Shared>,
+    headers: HeaderMap,
+    UrlPath((_, cid)): UrlPath<(String, String)>,
+) -> Result<Json<CommentCreateResponse>, ApiError> {
+    check_token(&s, &headers)?;
+    let comment = s.server.settle_comment(&cid, true).await?;
+    Ok(Json(CommentCreateResponse { v: 1, comment }))
+}
+
+async fn reopen_comment(
+    State(s): State<Shared>,
+    headers: HeaderMap,
+    UrlPath((_, cid)): UrlPath<(String, String)>,
+) -> Result<Json<CommentCreateResponse>, ApiError> {
+    check_token(&s, &headers)?;
+    let comment = s.server.settle_comment(&cid, false).await?;
+    Ok(Json(CommentCreateResponse { v: 1, comment }))
 }
 
 async fn create_comment(

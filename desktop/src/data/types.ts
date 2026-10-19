@@ -120,6 +120,8 @@ export interface Comment {
   text: string;
   pin?: [number, number, number];
   at: string;
+  /** A pin marked done (v8 step 14). It draws hollow and sits under Addressed. */
+  done?: boolean;
 }
 
 export interface Mention {

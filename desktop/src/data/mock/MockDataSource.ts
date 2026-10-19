@@ -46,6 +46,8 @@ interface State {
   studio: Studio | null;
   createdProject: Project | null;
   comments: Comment[];
+  /** Ids of pins marked done, seeded or made here. */
+  done: string[];
   studios: StudioRef[];
   members: { person: Person; role: Role }[];
   names: Record<string, string>;
@@ -110,6 +112,7 @@ export class MockDataSource implements DataSource {
       studio: stage === "nostudio" ? null : { id: "sunburst", name: "Sunburst", training: true },
       createdProject: null,
       comments: [],
+      done: [],
       studios: stage === "nostudio" ? [] : [{ id: "sunburst", name: "Sunburst", role: this.me.role, projects: 2, current: true }, { id: "ironwood", name: "Ironwood Play", role: "viewer", projects: 1, current: false }],
       members: (["E", "A", "C", "N", "T", "K", "D", "F"] as Key[]).map((k) => ({ person: PEOPLE[k], role: PEOPLE[k].role })),
       names: {},
@@ -260,7 +263,11 @@ export class MockDataSource implements DataSource {
         : this.stage === "studio"
           ? [{ id: "c1", assetId, version: 1, author: PEOPLE.E, text: "The chairs read too new for this yard.", pin: [0.4, 0.3, 0.5], at: "1 h ago" }]
           : [];
-    return seed.concat(this.s.comments.filter((c) => c.assetId === assetId));
+    return seed.concat(this.s.comments.filter((c) => c.assetId === assetId)).map((c) => (this.s.done.includes(c.id) ? { ...c, done: true } : c));
+  }
+  async resolveComment(assetId: string, commentId: string, done: boolean): Promise<void> {
+    this.s.done = done ? [...new Set([...this.s.done, commentId])] : this.s.done.filter((id) => id !== commentId);
+    this.emit({ type: "commented", assetId, commentId });
   }
 
   async listMentions(projectId: string): Promise<Mention[]> {

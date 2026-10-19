@@ -23,7 +23,7 @@ export function AssetStage({ asset, projectColor, comments, shown }: { asset: As
   const ref = useRef<HTMLDivElement>(null);
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
   const pinned = comments.filter((c) => c.pin);
-  const pins: Pin[] = pinned.map((c) => ({ id: c.id, pos: c.pin!, color: c.author.color }));
+  const pins: Pin[] = pinned.map((c) => ({ id: c.id, pos: c.pin!, color: c.author.color, ...(c.done ? { done: true } : {}) }));
   if (pendingPin && me) pins.push({ id: "pending", pos: pendingPin, color: me.color });
   const onPin = useCallback((pos: [number, number, number]) => { if (canComment) useStore.setState({ pendingPin: pos, activePin: null, draft: "" }); }, [canComment]);
   const onPinSelect = useCallback((id: string) => { if (id !== "pending") useStore.setState({ activePin: id, pendingPin: null }); }, []);

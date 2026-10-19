@@ -87,6 +87,15 @@ class AddonState:
                 pins = self.comments.setdefault(str(comment.get("part_id")), [])
                 if not any(c.get("id") == comment.get("id") for c in pins):
                     pins.append(comment)
+            elif kind == "comment.resolved":
+                # Done or reopened in the app: the comment arrives whole, resolved_at tells which.
+                comment = event.get("comment") or {}
+                pins = self.comments.setdefault(str(comment.get("part_id")), [])
+                found = [i for i, c in enumerate(pins) if c.get("id") == comment.get("id")]
+                if found:
+                    pins[found[0]] = comment
+                else:
+                    pins.append(comment)
             elif kind == "part.state" and self.part and event.get("part_id") == self.part["id"]:
                 self.part = {**self.part, "state": event.get("to")}
             elif kind == "lock.granted" and self.part and event.get("part_id") == self.part["id"]:

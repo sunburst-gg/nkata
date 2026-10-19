@@ -5,7 +5,7 @@ Nkata shows through the Publish button, the people on pins, and the small mark. 
 2. The team: who is in the project now, and who is in this file.
 3. The four checks, live as the artist works (live.py throttles to one run every 2 s).
    A failed check says its fix in one line.
-4. New comments, each with Jump to pin.
+4. New comments, each with Jump to pin and Done; then the pins still open (v8 step 14).
 5. The note (required), Details for engineers (collapsed), Publish with the app's labels.
 
 Everything drawn comes from STATE, filled by the save hook, the live timer and the SSE
@@ -317,7 +317,40 @@ class NKATA_OT_frame_pin(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class NKATA_OT_settle_pin(bpy.types.Operator):
+    """Done on a pin, or Reopen (v8 step 14). The agent asks the server, which decides who may;
+    the panel then shows the comment as the server returned it."""
+
+    bl_idname = "nkata.settle_pin"
+    bl_label = "Done"
+    index: bpy.props.IntProperty()  # type: ignore[valid-type]
+    done: bpy.props.BoolProperty(default=True)  # type: ignore[valid-type]
+
+    def execute(self, _context: bpy.types.Context) -> set[str]:
+        part = STATE.part
+        if part is None:
+            return {"CANCELLED"}
+        comments = STATE.comments.get(part["id"], [])
+        if not 0 <= self.index < len(comments):
+            return {"CANCELLED"}
+        try:
+            client, _ = _client_and_part()
+            pin = client.settle_comment(part["id"], str(comments[self.index].get("id")), bool(self.done))
+        except AgentError as e:
+            self.report({"ERROR"}, e.message)
+            return {"CANCELLED"}
+        with STATE.lock:
+            comments[self.index] = pin.to_dict()
+            STATE.seen_comments.add(str(pin.id))
+            STATE.dirty = True
+        return {"FINISHED"}
+
+
 # ---- draw
+
+
+def _first_name(c: dict[str, Any]) -> str:
+    return str((c.get("author") or {}).get("name", "")).split(" ")[0]
 
 
 def draw_outside(layout: Any) -> None:
@@ -373,16 +406,33 @@ def draw_checks(layout: Any, part: dict[str, Any]) -> None:
 
 
 def draw_comments(layout: Any, part: dict[str, Any]) -> None:
+    """New comments first, each with Jump to pin and Done. Then the pins still open that the
+    artist has already seen, so what the lead is waiting on stays in view until it is done."""
     comments = STATE.comments.get(part["id"]) or []
     fresh = [(i, c) for i, c in enumerate(comments) if str(c.get("id")) not in STATE.seen_comments]
+    still_open = [(i, c) for i, c in enumerate(comments) if str(c.get("id")) in STATE.seen_comments and not c.get("resolved_at")]
     box = layout.box()
     if not fresh:
         box.label(text="No new comments")
     for i, c in fresh:
         line = box.row()
-        line.label(text=f"{(c.get('author') or {}).get('name', '').split(' ')[0]}: {c.get('body', '')}", icon="PINNED")
+        line.label(text=f"{_first_name(c)}: {c.get('body', '')}", icon="PINNED")
         op = line.operator(NKATA_OT_frame_pin.bl_idname, text="Jump to pin")
         op.index = i
+        if not c.get("resolved_at"):
+            op = line.operator(NKATA_OT_settle_pin.bl_idname, text="Done")
+            op.index = i
+            op.done = True
+    if still_open:
+        box.label(text=f"Still open: {len(still_open)}")
+        for i, c in still_open:
+            line = box.row()
+            line.label(text=f"{_first_name(c)}: {c.get('body', '')}", icon="PINNED")
+            op = line.operator(NKATA_OT_frame_pin.bl_idname, text="Jump to pin")
+            op.index = i
+            op = line.operator(NKATA_OT_settle_pin.bl_idname, text="Done")
+            op.index = i
+            op.done = True
     box.operator(NKATA_OT_reply.bl_idname, text="Comment")
 
 
@@ -462,6 +512,7 @@ CLASSES = (
     NKATA_OT_publish,
     NKATA_OT_reply,
     NKATA_OT_frame_pin,
+    NKATA_OT_settle_pin,
     NKATA_PT_panel,
 )
 

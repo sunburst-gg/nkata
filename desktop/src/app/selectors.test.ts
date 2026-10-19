@@ -3,7 +3,7 @@
 // for the artist), read from the v8 prototype with the Tweaks (docs/v8-shots/proto-words.json).
 import { describe, expect, it } from "vitest";
 import { ME, MockDataSource, RISING_SUN } from "@/data/mock";
-import { applyFilter, cardOrder, factsWithDeltas, filterCounts, journey, modelOf, publishState, sectionsByGroup, stripLabel, trisDelta, canReview } from "./selectors";
+import { applyFilter, canResolve, cardOrder, factsWithDeltas, filterCounts, journey, modelOf, publishState, sectionsByGroup, stripLabel, trisDelta, canReview } from "./selectors";
 
 async function load(stage: "studio" | "empty" | "joining" | "firstsave" | "firstcomment", role: "lead" | "artist" | "viewer") {
   const mock = new MockDataSource({ stage, role });
@@ -140,5 +140,18 @@ describe("the stage per stop", () => {
     expect(modelOf(asset, "live").glb).toBe("/own.glb");
     expect(modelOf(asset, older[0]!.n).glb).toBe(base.glb);
     expect(modelOf(base, newest!.n).glb).toBe(base.glb);
+  });
+});
+
+describe("done on a pin", () => {
+  it("the author, the owner and a lead may mark a pin done; a viewer who did not write it may not; a plain comment has no pin to mark", async () => {
+    const { assets } = await load("studio", "lead");
+    const asset = assets.find((a) => a.owner.id === ME.artist.id)!;
+    const pin = { id: "c", assetId: asset.id, version: 1 as const, author: ME.viewer, text: "x", pin: [0, 0, 0] as [number, number, number], at: "now" };
+    expect(canResolve(asset, pin, ME.viewer)).toBe(true);
+    expect(canResolve(asset, pin, ME.artist)).toBe(true);
+    expect(canResolve(asset, pin, ME.lead)).toBe(true);
+    expect(canResolve(asset, { ...pin, author: ME.lead }, ME.viewer)).toBe(false);
+    expect(canResolve(asset, { ...pin, pin: undefined }, ME.lead)).toBe(false);
   });
 });

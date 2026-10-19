@@ -31,6 +31,7 @@ class NkViewer extends HTMLElement {
       .pin{position:absolute;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:var(--pin,#E9A23B);box-shadow:0 0 0 2.5px #fff,0 2px 6px rgba(0,0,0,.35);color:transparent;font:0/0 a;display:flex;align-items:center;justify-content:center;pointer-events:auto;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.35);transition:transform 150ms,opacity 150ms;transform-origin:50% 100%}
       .pin.active{transform:scale(1.2)}
       .pin.hidden{opacity:.25}
+      .pin.done{background:#fff;box-shadow:inset 0 0 0 2.5px var(--pin,#E9A23B),0 2px 6px rgba(0,0,0,.35)} /* NKATA (j): a pin marked done draws hollow in its color */
       .hint{position:absolute;left:16px;bottom:16px;font:400 12px 'Geist Mono',ui-monospace,monospace;color:#EEF0F2;background:rgba(14,15,17,.6);padding:4px 8px;border-radius:4px;pointer-events:none;white-space:nowrap}
       .poster{position:absolute;inset:0;background-size:cover;background-position:center;pointer-events:none;transition:opacity 300ms}
       .loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:var(--nk-loading-font,400 13px Geist,system-ui,sans-serif);color:var(--nk-loading-color,#EEF0F2);pointer-events:none;transition:opacity 300ms;text-shadow:var(--nk-loading-shadow,none)} /* NKATA (c): the host sets --nk-loading-color, --nk-loading-font and --nk-loading-shadow */
@@ -118,7 +119,7 @@ class NkViewer extends HTMLElement {
   }
   _renderPins() {
     const layer = this._pinLayer; layer.innerHTML = '';
-    this._pinEls = this._pins.map((p, i) => { const el = document.createElement('div'); el.className = 'pin' + (p.id === this._active ? ' active' : ''); el.textContent = i + 1; if (p.color) el.style.setProperty('--pin', p.color); el.onclick = (ev) => { ev.stopPropagation(); this.dispatchEvent(new CustomEvent('nk-pin-select', { bubbles: true, detail: { id: p.id } })); }; layer.appendChild(el); return el; });
+    this._pinEls = this._pins.map((p, i) => { const el = document.createElement('div'); el.className = 'pin' + (p.id === this._active ? ' active' : '') + (p.done ? ' done' : ''); el.textContent = i + 1; if (p.color) el.style.setProperty('--pin', p.color); el.onclick = (ev) => { ev.stopPropagation(); this.dispatchEvent(new CustomEvent('nk-pin-select', { bubbles: true, detail: { id: p.id } })); }; layer.appendChild(el); return el; });
   }
   _tick() {
     if (!this._renderer) return;

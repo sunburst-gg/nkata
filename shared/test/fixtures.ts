@@ -40,6 +40,7 @@ const events = {
   MirrorResult: { ...head, kind: "mirror.result", part_id: id, version_id: id2, status: "synced", mirror_ms: 4200, message: "" },
   PartStateChanged: { ...head, kind: "part.state", part_id: id, from: "draft", to: "ready" },
   CommentCreated: { ...head, kind: "comment.created", comment },
+  CommentResolved: { ...head, kind: "comment.resolved", comment: { ...comment, resolved_at: at } },
   ReviewDecided: { ...head, kind: "review.decided", part_id: id, version_id: id2, review_id: id, decision: "approve", score: 4, note: "Good" },
   GateOpened: { ...head, kind: "gate.opened", part_id: id, opened_by: [id2] },
   StudioTraining: { ...head, project_id: null, kind: "studio.training", training: "on" },

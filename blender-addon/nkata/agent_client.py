@@ -95,6 +95,11 @@ class AgentClient:
         body = shared.validate_CommentCreateRequest({"v": 1, "point": list(point), "normal": list(normal), "body": body_text}).to_dict()
         return shared.validate_CommentCreateResponse(self._call("POST", f"/parts/{part_id}/comments", body)).comment
 
+    def settle_comment(self, part_id: str, comment_id: str, done: bool) -> Any:
+        """Mark a pin done, or reopen it (v8 step 14). The reply is the comment as it now stands."""
+        verb = "resolve" if done else "reopen"
+        return shared.validate_CommentCreateResponse(self._call("POST", f"/parts/{part_id}/comments/{comment_id}/{verb}", {})).comment
+
     def review(self, part_id: str, score: int, decision: str, note: str) -> Any:
         body = shared.validate_ReviewRequest({"v": 1, "score": score, "decision": decision, "note": note}).to_dict()
         return shared.validate_ReviewResponse(self._call("POST", f"/parts/{part_id}/review", body))

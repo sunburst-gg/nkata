@@ -345,6 +345,11 @@ export class LiveDataSource implements DataSource {
     this.emit({ type: "commented", assetId, commentId: made.id });
     return made;
   }
+  async resolveComment(assetId: string, commentId: string, done: boolean): Promise<void> {
+    await this.call("POST", `/comments/${commentId}/${done ? "resolve" : "reopen"}`, {});
+    await this.load(this.loaded!.projectId, true);
+    this.emit({ type: "commented", assetId, commentId });
+  }
   async fixCheck(): Promise<void> { throw new Error("Fix runs in Blender. Open the model there and press Fix."); }
   async openInBlender(assetId: string, version?: number): Promise<void> {
     const part = this.partFor(assetId);
@@ -413,7 +418,8 @@ export class LiveDataSource implements DataSource {
         this.emit(e["decision"] === "approve" ? { type: "approved", assetId, version } : { type: "changesRequested", assetId, version });
         return;
       }
-      case "comment.created": {
+      case "comment.created":
+      case "comment.resolved": {
         const c = e["comment"] as CommentWire | undefined;
         const assetId = c ? assetFor(c.part_id) : null;
         if (!assetId || !c) return;

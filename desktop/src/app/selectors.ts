@@ -4,10 +4,15 @@
 // docs/v8-shots/proto-words.json) so the tests can hold them to it.
 import { can, isArtist, isLead, isViewer } from "@/auth/permissions";
 import { isApproved, needsMe, waitingOnLead } from "@/data/rules";
-import type { Asset, Facts, Member, Person, Version } from "@/data/types";
+import type { Asset, Comment, Facts, Member, Person, Version } from "@/data/types";
 import type { Stage } from "@/data/mock";
 
 export type Filter = "Everything" | "Mine" | "Needs my eyes" | "Approved";
+
+/** Who may mark a pin done or reopen it: its author, the asset's owner, or a lead (v8 step 14). */
+export function canResolve(asset: Asset, comment: Comment, me: Person): boolean {
+  return !!comment.pin && (comment.author.id === me.id || asset.owner.id === me.id || isLead(me.role));
+}
 
 /**
  * What the stage loads for a stop: that Version's own model and still when the agent uploaded

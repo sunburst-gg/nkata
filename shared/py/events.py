@@ -130,6 +130,19 @@ class CommentCreated:
         return _rt.to_dict(self)
 
 @dataclass(frozen=True)
+class CommentResolved:
+    """A pin marked done, or reopened: the comment carries resolved_at, null again on reopen (v8 step 14)."""
+    v: Literal[1]
+    kind: Literal["comment.resolved"]
+    project_id: Ulid
+    actor_id: Ulid
+    at: Timestamp
+    comment: CommentPin
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
+@dataclass(frozen=True)
 class ReviewDecided:
     v: Literal[1]
     kind: Literal["review.decided"]
@@ -199,16 +212,16 @@ class LockRelease:
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
 
-ServerEventKind = Literal["presence.changed", "lock.granted", "lock.released", "lock.requested", "version.created", "mirror.result", "part.state", "comment.created", "review.decided", "gate.opened", "studio.training"]
+ServerEventKind = Literal["presence.changed", "lock.granted", "lock.released", "lock.requested", "version.created", "mirror.result", "part.state", "comment.created", "comment.resolved", "review.decided", "gate.opened", "studio.training"]
 
 # Server to client. Discriminated on kind.
-ServerEvent = PresenceChanged | LockGranted | LockReleased | LockRequested | VersionCreated | MirrorResult | PartStateChanged | CommentCreated | ReviewDecided | GateOpened | StudioTraining
+ServerEvent = PresenceChanged | LockGranted | LockReleased | LockRequested | VersionCreated | MirrorResult | PartStateChanged | CommentCreated | CommentResolved | ReviewDecided | GateOpened | StudioTraining
 
 # Client to server. Discriminated on kind.
 ClientMessage = PresenceHeartbeat | LockRequest | LockRelease
 
 def _v_ServerEventKind(value: object, path: str) -> Any:
-    return _rt.check_literal(value, path, ("presence.changed", "lock.granted", "lock.released", "lock.requested", "version.created", "mirror.result", "part.state", "comment.created", "review.decided", "gate.opened", "studio.training",))
+    return _rt.check_literal(value, path, ("presence.changed", "lock.granted", "lock.released", "lock.requested", "version.created", "mirror.result", "part.state", "comment.created", "comment.resolved", "review.decided", "gate.opened", "studio.training",))
 
 def validate_ServerEventKind(value: object, path: str = "$") -> Any:
     return _v_ServerEventKind(value, path)
@@ -395,6 +408,23 @@ def validate_CommentCreated(value: object, path: str = "$") -> CommentCreated:
         comment=validate_CommentPin(obj["comment"], path + ".comment"),
     )
 
+def _v_CommentResolved_v(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, (1,))
+
+def _v_CommentResolved_kind(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, ("comment.resolved",))
+
+def validate_CommentResolved(value: object, path: str = "$") -> CommentResolved:
+    obj = _rt.check_object(value, path, required=("v", "kind", "project_id", "actor_id", "at", "comment",), allowed=("v", "kind", "project_id", "actor_id", "at", "comment",))
+    return CommentResolved(
+        v=_v_CommentResolved_v(obj["v"], path + ".v"),
+        kind=_v_CommentResolved_kind(obj["kind"], path + ".kind"),
+        project_id=validate_Ulid(obj["project_id"], path + ".project_id"),
+        actor_id=validate_Ulid(obj["actor_id"], path + ".actor_id"),
+        at=validate_Timestamp(obj["at"], path + ".at"),
+        comment=validate_CommentPin(obj["comment"], path + ".comment"),
+    )
+
 def _v_ReviewDecided_v(value: object, path: str) -> Any:
     return _rt.check_literal(value, path, (1,))
 
@@ -476,6 +506,7 @@ def _v_ServerEvent(value: object, path: str) -> Any:
         "mirror.result": validate_MirrorResult,
         "part.state": validate_PartStateChanged,
         "comment.created": validate_CommentCreated,
+        "comment.resolved": validate_CommentResolved,
         "review.decided": validate_ReviewDecided,
         "gate.opened": validate_GateOpened,
         "studio.training": validate_StudioTraining,

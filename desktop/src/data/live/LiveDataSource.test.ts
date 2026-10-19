@@ -39,6 +39,8 @@ function fakeServer() {
     "GET /events": (_b, url) => { const since = url.searchParams.get("since"); const out = since ? events.filter((e) => e.id > since) : events; return { events: out, next: out.at(-1)?.id ?? since ?? null }; },
     "POST /parts/p1/publish": (b) => { versions = versions.map((v) => (v.id === (b as { version_id: string }).version_id ? { ...v, published: true, note: (b as { note: string }).note } : v)); return { ok: true }; },
     "POST /reviews": (b) => { const r = { id: "r1", ...(b as object), reviewer_id: emeka.id, created_at: "2026-10-18T12:00:00Z" }; reviews = [...reviews, r]; return { review: r }; },
+    "POST /comments/c1/resolve": () => { comments = comments.map((c) => ((c as { id: string }).id === "c1" ? { ...(c as object), resolved_at: "2026-10-18T12:01:00Z" } : c)); return { comment: comments[0] }; },
+    "POST /comments/c1/reopen": () => { comments = comments.map((c) => ((c as { id: string }).id === "c1" ? { ...(c as object), resolved_at: null } : c)); return { comment: comments[0] }; },
     "POST /comments": (b) => { const c = { id: `c${comments.length + 1}`, part_id: "p1", version_id: (b as { version_id: string }).version_id, author: emeka, body: (b as { body: string }).body, kind: "pin", point: (b as { point: number[] }).point, created_at: "2026-10-18T12:00:00Z" }; comments = [...comments, c]; return { comment: c }; },
     [`POST /projects/${PROJECT}/members`]: (b) => ({ member: { user: { id: "01INV", name: "", avatar_url: null }, email: (b as { email: string }).email, roles: (b as { roles: string[] }).roles } }),
     "PUT /assets/a1": () => ({ asset: {} }),
@@ -113,6 +115,11 @@ describe("LiveDataSource", () => {
     await source.requestChanges("a1", 2);
     expect(server.calls.filter((c) => c.path === "/reviews").at(-1)?.body).toMatchObject({ decision: "send_back", note: "Loosen the ridge." });
     expect(events.map((e) => e.type)).toEqual(["published", "approved", "commented", "changesRequested"]);
+    await source.resolveComment("a1", "c1", true);
+    expect((await source.listComments("a1")).find((x) => x.id === "c1")?.done).toBe(true);
+    await source.resolveComment("a1", "c1", false);
+    expect((await source.listComments("a1")).find((x) => x.id === "c1")?.done).toBeUndefined();
+    expect(events.slice(-2).map((e) => e.type)).toEqual(["commented", "commented"]);
   });
 
   it("relays server events as DataEvents and keeps its cursor", async () => {

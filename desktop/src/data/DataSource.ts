@@ -40,6 +40,8 @@ export interface DataSource {
   approve(assetId: string, version: number): Promise<void>;
   requestChanges(assetId: string, version: number): Promise<void>;
   comment(assetId: string, text: string, pin?: [number, number, number]): Promise<Comment>;
+  /** Mark a pin done, or reopen it (done false). The author, the asset's owner or a lead may. */
+  resolveComment(assetId: string, commentId: string, done: boolean): Promise<void>;
   /** Applies the one-line fix of a failed check on the latest save. */
   fixCheck(assetId: string, key: "textures" | "scale" | "uv" | "tris"): Promise<void>;
   createStudio(name: string): Promise<Studio>;

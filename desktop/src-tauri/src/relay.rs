@@ -26,6 +26,7 @@ const LOCAL_KINDS: &[&str] = &[
     "lock.released",
     "mirror.result",
     "comment.created",
+    "comment.resolved",
 ];
 
 pub struct Relay {

@@ -428,6 +428,24 @@ describe.skipIf(!hasInfra)("server api", () => {
       expect(body.parts.find((p) => p.name === "face")?.versions).toHaveLength(2);
     });
 
+    it("a pin is marked done by the author, the owner or a lead, reopens, and each change is one event", async () => {
+      const face = parts["face"]!;
+      const made = await h.app.inject({ method: "POST", url: "/comments", ...h.as(AD), payload: { part_id: face, version_id: faceVersion, point: [0.2, 0.1, 0.4], normal: [0, 0, 1], body: "Soften the jaw" } });
+      expect(made.statusCode).toBe(201);
+      const id = (made.json() as { comment: { id: string } }).comment.id;
+      expect((await h.app.inject({ method: "POST", url: `/comments/${id}/resolve`, ...h.as(VIEWER) })).statusCode).toBe(403);
+      const done = await h.app.inject({ method: "POST", url: `/comments/${id}/resolve`, ...h.as(ARTIST) });
+      expect(done.statusCode).toBe(200);
+      expect((done.json() as { comment: { resolved_at: string | null } }).comment.resolved_at).not.toBeNull();
+      const again = await h.app.inject({ method: "POST", url: `/comments/${id}/resolve`, ...h.as(ARTIST) });
+      expect((again.json() as { comment: { resolved_at: string | null } }).comment.resolved_at).toBe((done.json() as { comment: { resolved_at: string } }).comment.resolved_at);
+      const back = await h.app.inject({ method: "POST", url: `/comments/${id}/reopen`, ...h.as(AD) });
+      expect((back.json() as { comment: { resolved_at: string | null } }).comment.resolved_at).toBeNull();
+      const events = (await h.app.inject({ method: "GET", url: `/events?project_id=${h.seeded.project_id}`, ...h.as(PRODUCER) })).json() as { events: { event: { kind: string; comment?: { id: string; resolved_at: string | null } } }[] };
+      const mine = events.events.map((e) => e.event).filter((e) => e.kind === "comment.resolved" && e.comment?.id === id);
+      expect(mine.map((e) => e.comment?.resolved_at === null)).toEqual([false, true]);
+    });
+
     it("moves an asset into a named folder and back to the root, and a viewer cannot", async () => {
     const id = h.seeded.assets["Kettle"]!;
     const moved = await h.app.inject({ method: "PUT", url: `/assets/${id}`, ...h.as(ARTIST), payload: { folder: " Market set " } });

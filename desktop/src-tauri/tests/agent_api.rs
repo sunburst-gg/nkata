@@ -486,6 +486,27 @@ async fn editors_publish_comment_review_and_hear_each_other() {
     assert_eq!(heard["comment"]["body"], "Roof too thin.");
     let (_, listed) = artist.get(&format!("/parts/{model}/comments")).await;
     assert_eq!(listed["comments"].as_array().unwrap().len(), 1);
+    // The artist marks the pin done from the panel; the director hears it, the artist's own
+    // echo is dropped. The director reopens it (v8 step 14).
+    let cid = pinned["comment"]["id"].as_str().unwrap().to_string();
+    let (st, done) = artist
+        .post(
+            &format!("/parts/{model}/comments/{cid}/resolve"),
+            Some(json!({})),
+        )
+        .await;
+    assert_eq!(st, 200, "{done}");
+    assert!(done["comment"]["resolved_at"].is_string(), "{done}");
+    let heard = wait_for_kind(&director_seen, "comment.resolved").await;
+    assert_eq!(heard["comment"]["id"], cid);
+    let (st, back) = director
+        .post(
+            &format!("/parts/{model}/comments/{cid}/reopen"),
+            Some(json!({})),
+        )
+        .await;
+    assert_eq!(st, 200, "{back}");
+    assert!(back["comment"]["resolved_at"].is_null(), "{back}");
     // The director's own stream does not echo it: the POST already answered.
     tokio::time::sleep(Duration::from_millis(300)).await;
     assert!(!director_seen

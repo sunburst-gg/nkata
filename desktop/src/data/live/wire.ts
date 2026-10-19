@@ -18,7 +18,7 @@ export interface ManifestWire { objects: { name: string; triangles: number; mate
 export interface VersionWire { id: string; part_id: string; author_id: string; published: boolean; note: string; note_engineering?: string; created_at: string; render_url?: string | null; model_url?: string | null; manifest?: ManifestWire | null }
 export interface CheckWire { check_id: string; severity: "block" | "warn"; passed: boolean; auto_fixed: boolean; message: string }
 export interface ReviewWire { id: string; part_id: string; version_id: string; reviewer_id: string; decision: "approve" | "send_back"; note: string; created_at: string }
-export interface CommentWire { id: string; part_id: string; version_id: string; author: UserRef; body: string; kind: "pin" | "take_a_look"; point: number[]; created_at: string }
+export interface CommentWire { id: string; part_id: string; version_id: string; author: UserRef; body: string; kind: "pin" | "take_a_look"; point: number[]; created_at: string; resolved_at?: string | null }
 export interface EventWire { id: string; event: Record<string, unknown> & { kind: string; actor_id: string; at: string } }
 
 /** The strongest of a member's roles, in the app's words. */
@@ -178,7 +178,7 @@ export function memberOf(m: MemberWire, online: readonly PresenceEntry[], everSe
 export function commentOf(c: CommentWire, assetId: string, versionN: number, people: ReadonlyMap<string, Person>, now: Date): Comment {
   const author = people.get(c.author.id) ?? personOf(c.author, ["viewer"]);
   const pin = c.point.length === 3 && c.point.some((x) => x !== 0) ? { pin: [c.point[0]!, c.point[1]!, c.point[2]!] as [number, number, number] } : {};
-  return { id: c.id, assetId, version: versionN, author, text: c.body, at: ago(c.created_at, now), ...pin };
+  return { id: c.id, assetId, version: versionN, author, text: c.body, at: ago(c.created_at, now), ...pin, ...(c.resolved_at ? { done: true } : {}) };
 }
 
 /** Does a comment name this person? First name, whole word, any case. */

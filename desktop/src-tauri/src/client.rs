@@ -456,6 +456,22 @@ impl ServerClient {
         Ok(w.comment)
     }
 
+    /// Marks a pin done, or reopens it (v8 step 14). Safe to repeat.
+    pub async fn settle_comment(&self, comment_id: &str, done: bool) -> Result<CommentPin> {
+        #[derive(Deserialize)]
+        struct Wrap {
+            comment: CommentPin,
+        }
+        let verb = if done { "resolve" } else { "reopen" };
+        let w: Wrap = self
+            .post(
+                &format!("/comments/{comment_id}/{verb}"),
+                &serde_json::json!({}),
+            )
+            .await?;
+        Ok(w.comment)
+    }
+
     pub async fn review(
         &self,
         part_id: &str,

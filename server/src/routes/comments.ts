@@ -4,9 +4,10 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { CommentKind, Ulid, Vec3, type CommentPin } from "@nkata/shared";
 import { comment, version } from "../db/schema.js";
-import { notFound } from "../domain/errors.js";
+import type { Principal } from "../auth/tokens.js";
+import { AppError, notFound } from "../domain/errors.js";
 import { newId } from "../domain/ids.js";
-import { IdParam, loadPart, trainingOn, userRefs, type TypedApp } from "./_shared.js";
+import { IdParam, isReviewer, loadPart, trainingOn, userRefs, type TypedApp } from "./_shared.js";
 
 const CommentBody = z.object({
   id: Ulid.optional(),
@@ -54,11 +55,27 @@ export async function commentRoutes(app: TypedApp): Promise<void> {
     return reply.status(201).send({ v: 1, comment: pin });
   });
 
-  app.post("/comments/:id/resolve", { schema: { params: IdParam } }, async (req) => {
-    const existing = (await app.db.select().from(comment).where(and(eq(comment.id, req.params.id), eq(comment.studio_id, req.principal.studio_id))).limit(1))[0];
-    if (!existing) throw notFound("comment", req.params.id);
+  // Done and its reverse (v8 step 14). The author, the part's owner or a reviewer may do either;
+  // both are safe to repeat. Each emits comment.resolved with the comment as it now stands.
+  const settle = async (principal: Principal, id: string, done: boolean) => {
+    const existing = (await app.db.select().from(comment).where(and(eq(comment.id, id), eq(comment.studio_id, principal.studio_id))).limit(1))[0];
+    if (!existing) throw notFound("comment", id);
+    const { part: row, asset: a } = await loadPart(app.db, principal, existing.part_id);
+    if (principal.user_id !== existing.author_id && principal.user_id !== row.owner_id && !isReviewer(principal)) {
+      throw new AppError("forbidden", "only the author, the owner or a reviewer can mark a pin done", { comment_id: existing.id });
+    }
     const now = app.now();
-    const [saved] = await app.db.update(comment).set({ resolved_at: existing.resolved_at ?? now, updated_at: now }).where(eq(comment.id, existing.id)).returning();
-    return { v: 1, comment: (await commentWire(app, [saved!]))[0] };
-  });
+    const resolved_at = done ? (existing.resolved_at ?? now) : null;
+    const [saved] = await app.db.update(comment).set({ resolved_at, updated_at: now }).where(eq(comment.id, existing.id)).returning();
+    const [pin] = await commentWire(app, [saved!]);
+    if ((existing.resolved_at !== null) !== done) {
+      await app.bus.emit({
+        studio_id: a.studio_id, target_kind: "comment", target_id: existing.id,
+        message: { v: 1, kind: "comment.resolved", project_id: a.project_id, actor_id: principal.user_id, at: now.toISOString(), comment: pin! },
+      });
+    }
+    return { v: 1, comment: pin };
+  };
+  app.post("/comments/:id/resolve", { schema: { params: IdParam } }, async (req) => settle(req.principal, req.params.id, true));
+  app.post("/comments/:id/reopen", { schema: { params: IdParam } }, async (req) => settle(req.principal, req.params.id, false));
 }

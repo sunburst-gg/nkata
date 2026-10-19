@@ -1,7 +1,7 @@
 // The mapping from the server's wire onto the v8 nouns, without a server.
 import { describe, expect, it } from "vitest";
 import { DEFAULT_BUDGETS } from "../types";
-import { ago, assetOf, budgetFor, budgetsOf, checksOf, colorOf, factsOf, journeyOf, mentionsOf, namesMe, personOf, roleOf, versionOf, type AssetWire, type MemberWire, type PartWire, type VersionWire } from "./wire";
+import { ago, assetOf, budgetFor, budgetsOf, checksOf, colorOf, commentOf, factsOf, journeyOf, mentionsOf, namesMe, personOf, roleOf, versionOf, type AssetWire, type MemberWire, type PartWire, type VersionWire } from "./wire";
 
 const NOW = new Date("2026-10-18T12:00:00Z");
 const ada = { id: "01ADA000000000000000000000", name: "Ada Okafor", avatar_url: null };
@@ -98,6 +98,11 @@ describe("assets", () => {
     expect(a.versions[0]!.checks.find((c) => c.key === "tris")).toMatchObject({ pass: false, sentence: "16,200 triangles. Budget is 15,000." });
     expect(versionOf(versions[0]!, 1, 30_000, NOW).publishedAt).toBe("10 Oct");
     expect(a.versions[0]).toMatchObject({ glb: "https://x/v1.glb", render: "https://x/v1.png" });
+  });
+  it("a resolved comment reads done; an open one has no flag", () => {
+    const base = { id: "c1", part_id: "p1", version_id: "v1", author: ada, body: "Soften the jaw", kind: "pin" as const, point: [0.2, 0.1, 0.4], created_at: "2026-10-10T10:00:00Z" };
+    expect(commentOf({ ...base, resolved_at: "2026-10-10T11:00:00Z" }, "a1", 1, people, NOW).done).toBe(true);
+    expect(commentOf({ ...base, resolved_at: null }, "a1", 1, people, NOW).done).toBeUndefined();
   });
 });
 
