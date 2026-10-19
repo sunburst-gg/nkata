@@ -1,0 +1,21 @@
+# Only the server and the shared package go into the image (server/Dockerfile).
+node_modules
+**/node_modules
+desktop
+blender-addon
+ue5-plugin
+e2e
+fixtures
+docs
+infra
+scripts
+handoff
+.testenv
+.git
+.github
+*.log
+.env
+.env.*
+**/dist
+**/target
+**/__pycache__

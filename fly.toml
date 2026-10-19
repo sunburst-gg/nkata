@@ -1,0 +1,34 @@
+# The Nkata server on Fly (docs/deploy.md). One machine, never stopped: presence and locks are
+# heartbeats over a WebSocket, so a machine that sleeps would drop every editor.
+# Reference: https://fly.io/docs/reference/configuration/
+app = "nkata-api"
+primary_region = "nrt"
+
+[build]
+  dockerfile = "server/Dockerfile"
+
+[env]
+  HOST = "0.0.0.0"
+  PORT = "7400"
+  PUBLIC_URL = "https://api.nkata.app"
+  S3_REGION = "auto"
+  S3_BUCKET = "nkata"
+  LOG_LEVEL = "info"
+
+[http_service]
+  internal_port = 7400
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "20s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
