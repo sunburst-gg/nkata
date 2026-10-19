@@ -4,7 +4,7 @@
 // simulateJoin emit the same events a real save or sign in will, so screens never know the
 // difference. Ported from the Component class at the end of the v8 prototype, removed after step 13.
 import type { DataEvent, DataSource, Unsubscribe } from "../DataSource";
-import { isApproved, slug } from "../rules";
+import { isApproved, pinsOn, slug } from "../rules";
 import { DEFAULT_BUDGETS, type Asset, type BlenderInstall, type Budgets, type Check, type CheckKey, type Comment, type DeletedProject, type Facts, type Journey, type LocalProject, type Member, type Mention, type Person, type Project, type Role, type Studio, type StudioRef, type Version } from "../types";
 import { apply as applyConnection, INITIAL as NO_BLENDER, type BlenderKind, type BlenderState, type ConnectionEvent } from "@/app/connection";
 import { ENV, GLB, items, OLD_NOTES, OWNERS, PREV_TRIS, RENDER, SAMPLE, TIMES, TRIS } from "./items";
@@ -200,9 +200,7 @@ export class MockDataSource implements DataSource {
       else if (n === V - 1 && r.prevTris !== null) v.facts = { ...facts, tris: r.prevTris };
       versions.push(v);
     }
-    const current = r.live ? "live" : V;
-    const pinned = this.commentsOf(assetId).filter((c) => c.pin && c.version === current);
-    const pins = pinned.length ? { open: pinned.filter((c) => !c.done).length, total: pinned.length } : undefined;
+    const pins = pinsOn(this.commentsOf(assetId).map((c) => (c.version === "live" ? { ...c, version: V } : c)), versions);
     return {
       id: assetId, name: r.name, kind: r.isEnv ? "environment" : "object", group: r.group, ...(this.s.assetBudgets[assetId] ? { budget: this.s.assetBudgets[assetId] } : {}),
       owner: PEOPLE[r.owner], ...(r.glb ? { glb: r.glb } : {}), ...(r.isEnv ? { render: r.render } : {}),

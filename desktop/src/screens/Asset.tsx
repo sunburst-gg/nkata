@@ -78,7 +78,7 @@ export function AssetScreen() {
         <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
           <NoteBlock asset={asset} shown={shown} />
           <Facts asset={asset} shown={shown} artist={artist} onSetBudget={canBudget && !project.sample ? () => setBudgetOpen(true) : undefined} />
-          <CommentList asset={asset} comments={comments} />
+          <CommentList asset={asset} comments={comments} shown={shown} />
         </div>
       </div>
       {artist ? <PublishDialog asset={asset} open={publishOpen} onOpenChange={setPublishOpen} /> : null}

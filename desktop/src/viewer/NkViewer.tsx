@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
 import "./nk-viewer.js";
 import type { NkPinDetail, NkPinSelectDetail } from "./nk-viewer.d.ts";
 
-export interface Pin { id: string; pos: [number, number, number]; color?: string; done?: boolean }
+export interface Pin { id: string; pos: [number, number, number]; color?: string; done?: boolean; ghost?: boolean }
 
 export interface NkViewerProps {
   src?: string;

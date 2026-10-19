@@ -9,11 +9,22 @@ import type { Stage } from "@/data/mock";
 
 export type Filter = "Everything" | "Mine" | "Needs my eyes" | "Approved";
 
-/** The line under a sent back asset: "2 of 3 pins open", or null once every pin is done (v8 step 14). */
+/**
+ * The line under an asset with pins to address (v8 step 14): "2 of 3 pins open" while the current
+ * Version was sent back; "2 pins from v1 open" on the Version published after it, until they are
+ * done. Null once every pin is done.
+ */
 export function openPinsLine(asset: Asset): string | null {
-  if (!sentBackWithOpenPins(asset) || !asset.pins) return null;
-  const { open, total } = asset.pins;
-  return `${open} of ${total} pin${total === 1 ? "" : "s"} open`;
+  if (!asset.pins || asset.pins.open === 0) return null;
+  const { open, total, from } = asset.pins;
+  if (sentBackWithOpenPins(asset)) return `${open} of ${total} pin${total === 1 ? "" : "s"} open`;
+  if (from !== undefined) return `${open} pin${open === 1 ? "" : "s"} from v${from} open`;
+  return null;
+}
+
+/** A pin made on an earlier Version than the one shown: drawn as a ghost, listed as "from v1". */
+export function carried(comment: Comment, shownN: number): boolean {
+  return typeof comment.version === "number" && comment.version < shownN;
 }
 
 /** Who may mark a pin done or reopen it: its author, the asset's owner, or a lead (v8 step 14). */

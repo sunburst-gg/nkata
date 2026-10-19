@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { ME, MockDataSource, RISING_SUN } from "@/data/mock";
 import { needsMe } from "@/data/rules";
-import { applyFilter, canResolve, cardOrder, openPinsLine, factsWithDeltas, filterCounts, journey, modelOf, publishState, sectionsByGroup, stripLabel, trisDelta, canReview } from "./selectors";
+import { applyFilter, canResolve, cardOrder, carried, openPinsLine, factsWithDeltas, filterCounts, journey, modelOf, publishState, sectionsByGroup, stripLabel, trisDelta, canReview } from "./selectors";
 
 async function load(stage: "studio" | "empty" | "joining" | "firstsave" | "firstcomment", role: "lead" | "artist" | "viewer") {
   const mock = new MockDataSource({ stage, role });
@@ -167,6 +167,11 @@ describe("open pins on a sent back Version", () => {
     expect(openPinsLine({ ...sentBack, pins: { open: 0, total: 3 } })).toBeNull();
     expect(openPinsLine({ ...sentBack, pins: { open: 1, total: 1 } })).toBe("1 of 1 pin open");
     expect(openPinsLine({ ...base, pins: { open: 2, total: 3 } })).toBeNull();
+    expect(openPinsLine({ ...base, pins: { open: 2, total: 2, from: 1 } })).toBe("2 pins from v1 open");
+    expect(openPinsLine({ ...base, pins: { open: 1, total: 3, from: 1 } })).toBe("1 pin from v1 open");
+    expect(carried({ id: "c", assetId: base.id, version: 1, author: ME.lead, text: "x", at: "now", pin: [0, 0, 0] }, 2)).toBe(true);
+    expect(carried({ id: "c", assetId: base.id, version: 2, author: ME.lead, text: "x", at: "now", pin: [0, 0, 0] }, 2)).toBe(false);
+    expect(carried({ id: "c", assetId: base.id, version: "live", author: ME.lead, text: "x", at: "now", pin: [0, 0, 0] }, 2)).toBe(false);
     expect(needsMe([sentBack], ME.artist).map((a) => a.id)).toEqual([sentBack.id]);
     expect(needsMe([{ ...sentBack, pins: { open: 0, total: 3 } }], ME.artist)).toEqual([]);
     expect(needsMe([{ ...sentBack, owner: ME.lead }], ME.artist)).toEqual([]);

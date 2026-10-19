@@ -5,6 +5,7 @@ import type { AssetKind, Budgets as BudgetsWire, PresenceEntry, UserRef } from "
 import { DEFAULT_BUDGETS, type Asset, type Budgets, type Check, type Comment, type Facts, type Journey, type Member, type Mention, type Person, type Project, type Role, type StudioRef, type Version } from "../types";
 import { SWATCHES } from "@/ui/stage/Swatches";
 import { isLead } from "@/auth/permissions";
+import { pinsOn } from "../rules";
 
 export type ServerRole = "artist" | "art_director" | "producer" | "viewer";
 
@@ -136,11 +137,7 @@ export interface AssetInput {
   comments?: readonly Comment[];
 }
 
-/** Pins on Version n: how many are open and how many there are; undefined when there are none. */
-export function pinsOn(comments: readonly Comment[], n: number): { open: number; total: number } | undefined {
-  const pins = comments.filter((c) => c.pin && c.version === n);
-  return pins.length ? { open: pins.filter((c) => !c.done).length, total: pins.length } : undefined;
-}
+
 
 /** One asset is one .blend with one part. Live: the owner's heartbeat on this part within 60 s. */
 export function assetOf({ a, part, versions, people, online, budgets, now, mentionsMe, comments = [] }: AssetInput): Asset {
@@ -160,7 +157,7 @@ export function assetOf({ a, part, versions, people, online, budgets, now, menti
   const glb = sorted.map((x) => x.v.model_url).find((u): u is string => !!u);
   const changedAt = latest ? latest.v.created_at : part.updated_at;
   const all = liveVersion ? [liveVersion, ...list] : list;
-  const pins = all[0] ? pinsOn(comments, all[0].n) : undefined;
+  const pins = pinsOn(comments, all);
   const asset: Asset = {
     id: a.id, name: a.name, kind, group, owner, versions: all,
     changedAt: ago(changedAt, now), today: now.getTime() - new Date(changedAt).getTime() < 86_400_000,

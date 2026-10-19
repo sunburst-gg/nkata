@@ -106,6 +106,10 @@ describe("assets", () => {
     const comments = [c("a", 2, false), c("b", 2, true), c("c", 2, false, false), c("d", 1, false)];
     expect(assetOf({ a: wire, part, versions, people, online: [], budgets: DEFAULT_BUDGETS, now: NOW, mentionsMe: false, comments }).pins).toEqual({ open: 1, total: 2 });
     expect(assetOf({ a: wire, part, versions, people, online: [], budgets: DEFAULT_BUDGETS, now: NOW, mentionsMe: false, comments: [c("d", 1, false)] }).pins).toBeUndefined();
+    // v1 was sent back with d open: it carries onto v2 and names where it came from. Done, it stops.
+    const sentBack = [{ ...versions[0]!, reviews: [] }, { ...versions[1]!, reviews: [{ id: "r1", part_id: "p1", version_id: "v0", reviewer_id: ada.id, decision: "send_back" as const, score: 3, note: "", created_at: "2026-10-09T12:00:00Z" }] }];
+    expect(assetOf({ a: wire, part, versions: sentBack, people, online: [], budgets: DEFAULT_BUDGETS, now: NOW, mentionsMe: false, comments: [c("a", 2, false), c("d", 1, false)] }).pins).toEqual({ open: 2, total: 2, from: 1 });
+    expect(assetOf({ a: wire, part, versions: sentBack, people, online: [], budgets: DEFAULT_BUDGETS, now: NOW, mentionsMe: false, comments: [c("d", 1, true)] }).pins).toBeUndefined();
   });
   it("a resolved comment reads done; an open one has no flag", () => {
     const base = { id: "c1", part_id: "p1", version_id: "v1", author: ada, body: "Soften the jaw", kind: "pin" as const, point: [0.2, 0.1, 0.4], created_at: "2026-10-10T10:00:00Z" };

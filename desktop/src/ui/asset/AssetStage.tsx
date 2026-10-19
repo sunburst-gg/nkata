@@ -3,7 +3,7 @@
 // moves on select. Environments load their GLB in the same viewer; the render is the poster.
 // The model is the picked stop's own save (modelOf), so the row drives the stage.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { modelOf } from "@/app/selectors";
+import { carried, modelOf } from "@/app/selectors";
 import { useStore } from "@/app/store";
 import { isViewer } from "@/auth/permissions";
 import { useCan } from "@/auth/useCan";
@@ -23,7 +23,8 @@ export function AssetStage({ asset, projectColor, comments, shown }: { asset: As
   const ref = useRef<HTMLDivElement>(null);
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
   const pinned = comments.filter((c) => c.pin);
-  const pins: Pin[] = pinned.map((c) => ({ id: c.id, pos: c.pin!, color: c.author.color, ...(c.done ? { done: true } : {}) }));
+  const shownN = shown === "live" ? (asset.versions[0]?.n ?? 1) : shown;
+  const pins: Pin[] = pinned.map((c) => ({ id: c.id, pos: c.pin!, color: c.author.color, ...(c.done ? { done: true } : {}), ...(carried(c, shownN) ? { ghost: true } : {}) }));
   if (pendingPin && me) pins.push({ id: "pending", pos: pendingPin, color: me.color });
   const onPin = useCallback((pos: [number, number, number]) => { if (canComment) useStore.setState({ pendingPin: pos, activePin: null, draft: "" }); }, [canComment]);
   const onPinSelect = useCallback((id: string) => { if (id !== "pending") useStore.setState({ activePin: id, pendingPin: null }); }, []);

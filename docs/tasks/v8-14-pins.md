@@ -16,7 +16,7 @@ Done means each sub-step's gate holds and `make test` is green.
 - [x] 2. The count where people look. openPins(asset) counts pins on the current Version that are
       not done. The wall card and the asset header read "2 of 3 pins" once a Version was sent
       back and pins remain. An asset sent back with open pins is in the artist's Needs my eyes.
-- [ ] 3. Pins carry forward on Publish. The new Version shows the pins still open on the one
+- [x] 3. Pins carry forward on Publish. The new Version shows the pins still open on the one
       before as ghosts: same spot, dotted ring, "from v1" in the list, until someone marks them
       done. Publish is never blocked by an open pin.
 - [ ] 4. The lead's second look. Approve with open pins asks once, "2 pins still open. Approve

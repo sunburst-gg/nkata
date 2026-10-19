@@ -1,6 +1,6 @@
 // Rules both the mock and the screens apply, so the wall, the counts and Mentions agree.
 import { isLead } from "@/auth/permissions";
-import type { Asset, Person, Version } from "./types";
+import type { Asset, Comment, Person, Version } from "./types";
 
 export const slug = (name: string): string => name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
@@ -14,6 +14,20 @@ export const waitingOnLead = (a: Asset): boolean => {
 };
 
 export const isApproved = (a: Asset): boolean => !!current(a)?.approved;
+
+/**
+ * Pins to address on the current Version (v8 step 14): its own, plus the open ones carried from
+ * the Version before when that one was sent back. Undefined when there are none.
+ */
+export function pinsOn(comments: readonly Comment[], versions: readonly Version[]): { open: number; total: number; from?: number } | undefined {
+  const [cur, prev] = versions;
+  if (!cur) return undefined;
+  const own = comments.filter((c) => c.pin && c.version === cur.n);
+  const carriedOpen = prev?.changesRequested ? comments.filter((c) => c.pin && c.version === prev.n && !c.done) : [];
+  const total = own.length + carriedOpen.length;
+  if (!total) return undefined;
+  return { open: own.filter((c) => !c.done).length + carriedOpen.length, total, ...(carriedOpen.length ? { from: prev!.n } : {}) };
+}
 
 /** Sent back with pins still open on the current Version: the artist's turn (v8 step 14). */
 export const sentBackWithOpenPins = (a: Asset): boolean => !!current(a)?.changesRequested && (a.pins?.open ?? 0) > 0;

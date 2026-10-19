@@ -1,16 +1,18 @@
 // Comments beside the model. A pinned one carries the commenter's dot; clicking it highlights
 // its pin. Done pins sit under an Addressed fold and draw hollow (v8 step 14); the author, the
-// asset's owner or a lead marks one done or reopens it. The plain input at the end posts an
-// unpinned comment.
+// asset's owner or a lead marks one done or reopens it. A pin from an earlier Version than the
+// one shown reads "from v1" with a dashed ring: it carries until someone marks it done. The plain
+// input at the end posts an unpinned comment.
 import { useState } from "react";
-import { canResolve } from "@/app/selectors";
+import { canResolve, carried } from "@/app/selectors";
 import { useStore } from "@/app/store";
 import { useCan } from "@/auth/useCan";
 import type { Asset, Comment } from "@/data/types";
 import { post } from "./Composer";
 
-export function CommentList({ asset, comments }: { asset: Asset; comments: Comment[] }) {
+export function CommentList({ asset, comments, shown }: { asset: Asset; comments: Comment[]; shown: number | "live" }) {
   const pendingPin = useStore((s) => s.pendingPin);
+  const shownN = shown === "live" ? (asset.versions[0]?.n ?? 1) : shown;
   const draft = useStore((s) => s.draft);
   const canComment = useCan("comment");
   const [addressedOpen, setAddressedOpen] = useState(false);
@@ -19,14 +21,14 @@ export function CommentList({ asset, comments }: { asset: Asset; comments: Comme
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <span style={{ fontSize: 13, color: "var(--ink60)" }}>Comments</span>
-      {open.map((c) => <Row key={c.id} asset={asset} comment={c} />)}
+      {open.map((c) => <Row key={c.id} asset={asset} comment={c} shownN={shownN} />)}
       {addressed.length ? (
         <button type="button" aria-expanded={addressedOpen} onClick={() => setAddressedOpen((v) => !v)} style={{ alignSelf: "flex-start", border: 0, background: "transparent", padding: 0, font: "400 13px var(--sans)", color: "var(--ink60)", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
           <svg aria-hidden="true" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ transition: "transform var(--t-fast)", transform: addressedOpen ? "rotate(90deg)" : "none" }}><path d="M3.5 2l3 3-3 3" /></svg>
           Addressed · {addressed.length}
         </button>
       ) : null}
-      {addressedOpen ? addressed.map((c) => <Row key={c.id} asset={asset} comment={c} />) : null}
+      {addressedOpen ? addressed.map((c) => <Row key={c.id} asset={asset} comment={c} shownN={shownN} />) : null}
       {canComment && !pendingPin ? (
         <input value={draft} onChange={(e) => useStore.setState({ draft: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") void post(asset); }} placeholder="Write a comment" aria-label="Write a comment" style={{ height: 40, borderRadius: "var(--r-6)", border: 0, background: "var(--raised)", boxShadow: "var(--shadow)", padding: "0 12px", fontSize: 15, color: "var(--ink)" }} />
       ) : null}
@@ -34,7 +36,7 @@ export function CommentList({ asset, comments }: { asset: Asset; comments: Comme
   );
 }
 
-function Row({ asset, comment: c }: { asset: Asset; comment: Comment }) {
+function Row({ asset, comment: c, shownN }: { asset: Asset; comment: Comment; shownN: number }) {
   const activePin = useStore((s) => s.activePin);
   const me = useStore((s) => s.me);
   const source = useStore((s) => s.source);
@@ -53,7 +55,8 @@ function Row({ asset, comment: c }: { asset: Asset; comment: Comment }) {
         <span style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
           <span style={{ fontWeight: 500, color: "var(--ink)" }}>{c.author.first}</span>
           <span style={{ color: "var(--ink40)" }}>{c.at}</span>
-          {c.pin ? <span aria-label={c.done ? "Pin, done" : "Pinned"} style={{ marginLeft: "auto", width: 16, height: 16, borderRadius: "50%", background: c.done ? "var(--raised)" : c.author.color, boxShadow: c.done ? `inset 0 0 0 2.5px ${c.author.color}` : "0 0 0 2px var(--raised)" }} /> : null}
+          {c.pin && carried(c, shownN) ? <span style={{ color: "var(--ink40)" }}>from v{c.version}</span> : null}
+          {c.pin ? <span aria-label={c.done ? "Pin, done" : carried(c, shownN) ? `Pinned on v${c.version}` : "Pinned"} style={{ marginLeft: "auto", width: 16, height: 16, borderRadius: "50%", background: c.done ? "var(--raised)" : carried(c, shownN) ? "transparent" : c.author.color, boxShadow: c.done ? `inset 0 0 0 2.5px ${c.author.color}` : "0 0 0 2px var(--raised)", border: !c.done && carried(c, shownN) ? `2px dashed ${c.author.color}` : undefined, boxSizing: "border-box" }} /> : null}
         </span>
         <span style={{ color: "var(--ink80)" }}>{c.text}</span>
         {mayResolve ? (
