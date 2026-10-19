@@ -4,8 +4,7 @@
 import { useState } from "react";
 import { useStore } from "@/app/store";
 import { Mark } from "@/ui/stage/Mark";
-import { SWATCHES } from "@/ui/stage/swatches";
-import { Swatches } from "@/ui/stage/Swatches";
+import { SWATCHES, Swatches } from "@/ui/stage/Swatches";
 import { stageGradient } from "@/ui/stage/Stage";
 import { GhostStage } from "@/ui/stage/GhostStage";
 import { Stage } from "@/ui/stage/Stage";

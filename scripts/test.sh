@@ -19,6 +19,9 @@ set +a
 
 node scripts/lint-colors.mjs
 node scripts/lint-copy.mjs
+# Two modules whose names differ only by case resolve to one file on macOS and Windows.
+dupes=$(git ls-files | grep -E '\.(ts|tsx|js|jsx|mjs|json)$' | sed -E 's/\.(ts|tsx|js|jsx|mjs|json)$//' | tr 'A-Z' 'a-z' | sort | uniq -d)
+[ -z "$dupes" ] || { echo "module names that differ only by case:" >&2; echo "$dupes" >&2; exit 1; }
 pnpm -r typecheck
 pnpm -r test
 pnpm --filter @nkata/desktop build

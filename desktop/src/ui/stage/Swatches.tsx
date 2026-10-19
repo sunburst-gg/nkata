@@ -1,6 +1,8 @@
-// The eight swatches as a radio group: a 28 px circle inside a 32 px hit target, the picked one
-// ringed in its own color. Zero state, New project and Project settings share it.
-import { SWATCHES } from "./swatches";
+// The eight swatches a new project picks from (the person colors, as the prototype lists them)
+// and the radio group that shows them: a 28 px circle inside a 32 px hit target, the picked one
+// ringed in its own color. Zero state, New project and Project settings share it. The list lives
+// in this file on purpose: a sibling swatches.ts resolved first on macOS, where the disk ignores case.
+export const SWATCHES = ["var(--p-terracotta)", "var(--p-ochre)", "var(--p-olive)", "var(--p-teal)", "var(--p-indigo)", "var(--p-plum)", "var(--p-rose)", "var(--p-slate)"] as const;
 
 export function Swatches({ value, onPick, gap = 8 }: { value: string; onPick: (c: string) => void; gap?: number }) {
   return (

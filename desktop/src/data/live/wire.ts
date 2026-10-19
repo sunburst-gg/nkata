@@ -3,7 +3,7 @@
 // mapping without a server. Routes: docs/engineering.md, Protocols.
 import type { AssetKind, Budgets as BudgetsWire, PresenceEntry, UserRef } from "@nkata/shared";
 import { DEFAULT_BUDGETS, type Asset, type Budgets, type Check, type Comment, type Facts, type Journey, type Member, type Mention, type Person, type Project, type Role, type StudioRef, type Version } from "../types";
-import { SWATCHES } from "@/ui/stage/swatches";
+import { SWATCHES } from "@/ui/stage/Swatches";
 import { isLead } from "@/auth/permissions";
 
 export type ServerRole = "artist" | "art_director" | "producer" | "viewer";

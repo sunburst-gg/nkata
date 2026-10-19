@@ -3,8 +3,7 @@
 // the zero state's stage pieces.
 import { useState } from "react";
 import { useStore } from "@/app/store";
-import { SWATCHES } from "@/ui/stage/swatches";
-import { Swatches } from "@/ui/stage/Swatches";
+import { SWATCHES, Swatches } from "@/ui/stage/Swatches";
 import { Stage, stageGradient } from "@/ui/stage/Stage";
 import { GHOST_MODEL } from "@/ui/stage/GhostStage";
 import { NkViewer } from "@/viewer/NkViewer";
