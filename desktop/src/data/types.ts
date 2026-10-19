@@ -80,6 +80,9 @@ export interface Version {
   checks: Check[];
   approved: boolean;
   changesRequested: boolean;
+  /** This save's own model and still, when the agent uploaded them. The mock has one model per asset. */
+  glb?: string;
+  render?: string;
 }
 
 export type AssetKind = "object" | "environment";

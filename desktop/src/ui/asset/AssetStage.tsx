@@ -1,7 +1,9 @@
 // The 16:10 lit stage with the model and its pins. A click without a drag drops a pin and opens
 // the composer at its screen position; a click on a pin selects its comment. The camera never
 // moves on select. Environments load their GLB in the same viewer; the render is the poster.
+// The model is the picked stop's own save (modelOf), so the row drives the stage.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { modelOf } from "@/app/selectors";
 import { useStore } from "@/app/store";
 import { isViewer } from "@/auth/permissions";
 import { useCan } from "@/auth/useCan";
@@ -11,7 +13,7 @@ import { NkViewer, type Pin } from "@/viewer/NkViewer";
 import { Composer } from "@/ui/comments/Composer";
 import { ApprovedSeal } from "./ApprovedSeal";
 
-export function AssetStage({ asset, projectColor, comments }: { asset: Asset; projectColor: string; comments: Comment[] }) {
+export function AssetStage({ asset, projectColor, comments, shown }: { asset: Asset; projectColor: string; comments: Comment[]; shown: number | "live" }) {
   const me = useStore((s) => s.me);
   const pendingPin = useStore((s) => s.pendingPin);
   const activePin = useStore((s) => s.activePin);
@@ -38,14 +40,15 @@ export function AssetStage({ asset, projectColor, comments }: { asset: Asset; pr
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [pendingPin]);
-  const src = asset.glb ?? "/fixtures/glb/Lantern.glb";
+  const model = modelOf(asset, shown);
+  const src = model.glb ?? "/fixtures/glb/Lantern.glb";
   // Once per person: until the first pin is made. A viewer sent a link sees it even on an asset
   // that already has pins, which is the whole of their arrival.
   const showPinNote = canComment && !notesSeen["pin"] && !pendingPin && (pinned.length === 0 || (!!me && isViewer(me.role)));
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <Stage projectColor={projectColor} radius={16} aspect="16/10" shadow>
-        <NkViewer src={src} poster={asset.render} pins={pins} activePin={pendingPin ? "pending" : activePin} pinning={canComment} onPin={onPin} onPinSelect={onPinSelect} style={{ position: "absolute", inset: 0 }} />
+        <NkViewer src={src} poster={model.render} pins={pins} activePin={pendingPin ? "pending" : activePin} pinning={canComment} onPin={onPin} onPinSelect={onPinSelect} style={{ position: "absolute", inset: 0 }} />
         {stamp ? <ApprovedSeal size={36} stamp style={{ position: "absolute", left: "50%", top: "50%", margin: "-40px 0 0 -40px", width: 80, height: 80, boxShadow: "var(--shadow-lift)", pointerEvents: "none" }} /> : null}
         {showPinNote ? (
           <span style={{ position: "absolute", left: 16, bottom: 16, fontSize: 13, color: "var(--ink)", background: "var(--raised)", padding: "6px 10px", borderRadius: "var(--r-6)", boxShadow: "var(--shadow)", display: "inline-flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>

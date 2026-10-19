@@ -124,6 +124,7 @@ export function versionOf({ v, checks, reviews, partApproved }: VersionInput, n:
     checks: checksOf(facts, checks, budget, v.manifest?.checks),
     approved: decided?.decision === "approve" || (partApproved && !decided),
     changesRequested: decided?.decision === "send_back",
+    ...(v.model_url ? { glb: v.model_url } : {}), ...(v.render_url ? { render: v.render_url } : {}),
   };
 }
 

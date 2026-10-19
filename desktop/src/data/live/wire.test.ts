@@ -97,6 +97,7 @@ describe("assets", () => {
     expect(a.budget).toBe(15_000);
     expect(a.versions[0]!.checks.find((c) => c.key === "tris")).toMatchObject({ pass: false, sentence: "16,200 triangles. Budget is 15,000." });
     expect(versionOf(versions[0]!, 1, 30_000, NOW).publishedAt).toBe("10 Oct");
+    expect(a.versions[0]).toMatchObject({ glb: "https://x/v1.glb", render: "https://x/v1.png" });
   });
 });
 

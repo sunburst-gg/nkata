@@ -3,7 +3,7 @@
 // for the artist), read from the v8 prototype with the Tweaks (docs/v8-shots/proto-words.json).
 import { describe, expect, it } from "vitest";
 import { ME, MockDataSource, RISING_SUN } from "@/data/mock";
-import { applyFilter, cardOrder, factsWithDeltas, filterCounts, journey, publishState, sectionsByGroup, stripLabel, trisDelta, canReview } from "./selectors";
+import { applyFilter, cardOrder, factsWithDeltas, filterCounts, journey, modelOf, publishState, sectionsByGroup, stripLabel, trisDelta, canReview } from "./selectors";
 
 async function load(stage: "studio" | "empty" | "joining" | "firstsave" | "firstcomment", role: "lead" | "artist" | "viewer") {
   const mock = new MockDataSource({ stage, role });
@@ -127,5 +127,18 @@ describe("deltas", () => {
   });
   it("me per role is the prototype's", () => {
     expect([ME.lead.first, ME.artist.first, ME.viewer.first]).toEqual(["Emeka", "Ada", "Funmi"]);
+  });
+});
+
+describe("the stage per stop", () => {
+  it("a picked Version loads its own model, an older one without a file falls back to the asset's, Live is the newest save", async () => {
+    const { assets } = await load("studio", "lead");
+    const base = assets.find((a) => a.versions.length > 1 && a.glb)!;
+    const [newest, ...older] = base.versions;
+    const asset = { ...base, versions: [{ ...newest!, glb: "/own.glb", render: "/own.png" }, ...older] };
+    expect(modelOf(asset, newest!.n)).toEqual({ glb: "/own.glb", render: "/own.png" });
+    expect(modelOf(asset, "live").glb).toBe("/own.glb");
+    expect(modelOf(asset, older[0]!.n).glb).toBe(base.glb);
+    expect(modelOf(base, newest!.n).glb).toBe(base.glb);
   });
 });

@@ -68,7 +68,7 @@ export function AssetScreen() {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 360px", gap: 48, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-          {compare ? <Compare asset={asset} projectColor={project.color} /> : <AssetStage asset={asset} projectColor={project.color} comments={comments} />}
+          {compare ? <Compare asset={asset} projectColor={project.color} /> : <AssetStage asset={asset} projectColor={project.color} comments={comments} shown={shown} />}
           <ActionBar asset={asset} shown={shown} onApprove={() => void approve()} onRequestChanges={() => void requestChanges()} onPublish={() => setPublishOpen(true)} />
           <VersionsRow asset={asset} projectColor={project.color} shown={compare ? (useStore.getState().compareWith ?? shown) : shown} />
         </div>

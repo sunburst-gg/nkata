@@ -9,6 +9,18 @@ import type { Stage } from "@/data/mock";
 
 export type Filter = "Everything" | "Mine" | "Needs my eyes" | "Approved";
 
+/**
+ * What the stage loads for a stop: that Version's own model and still when the agent uploaded
+ * them, else the asset's newest. Live is the newest save, versions[0]. Picking a Version in the
+ * row changes the model on the stage, not only the card beside it.
+ */
+export function modelOf(asset: Asset, shown: number | "live"): { glb?: string; render?: string } {
+  const version = shown === "live" ? asset.versions[0] : asset.versions.find((v) => v.n === shown);
+  const glb = version?.glb ?? asset.glb;
+  const render = version?.render ?? asset.render;
+  return { ...(glb ? { glb } : {}), ...(render ? { render } : {}) };
+}
+
 /** Saved first: a card that just saved moves to the top. */
 export function cardOrder(assets: readonly Asset[], saved: Readonly<Record<string, number>>): Asset[] {
   return assets.slice().sort((a, b) => (saved[b.id] ? 1 : 0) - (saved[a.id] ? 1 : 0));
