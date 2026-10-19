@@ -3,7 +3,8 @@
 // for the artist), read from the v8 prototype with the Tweaks (docs/v8-shots/proto-words.json).
 import { describe, expect, it } from "vitest";
 import { ME, MockDataSource, RISING_SUN } from "@/data/mock";
-import { applyFilter, canResolve, cardOrder, factsWithDeltas, filterCounts, journey, modelOf, publishState, sectionsByGroup, stripLabel, trisDelta, canReview } from "./selectors";
+import { needsMe } from "@/data/rules";
+import { applyFilter, canResolve, cardOrder, openPinsLine, factsWithDeltas, filterCounts, journey, modelOf, publishState, sectionsByGroup, stripLabel, trisDelta, canReview } from "./selectors";
 
 async function load(stage: "studio" | "empty" | "joining" | "firstsave" | "firstcomment", role: "lead" | "artist" | "viewer") {
   const mock = new MockDataSource({ stage, role });
@@ -153,5 +154,21 @@ describe("done on a pin", () => {
     expect(canResolve(asset, pin, ME.lead)).toBe(true);
     expect(canResolve(asset, { ...pin, author: ME.lead }, ME.viewer)).toBe(false);
     expect(canResolve(asset, { ...pin, pin: undefined }, ME.lead)).toBe(false);
+  });
+});
+
+describe("open pins on a sent back Version", () => {
+  it("the line reads the count, goes quiet once every pin is done, and puts the artist's own asset in their Needs my eyes", async () => {
+    const { assets } = await load("studio", "artist");
+    const base = assets.find((a) => a.owner.id === ME.artist.id && !a.live)!;
+    const [v, ...rest] = base.versions;
+    const sentBack = { ...base, versions: [{ ...v!, changesRequested: true, approved: false }, ...rest], pins: { open: 2, total: 3 } };
+    expect(openPinsLine(sentBack)).toBe("2 of 3 pins open");
+    expect(openPinsLine({ ...sentBack, pins: { open: 0, total: 3 } })).toBeNull();
+    expect(openPinsLine({ ...sentBack, pins: { open: 1, total: 1 } })).toBe("1 of 1 pin open");
+    expect(openPinsLine({ ...base, pins: { open: 2, total: 3 } })).toBeNull();
+    expect(needsMe([sentBack], ME.artist).map((a) => a.id)).toEqual([sentBack.id]);
+    expect(needsMe([{ ...sentBack, pins: { open: 0, total: 3 } }], ME.artist)).toEqual([]);
+    expect(needsMe([{ ...sentBack, owner: ME.lead }], ME.artist)).toEqual([]);
   });
 });

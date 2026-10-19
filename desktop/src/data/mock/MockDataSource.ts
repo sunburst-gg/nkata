@@ -200,11 +200,14 @@ export class MockDataSource implements DataSource {
       else if (n === V - 1 && r.prevTris !== null) v.facts = { ...facts, tris: r.prevTris };
       versions.push(v);
     }
+    const current = r.live ? "live" : V;
+    const pinned = this.commentsOf(assetId).filter((c) => c.pin && c.version === current);
+    const pins = pinned.length ? { open: pinned.filter((c) => !c.done).length, total: pinned.length } : undefined;
     return {
       id: assetId, name: r.name, kind: r.isEnv ? "environment" : "object", group: r.group, ...(this.s.assetBudgets[assetId] ? { budget: this.s.assetBudgets[assetId] } : {}),
       owner: PEOPLE[r.owner], ...(r.glb ? { glb: r.glb } : {}), ...(r.isEnv ? { render: r.render } : {}),
       ...(r.live ? { live: { savedAt: r.time } } : {}), versions, ...(r.mentionsMe ? { mentionsMe: true } : {}),
-      changedAt: r.time, today: r.today,
+      changedAt: r.time, today: r.today, ...(pins ? { pins } : {}),
     };
   }
 
@@ -250,7 +253,9 @@ export class MockDataSource implements DataSource {
     return raw ? this.toAsset(raw, projectId) : null;
   }
 
-  async listComments(assetId: string): Promise<Comment[]> {
+  async listComments(assetId: string): Promise<Comment[]> { return this.commentsOf(assetId); }
+
+  private commentsOf(assetId: string): Comment[] {
     const [projectId] = assetId.split("/");
     const seed: Comment[] = projectId === TRY_NKATA.id
       ? [

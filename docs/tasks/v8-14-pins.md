@@ -13,7 +13,7 @@ Done means each sub-step's gate holds and `make test` is green.
       hollow on the model and under an Addressed fold. Panel: Done beside Jump to pin, done pins
       faint in the viewport. Gate: a pin marked done in Blender turns hollow in the app within one
       poll, and the other way round, in the fake-agent and fake-server tests.
-- [ ] 2. The count where people look. openPins(asset) counts pins on the current Version that are
+- [x] 2. The count where people look. openPins(asset) counts pins on the current Version that are
       not done. The wall card and the asset header read "2 of 3 pins" once a Version was sent
       back and pins remain. An asset sent back with open pins is in the artist's Needs my eyes.
 - [ ] 3. Pins carry forward on Publish. The new Version shows the pins still open on the one

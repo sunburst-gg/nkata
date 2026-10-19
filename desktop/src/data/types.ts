@@ -104,6 +104,8 @@ export interface Asset {
   versions: Version[];
   /** Someone mentioned me on it. */
   mentionsMe?: boolean;
+  /** Pins on the current Version: how many are not done, and how many there are (v8 step 14). */
+  pins?: { open: number; total: number };
   /** A lead's override of the project budget for this asset alone. */
   budget?: number;
   /** When it last changed, as the app shows it. */

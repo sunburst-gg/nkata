@@ -15,8 +15,14 @@ export const waitingOnLead = (a: Asset): boolean => {
 
 export const isApproved = (a: Asset): boolean => !!current(a)?.approved;
 
-/** What needs my eyes: for a lead, what waits on them or mentions them; for others, mentions. */
+/** Sent back with pins still open on the current Version: the artist's turn (v8 step 14). */
+export const sentBackWithOpenPins = (a: Asset): boolean => !!current(a)?.changesRequested && (a.pins?.open ?? 0) > 0;
+
+/**
+ * What needs my eyes: for a lead, what waits on them or mentions them; for an artist, what
+ * mentions them and their own assets sent back with open pins; for a viewer, mentions.
+ */
 export function needsMe(assets: readonly Asset[], me: Person): Asset[] {
   const lead = isLead(me.role);
-  return assets.filter((a) => (lead ? waitingOnLead(a) || !!a.mentionsMe : !!a.mentionsMe));
+  return assets.filter((a) => (lead ? waitingOnLead(a) || !!a.mentionsMe : !!a.mentionsMe || (a.owner.id === me.id && sentBackWithOpenPins(a))));
 }

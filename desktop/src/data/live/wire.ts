@@ -132,10 +132,18 @@ export interface AssetInput {
   a: AssetWire; part: PartWire; versions: VersionInput[]; people: ReadonlyMap<string, Person>; online: readonly PresenceEntry[]; budgets: Budgets; now: Date;
   /** Comments whose text names me, for mentionsMe. */
   mentionsMe: boolean;
+  /** The asset's comments, numbered, for the open pin count on the current Version. */
+  comments?: readonly Comment[];
+}
+
+/** Pins on Version n: how many are open and how many there are; undefined when there are none. */
+export function pinsOn(comments: readonly Comment[], n: number): { open: number; total: number } | undefined {
+  const pins = comments.filter((c) => c.pin && c.version === n);
+  return pins.length ? { open: pins.filter((c) => !c.done).length, total: pins.length } : undefined;
 }
 
 /** One asset is one .blend with one part. Live: the owner's heartbeat on this part within 60 s. */
-export function assetOf({ a, part, versions, people, online, budgets, now, mentionsMe }: AssetInput): Asset {
+export function assetOf({ a, part, versions, people, online, budgets, now, mentionsMe, comments = [] }: AssetInput): Asset {
   const kind: AssetKind = a.kind ?? "object";
   const group = a.group ?? (a.folder ? a.folder : null);
   const budget = budgetFor(budgets, kind, group, a.budget);
@@ -151,10 +159,12 @@ export function assetOf({ a, part, versions, people, online, budgets, now, menti
   const render = sorted.map((x) => x.v.render_url).find((u): u is string => !!u);
   const glb = sorted.map((x) => x.v.model_url).find((u): u is string => !!u);
   const changedAt = latest ? latest.v.created_at : part.updated_at;
+  const all = liveVersion ? [liveVersion, ...list] : list;
+  const pins = all[0] ? pinsOn(comments, all[0].n) : undefined;
   const asset: Asset = {
-    id: a.id, name: a.name, kind, group, owner, versions: liveVersion ? [liveVersion, ...list] : list,
+    id: a.id, name: a.name, kind, group, owner, versions: all,
     changedAt: ago(changedAt, now), today: now.getTime() - new Date(changedAt).getTime() < 86_400_000,
-    ...(glb ? { glb } : {}), ...(render ? { render } : {}), ...(live ? { live: { savedAt: ago(changedAt, now) } } : {}), ...(mentionsMe ? { mentionsMe: true } : {}), ...(a.budget ? { budget: a.budget } : {}),
+    ...(glb ? { glb } : {}), ...(render ? { render } : {}), ...(live ? { live: { savedAt: ago(changedAt, now) } } : {}), ...(mentionsMe ? { mentionsMe: true } : {}), ...(a.budget ? { budget: a.budget } : {}), ...(pins ? { pins } : {}),
   };
   return asset;
 }

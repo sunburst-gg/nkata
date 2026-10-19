@@ -1,6 +1,7 @@
 // The mapping from the server's wire onto the v8 nouns, without a server.
 import { describe, expect, it } from "vitest";
 import { DEFAULT_BUDGETS } from "../types";
+import type { Comment } from "../types";
 import { ago, assetOf, budgetFor, budgetsOf, checksOf, colorOf, commentOf, factsOf, journeyOf, mentionsOf, namesMe, personOf, roleOf, versionOf, type AssetWire, type MemberWire, type PartWire, type VersionWire } from "./wire";
 
 const NOW = new Date("2026-10-18T12:00:00Z");
@@ -98,6 +99,13 @@ describe("assets", () => {
     expect(a.versions[0]!.checks.find((c) => c.key === "tris")).toMatchObject({ pass: false, sentence: "16,200 triangles. Budget is 15,000." });
     expect(versionOf(versions[0]!, 1, 30_000, NOW).publishedAt).toBe("10 Oct");
     expect(a.versions[0]).toMatchObject({ glb: "https://x/v1.glb", render: "https://x/v1.png" });
+  });
+  it("pins on the current Version are counted, open and total; an older Version's pins are not", () => {
+    const versions = [{ v: v("v1", "2026-10-10T10:00:00Z", true, "Done."), checks: [], reviews: [], partApproved: false }, { v: v("v0", "2026-10-09T10:00:00Z", true, "First."), checks: [], reviews: [], partApproved: false }];
+    const c = (id: string, version: number, done: boolean, pin = true): Comment => ({ id, assetId: wire.id, version, author: personOf(ada, ["artist"]), text: "x", at: "now", ...(pin ? { pin: [0, 0, 1] as [number, number, number] } : {}), ...(done ? { done } : {}) });
+    const comments = [c("a", 2, false), c("b", 2, true), c("c", 2, false, false), c("d", 1, false)];
+    expect(assetOf({ a: wire, part, versions, people, online: [], budgets: DEFAULT_BUDGETS, now: NOW, mentionsMe: false, comments }).pins).toEqual({ open: 1, total: 2 });
+    expect(assetOf({ a: wire, part, versions, people, online: [], budgets: DEFAULT_BUDGETS, now: NOW, mentionsMe: false, comments: [c("d", 1, false)] }).pins).toBeUndefined();
   });
   it("a resolved comment reads done; an open one has no flag", () => {
     const base = { id: "c1", part_id: "p1", version_id: "v1", author: ada, body: "Soften the jaw", kind: "pin" as const, point: [0.2, 0.1, 0.4], created_at: "2026-10-10T10:00:00Z" };

@@ -1,6 +1,7 @@
 // The asset page: serif name, owner, "in Blender now" when live, the stage with pins, the action
 // bar, the Versions row, and on the right the note, the facts and the comments.
 import { useEffect, useState } from "react";
+import { openPinsLine } from "@/app/selectors";
 import { useStore } from "@/app/store";
 import { isArtist } from "@/auth/permissions";
 import { useCan } from "@/auth/useCan";
@@ -37,6 +38,7 @@ export function AssetScreen() {
   const shown: number | "live" = stop ?? (asset.live ? "live" : (asset.versions[0]?.n ?? 1));
   const file = `${asset.name.toLowerCase().replace(/ /g, "_")}.blend`;
   const shownN = shown === "live" ? (asset.versions[0]?.n ?? 1) : shown;
+  const pinsLine = openPinsLine(asset);
   const approve = async () => {
     if (!source) return;
     await source.approve(asset.id, shownN);
@@ -63,6 +65,7 @@ export function AssetScreen() {
             {asset.owner.first}
             {asset.live ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: "50%", background: asset.owner.color, animation: "nk-breathe 2.4s var(--ease) infinite" }} />in Blender now</span> : null}
             <span style={{ font: "400 var(--t-11) var(--mono)", color: "var(--ink40)" }}>{file}</span>
+            {pinsLine ? <span style={{ font: "400 var(--t-11) var(--mono)", color: "var(--bad)" }}>{pinsLine}</span> : null}
           </div>
         </div>
       </div>

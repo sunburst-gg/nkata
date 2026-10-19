@@ -240,7 +240,7 @@ export class LiveDataSource implements DataSource {
       commentsOf.set(a.id, comments);
       const mentionsMe = comments.some((c) => c.author.id !== me.id && namesMe(c.text, me));
       assets.push(assetOf({
-        a, part, people, online: onlineRes.online, budgets, now, mentionsMe,
+        a, part, people, online: onlineRes.online, budgets, now, mentionsMe, comments,
         versions: versions.map((v) => ({ v, checks: v.id === latest?.id ? checks : [], reviews: reviewsRes.reviews, partApproved: part.state === "approved" })),
       }));
     }

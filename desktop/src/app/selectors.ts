@@ -3,11 +3,18 @@
 // Component class of the v8 prototype (removed after step 13; its words per combo are in
 // docs/v8-shots/proto-words.json) so the tests can hold them to it.
 import { can, isArtist, isLead, isViewer } from "@/auth/permissions";
-import { isApproved, needsMe, waitingOnLead } from "@/data/rules";
+import { isApproved, needsMe, sentBackWithOpenPins, waitingOnLead } from "@/data/rules";
 import type { Asset, Comment, Facts, Member, Person, Version } from "@/data/types";
 import type { Stage } from "@/data/mock";
 
 export type Filter = "Everything" | "Mine" | "Needs my eyes" | "Approved";
+
+/** The line under a sent back asset: "2 of 3 pins open", or null once every pin is done (v8 step 14). */
+export function openPinsLine(asset: Asset): string | null {
+  if (!sentBackWithOpenPins(asset) || !asset.pins) return null;
+  const { open, total } = asset.pins;
+  return `${open} of ${total} pin${total === 1 ? "" : "s"} open`;
+}
 
 /** Who may mark a pin done or reopen it: its author, the asset's owner, or a lead (v8 step 14). */
 export function canResolve(asset: Asset, comment: Comment, me: Person): boolean {
