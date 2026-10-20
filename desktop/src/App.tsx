@@ -61,7 +61,7 @@ export function App() {
   }, [projectId, screen]);
   const body = BARE.has(screen) ? (
     <>
-      {screen === "zeroStudio" ? <Zero which="studio" /> : screen === "zeroProject" ? <Zero which="project" /> : screen === "arrival" ? <Arrival /> : screen === "signIn" ? <SignIn /> : screen === "name" ? <NameScreen /> : <div style={{ minHeight: "100vh", minWidth: 1280, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--canvas)" }}><Placeholder /></div>}
+      {screen === "zeroStudio" ? <Zero key="studio" which="studio" /> : screen === "zeroProject" ? <Zero key="project" which="project" /> : screen === "arrival" ? <Arrival /> : screen === "signIn" ? <SignIn /> : screen === "name" ? <NameScreen /> : <div style={{ minHeight: "100vh", minWidth: 1280, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--canvas)" }}><Placeholder /></div>}
       <Toaster />
     </>
   ) : (

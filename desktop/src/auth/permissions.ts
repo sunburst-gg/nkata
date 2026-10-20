@@ -9,7 +9,7 @@ export type Action =
 
 export const ACTIONS: readonly Action[] = ["invite", "manageMembers", "approve", "requestChanges", "publish", "openInBlender", "download", "downloadImage", "comment", "createProject", "renameProject", "deleteProject", "setTraining", "billing", "seeSetup", "seeConnections", "seeMine", "setBudget", "seeJourney", "seeDisk"];
 
-const ART_DIRECTOR: ReadonlySet<Action> = new Set<Action>(["approve", "requestChanges", "invite", "comment", "download", "downloadImage", "openInBlender", "seeConnections", "seeMine", "setBudget", "seeJourney"]);
+const ART_DIRECTOR: ReadonlySet<Action> = new Set<Action>(["approve", "requestChanges", "invite", "comment", "download", "downloadImage", "openInBlender", "seeSetup", "seeConnections", "seeMine", "setBudget", "seeJourney"]);
 const ARTIST: ReadonlySet<Action> = new Set<Action>(["publish", "openInBlender", "download", "downloadImage", "comment", "seeSetup", "seeConnections", "seeMine", "seeJourney", "seeDisk"]);
 const VIEWER: ReadonlySet<Action> = new Set<Action>(["comment", "downloadImage"]);
 

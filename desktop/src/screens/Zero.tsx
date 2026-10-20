@@ -1,7 +1,8 @@
 // The zero states, no sidebar: Name your studio, then Start your first project with the typed
 // name chalked into the backdrop and the eight swatches tinting it. Create lands on the lead's
-// empty wall and the sidebar slides in over 300 ms.
-import { useState } from "react";
+// empty wall and the sidebar slides in over 300 ms. App mounts the two steps with different keys,
+// so the project step starts with an empty name rather than the studio's.
+import { useRef, useState } from "react";
 import { useStore } from "@/app/store";
 import { Mark } from "@/ui/stage/Mark";
 import { SWATCHES, Swatches } from "@/ui/stage/Swatches";
@@ -23,7 +24,14 @@ export function Zero({ which }: { which: "studio" | "project" }) {
   const [color, setColor] = useState<string>(SWATCHES[0]);
   const project = which === "project";
   const { top, bot } = stageGradient(color, "zero");
+  // One submit at a time: a held Enter key once made the studio and a project of the same name.
+  const busy = useRef(false);
   const next = async () => {
+    if (!source || busy.current) return;
+    busy.current = true;
+    try { await submit(); } finally { busy.current = false; }
+  };
+  const submit = async () => {
     if (!source) return;
     if (!project) {
       await source.createStudio(name.trim() || "Sunburst");
