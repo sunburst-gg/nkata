@@ -3,6 +3,7 @@
 // refreshed on its events. Screens never touch the DataSource for reads; they read here.
 import { create } from "zustand";
 import type { DataEvent, DataSource } from "@/data/DataSource";
+import { heardLine } from "./heard";
 import type { Asset, Comment, LocalProject, Member, Mention, Person, Project, Studio } from "@/data/types";
 import { apply as applyConnection, INITIAL as NO_BLENDER, type BlenderState } from "./connection";
 import type { Stage } from "@/data/mock";
@@ -180,7 +181,10 @@ export const useStore = create<AppState>((set, get) => ({
     }
     // A published or decided asset moves to the top of the wall, without the saved pulse.
     if (e.type === "published" || e.type === "approved" || e.type === "changesRequested") set((s) => ({ saved: { ...(e.type === "published" ? {} : s.saved), [e.assetId]: Date.now() } }));
-    void get().refresh();
+    void get().refresh().then(() => {
+      const line = heardLine(e, get());
+      if (line) get().showToast(line.text, line.color, line.thumb, () => get().go("asset", { assetId: line.assetId }));
+    });
   },
 }));
 

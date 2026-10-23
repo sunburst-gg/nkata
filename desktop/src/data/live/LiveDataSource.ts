@@ -415,8 +415,10 @@ export class LiveDataSource implements DataSource {
       case "review.decided": {
         const assetId = assetFor(e["part_id"]);
         if (!assetId) return;
-        const version = this.loaded?.assets.find((a) => a.id === assetId)?.versions.find((v) => v.approved || v.changesRequested)?.n ?? 1;
-        this.emit(e["decision"] === "approve" ? { type: "approved", assetId, version } : { type: "changesRequested", assetId, version });
+        // The decided Version by its id, numbered as the Versions row numbers it.
+        const numbered = numberVersions(this.loaded?.versionsOf.get(assetId) ?? []);
+        const version = numbered.get(String(e["version_id"])) ?? this.loaded?.assets.find((a) => a.id === assetId)?.versions[0]?.n ?? 1;
+        this.emit(e["decision"] === "approve" ? { type: "approved", assetId, version, by: e.actor_id } : { type: "changesRequested", assetId, version, by: e.actor_id });
         return;
       }
       case "comment.created":
@@ -424,7 +426,7 @@ export class LiveDataSource implements DataSource {
         const c = e["comment"] as CommentWire | undefined;
         const assetId = c ? assetFor(c.part_id) : null;
         if (!assetId || !c) return;
-        this.emit({ type: "commented", assetId, commentId: c.id });
+        this.emit({ type: "commented", assetId, commentId: c.id, by: e.actor_id, ...(e.kind === "comment.resolved" ? { settled: true } : {}) });
         return;
       }
       case "presence.changed": {

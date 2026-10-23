@@ -51,6 +51,9 @@ class AddonState:
     online: list[dict[str, Any]] = field(default_factory=list)
     startable: list[dict[str, Any]] = field(default_factory=list)
     publish_line: str = ""
+    # The lead's last decision on the open asset, as the panel says it (v8 step 16, item 4).
+    decision_line: str = ""
+    decision_approved: bool = False
     # v8 (step 12): the project this computer serves, the budgets from the agent, the asset
     # kind per part, the line after Add to project, and which comments the artist has seen.
     project_name: str = ""
@@ -68,6 +71,16 @@ class AddonState:
 
     def mirror_for(self, part_id: str) -> MirrorView:
         return self.mirror.setdefault(part_id, MirrorView())
+
+    def _first_name(self, user_id: str) -> str:
+        """A person's first name from who is online or who wrote a comment here; "The lead" else."""
+        people = [e.get("user") or {} for e in self.online]
+        for pins in self.comments.values():
+            people.extend(c.get("author") or {} for c in pins)
+        for p in people:
+            if p.get("id") == user_id and p.get("name"):
+                return str(p["name"]).split(" ")[0]
+        return "The lead"
 
     def apply_event(self, event: dict[str, Any]) -> None:
         """Events from the agent's SSE stream update what the panel shows."""
@@ -96,6 +109,15 @@ class AddonState:
                     pins[found[0]] = comment
                 else:
                     pins.append(comment)
+            elif kind == "review.decided" and self.part and event.get("part_id") == self.part["id"]:
+                who = self._first_name(str(event.get("actor_id") or ""))
+                note = str(event.get("note") or "").strip()
+                if event.get("decision") == "approve":
+                    self.decision_line = f"{who} approved your last Publish."
+                    self.decision_approved = True
+                else:
+                    self.decision_line = f"{who} sent it back: {note}" if note else f"{who} sent it back. The pins below say where."
+                    self.decision_approved = False
             elif kind == "part.state" and self.part and event.get("part_id") == self.part["id"]:
                 self.part = {**self.part, "state": event.get("to")}
             elif kind == "lock.granted" and self.part and event.get("part_id") == self.part["id"]:

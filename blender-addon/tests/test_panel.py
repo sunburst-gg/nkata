@@ -305,6 +305,16 @@ class PanelTest(unittest.TestCase):
         self.assertEqual(sent["point"], [0.5, 0.25, 0.0])
         self.assertIn("label:No new comments", "\n".join(self.draw()), "my own comment is not new to me")
 
+    def test_the_leads_decision_shows_in_the_panel_and_publish_clears_it(self) -> None:
+        self.save_hook.handle_open(str(self.blend))
+        self.state.apply_event({"kind": "comment.created", "comment": {"id": "c1", "part_id": ID, "body": "Loosen the ridge.", "author": CHIDI, "point": [0, 0, 1], "resolved_at": None}})
+        self.state.apply_event({"kind": "review.decided", "part_id": ID, "actor_id": CHIDI["id"], "decision": "send_back", "note": "Loosen the ridge.", "score": 3})
+        self.assertIn("label:Chidi sent it back: Loosen the ridge.", "\n".join(self.draw()))
+        self.state.apply_event({"kind": "review.decided", "part_id": "someone-else", "actor_id": CHIDI["id"], "decision": "approve", "note": "", "score": 5})
+        self.assertIn("Chidi sent it back", "\n".join(self.draw()), "a decision on another asset leaves this one alone")
+        self.state.apply_event({"kind": "review.decided", "part_id": ID, "actor_id": "01UNKNOWN0000000000000000A", "decision": "approve", "note": "", "score": 5})
+        self.assertIn("label:The lead approved your last Publish.", "\n".join(self.draw()))
+
     def test_a_pin_is_marked_done_from_the_panel_and_the_app_can_do_it_too(self) -> None:
         self.save_hook.handle_open(str(self.blend))
         FakeAgent.comments.append({"id": "01C0MMENT0000000000000000A", "part_id": ID, "version_id": ID2, "author": CHIDI, "point": [0, 0, 1], "normal": [0, 0, 1], "body": "Loosen the ridge.", "kind": "pin", "resolved_at": None, "created_at": AT})

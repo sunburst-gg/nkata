@@ -260,6 +260,7 @@ class NKATA_OT_publish(bpy.types.Operator):
         with STATE.lock:
             if res.published:
                 STATE.publish_line = "Published. The team can see it now."
+                STATE.decision_line = ""
                 wm.nkata_note = ""
                 wm.nkata_note_engineering = ""
             else:
@@ -372,6 +373,8 @@ def draw_connected(layout: Any, part: dict[str, Any]) -> None:
     layout.label(text=f"Connected to {project}", icon="CHECKMARK")
     if STATE.added_line:
         layout.label(text=STATE.added_line)
+    if STATE.decision_line:
+        layout.label(text=STATE.decision_line, icon="CHECKMARK" if STATE.decision_approved else "ERROR")
     current = asset_kind(part)
     row = layout.row(align=True)
     for key, word in KIND_WORDS.items():

@@ -8,9 +8,11 @@ import type { ConnectionEvent } from "@/app/connection";
 export type DataEvent =
   | { type: "saved"; assetId: string; by: string }
   | { type: "published"; assetId: string; version: number }
-  | { type: "approved"; assetId: string; version: number }
-  | { type: "changesRequested"; assetId: string; version: number }
-  | { type: "commented"; assetId: string; commentId: string }
+  /** by: who decided or wrote it, when it came from someone else through the server. A local action has none. */
+  | { type: "approved"; assetId: string; version: number; by?: string }
+  | { type: "changesRequested"; assetId: string; version: number; by?: string }
+  /** settled: a pin was marked done or reopened, not a new comment. */
+  | { type: "commented"; assetId: string; commentId: string; by?: string; settled?: boolean }
   | { type: "memberChanged"; personId: string; journey: Journey }
   | { type: "presence"; personId: string; file: string | null }
   /** First run: the project row of the setup list is done. Blender rows come from the connection events. */
