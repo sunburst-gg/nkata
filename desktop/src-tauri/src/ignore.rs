@@ -12,6 +12,9 @@ pub const AGENT_DIR: &str = ".nkata-agent";
 const DEFAULT_RULES: &[&str] = &[
     "*.blend1",
     "*.blend2",
+    // The add-on's GLB, manifest, still and kind file beside each .blend: the model and the still
+    // reach the team as the save's own, so they never travel as project files (v8 step 16).
+    ".nkata-exports/",
     "Saved/",
     "Intermediate/",
     "DerivedDataCache/",
@@ -108,6 +111,9 @@ mod tests {
         assert!(r.is_ignored(Path::new("Game/Saved/x.log"), false));
         assert!(r.is_ignored(Path::new("Game/Intermediate"), true));
         assert!(r.is_ignored(Path::new(".nkata-agent/index.db"), false));
+        assert!(r.is_ignored(Path::new("Objects/Kettle/.nkata-exports/Kettle.glb"), false));
+        assert!(r.is_ignored(Path::new("Objects/Kettle/.nkata-exports"), true));
+        assert!(!r.is_ignored(Path::new("Objects/Kettle/Kettle.png"), false));
         assert!(!r.is_ignored(Path::new(".nkata/templates/Character.json"), false));
     }
 

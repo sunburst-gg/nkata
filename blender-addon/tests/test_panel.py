@@ -229,9 +229,9 @@ class PanelTest(unittest.TestCase):
         self.assertIn("label:Scale 1", text)
         self.assertIn("op:nkata.publish:Publish, after the note", text)
         # The GLB and the manifest sit next to the .blend, with the four checks inside.
-        glb = self.blend.with_suffix(".glb")
+        glb = self.blend.parent / ".nkata-exports" / (self.blend.stem + ".glb")
         self.assertTrue(glb.is_file())
-        manifest = json.loads(self.blend.with_suffix(".manifest.json").read_text())
+        manifest = json.loads((self.blend.parent / ".nkata-exports" / (self.blend.stem + ".manifest.json")).read_text())
         self.assertEqual(manifest["asset_kind"], "object")
         self.assertEqual([c["key"] for c in manifest["checks"]], ["textures", "scale", "uv", "tris"])
         self.assertEqual([c["pass"] for c in manifest["checks"]], [False, False, True, True])
@@ -244,7 +244,7 @@ class PanelTest(unittest.TestCase):
         op.kind = "environment"
         self.assertEqual(op.execute(None), {"FINISHED"})
         self.assertEqual(self.state.kind[ID], "environment")
-        self.assertEqual(json.loads(self.blend.with_suffix(".nkata.json").read_text())["kind"], "environment")
+        self.assertEqual(json.loads((self.blend.parent / ".nkata-exports" / (self.blend.stem + ".nkata.json")).read_text())["kind"], "environment")
         self.assertEqual(self.panel.asset_budget(self.state.part), 2_000_000)
         self.assertIn("op:nkata.set_kind:Environment:on", self.draw())
         # The pick survives the next open.
@@ -260,9 +260,9 @@ class PanelTest(unittest.TestCase):
         renders = [c for c in self.bpy._ops.calls if c[0] == "render.render"]
         self.assertEqual(len(renders), 1)
         self.assertEqual(renders[0][1]["size"], (1600, 1000))
-        self.assertTrue(self.blend.with_suffix(".png").is_file())
+        self.assertTrue((self.blend.parent / ".nkata-exports" / (self.blend.stem + ".png")).is_file())
         posted = [c for c in FakeAgent.calls if c[1] == f"/parts/{ID}/render"]
-        self.assertEqual(posted[0][2]["path"], str(self.blend.with_suffix(".png")))
+        self.assertEqual(posted[0][2]["path"], str(self.blend.parent / ".nkata-exports" / (self.blend.stem + ".png")))
         self.assertEqual(self.bpy.context.scene.render.engine, "CYCLES", "the render settings come back")
         self.assertIsNone(self.bpy.context.scene.camera)
 

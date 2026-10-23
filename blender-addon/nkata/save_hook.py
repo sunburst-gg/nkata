@@ -195,9 +195,10 @@ def handle_save(filepath: str) -> dict[str, Any]:
     rows = live.lines(results, STATE.card.get(part["id"], {}), live.budget_for(STATE.budgets, asset_kind, kind_rules.group_of(rel), part.get("budget")))
     still_path: Path | None = None
     if changed:
-        # v8 (step 13): the GLB and its manifest sit next to the .blend, textures embedded, Y up,
-        # modifiers and scale applied, no Draco. The agent uploads from there.
-        glb = path.with_suffix(".glb")
+        # v8 (step 13): the GLB and its manifest sit beside the .blend in .nkata-exports/, which the sync
+        # ignores (step 16), textures embedded, Y up, modifiers and scale applied, no Draco. The
+        # agent uploads from there as the save's model.
+        glb = kind_rules.export_path(path, ".glb")
         t = time.monotonic()
         how = export.export_collection(collection, glb, kind, skins=got.armature is not None)
         export_ms = int((time.monotonic() - t) * 1000)
@@ -206,7 +207,7 @@ def handle_save(filepath: str) -> dict[str, Any]:
             textures=[(t.name, t.width, t.height) for t in texture_facts()], unit_scale=unit_scale_now(),
             asset_kind=asset_kind, checks=live.manifest_checks(rows),
         )
-        manifest.write_manifest(path.with_suffix(".manifest.json"), manifest_data)
+        manifest.write_manifest(kind_rules.export_path(path, ".manifest.json"), manifest_data)
         spool_path = str(glb)
         log("export.done", part_id=part["id"], kind=kind, asset_kind=asset_kind, how=how, export_ms=export_ms, objects=len(infos))
         if asset_kind == "environment":
@@ -214,7 +215,7 @@ def handle_save(filepath: str) -> dict[str, Any]:
             # eye-height default, Eevee at low samples. Objects need none; the app captures its own.
             try:
                 t = time.monotonic()
-                still_path = export.render_still(path.with_suffix(".png"))
+                still_path = export.render_still(kind_rules.export_path(path, ".png"))
                 log("still.done", part_id=part["id"], render_ms=int((time.monotonic() - t) * 1000))
             except (RuntimeError, OSError) as e:
                 log("still.failed", part_id=part["id"], error=str(e))

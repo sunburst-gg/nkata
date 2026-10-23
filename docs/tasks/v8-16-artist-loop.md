@@ -13,7 +13,7 @@ Done means each item holds in a browser walk as a new artist against a real serv
       background process at launch. A lead gets the same row.
 - [x] 2. No prototype fixtures on live data: no lantern for an asset without a model, no "Loading
       model" forever, no courtyard in a save toast.
-- [ ] 3. The add-on's exports stay out of the sync.
+- [x] 3. The add-on's exports stay out of the sync.
 - [ ] 4. The artist hears the lead: a toast in the app for an approval, a send back or a new
       comment on their asset, and a line in the Blender panel for the decision.
 - [ ] 5. The panel says who has the file and whose asset it is, in plain words, before a save.

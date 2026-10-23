@@ -124,7 +124,7 @@ class SaveHookTest(unittest.TestCase):
         self.assertEqual(len(FakeAgent.saved), 1)
         req = FakeAgent.saved[0]
         self.assertTrue(Path(req["spool_path"]).is_file())
-        self.assertEqual(req["spool_path"], str(self.blend.with_suffix(".glb")), "v8: the GLB sits next to the .blend")
+        self.assertEqual(req["spool_path"], str(self.blend.parent / ".nkata-exports" / "face.glb"), "v8: the GLB sits beside the .blend in .nkata-exports, out of the sync")
         self.assertEqual(req["manifest"]["objects"][0]["name"], "Face")
         self.assertEqual(req["manifest"]["objects"][0]["triangles"], 1)
         self.assertEqual(req["manifest"]["objects"][0]["materials"], ["M_Skin"])
@@ -139,7 +139,7 @@ class SaveHookTest(unittest.TestCase):
         self.assertEqual(req["manifest"]["unit_scale"], 1.0)
         self.assertEqual(req["source_file"], "Ojukwu/face.blend")
         self.assertEqual(self.bpy._ops.calls[0][0], "collection.exporter_export")
-        self.assertTrue(self.blend.with_suffix(".manifest.json").is_file())
+        self.assertTrue((self.blend.parent / ".nkata-exports" / (self.blend.stem + ".manifest.json")).is_file())
         self.assertEqual(req["manifest"]["asset_kind"], "object")
         self.assertEqual([c["key"] for c in req["manifest"]["checks"]], ["textures", "scale", "uv", "tris"])
         self.assertEqual(self.state.mirror_for(ID).status, "pending")

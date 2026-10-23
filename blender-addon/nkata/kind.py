@@ -9,7 +9,7 @@ shows its render. Decided on save, in this order (docs/tasks/v8-prompts.md, step
 4. Else an object.
 
 The artist can change it once in the panel; the pick is remembered per asset next to the file
-(<asset>.nkata.json). Pure, so it runs without bpy."""
+(.nkata-exports/<asset>.nkata.json). Pure, so it runs without bpy."""
 
 from __future__ import annotations
 
@@ -69,8 +69,21 @@ def decide(rel_file: str, bounds: list[Bounds], skinned: bool, remembered: Asset
     return from_group or kind_from_scene(bounds, skinned)
 
 
+EXPORT_DIR = ".nkata-exports"
+"""Beside each .blend, the add-on's own files: the GLB, its manifest, the still and the kind the
+artist picked. The sync ignores the folder (agent ignore.rs), so they never travel as project
+files; the model and the still reach the team as the save's own (v8 step 16, item 3)."""
+
+
+def export_path(blend: Path, suffix: str) -> Path:
+    """<dir>/.nkata-exports/<stem><suffix>, the folder made on first use."""
+    folder = blend.parent / EXPORT_DIR
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder / f"{blend.stem}{suffix}"
+
+
 def memory_path(blend: Path) -> Path:
-    return blend.with_suffix(".nkata.json")
+    return export_path(blend, ".nkata.json")
 
 
 def read_remembered(blend: Path) -> AssetKind | None:
