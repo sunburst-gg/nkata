@@ -17,7 +17,7 @@ Done means each item holds in a browser walk as a new artist against a real serv
 - [x] 4. The artist hears the lead: a toast in the app for an approval, a send back or a new
       comment on their asset, and a line in the Blender panel for the decision.
 - [x] 5. The panel says who has the file and whose asset it is, in plain words, before a save.
-- [ ] 6. Publish only for the owner; an asset with no save reads as such; the wall says what to do
+- [x] 6. Publish only for the owner; an asset with no save reads as such; the wall says what to do
       next when the artist has nothing in the project yet.
 - [ ] 7. An event reloads only what it touched.
 - [ ] 8. Download saves where the person chooses in the desktop app; the seed uses real names.

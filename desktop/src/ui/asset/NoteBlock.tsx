@@ -3,6 +3,7 @@
 import type { Asset } from "@/data/types";
 
 export function NoteBlock({ asset, shown }: { asset: Asset; shown: number | "live" }) {
+  if (asset.versions.length === 0) return <span style={{ font: "400 15px/1.5 var(--sans)", color: "var(--ink40)" }}>Nothing saved yet.</span>;
   if (shown === "live") return <span style={{ font: "400 15px/1.5 var(--sans)", color: "var(--ink40)", textWrap: "pretty" }}>{asset.owner.first} is still working on this. No note until Publish.</span>;
   const v = asset.versions.find((x) => x.n === shown);
   if (!v?.note) return <span style={{ font: "400 15px/1.5 var(--sans)", color: "var(--ink40)" }}>Saved, not published yet.</span>;

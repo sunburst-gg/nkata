@@ -32,6 +32,11 @@ export function carried(comment: Comment, shownN: number): boolean {
   return typeof comment.version === "number" && comment.version < shownN;
 }
 
+/** Publish on the asset page: the asset's own artist, once it has a save (v8 step 16). Leads publish from Blender. */
+export function canPublishHere(asset: Asset, me: Person): boolean {
+  return can("publish", me.role) && !isLead(me.role) && asset.owner.id === me.id && asset.versions.length > 0;
+}
+
 /** Who may mark a pin done or reopen it: its author, the asset's owner, or a lead (v8 step 14). */
 export function canResolve(asset: Asset, comment: Comment, me: Person): boolean {
   return !!comment.pin && (comment.author.id === me.id || asset.owner.id === me.id || isLead(me.role));

@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { ME, MockDataSource, RISING_SUN } from "@/data/mock";
 import { needsMe, waitingOnLead } from "@/data/rules";
-import { applyFilter, canResolve, cardOrder, carried, openPinsLine, openPinsUpTo, factsWithDeltas, filterCounts, journey, modelOf, publishState, sectionsByGroup, stripLabel, trisDelta, canReview } from "./selectors";
+import { applyFilter, canPublishHere, canResolve, cardOrder, carried, openPinsLine, openPinsUpTo, factsWithDeltas, filterCounts, journey, modelOf, publishState, sectionsByGroup, stripLabel, trisDelta, canReview } from "./selectors";
 
 async function load(stage: "studio" | "empty" | "joining" | "firstsave" | "firstcomment", role: "lead" | "artist" | "viewer") {
   const mock = new MockDataSource({ stage, role });
@@ -191,5 +191,18 @@ describe("the lead's second look", () => {
     expect(waitingOnLead(afterSendBack)).toBe(true);
     expect(needsMe([afterSendBack], ME.lead).map((a) => a.id)).toEqual([afterSendBack.id]);
     expect(needsMe([afterSendBack], ME.artist)).toEqual([]);
+  });
+});
+
+describe("publish on the asset page", () => {
+  it("only the asset's own artist, and only once it has a save", async () => {
+    const { assets } = await load("studio", "artist");
+    const mine = assets.find((a) => a.owner.id === ME.artist.id)!;
+    const theirs = assets.find((a) => a.owner.id !== ME.artist.id)!;
+    expect(canPublishHere(mine, ME.artist)).toBe(true);
+    expect(canPublishHere(theirs, ME.artist)).toBe(false);
+    expect(canPublishHere({ ...mine, versions: [] }, ME.artist)).toBe(false);
+    expect(canPublishHere(mine, ME.lead)).toBe(false);
+    expect(canPublishHere(mine, ME.viewer)).toBe(false);
   });
 });

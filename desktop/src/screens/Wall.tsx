@@ -32,7 +32,8 @@ export function Wall() {
   const leadEmpty = lead && assets.length === 0;
   // The artist's first save keeps the Stage full size for the visit; so does an empty wall.
   const stageEmpty = !lead && (assets.length === 0 || (firstSaveFilled && stage !== "studio" && isArtist(me.role)));
-  const yourTurn = isArtist(me.role) && stage === "joining" && !assets.some((a) => a.owner.id === me.id);
+  // Work is here and none of it is mine yet: the next step, on any stage (the mock's joining, live data).
+  const yourTurn = isArtist(me.role) && assets.length > 0 && !assets.some((a) => a.owner.id === me.id);
   const firstLive = assets.find((a) => a.live);
   const mine = needsMe(assets, me);
   const shown = applyFilter(cardOrder(assets, saved), me, filter, group);

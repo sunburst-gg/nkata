@@ -29,6 +29,7 @@ export function VersionsRow({ asset, projectColor, shown }: { asset: Asset; proj
         <span style={{ flex: 1 }} />
         {canCompare ? <button type="button" aria-pressed={compare} onClick={() => useStore.setState({ compare: !compare, compareWith: !compare ? (asset.versions[1]?.n ?? null) : null })} style={{ height: 28, padding: "0 10px", borderRadius: "var(--r-6)", border: compare ? "1.5px solid var(--amber)" : "1.5px solid var(--line)", background: compare ? "var(--raised)" : "transparent", color: "var(--ink)", font: "500 13px var(--sans)", cursor: "pointer" }}>Compare</button> : null}
       </div>
+      {stops.length === 0 ? <span style={{ fontSize: 13, color: "var(--ink40)" }}>The first save starts the list.</span> : null}
       <div style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 4 }}>
         {stops.map((st) => {
           const sel = st.key === shown;
