@@ -147,9 +147,12 @@ export function canReview(asset: Asset, version: number | "live"): boolean {
 /** Publish needs four green checks and a note. The label says which is missing. */
 export function publishState(asset: Asset, note: string): { can: boolean; label: string; allGreen: boolean; noteOk: boolean } {
   const v = asset.versions[0];
-  const allGreen = !v || v.checks.every((c) => c.pass);
+  // A check Blender has not reported yet reads "Not checked yet" and never blocks (step 11);
+  // only a red one does.
+  const allGreen = !v || v.checks.every((c) => c.pass || c.pending);
   const noteOk = note.trim().length > 0;
-  const next = (v?.n ?? 0) + 1;
+  // The newest save not yet published becomes the next Version itself.
+  const next = v && !v.note ? v.n : (v?.n ?? 0) + 1;
   return { can: allGreen && noteOk, allGreen, noteOk, label: !allGreen ? "Publish, after the red one" : !noteOk ? "Publish, after the note" : `Publish v${next}` };
 }
 

@@ -110,6 +110,8 @@ export interface Asset {
    * Version when any carried.
    */
   pins?: { open: number; total: number; from?: number };
+  /** The .blend, project relative, when the server knows it. The header shows its name. */
+  file?: string;
   /** A lead's override of the project budget for this asset alone. */
   budget?: number;
   /** When it last changed, as the app shows it. */

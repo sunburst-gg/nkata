@@ -43,8 +43,8 @@ export function PublishDialog({ asset, open, onOpenChange }: { asset: Asset; ope
             {checks.map((c) => (
               <div key={c.key} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                 <span aria-label={c.pending ? "not checked yet" : c.pass ? "passes" : "fails"} style={{ marginTop: 6, width: 8, height: 8, borderRadius: "50%", border: c.pending ? "1.5px solid var(--ink40)" : 0, boxSizing: "border-box", background: c.pending ? "transparent" : c.pass ? "var(--ok)" : "var(--bad)", flexShrink: 0 }} />
-                <span style={{ flex: 1, color: "var(--ink80)" }}>{c.sentence}{!c.pass ? <span style={{ display: "block", fontSize: 13, color: "var(--bad)" }}>{c.fix}</span> : null}</span>
-                {!c.pass ? <button type="button" onClick={() => void fix(c.key)} style={{ height: 32, padding: "0 10px", borderRadius: "var(--r-6)", border: 0, background: "var(--canvas)", color: "var(--ink)", font: "500 13px var(--sans)", cursor: "pointer" }}>Fix</button> : null}
+                <span style={{ flex: 1, color: "var(--ink80)" }}>{c.sentence}{!c.pass && !c.pending ? <span style={{ display: "block", fontSize: 13, color: "var(--bad)" }}>{c.fix}</span> : null}</span>
+                {!c.pass && !c.pending ? <button type="button" onClick={() => void fix(c.key)} style={{ height: 32, padding: "0 10px", borderRadius: "var(--r-6)", border: 0, background: "var(--canvas)", color: "var(--ink)", font: "500 13px var(--sans)", cursor: "pointer" }}>Fix</button> : null}
               </div>
             ))}
           </div>

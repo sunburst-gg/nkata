@@ -336,13 +336,13 @@ export class MockDataSource implements DataSource {
     if (!name || !asset) throw new Error("no asset");
     const v = asset.versions[0];
     if (!note.trim()) throw new Error("Write one line first.");
-    if (v && v.checks.some((c) => !c.pass)) throw new Error("Fix the red check first.");
+    if (v && v.checks.some((c) => !c.pass && !c.pending)) throw new Error("Fix the red check first.");
     void noteEngineering;
     this.s.published[name] = note.trim();
     delete this.s.approved[name];
     delete this.s.changesReq[name];
     this.s.saved = {};
-    this.emit({ type: "published", assetId, version: (v?.n ?? 0) + 1 });
+    this.emit({ type: "published", assetId, version: v && !v.note ? v.n : (v?.n ?? 0) + 1 });
   }
 
   async approve(assetId: string, version: number): Promise<void> {

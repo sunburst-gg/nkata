@@ -11,7 +11,9 @@ export interface Stop { key: number | "live"; title: string; when: string; note:
 
 /** The stops in the row, each with the model and still its card shows (modelOf). */
 export function stopsOf(asset: Asset): Stop[] {
-  const stops: Stop[] = asset.versions.map((v) => ({ key: v.n, title: `v${v.n}`, when: v.publishedAt, note: v.note || "Saved, not published yet.", hasNote: !!v.note, approved: v.approved, ...modelOf(asset, v.n) }));
+  // The newest save, not yet published, is the Live stop; it does not show again as a numbered one.
+  const shown = asset.live && asset.versions[0] && !asset.versions[0].note ? asset.versions.slice(1) : asset.versions;
+  const stops: Stop[] = shown.map((v) => ({ key: v.n, title: `v${v.n}`, when: v.publishedAt, note: v.note || "Saved, not published yet.", hasNote: !!v.note, approved: v.approved, ...modelOf(asset, v.n) }));
   if (asset.live) stops.unshift({ key: "live", title: "Live", when: "just now", note: "Latest save. Not handed off yet.", hasNote: false, approved: false, ...modelOf(asset, "live") });
   return stops;
 }

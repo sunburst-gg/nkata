@@ -10,7 +10,10 @@ export function PlaceProjectRow({ projectId, name, done }: { projectId: string; 
   const source = useStore((s) => s.source);
   const me = useStore((s) => s.me);
   const placed = source?.projectFolder(projectId) ?? null;
-  const [at, setAt] = useState(`~/Nkata/${name}`);
+  // The default follows the project's name, which can arrive after the first render; a place the
+  // person picked stays.
+  const [picked, setPicked] = useState<string | null>(null);
+  const at = picked ?? `~/Nkata/${name}`;
   const [busy, setBusy] = useState(false);
   const place = async () => {
     if (!source || busy) return;
@@ -28,8 +31,8 @@ export function PlaceProjectRow({ projectId, name, done }: { projectId: string; 
   // https://v2.tauri.app/plugin/dialog/
   const choose = async () => {
     const { open } = await import("@tauri-apps/plugin-dialog");
-    const picked = await open({ directory: true, multiple: false });
-    if (typeof picked === "string") setAt(picked);
+    const chosen = await open({ directory: true, multiple: false });
+    if (typeof chosen === "string") setPicked(chosen);
   };
   const isDone = done || !!placed;
   return (

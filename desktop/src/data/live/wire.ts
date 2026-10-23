@@ -161,7 +161,7 @@ export function assetOf({ a, part, versions, people, online, budgets, now, menti
   const asset: Asset = {
     id: a.id, name: a.name, kind, group, owner, versions: all,
     changedAt: ago(changedAt, now), today: now.getTime() - new Date(changedAt).getTime() < 86_400_000,
-    ...(glb ? { glb } : {}), ...(render ? { render } : {}), ...(live ? { live: { savedAt: ago(changedAt, now) } } : {}), ...(mentionsMe ? { mentionsMe: true } : {}), ...(a.budget ? { budget: a.budget } : {}), ...(pins ? { pins } : {}),
+    ...(glb ? { glb } : {}), ...(render ? { render } : {}), ...(live ? { live: { savedAt: ago(changedAt, now) } } : {}), ...(mentionsMe ? { mentionsMe: true } : {}), ...(a.budget ? { budget: a.budget } : {}), ...(pins ? { pins } : {}), ...(part.mapping?.file ? { file: part.mapping.file } : {}),
   };
   return asset;
 }

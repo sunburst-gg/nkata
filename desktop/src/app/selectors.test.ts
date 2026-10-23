@@ -206,3 +206,16 @@ describe("publish on the asset page", () => {
     expect(canPublishHere(mine, ME.viewer)).toBe(false);
   });
 });
+
+describe("publish from a Live save", () => {
+  it("a check not reported yet does not block, a red one does, and the Live save publishes as its own number", async () => {
+    const { assets } = await load("studio", "artist");
+    const base = assets.find((a) => a.owner.id === ME.artist.id && a.versions.length > 0)!;
+    const pending = { key: "uv" as const, pass: false, pending: true, sentence: "Not checked yet.", fix: "Unwrap the mesh." };
+    const red = { key: "uv" as const, pass: false, sentence: "No UVs.", fix: "Unwrap the mesh." };
+    const green = base.versions[0]!.checks.filter((c) => c.key !== "uv").map((c) => ({ ...c, pass: true }));
+    const liveSave = { ...base, live: { savedAt: "now" }, versions: [{ ...base.versions[0]!, n: 3, note: "", checks: [...green, pending] }, ...base.versions.slice(1)] };
+    expect(publishState(liveSave, "Rim smoothed.")).toMatchObject({ can: true, label: "Publish v3" });
+    expect(publishState({ ...liveSave, versions: [{ ...liveSave.versions[0]!, checks: [...green, red] }] }, "Rim smoothed.")).toMatchObject({ can: false, label: "Publish, after the red one" });
+  });
+});

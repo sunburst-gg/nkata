@@ -58,7 +58,7 @@ export function Arrival() {
         {setup ? (
           <div style={{ display: "flex", flexDirection: "column", paddingTop: 8, maxWidth: 520 }} aria-label="Setup">
             <BlenderCard compact />
-            {live ? <PlaceProjectRow projectId={projectId ?? ""} name={projectName} done={projectReady} /> : (
+            {live ? (project ? <PlaceProjectRow projectId={project.id} name={project.name} done={projectReady} /> : null) : (
             <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderTop: "1px solid var(--line)" }}>
               <span aria-label={projectReady ? "done" : "pending"} style={{ width: 20, height: 20, borderRadius: "50%", background: projectReady ? "var(--ok)" : "transparent", border: `1.5px solid ${projectReady ? "var(--ok)" : "var(--line)"}`, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background var(--t-panel)" }}>
                 {projectReady ? <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="var(--on-color)" strokeWidth="2.5" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" /></svg> : null}

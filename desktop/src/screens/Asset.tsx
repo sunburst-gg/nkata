@@ -37,7 +37,7 @@ export function AssetScreen() {
   useEffect(() => { if (asset) void loadComments(asset.id); }, [asset?.id, loadComments]);
   if (!asset || !project || !me) return <span style={{ color: "var(--ink60)" }}>That asset is not in this project.</span>;
   const shown: number | "live" = stop ?? (asset.live ? "live" : (asset.versions[0]?.n ?? 1));
-  const file = `${asset.name.toLowerCase().replace(/ /g, "_")}.blend`;
+  const file = asset.file?.split("/").pop() ?? `${asset.name.toLowerCase().replace(/ /g, "_")}.blend`;
   const shownN = shown === "live" ? (asset.versions[0]?.n ?? 1) : shown;
   const pinsLine = openPinsLine(asset);
   // Approve with pins still open asks once; yes marks them done with the approval (v8 step 14).
