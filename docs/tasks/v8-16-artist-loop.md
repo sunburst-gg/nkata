@@ -11,7 +11,7 @@ Done means each item holds in a browser walk as a new artist against a real serv
       will live (~/Nkata/<project> by default, or a place the artist picks) and one button; the
       background process keeps it in step there; the row ticks only then. The app starts the
       background process at launch. A lead gets the same row.
-- [ ] 2. No prototype fixtures on live data: no lantern for an asset without a model, no "Loading
+- [x] 2. No prototype fixtures on live data: no lantern for an asset without a model, no "Loading
       model" forever, no courtyard in a save toast.
 - [ ] 3. The add-on's exports stay out of the sync.
 - [ ] 4. The artist hears the lead: a toast in the app for an approval, a send back or a new

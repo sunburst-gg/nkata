@@ -1,7 +1,8 @@
 // The 16:10 lit stage with the model and its pins. A click without a drag drops a pin and opens
 // the composer at its screen position; a click on a pin selects its comment. The camera never
 // moves on select. Environments load their GLB in the same viewer; the render is the poster.
-// The model is the picked stop's own save (modelOf), so the row drives the stage.
+// The model is the picked stop's own save (modelOf), so the row drives the stage. A save with no
+// model shows its still, or the ghost and a line; never a stand-in model.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { carried, modelOf } from "@/app/selectors";
 import { useStore } from "@/app/store";
@@ -10,6 +11,7 @@ import { useCan } from "@/auth/useCan";
 import type { Asset, Comment } from "@/data/types";
 import { Stage } from "@/ui/stage/Stage";
 import { NkViewer, type Pin } from "@/viewer/NkViewer";
+import { NoModel } from "@/ui/stage/NoModel";
 import { Composer } from "@/ui/comments/Composer";
 import { ApprovedSeal } from "./ApprovedSeal";
 
@@ -42,14 +44,16 @@ export function AssetStage({ asset, projectColor, comments, shown }: { asset: As
     return () => cancelAnimationFrame(raf);
   }, [pendingPin]);
   const model = modelOf(asset, shown);
-  const src = model.glb ?? "/fixtures/glb/Lantern.glb";
+  const hasModel = !!model.glb;
   // Once per person: until the first pin is made. A viewer sent a link sees it even on an asset
   // that already has pins, which is the whole of their arrival.
-  const showPinNote = canComment && !notesSeen["pin"] && !pendingPin && (pinned.length === 0 || (!!me && isViewer(me.role)));
+  const showPinNote = hasModel && canComment && !notesSeen["pin"] && !pendingPin && (pinned.length === 0 || (!!me && isViewer(me.role)));
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <Stage projectColor={projectColor} radius={16} aspect="16/10" shadow>
-        <NkViewer src={src} poster={model.render} pins={pins} activePin={pendingPin ? "pending" : activePin} pinning={canComment} onPin={onPin} onPinSelect={onPinSelect} style={{ position: "absolute", inset: 0 }} />
+        {hasModel
+          ? <NkViewer src={model.glb} poster={model.render} pins={pins} activePin={pendingPin ? "pending" : activePin} pinning={canComment} onPin={onPin} onPinSelect={onPinSelect} style={{ position: "absolute", inset: 0 }} />
+          : <NoModel still={model.render} label={`${asset.name} render`} line={asset.versions.length ? "This save has no model to turn. Comments still reach Blender." : `Nothing saved yet. ${asset.owner.first}'s first save shows here.`} />}
         {stamp ? <ApprovedSeal size={36} stamp style={{ position: "absolute", left: "50%", top: "50%", margin: "-40px 0 0 -40px", width: 80, height: 80, boxShadow: "var(--shadow-lift)", pointerEvents: "none" }} /> : null}
         {showPinNote ? (
           <span style={{ position: "absolute", left: 16, bottom: 16, fontSize: 13, color: "var(--ink)", background: "var(--raised)", padding: "6px 10px", borderRadius: "var(--r-6)", boxShadow: "var(--shadow)", display: "inline-flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>

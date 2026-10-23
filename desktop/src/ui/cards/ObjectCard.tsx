@@ -1,6 +1,8 @@
 // Object card: the lit stage edge to edge tinted by the project color, the model on a contact
 // shadow, hover turns it (the viewer's hover-rotate). The pooled viewer caps live contexts at 8;
 // a card outside the viewport or past the cap shows its cached still, and the ghost before one exists.
+// A card whose asset has no model shows its render, or the ghost with "No save yet"; it never
+// mounts a viewer with nothing to load, which read "Loading model" forever.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Asset } from "@/data/types";
 import { Stage } from "@/ui/stage/Stage";
@@ -8,6 +10,7 @@ import { NkViewer } from "@/viewer/NkViewer";
 import { CardMeta } from "./CardMeta";
 import { CornerPill, type Corner } from "./CornerPill";
 import { Ghost } from "./Ghost";
+import { NoModel } from "@/ui/stage/NoModel";
 
 export interface CardProps { asset: Asset; projectColor: string; corner: Corner; pulse?: boolean; fill?: boolean; onOpen: () => void; note?: ReactNode }
 
@@ -32,9 +35,13 @@ export function ObjectCard({ asset, projectColor, corner, pulse, fill, onOpen, n
   return (
     <div ref={ref} className="nk-card" role="link" tabIndex={0} onClick={onOpen} onKeyDown={(e) => { if (e.key === "Enter") onOpen(); }} style={{ display: "flex", flexDirection: "column", gap: 12, cursor: "pointer", outline: "none" }}>
       <Stage projectColor={projectColor} radius={12} aspect="4/3" shadow grid={false} style={{ animation: anim }}>
-        {ghost ? <Ghost /> : null}
-        <div aria-hidden="true" style={{ position: "absolute", left: "22%", right: "22%", bottom: "10%", height: "8%", borderRadius: "50%", background: "radial-gradient(ellipse at center, var(--contact), transparent 70%)" }} />
-        <NkViewer src={asset.glb} hoverRotate onLoaded={() => setLoaded(true)} style={{ position: "absolute", inset: 0, pointerEvents: "none" }} />
+        {asset.glb ? (
+          <>
+            {ghost ? <Ghost /> : null}
+            <div aria-hidden="true" style={{ position: "absolute", left: "22%", right: "22%", bottom: "10%", height: "8%", borderRadius: "50%", background: "radial-gradient(ellipse at center, var(--contact), transparent 70%)" }} />
+            <NkViewer src={asset.glb} hoverRotate onLoaded={() => setLoaded(true)} style={{ position: "absolute", inset: 0, pointerEvents: "none" }} />
+          </>
+        ) : <NoModel still={asset.render} label={`${asset.name} render`} line={asset.versions.length ? undefined : "No save yet"} />}
         <CornerPill kind={corner} />
         {note}
       </Stage>

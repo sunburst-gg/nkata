@@ -148,7 +148,7 @@ export const useStore = create<AppState>((set, get) => ({
         const asset = assets.find((a) => a.id === e.assetId);
         if (!asset) return;
         const who = e.by === me?.id ? "You" : (members.find((m) => m.person.id === e.by)?.person.first ?? asset.owner.first);
-        get().showToast(`${who} saved ${asset.name}.`, asset.owner.color, asset.render ?? "/fixtures/renders/compound-ground.png", () => get().go("asset", { assetId: asset.id }));
+        get().showToast(`${who} saved ${asset.name}.`, asset.owner.color, asset.render, () => get().go("asset", { assetId: asset.id }));
       });
       return;
     }

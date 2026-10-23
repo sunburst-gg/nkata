@@ -34,7 +34,7 @@ function Placeholder() {
       <h1 style={{ margin: 0, font: "400 var(--t-28)/1.1 var(--serif)", letterSpacing: "-0.02em", color: "var(--ink)" }}>{asset?.name ?? TITLE[screen] ?? project?.name ?? ""}</h1>
       {screen === "asset" || screen === "project" ? (
         <Stage projectColor={project?.color} radius={16} aspect="16/10" shadow style={{ maxWidth: 960 }}>
-          <NkViewer src={asset?.glb ?? "/fixtures/glb/Lantern.glb"} autorotate={0.5} style={{ position: "absolute", inset: 0 }} />
+          {asset?.glb ? <NkViewer src={asset.glb} autorotate={0.5} style={{ position: "absolute", inset: 0 }} /> : null}
         </Stage>
       ) : null}
     </div>

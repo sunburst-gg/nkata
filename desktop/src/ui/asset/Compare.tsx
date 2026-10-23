@@ -8,6 +8,7 @@ import { useStore } from "@/app/store";
 import type { Asset } from "@/data/types";
 import { Stage } from "@/ui/stage/Stage";
 import { NkViewer } from "@/viewer/NkViewer";
+import { NoModel } from "@/ui/stage/NoModel";
 
 export function Compare({ asset, projectColor }: { asset: Asset; projectColor: string }) {
   const compareWith = useStore((s) => s.compareWith);
@@ -19,7 +20,8 @@ export function Compare({ asset, projectColor }: { asset: Asset; projectColor: s
   if (!current) return null;
   const left = flipped ? current : older;
   const right = flipped ? older : current;
-  const sideOf = (v: typeof current | undefined) => { const m = v ? modelOf(asset, v.n) : {}; return { src: m.glb ?? "/fixtures/glb/Lantern.glb", poster: m.render }; };
+  const sideOf = (v: typeof current | undefined) => { const m = v ? modelOf(asset, v.n) : {}; return { src: m.glb, poster: m.render, n: v?.n }; };
+  const side = (x: ReturnType<typeof sideOf>) => (x.src ? <NkViewer src={x.src} poster={x.poster} autorotate={0.3} style={{ position: "absolute", inset: 0 }} /> : <NoModel still={x.poster} label={`v${x.n ?? ""} render`} line="No model in this save." />);
   const l = sideOf(left);
   const r = sideOf(right);
   return (
@@ -28,8 +30,8 @@ export function Compare({ asset, projectColor }: { asset: Asset; projectColor: s
         <Stage projectColor={projectColor} radius={16} aspect="16/10" shadow>
           {!older ? <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", font: "400 15px var(--sans)", color: "var(--ink40)" }}>Pick an older Version below to set it against v{current.n}.</span> : (
             <>
-              <div style={{ position: "absolute", inset: 0, clipPath: `inset(0 ${100 - at}% 0 0)` }}><NkViewer src={l.src} poster={l.poster} autorotate={0.3} style={{ position: "absolute", inset: 0 }} /></div>
-              <div style={{ position: "absolute", inset: 0, clipPath: `inset(0 0 0 ${at}%)` }}><NkViewer src={r.src} poster={r.poster} autorotate={0.3} style={{ position: "absolute", inset: 0 }} /></div>
+              <div style={{ position: "absolute", inset: 0, clipPath: `inset(0 ${100 - at}% 0 0)` }}>{side(l)}</div>
+              <div style={{ position: "absolute", inset: 0, clipPath: `inset(0 0 0 ${at}%)` }}>{side(r)}</div>
               <div aria-hidden="true" style={{ position: "absolute", top: 0, bottom: 0, left: `${at}%`, width: 2, marginLeft: -1, background: "var(--raised)", boxShadow: "var(--shadow)" }} />
               <span role="slider" aria-label="Wipe" aria-valuenow={Math.round(at)} style={{ position: "absolute", top: "50%", left: `${at}%`, width: 32, height: 32, margin: "-16px 0 0 -16px", borderRadius: "50%", background: "var(--raised)", boxShadow: "var(--shadow-lift)", cursor: "ew-resize" }} />
               <span style={{ position: "absolute", left: 12, top: 12, font: "500 11px var(--mono)", color: "var(--ink)", background: "var(--raised)", padding: "2px 7px", borderRadius: "var(--r-6)" }}>v{left?.n}</span>
