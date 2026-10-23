@@ -592,7 +592,7 @@ async fn two_artists_on_one_part_never_overwrite() {
     assert_eq!(held["granted"], false);
     assert_eq!(held["lock"]["holder"]["name"], "Ada Obi");
     let asked = wait_for_kind(&ada_seen, "lock.requested").await;
-    assert_eq!(asked["requester"]["name"], "Art director");
+    assert_eq!(asked["requester"]["name"], "Ngozi Okafor");
     let (st, body) = second
         .post(
             &format!("/parts/{hair}/saved"),
@@ -613,9 +613,9 @@ async fn two_artists_on_one_part_never_overwrite() {
     assert_eq!(released["reason"], "closed");
     let (st, open2) = second.post(&format!("/parts/{hair}/open"), None).await;
     assert_eq!(st, 200, "{open2}");
-    assert_eq!(open2["lock"]["holder"]["name"], "Art director");
+    assert_eq!(open2["lock"]["holder"]["name"], "Ngozi Okafor");
     let (_, now) = ada.get("/parts?file=Ojukwu%2Fhair.blend").await;
-    assert_eq!(now["parts"][0]["lock"]["holder"]["name"], "Art director");
+    assert_eq!(now["parts"][0]["lock"]["holder"]["name"], "Ngozi Okafor");
     second.post(&format!("/parts/{hair}/close"), None).await;
 }
 
