@@ -190,7 +190,7 @@ async fn local_api_serves_me_parts_locks_saves_and_mirrors() {
 
     let (st, me) = h.get("/me").await;
     assert_eq!(st, 200);
-    assert_eq!(me["user"]["name"], "Rising Sun artist");
+    assert_eq!(me["user"]["name"], "Ada Obi");
     assert_eq!(me["project"]["folder_name"], "rising-sun");
     assert_eq!(me["online"], true);
     assert!(me["spool_dir"]
@@ -530,7 +530,7 @@ async fn editors_publish_comment_review_and_hear_each_other() {
         .as_array()
         .unwrap()
         .iter()
-        .any(|e| e["user"]["name"] == "Environment artist"));
+        .any(|e| e["user"]["name"] == "Chidi Eze"));
 
     // The artist cannot review; the director approves and the artist hears the decision.
     let (st, _) = artist
@@ -584,13 +584,13 @@ async fn two_artists_on_one_part_never_overwrite() {
     // Ada opens and holds the part.
     let (st, open) = ada.post(&format!("/parts/{hair}/open"), None).await;
     assert_eq!(st, 200, "{open}");
-    assert_eq!(open["lock"]["holder"]["name"], "Rising Sun artist");
+    assert_eq!(open["lock"]["holder"]["name"], "Ada Obi");
 
     // The second artist sees the holder, cannot write, and the holder hears the request.
     let (st, held) = second.post(&format!("/parts/{hair}/open"), None).await;
     assert_eq!(st, 409, "{held}");
     assert_eq!(held["granted"], false);
-    assert_eq!(held["lock"]["holder"]["name"], "Rising Sun artist");
+    assert_eq!(held["lock"]["holder"]["name"], "Ada Obi");
     let asked = wait_for_kind(&ada_seen, "lock.requested").await;
     assert_eq!(asked["requester"]["name"], "Art director");
     let (st, body) = second

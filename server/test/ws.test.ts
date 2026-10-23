@@ -58,7 +58,7 @@ describe.skipIf(!hasInfra)("websocket", () => {
     artist.ws.send(JSON.stringify({ v: 1, kind: "presence.heartbeat", part_id: face }));
     const presence = await ad.next("presence.changed");
     if (presence.kind !== "presence.changed") throw new Error("wrong kind");
-    expect(presence.online.map((o) => o.user.name)).toEqual(["Rising Sun artist"]);
+    expect(presence.online.map((o) => o.user.name)).toEqual(["Ada Obi"]);
     expect(presence.online[0]?.part_id).toBe(face);
 
     await h.app.inject({ method: "POST", url: `/parts/${face}/lock`, ...h.as(ARTIST) });
@@ -67,7 +67,7 @@ describe.skipIf(!hasInfra)("websocket", () => {
 
     ad.ws.send(JSON.stringify({ v: 1, kind: "lock.request", part_id: face }));
     const requested = await artist.next("lock.requested");
-    expect(requested.kind === "lock.requested" && requested.requester.name).toBe("Art director");
+    expect(requested.kind === "lock.requested" && requested.requester.name).toBe("Ngozi Okafor");
 
     artist.ws.send(JSON.stringify({ v: 1, kind: "lock.release", part_id: face }));
     const released = await ad.next("lock.released");

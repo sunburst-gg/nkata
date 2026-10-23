@@ -279,7 +279,7 @@ describe.skipIf(!hasInfra)("server api", () => {
       const face = parts["face"]!;
       const grant = await h.app.inject({ method: "POST", url: `/parts/${face}/lock`, ...h.as(ARTIST) });
       expect(grant.statusCode).toBe(200);
-      expect((grant.json() as { granted: boolean; lock: { holder: { name: string }; stale: boolean } }).lock.holder.name).toBe("Rising Sun artist");
+      expect((grant.json() as { granted: boolean; lock: { holder: { name: string }; stale: boolean } }).lock.holder.name).toBe("Ada Obi");
 
       const held = await h.app.inject({ method: "POST", url: `/parts/${face}/lock`, ...h.as(AD) });
       expect(held.statusCode).toBe(409);
@@ -312,7 +312,7 @@ describe.skipIf(!hasInfra)("server api", () => {
       expect((await h.app.inject({ method: "POST", url: `/parts/${cloth}/lock`, ...h.as(ARTIST) })).statusCode).toBe(200);
       const byDirector = await h.app.inject({ method: "POST", url: `/parts/${cloth}/versions`, ...h.as(AD), payload: {} });
       expect(byDirector.statusCode).toBe(409);
-      expect((byDirector.json() as { error: { code: string; message: string } }).error).toMatchObject({ code: "lock_held", message: "Rising Sun artist has this part" });
+      expect((byDirector.json() as { error: { code: string; message: string } }).error).toMatchObject({ code: "lock_held", message: "Ada Obi has this part" });
       expect((await h.app.inject({ method: "POST", url: `/parts/${cloth}/versions`, ...h.as(ARTIST), payload: {} })).statusCode).toBe(201);
       await h.app.inject({ method: "DELETE", url: `/parts/${cloth}/lock`, ...h.as(ARTIST) });
       expect((await h.app.inject({ method: "POST", url: `/parts/${cloth}/versions`, ...h.as(AD), payload: {} })).statusCode).toBe(201);
@@ -599,7 +599,7 @@ describe.skipIf(!hasInfra)("server api", () => {
       const r = await h.app.inject({ method: "POST", url: "/presence", ...h.as(ARTIST), payload: { v: 1, project_id: h.seeded.project_id, part_id: face } });
       expect(r.statusCode).toBe(200);
       const online = (r.json() as { online: { user: { name: string }; part_id: string | null }[] }).online;
-      expect(online).toEqual([{ user: expect.objectContaining({ name: "Rising Sun artist" }), part_id: face, since: expect.any(String), last_seen: expect.any(String) }]);
+      expect(online).toEqual([{ user: expect.objectContaining({ name: "Ada Obi" }), part_id: face, since: expect.any(String), last_seen: expect.any(String) }]);
       // A viewer may be present. It is not a write to the project.
       expect((await h.app.inject({ method: "POST", url: "/presence", ...h.as(VIEWER), payload: { v: 1, project_id: h.seeded.project_id, part_id: null } })).statusCode).toBe(200);
       const list = await h.app.inject({ method: "GET", url: `/presence?project_id=${h.seeded.project_id}`, ...h.as(VIEWER) });

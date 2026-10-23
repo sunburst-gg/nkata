@@ -54,7 +54,7 @@ describe.skipIf(!SERVER)("two machines, one project", () => {
     b.source.subscribe((e) => events.push(e));
     const wall = await b.source.listAssets(project.id);
     const kettle = wall.find((x) => x.name === "Kettle")!;
-    expect(kettle.owner.first).toBe("Environment");
+    expect(kettle.owner.first).toBe("Chidi");
     await b.source.poll(project.id);
     events.length = 0;
 

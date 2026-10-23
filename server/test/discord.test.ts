@@ -38,13 +38,13 @@ describe.skipIf(!hasInfra)("discord", () => {
     const back = await h.app.inject({ method: "POST", url: "/reviews", ...h.as(AD), payload: { part_id: parts["face"], version_id: v.version.id, score: 2, decision: "send_back", note: "Ears too big." } });
     expect(back.statusCode).toBe(201);
     expect(posts).toHaveLength(1);
-    expect(posts[0]!.content).toBe("Art director sent back Ojukwu / face for Rising Sun artist. Score 2 of 5. Ears too big.");
+    expect(posts[0]!.content).toBe("Ngozi Okafor sent back Ojukwu / face for Ada Obi. Score 2 of 5. Ears too big.");
 
     await h.app.inject({ method: "POST", url: `/parts/${parts["face"]}/state`, ...h.as(ARTIST), payload: { action: "mark_ready" } });
     const ok = await h.app.inject({ method: "POST", url: "/reviews", ...h.as(AD), payload: { part_id: parts["face"], version_id: v.version.id, score: 5, decision: "approve" } });
     expect(ok.statusCode).toBe(201);
     expect(posts).toHaveLength(2);
-    expect(posts[1]!.content).toBe("Art director approved Ojukwu / face for Rising Sun artist. Score 5 of 5.");
+    expect(posts[1]!.content).toBe("Ngozi Okafor approved Ojukwu / face for Ada Obi. Score 5 of 5.");
 
     // Removing a gate opens a part and posts nothing.
     await h.app.inject({ method: "POST", url: `/parts/${parts["rig"]}/gate/remove`, ...h.as(AD) });

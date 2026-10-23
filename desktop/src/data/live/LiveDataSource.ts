@@ -5,7 +5,7 @@
 import type { PresenceEntry } from "@nkata/shared";
 import type { DataEvent, DataSource, Unsubscribe } from "../DataSource";
 import { DEFAULT_BUDGETS, type Asset, type BlenderInstall, type Budgets, type Comment, type DeletedProject, type LocalProject, type Member, type Mention, type Person, type Project, type Role, type Studio, type StudioRef } from "../types";
-import { agent as tauriAgent, type ToolsReport } from "@/lib/tauri";
+import { agent as tauriAgent, type ToolsReport, inTauri } from "@/lib/tauri";
 import { apply as applyConnection, INITIAL as NO_BLENDER, type BlenderState, type ConnectionEvent } from "@/app/connection";
 import { isViewer } from "@/auth/permissions";
 import { assetOf, budgetsOf, budgetsWire, colorOf, commentOf, memberOf, mentionsOf, namesMe, personOf, projectOf, roleOf, studioRefsOf, SERVER_ROLE, type AccountWire, type AssetWire, type CheckWire, type CommentWire, type EventWire, type MemberWire, type PartWire, type ProjectWire, type ReviewWire, type VersionWire } from "./wire";
@@ -408,6 +408,16 @@ export class LiveDataSource implements DataSource {
     if (!url) throw new Error(format === "image" ? "No still for this Version yet." : "No model for this Version yet.");
     const asset = await this.getAsset(assetId);
     const name = `${(asset?.name ?? "asset").replace(/[^A-Za-z0-9]+/g, "_")}_v${numbered.get(v.id) ?? 1}.${format === "image" ? "png" : "glb"}`;
+    // In the desktop window a new browser window opens nothing, so the file is saved where the
+    // person chooses, through the native Save dialog (https://v2.tauri.app/plugin/dialog/).
+    // Cancel returns "". In a plain browser, the browser downloads it.
+    if (inTauri()) {
+      const { save } = await import("@tauri-apps/plugin-dialog");
+      const path = await save({ defaultPath: name });
+      if (!path) return "";
+      await this.agent.downloadFile(url, path);
+      return path.split(/[\\/]/).pop() ?? name;
+    }
     if (typeof window !== "undefined" && typeof window.open === "function") window.open(url, "_blank", "noopener");
     return name;
   }

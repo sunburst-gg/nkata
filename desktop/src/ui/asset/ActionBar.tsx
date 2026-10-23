@@ -35,6 +35,7 @@ export function ActionBar({ asset, shown, onApprove, onRequestChanges, onPublish
   const doDownload = async (format: "glb" | "image") => {
     if (!source) return;
     const file = await source.download(asset.id, format, shownN);
+    if (!file) return;
     toast(format === "image" ? `Saved ${file}.` : `Downloading ${file} with textures.`, me?.color ?? "var(--ok)");
   };
   return (
