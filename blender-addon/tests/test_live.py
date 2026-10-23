@@ -77,6 +77,20 @@ class ClockTest(unittest.TestCase):
 
 
 class PinColorTest(unittest.TestCase):
+    def test_the_panel_says_whose_file_it_is_before_a_save(self) -> None:
+        me = {"id": "me", "name": "Amara Obi"}
+        ada = {"id": "ada", "name": "Ada Eze"}
+        self.assertEqual(live.who_has_it({"owner": me, "lock": None}, me), "")
+        self.assertEqual(live.who_has_it({"owner": ada, "lock": None}, me), "Ada owns this asset. Only Ada or a lead can send saves of it to the team.")
+        held = {"owner": me, "lock": {"holder": ada, "stale": False}}
+        self.assertEqual(live.who_has_it(held, me), "Ada has this file open. Your saves stay on this computer until Ada closes it.")
+        self.assertEqual(live.who_has_it({"owner": None, "lock": {"holder": me}}, me), "")
+
+    def test_a_refused_save_reads_in_plain_words(self) -> None:
+        self.assertEqual(live.save_refused_line("lock_held", "Ada Eze has this part"), "Ada has this file open. Your save stays on this computer.")
+        self.assertIn("Only the owner or a lead", live.save_refused_line("forbidden", "only the owner, an art director, or a producer can edit this part"))
+        self.assertEqual(live.save_refused_line("offline", "the agent did not answer"), "the agent did not answer")
+
     def test_pins_take_the_commenters_color_and_hash_like_the_app(self) -> None:
         a = pins.person_color({"author": {"id": "01ADA000000000000000000000"}, "resolved_at": None})
         b = pins.person_color({"author": {"id": "01EMEKA00000000000000000000"}, "resolved_at": None})

@@ -362,10 +362,10 @@ def on_save_post(*_args: Any) -> None:
     try:
         handle_save(filepath)
     except (AgentError, RuntimeError, OSError, ValueError) as e:
-        # A save must never fail because the mirror did. Show the reason on the panel.
+        # A save must never fail because the mirror did. Show the reason on the panel, in words.
         log("save.failed", error=str(e), file=filepath)
         with STATE.lock:
-            STATE.error = str(e)
+            STATE.error = live.save_refused_line(e.code, e.message) if isinstance(e, AgentError) else str(e)
             STATE.dirty = True
 
 

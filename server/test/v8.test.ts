@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { hasInfra, startHarness, type Harness } from "./helpers.js";
 
 const ENV = "env@sunburst.gg";
+const ARTIST = "artist@sunburst.gg";
 const AD = "director@sunburst.gg";
 const PRODUCER = "producer@sunburst.gg";
 const VIEWER = "viewer@sunburst.gg";
@@ -93,5 +94,19 @@ describe.skipIf(!hasInfra)("v8 assets and budgets", () => {
     const area = await h.app.inject({ method: "POST", url: "/assets", payload: { project_id: h.seeded.project_id, template_name: "Level area", name: "Harbour / docks" }, ...h.as(PRODUCER) });
     expect(area.statusCode).toBe(201);
     expect(area.json().asset).toMatchObject({ kind: "environment", group: null });
+  });
+
+  it("an asset's .blend takes a new copy only from its owner or a lead, so a second artist's save never replaces the owner's file", async () => {
+    const owner = h.seeded.users[ENV]!;
+    const made = await h.app.inject({ method: "POST", url: "/assets", payload: { project_id: h.seeded.project_id, template_name: "Object", name: "Teapot", parts: ["model"], owners: { model: owner }, files: { model: "Props/Teapot/Teapot.blend" }, group: "Props" }, ...h.as(ENV) });
+    expect(made.statusCode).toBe(201);
+    const copy = { path: "Props/Teapot/Teapot.blend", size: 10, blake3: "a".repeat(64), chunk_hashes: ["b".repeat(64)] };
+    const other = await h.app.inject({ method: "POST", url: `/projects/${h.seeded.project_id}/file-versions`, payload: copy, ...h.as(ARTIST) });
+    expect(other.statusCode).toBe(403);
+    // The owner and a lead pass the guard and meet the next check: the chunks are not in the store.
+    expect((await h.app.inject({ method: "POST", url: `/projects/${h.seeded.project_id}/file-versions`, payload: copy, ...h.as(ENV) })).json().error.code).toBe("chunks_missing");
+    expect((await h.app.inject({ method: "POST", url: `/projects/${h.seeded.project_id}/file-versions`, payload: copy, ...h.as(AD) })).json().error.code).toBe("chunks_missing");
+    // A file no asset claims stays open to every member, as before.
+    expect((await h.app.inject({ method: "POST", url: `/projects/${h.seeded.project_id}/file-versions`, payload: { ...copy, path: "Props/Teapot/ref.png" }, ...h.as(ARTIST) })).json().error.code).toBe("chunks_missing");
   });
 });

@@ -375,6 +375,9 @@ def draw_connected(layout: Any, part: dict[str, Any]) -> None:
         layout.label(text=STATE.added_line)
     if STATE.decision_line:
         layout.label(text=STATE.decision_line, icon="CHECKMARK" if STATE.decision_approved else "ERROR")
+    held = live.who_has_it(part, STATE.me)
+    if held:
+        layout.label(text=held, icon="INFO")
     current = asset_kind(part)
     row = layout.row(align=True)
     for key, word in KIND_WORDS.items():

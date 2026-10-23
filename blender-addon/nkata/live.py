@@ -93,6 +93,38 @@ def manifest_checks(rows: list[CheckLine]) -> list[dict[str, Any]]:
     return [{"key": r.key, "pass": r.passed, "sentence": r.sentence, "fix": r.fix} for r in rows]
 
 
+def _first(user: dict[str, Any] | None) -> str:
+    return str((user or {}).get("name") or "Someone").split(" ")[0]
+
+
+def who_has_it(part: dict[str, Any], me: dict[str, Any] | None) -> str:
+    """The line under the connection when this file is not mine to send (v8 step 16, item 5):
+    someone else has it open, or someone else owns the asset. Empty when it is mine."""
+    my_id = (me or {}).get("id")
+    lock = part.get("lock") or {}
+    holder = lock.get("holder") if isinstance(lock, dict) else None
+    if holder and holder.get("id") != my_id:
+        name = _first(holder)
+        return f"{name} has this file open. Your saves stay on this computer until {name} closes it."
+    owner = part.get("owner")
+    if owner and owner.get("id") != my_id:
+        name = _first(owner)
+        return f"{name} owns this asset. Only {name} or a lead can send saves of it to the team."
+    return ""
+
+
+def save_refused_line(code: str, message: str) -> str:
+    """A refused save in plain words. The file on disk is untouched either way."""
+    if code == "lock_held":
+        name = message.removesuffix(" has this part").strip().split(" ")[0] or "Someone"
+        return f"{name} has this file open. Your save stays on this computer."
+    if code == "forbidden":
+        return "Only the owner or a lead can send saves of this file. Your save stays on this computer."
+    if code == "gate_closed":
+        return "This asset waits on another one first. Your save stays on this computer."
+    return message
+
+
 def publish_label(rows: list[CheckLine], note: str) -> str:
     """The app's labels: a red check first, then the note, then Publish."""
     if any(not r.passed for r in rows):

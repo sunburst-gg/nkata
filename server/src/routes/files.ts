@@ -2,14 +2,14 @@
 // Upload: POST /files/upload-urls (missing hashes get PUT URLs), PUT bytes to the store,
 // POST /files/uploaded (server HEADs each object and records the chunk row), then
 // POST /projects/:id/file-versions. Download: POST /files/download-urls for GET URLs.
-import { and, asc, eq, gt, inArray } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { Ulid } from "@nkata/shared";
-import { chunk, file_version } from "../db/schema.js";
+import { asset, chunk, file_version, part } from "../db/schema.js";
 import { AppError, notFound } from "../domain/errors.js";
 import { newId } from "../domain/ids.js";
 import { URL_TTL_SECONDS } from "../store/s3.js";
-import { IdParam, loadProject, type TypedApp } from "./_shared.js";
+import { IdParam, isReviewer, loadProject, requireNotHeldByOther, type TypedApp } from "./_shared.js";
 
 const Blake3 = z.string().regex(/^[0-9a-f]{64}$/);
 const ChunkRef = z.object({ blake3: Blake3, size: z.number().int().min(1) });
@@ -99,6 +99,21 @@ export async function fileRoutes(app: TypedApp): Promise<void> {
     const id = req.body.id ?? newId();
     const existing = (await app.db.select().from(file_version).where(eq(file_version.id, id)).limit(1))[0];
     if (existing) return { v: 1, file_version: existing };
+    // No overwrite (v8 step 16): a file that is an asset's .blend takes a new copy only from its
+    // owner or a lead, and never while someone else has it open. Without this, a second artist's
+    // save travelled to the owner's computer and replaced their file on the next pull. The refused
+    // copy stays on the sender's computer; the agent keeps it as not sent.
+    const owners = await app.db
+      .select({ id: part.id, owner_id: part.owner_id })
+      .from(part)
+      .innerJoin(asset, eq(asset.id, part.asset_id))
+      .where(and(eq(asset.project_id, proj.id), sql`${part.mapping}->>'file' = ${req.body.path}`));
+    for (const row of owners) {
+      if (row.owner_id && row.owner_id !== req.principal.user_id && !isReviewer(req.principal)) {
+        throw new AppError("forbidden", "only the owner or a lead can change this asset's file", { part_id: row.id, path: req.body.path });
+      }
+      await requireNotHeldByOther(app.db, req.principal, row.id, app.now());
+    }
     const known = await knownHashes(app, proj.studio_id, req.body.chunk_hashes);
     const missing = req.body.chunk_hashes.filter((h) => !known.has(h));
     if (missing.length > 0) throw new AppError("chunks_missing", `${missing.length} chunks are not in the store`, { missing: missing.slice(0, 20) });
