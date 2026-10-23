@@ -7,13 +7,17 @@ const before = { kind: "disconnected" as const, version: "4.2.0" };
 
 describe("the first run", () => {
   it("everyone but a viewer lands on Arrival until Blender has connected once on this computer", () => {
-    expect(firstRunScreen("producer", never)).toBe("arrival");
-    expect(firstRunScreen("artDirector", never)).toBe("arrival");
-    expect(firstRunScreen("artist", never)).toBe("arrival");
-    expect(firstRunScreen("viewer", never)).toBe("project");
+    expect(firstRunScreen("producer", never, true)).toBe("arrival");
+    expect(firstRunScreen("artDirector", never, true)).toBe("arrival");
+    expect(firstRunScreen("artist", never, true)).toBe("arrival");
+    expect(firstRunScreen("viewer", never, false)).toBe("project");
   });
-  it("once Blender was seen here, or is connected, the wall", () => {
-    expect(firstRunScreen("producer", before)).toBe("project");
-    expect(firstRunScreen("artist", { kind: "connected", version: "4.2.0", addon: "0.1.0" })).toBe("project");
+  it("and until the project has a place on this computer", () => {
+    expect(firstRunScreen("artist", before, false)).toBe("arrival");
+    expect(firstRunScreen("artist", { kind: "connected", version: "4.2.0", addon: "0.1.0" }, false)).toBe("arrival");
+  });
+  it("once both are done, the wall", () => {
+    expect(firstRunScreen("producer", before, true)).toBe("project");
+    expect(firstRunScreen("artist", { kind: "connected", version: "4.2.0", addon: "0.1.0" }, true)).toBe("project");
   });
 });

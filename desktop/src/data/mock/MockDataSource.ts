@@ -48,6 +48,8 @@ interface State {
   comments: Comment[];
   /** Ids of pins marked done, seeded or made here. */
   done: string[];
+  /** Where each project was put on this computer. */
+  placed: Record<string, string>;
   studios: StudioRef[];
   members: { person: Person; role: Role }[];
   names: Record<string, string>;
@@ -113,6 +115,7 @@ export class MockDataSource implements DataSource {
       createdProject: null,
       comments: [],
       done: [],
+      placed: {},
       studios: stage === "nostudio" ? [] : [{ id: "sunburst", name: "Sunburst", role: this.me.role, projects: 2, current: true }, { id: "ironwood", name: "Ironwood Play", role: "viewer", projects: 1, current: false }],
       members: (["E", "A", "C", "N", "T", "K", "D", "F"] as Key[]).map((k) => ({ person: PEOPLE[k], role: PEOPLE[k].role })),
       names: {},
@@ -267,6 +270,12 @@ export class MockDataSource implements DataSource {
           ? [{ id: "c1", assetId, version: 1, author: PEOPLE.E, text: "The chairs read too new for this yard.", pin: [0.4, 0.3, 0.5], at: "1 h ago" }]
           : [];
     return seed.concat(this.s.comments.filter((c) => c.assetId === assetId)).map((c) => (this.s.done.includes(c.id) ? { ...c, done: true } : c));
+  }
+  projectFolder(projectId: string): string | null { return this.s.placed[projectId] ?? null; }
+  async placeProject(projectId: string, folder: string): Promise<void> {
+    this.s.placed = { ...this.s.placed, [projectId]: folder };
+    this.emit({ type: "setup", step: "project", meta: folder });
+    this.emit({ type: "localChanged" });
   }
   async resolveComment(assetId: string, commentId: string, done: boolean): Promise<void> {
     this.s.done = done ? [...new Set([...this.s.done, commentId])] : this.s.done.filter((id) => id !== commentId);

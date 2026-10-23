@@ -174,8 +174,25 @@ describe("LiveDataSource", () => {
     expect(source.blender.kind).toBe("paused");
     await source.resume();
     expect(source.blender.kind).toBe("connected");
-    expect(events.map((e) => e.type)).toEqual(["toolDetected", "addonInstalled", "setup", "paused", "agent", "resumed"]);
+    // Connecting Blender says nothing about the project: only a place on this computer does.
+    expect(events.map((e) => e.type)).toEqual(["toolDetected", "addonInstalled", "paused", "agent", "resumed"]);
     expect(await source.listLocalProjects()).toEqual([{ projectId: PROJECT, name: "Rising Sun", path: "/Users/emeka/Nkata/Rising Sun", bytes: 0, syncing: true }]);
+  });
+
+  it("puts the project on this computer: keeps it in step there, knows the place, ticks the setup row", async () => {
+    const server = fakeServer();
+    const startSync = vi.fn(agent.startSync);
+    const source = new LiveDataSource({ serverUrl: "http://server", token: "tok", folder: null, fetch: server.fetchImpl, now: () => NOW, agent: { ...agent, startSync }, pollMs: 0 });
+    const events: DataEvent[] = [];
+    source.subscribe((e) => events.push(e));
+    await source.loadAccount();
+    await source.listAssets(PROJECT);
+    expect(source.projectFolder(PROJECT)).toBeNull();
+    await expect(source.placeProject(PROJECT, "  ")).rejects.toThrow("Choose where the project lives on this computer.");
+    await source.placeProject(PROJECT, "~/Nkata/Rising Sun");
+    expect(startSync).toHaveBeenCalledWith("http://server", "tok", PROJECT, "~/Nkata/Rising Sun");
+    expect(source.projectFolder(PROJECT)).toBe("~/Nkata/Rising Sun");
+    expect(events.map((e) => e.type)).toEqual(["agent", "setup", "localChanged"]);
   });
 
   it("budgets: setBudgets counts the assets over now; the invite emits memberChanged", async () => {

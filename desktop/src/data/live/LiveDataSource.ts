@@ -7,6 +7,7 @@ import type { DataEvent, DataSource, Unsubscribe } from "../DataSource";
 import { DEFAULT_BUDGETS, type Asset, type BlenderInstall, type Budgets, type Comment, type DeletedProject, type LocalProject, type Member, type Mention, type Person, type Project, type Role, type Studio, type StudioRef } from "../types";
 import { agent as tauriAgent, type ToolsReport } from "@/lib/tauri";
 import { apply as applyConnection, INITIAL as NO_BLENDER, type BlenderState, type ConnectionEvent } from "@/app/connection";
+import { isViewer } from "@/auth/permissions";
 import { assetOf, budgetsOf, budgetsWire, colorOf, commentOf, memberOf, mentionsOf, namesMe, personOf, projectOf, roleOf, studioRefsOf, SERVER_ROLE, type AccountWire, type AssetWire, type CheckWire, type CommentWire, type EventWire, type MemberWire, type PartWire, type ProjectWire, type ReviewWire, type VersionWire } from "./wire";
 import { readSession, writeSession, type SavedSession } from "./session";
 
@@ -461,7 +462,6 @@ export class LiveDataSource implements DataSource {
     await this.agent.toolsInstallBlender();
     writeFlag("nkata.blender.connected", true);
     this.connection({ type: "addonInstalled", addon: this.config.addonVersion ?? ADDON_VERSION });
-    this.emit({ type: "setup", step: "project", meta: this.folder ?? "" });
   }
   async updateAddon(): Promise<void> {
     if (this.blenderState.kind !== "outdated") return;
@@ -499,6 +499,27 @@ export class LiveDataSource implements DataSource {
     this.connection({ type: "heartbeat", file });
     if (this.beatTimer) clearTimeout(this.beatTimer);
     if (this.config.pollMs !== 0) this.beatTimer = setTimeout(() => this.connection({ type: "heartbeatLost" }), HEARTBEAT_LOST_MS);
+  }
+  projectFolder(projectId: string): string | null {
+    const saved = readSession();
+    return this.folder && (!saved?.projectId || saved.projectId === projectId || this.loaded?.projectId === projectId) ? this.folder : null;
+  }
+  /** The project on this computer: remember the place, keep it in step there, tick the setup row. */
+  async placeProject(projectId: string, folder: string): Promise<void> {
+    const at = folder.trim();
+    if (!at) throw new Error("Choose where the project lives on this computer.");
+    this.folder = at;
+    this.remember();
+    await this.agent.startSync(this.config.serverUrl, this.token, projectId, at);
+    this.emit({ type: "agent", running: true });
+    this.emit({ type: "setup", step: "project", meta: at });
+    this.emit({ type: "localChanged" });
+  }
+  /** At launch: the background process runs again for whoever signed in, in step with the place they chose, or watching for a viewer. */
+  async ensureAgent(): Promise<void> {
+    const status = await this.agent.status().catch(() => null);
+    if (status?.running) return;
+    if (this.folder || (this.me && isViewer(this.me.role))) await this.startAgent();
   }
   private async startAgent(): Promise<void> {
     const projectId = this.loaded?.projectId ?? readSession()?.projectId ?? "";

@@ -40,6 +40,10 @@ export interface DataSource {
   approve(assetId: string, version: number): Promise<void>;
   requestChanges(assetId: string, version: number): Promise<void>;
   comment(assetId: string, text: string, pin?: [number, number, number]): Promise<Comment>;
+  /** Where this project lives on this computer, or null before the person chose a place. */
+  projectFolder(projectId: string): string | null;
+  /** Put the project on this computer at that place (a leading ~ is home) and start keeping it in step. */
+  placeProject(projectId: string, folder: string): Promise<void>;
   /** Mark a pin done, or reopen it (done false). The author, the asset's owner or a lead may. */
   resolveComment(assetId: string, commentId: string, done: boolean): Promise<void>;
   /** Applies the one-line fix of a failed check on the latest save. */

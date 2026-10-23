@@ -35,11 +35,12 @@ export async function landLive(source: LiveDataSource): Promise<void> {
   const projectId = projects.some((p) => p.id === saved) ? saved : projects[0]!.id;
   const assets = await source.listAssets(projectId);
   const stage: Stage = assets.length === 0 ? "empty" : "studio";
-  const screen: Screen = firstRunScreen(me.role, source.blender);
+  const screen: Screen = firstRunScreen(me.role, source.blender, !!source.projectFolder(projectId));
   useStore.setState({ projectId, assetId: null, screen });
   await useStore.getState().boot(source, me, stage);
   useStore.setState({ screen, blender: source.blender });
   source.start(projectId);
+  void source.ensureAgent().catch(() => undefined);
   void source.detectBlender().catch(() => undefined);
   const session = readSession();
   if (session) writeSession({ ...session, projectId });

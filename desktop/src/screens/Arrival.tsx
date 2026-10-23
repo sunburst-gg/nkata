@@ -14,6 +14,7 @@ import { Mark } from "@/ui/stage/Mark";
 import { GHOST_MODEL } from "@/ui/stage/GhostStage";
 import { NkViewer } from "@/viewer/NkViewer";
 import { BlenderCard } from "@/ui/connections/BlenderCard";
+import { PlaceProjectRow } from "@/ui/connections/PlaceProjectRow";
 
 export function Arrival() {
   const me = useStore((s) => s.me);
@@ -31,7 +32,7 @@ export function Arrival() {
   if (!me) return null;
   const live = source instanceof LiveDataSource;
   const done = (blender.kind === "connected" || blender.kind === "open") && setupDone.includes("project");
-  const projectReady = setupDone.includes("project");
+  const projectReady = setupDone.includes("project") || (live && !!projectId && !!source?.projectFolder(projectId));
   const project = projects.find((p) => p.id === projectId);
   const projectName = live ? (project?.name ?? studio?.name ?? "your project") : "Rising Sun";
   const others = members.map((m) => m.person).filter((p) => p.id !== me.id);
@@ -57,6 +58,7 @@ export function Arrival() {
         {setup ? (
           <div style={{ display: "flex", flexDirection: "column", paddingTop: 8, maxWidth: 520 }} aria-label="Setup">
             <BlenderCard compact />
+            {live ? <PlaceProjectRow projectId={projectId ?? ""} name={projectName} done={projectReady} /> : (
             <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderTop: "1px solid var(--line)" }}>
               <span aria-label={projectReady ? "done" : "pending"} style={{ width: 20, height: 20, borderRadius: "50%", background: projectReady ? "var(--ok)" : "transparent", border: `1.5px solid ${projectReady ? "var(--ok)" : "var(--line)"}`, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background var(--t-panel)" }}>
                 {projectReady ? <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="var(--on-color)" strokeWidth="2.5" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" /></svg> : null}
@@ -64,12 +66,13 @@ export function Arrival() {
               <span style={{ color: "var(--ink80)" }}>{projectName} ready on this computer</span>
               {projectReady ? <button type="button" onClick={() => void source?.showInFinder("rising-sun")} style={{ marginLeft: "auto", border: 0, background: "transparent", padding: 0, font: "400 var(--t-11) var(--mono)", color: "var(--ink40)", cursor: "pointer" }}>Show in Finder</button> : null}
             </div>
+            )}
           </div>
         ) : null}
         <button type="button" onClick={() => (viewer ? go("asset", { projectId: "try-nkata", assetId: "try-nkata/market-stall" }) : go("project"))} style={{ alignSelf: "flex-start", height: 44, padding: "0 22px", borderRadius: "var(--r-6)", border: 0, background: "var(--amber)", color: "var(--amber-fg)", font: "500 15px var(--sans)", cursor: "pointer", boxShadow: "var(--shadow)" }}>{viewer ? "Look at it" : "Join Rising Sun"}</button>
       </div>
       <div style={{ position: "relative", background: "linear-gradient(180deg, var(--stage-top), var(--stage-bot))", overflow: "hidden" }}>
-        <NkViewer src={GHOST_MODEL} autorotate={0.5} style={{ position: "absolute", inset: 0 }} />
+        <NkViewer src={GHOST_MODEL} ghost={live} autorotate={0.5} style={{ position: "absolute", inset: 0 }} />
         <div aria-hidden="true" style={{ position: "absolute", inset: "auto 0 0 0", height: "40%", background: "linear-gradient(180deg, transparent, var(--floor-shade))", pointerEvents: "none" }} />
       </div>
     </div>
