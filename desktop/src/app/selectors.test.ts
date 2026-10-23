@@ -219,3 +219,12 @@ describe("publish from a Live save", () => {
     expect(publishState({ ...liveSave, versions: [{ ...liveSave.versions[0]!, checks: [...green, red] }] }, "Rim smoothed.")).toMatchObject({ can: false, label: "Publish, after the red one" });
   });
 });
+
+describe("sections on the wall", () => {
+  it("top-level assets beside grouped ones sit under Other", async () => {
+    const { assets } = await load("studio", "lead");
+    const mixed = [{ ...assets[0]!, group: "Props" }, { ...assets[1]!, group: null }];
+    expect(sectionsByGroup(mixed, mixed).map((s) => s.name)).toEqual(["Props", "Other"]);
+    expect(sectionsByGroup([mixed[1]!], [mixed[1]!])).toEqual([{ name: "", titled: false, assets: [mixed[1]] }]);
+  });
+});

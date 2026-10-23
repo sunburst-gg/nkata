@@ -79,7 +79,8 @@ export interface Section { name: string; titled: boolean; assets: Asset[] }
 export function sectionsByGroup(all: readonly Asset[], shown: readonly Asset[]): Section[] {
   const groups = [...new Set(all.map((a) => a.group ?? ""))];
   if (groups.length <= 1) return [{ name: "", titled: false, assets: [...shown] }];
-  return [...new Set(shown.map((a) => a.group ?? ""))].map((g) => ({ name: g, titled: true, assets: shown.filter((a) => (a.group ?? "") === g) }));
+  // Assets at the project's top level, beside grouped ones, sit under "Other", never a blank title.
+  return [...new Set(shown.map((a) => a.group ?? ""))].map((g) => ({ name: g || "Other", titled: true, assets: shown.filter((a) => (a.group ?? "") === g) }));
 }
 
 export type StripLabel = "You" | "Lead" | "Looking" | "Invited" | "Joined" | "Blender" | "In Blender";

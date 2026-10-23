@@ -19,6 +19,11 @@ export interface ToolsReport {
 
 const STOPPED: AgentStatus = { running: false, mode: null, project_id: null, folder: null, port: null };
 
+/** Outside the desktop window there is no background process; this stands in for it and
+ * remembers what it was last asked to do, so status reads true in a browser walk. */
+let browserAgent: AgentStatus = STOPPED;
+const remembered = (next: AgentStatus): AgentStatus => { browserAgent = next; return next; };
+
 export function inTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
@@ -29,12 +34,12 @@ async function invoke<T>(command: string, args?: Record<string, unknown>): Promi
 }
 
 export const agent = {
-  status: (): Promise<AgentStatus> => (inTauri() ? invoke<AgentStatus>("agent_status") : Promise.resolve(STOPPED)),
+  status: (): Promise<AgentStatus> => (inTauri() ? invoke<AgentStatus>("agent_status") : Promise.resolve(browserAgent)),
   startSync: (serverUrl: string, token: string, projectId: string, folder: string): Promise<AgentStatus> =>
-    inTauri() ? invoke<AgentStatus>("agent_start_sync", { serverUrl, token, projectId, folder }) : Promise.resolve({ ...STOPPED, running: true, mode: "sync", project_id: projectId, folder }),
+    inTauri() ? invoke<AgentStatus>("agent_start_sync", { serverUrl, token, projectId, folder }) : Promise.resolve(remembered({ ...STOPPED, running: true, mode: "sync", project_id: projectId, folder })),
   startStream: (serverUrl: string, token: string, projectId: string): Promise<AgentStatus> =>
-    inTauri() ? invoke<AgentStatus>("agent_start_stream", { serverUrl, token, projectId }) : Promise.resolve({ ...STOPPED, running: true, mode: "stream", project_id: projectId }),
-  stop: (): Promise<AgentStatus> => (inTauri() ? invoke<AgentStatus>("agent_stop") : Promise.resolve(STOPPED)),
+    inTauri() ? invoke<AgentStatus>("agent_start_stream", { serverUrl, token, projectId }) : Promise.resolve(remembered({ ...STOPPED, running: true, mode: "stream", project_id: projectId })),
+  stop: (): Promise<AgentStatus> => (inTauri() ? invoke<AgentStatus>("agent_stop") : Promise.resolve(remembered(STOPPED))),
   toolsDetect: (folder: string): Promise<ToolsReport> =>
     inTauri() ? invoke<ToolsReport>("tools_detect", { folder }) : Promise.resolve({ blender: null, uprojects: [], addon_shipped: false, plugin_shipped: false }),
   /** Installs and enables the add-on through Blender's own command line. Resolves to Blender's last line. */
