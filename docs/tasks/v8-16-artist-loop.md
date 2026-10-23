@@ -19,5 +19,5 @@ Done means each item holds in a browser walk as a new artist against a real serv
 - [x] 5. The panel says who has the file and whose asset it is, in plain words, before a save.
 - [x] 6. Publish only for the owner; an asset with no save reads as such; the wall says what to do
       next when the artist has nothing in the project yet.
-- [ ] 7. An event reloads only what it touched.
+- [x] 7. An event reloads only what it touched.
 - [ ] 8. Download saves where the person chooses in the desktop app; the seed uses real names.

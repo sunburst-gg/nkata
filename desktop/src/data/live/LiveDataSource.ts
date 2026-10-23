@@ -27,8 +27,13 @@ export interface LiveConfig {
   addonVersion?: string;
 }
 
+/** One asset's rows as the server sent them; the wall is rebuilt from these without a fetch. */
+interface Raw { a: AssetWire; part: PartWire; versions: VersionWire[]; reviews: ReviewWire[]; comments: CommentWire[]; checks: CheckWire[] }
+
 interface Loaded {
   projectId: string;
+  /** In the server's order. */
+  raw: Raw[];
   assets: Asset[];
   partOf: Map<string, PartWire>;
   versionsOf: Map<string, VersionWire[]>;
@@ -199,7 +204,7 @@ export class LiveDataSource implements DataSource {
   }
   async setAssetBudget(assetId: string, n: number | null): Promise<void> {
     await this.call("PUT", `/assets/${assetId}`, { budget: n });
-    if (this.loaded) await this.load(this.loaded.projectId, true);
+    await this.reloadAssets([assetId]);
   }
 
   // ---- the wall: one load per project, refreshed on events
@@ -207,7 +212,6 @@ export class LiveDataSource implements DataSource {
   private async load(projectId: string, force = false): Promise<Asset[]> {
     if (this.loaded && this.loaded.projectId === projectId && !force) return this.loaded.assets;
     const me = this.need();
-    const now = this.now();
     const [assetsRes, membersRes, onlineRes, budgetsRes] = await Promise.all([
       this.call<{ assets: AssetWire[] }>("GET", `/assets?project_id=${projectId}`),
       this.call<{ members: MemberWire[] }>("GET", "/studio/members"),
@@ -217,37 +221,69 @@ export class LiveDataSource implements DataSource {
     const people = new Map(membersRes.members.map((m) => [m.user.id, personOf(m.user, m.roles, m.email)]));
     people.set(me.id, me);
     for (const o of onlineRes.online) this.everSeen.add(o.user.id);
-    const budgets = budgetsOf(budgetsRes.budgets);
-    const partOf = new Map<string, PartWire>();
-    const versionsOf = new Map<string, VersionWire[]>();
-    const commentsOf = new Map<string, Comment[]>();
-    const assets: Asset[] = [];
-    for (const a of assetsRes.assets) {
-      const detail = await this.call<{ parts: PartWire[] }>("GET", `/assets/${a.id}`);
-      const part = detail.parts[0];
-      if (!part) continue;
-      partOf.set(a.id, part);
-      const [versionsRes, reviewsRes, commentsRes] = await Promise.all([
-        this.call<{ versions: VersionWire[] }>("GET", `/parts/${part.id}/versions`),
-        this.call<{ reviews: ReviewWire[] }>("GET", `/reviews?part_id=${part.id}`),
-        this.call<{ comments: CommentWire[] }>("GET", `/parts/${part.id}/comments`),
-      ]);
-      const versions = versionsRes.versions.slice().sort((x, y) => y.created_at.localeCompare(x.created_at));
-      versionsOf.set(a.id, versions);
-      const latest = versions[0];
-      const checks = latest ? (await this.call<{ results: CheckWire[] }>("GET", `/parts/${part.id}/versions/${latest.id}/checks`).catch(() => ({ results: [] }))).results : [];
-      const numbered = numberVersions(versions);
-      const comments = commentsRes.comments.map((c) => commentOf(c, a.id, numbered.get(c.version_id) ?? 1, people, now));
-      commentsOf.set(a.id, comments);
-      const mentionsMe = comments.some((c) => c.author.id !== me.id && namesMe(c.text, me));
-      assets.push(assetOf({
-        a, part, people, online: onlineRes.online, budgets, now, mentionsMe, comments,
-        versions: versions.map((v) => ({ v, checks: v.id === latest?.id ? checks : [], reviews: reviewsRes.reviews, partApproved: part.state === "approved" })),
-      }));
-    }
-    this.loaded = { projectId, assets, partOf, versionsOf, commentsOf, online: onlineRes.online, budgets, people };
+    const raw = (await Promise.all(assetsRes.assets.map((a) => this.fetchRaw(a)))).filter((r): r is Raw => r !== null);
+    this.loaded = { projectId, raw, assets: [], partOf: new Map(), versionsOf: new Map(), commentsOf: new Map(), online: onlineRes.online, budgets: budgetsOf(budgetsRes.budgets), people };
+    this.build();
     this.remember();
-    return assets;
+    return this.loaded.assets;
+  }
+
+  /** One asset's part, versions, reviews, comments and the newest version's checks. */
+  private async fetchRaw(a: AssetWire): Promise<Raw | null> {
+    const detail = await this.call<{ parts: PartWire[] }>("GET", `/assets/${a.id}`);
+    const part = detail.parts[0];
+    if (!part) return null;
+    const [versionsRes, reviewsRes, commentsRes] = await Promise.all([
+      this.call<{ versions: VersionWire[] }>("GET", `/parts/${part.id}/versions`),
+      this.call<{ reviews: ReviewWire[] }>("GET", `/reviews?part_id=${part.id}`),
+      this.call<{ comments: CommentWire[] }>("GET", `/parts/${part.id}/comments`),
+    ]);
+    const versions = versionsRes.versions.slice().sort((x, y) => y.created_at.localeCompare(x.created_at));
+    const latest = versions[0];
+    const checks = latest ? (await this.call<{ results: CheckWire[] }>("GET", `/parts/${part.id}/versions/${latest.id}/checks`).catch(() => ({ results: [] }))).results : [];
+    return { a, part, versions, reviews: reviewsRes.reviews, comments: commentsRes.comments, checks };
+  }
+
+  /** The wall from the rows in hand: no fetch. Presence and the clock move Live; nothing else does. */
+  private build(): void {
+    const l = this.loaded;
+    if (!l) return;
+    const me = this.need();
+    const now = this.now();
+    l.partOf = new Map(); l.versionsOf = new Map(); l.commentsOf = new Map();
+    l.assets = l.raw.map(({ a, part, versions, reviews, comments: wire, checks }) => {
+      l.partOf.set(a.id, part);
+      l.versionsOf.set(a.id, versions);
+      const latest = versions[0];
+      const numbered = numberVersions(versions);
+      const comments = wire.map((c) => commentOf(c, a.id, numbered.get(c.version_id) ?? 1, l.people, now));
+      l.commentsOf.set(a.id, comments);
+      const mentionsMe = comments.some((c) => c.author.id !== me.id && namesMe(c.text, me));
+      return assetOf({
+        a, part, people: l.people, online: l.online, budgets: l.budgets, now, mentionsMe, comments,
+        versions: versions.map((v) => ({ v, checks: v.id === latest?.id ? checks : [], reviews, partApproved: part.state === "approved" })),
+      });
+    });
+  }
+
+  /**
+   * Fetch again only the assets an event or an action touched (v8 step 16, item 7). One list
+   * call keeps names, groups and budgets current and finds assets made since; the rest is per
+   * asset. A full reload made four or five calls per asset on every event.
+   */
+  private async reloadAssets(assetIds: readonly string[]): Promise<void> {
+    const l = this.loaded;
+    if (!l) return;
+    const list = (await this.call<{ assets: AssetWire[] }>("GET", `/assets?project_id=${l.projectId}`)).assets;
+    const known = new Map(l.raw.map((r) => [r.a.id, r]));
+    const wanted = new Set(assetIds);
+    const next = await Promise.all(list.map(async (a) => {
+      const had = known.get(a.id);
+      if (had && !wanted.has(a.id)) return { ...had, a };
+      return this.fetchRaw(a);
+    }));
+    l.raw = next.filter((r): r is Raw => r !== null);
+    this.build();
   }
 
   async listAssets(projectId: string): Promise<Asset[]> { return this.load(projectId); }
@@ -318,14 +354,14 @@ export class LiveDataSource implements DataSource {
     const part = this.partFor(assetId);
     const vid = this.versionId(assetId, "latest");
     await this.call("POST", `/parts/${part.id}/publish`, { version_id: vid, note: note.trim(), note_engineering: noteEngineering?.trim() ?? "", ready: true });
-    await this.load(this.loaded!.projectId, true);
+    await this.reloadAssets([assetId]);
     this.emit({ type: "published", assetId, version: (await this.getAsset(assetId))?.versions[0]?.n ?? 1 });
   }
   async approve(assetId: string, version: number): Promise<void> {
     const part = this.partFor(assetId);
     const vid = this.versionId(assetId, version);
     await this.call("POST", "/reviews", { part_id: part.id, version_id: vid, score: 5, decision: "approve", note: "" });
-    await this.load(this.loaded!.projectId, true);
+    await this.reloadAssets([assetId]);
     this.emit({ type: "approved", assetId, version });
   }
   async requestChanges(assetId: string, version: number): Promise<void> {
@@ -334,21 +370,21 @@ export class LiveDataSource implements DataSource {
     const mine = (this.loaded?.commentsOf.get(assetId) ?? []).filter((c) => c.author.id === this.me?.id && c.version === version);
     if (mine.length === 0) throw new Error("Pin the spot or write one line first.");
     await this.call("POST", "/reviews", { part_id: part.id, version_id: vid, score: 3, decision: "send_back", note: mine[mine.length - 1]?.text ?? "" });
-    await this.load(this.loaded!.projectId, true);
+    await this.reloadAssets([assetId]);
     this.emit({ type: "changesRequested", assetId, version });
   }
   async comment(assetId: string, text: string, pin?: [number, number, number]): Promise<Comment> {
     const part = this.partFor(assetId);
     const vid = this.versionId(assetId, "latest");
     const res = await this.call<{ comment: CommentWire }>("POST", "/comments", { part_id: part.id, version_id: vid, point: pin ?? [0, 0, 0], normal: [0, 0, 1], body: text.trim() });
-    await this.load(this.loaded!.projectId, true);
+    await this.reloadAssets([assetId]);
     const made = (this.loaded?.commentsOf.get(assetId) ?? []).find((c) => c.id === res.comment.id) ?? commentOf(res.comment, assetId, 1, this.loaded?.people ?? new Map(), this.now());
     this.emit({ type: "commented", assetId, commentId: made.id });
     return made;
   }
   async resolveComment(assetId: string, commentId: string, done: boolean): Promise<void> {
     await this.call("POST", `/comments/${commentId}/${done ? "resolve" : "reopen"}`, {});
-    await this.load(this.loaded!.projectId, true);
+    await this.reloadAssets([assetId]);
     this.emit({ type: "commented", assetId, commentId });
   }
   async fixCheck(): Promise<void> { throw new Error("Fix runs in Blender. Open the model there and press Fix."); }
@@ -396,9 +432,47 @@ export class LiveDataSource implements DataSource {
     const res = await this.call<{ events: EventWire[]; next: string | null }>("GET", `/events?project_id=${projectId}${since}&limit=200`);
     if (res.events.length === 0) return;
     this.lastEventId = res.next ?? res.events[res.events.length - 1]!.id;
-    await this.load(projectId, true);
+    await this.refreshFor(projectId, res.events.map((x) => x.event));
     for (const { event } of res.events) this.relay(event);
   }
+  /**
+   * What a batch of events needs: presence only rebuilds from the rows in hand; an event on a
+   * known asset fetches that asset; an asset this computer has not seen, or a kind it does not
+   * know, fetches the project once.
+   */
+  private async refreshFor(projectId: string, events: readonly EventWire["event"][]): Promise<void> {
+    const l = this.loaded;
+    if (!l || l.projectId !== projectId) { await this.load(projectId, true); return; }
+    const assetOfPart = (partId: unknown): string | null => l.raw.find((r) => r.part.id === partId)?.a.id ?? null;
+    const touched = new Set<string>();
+    let full = false;
+    for (const e of events) {
+      switch (e.kind) {
+        case "presence.changed":
+          l.online = (e["online"] as PresenceEntry[] | undefined) ?? l.online;
+          break;
+        case "studio.training":
+          break;
+        case "comment.created":
+        case "comment.resolved": {
+          const id = assetOfPart((e["comment"] as CommentWire | undefined)?.part_id);
+          if (id) touched.add(id); else full = true;
+          break;
+        }
+        case "version.created": case "review.decided": case "part.state": case "lock.granted": case "lock.released": case "lock.requested": case "mirror.result": case "gate.opened": {
+          const id = assetOfPart(e["part_id"]);
+          if (id) touched.add(id); else full = true;
+          break;
+        }
+        default:
+          full = true;
+      }
+    }
+    if (full) { await this.load(projectId, true); return; }
+    if (touched.size) await this.reloadAssets([...touched]);
+    else this.build();
+  }
+
   private relay(e: EventWire["event"]): void {
     const assetFor = (partId: unknown): string | null => {
       for (const [assetId, part] of this.loaded?.partOf ?? []) if (part.id === partId) return assetId;

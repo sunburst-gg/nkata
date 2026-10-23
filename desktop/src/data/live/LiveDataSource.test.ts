@@ -122,6 +122,27 @@ describe("LiveDataSource", () => {
     expect(events.slice(-2).map((e) => e.type)).toEqual(["commented", "commented"]);
   });
 
+  it("an event fetches only what it touched: presence nothing, a save its own asset, an unknown asset the project", async () => {
+    const { source, server } = await booted();
+    await source.listAssets(PROJECT);
+    const fetched = () => server.calls.filter((c) => c.method === "GET" && !c.path.startsWith("/events")).map((c) => c.path.split("?")[0]);
+    server.calls.length = 0;
+    server.events.push({ id: "01E1", event: { v: 1, kind: "presence.changed", project_id: PROJECT, actor_id: ada.id, at: "2026-10-18T11:59:30Z", online: [{ user: ada, part_id: "p1", since: "2026-10-18T11:00:00Z", last_seen: "2026-10-18T11:59:30Z" }] } });
+    await source.poll(PROJECT);
+    expect(fetched()).toEqual([]);
+    expect((await source.getAsset("a1"))!.live).toBeDefined();
+    server.calls.length = 0;
+    server.events.push({ id: "01E2", event: { v: 1, kind: "version.created", project_id: PROJECT, actor_id: ada.id, at: "2026-10-18T12:00:00Z", part_id: "p1", version_id: "v2", published: false } });
+    await source.poll(PROJECT);
+    expect(fetched()).not.toContain("/studio/members");
+    expect(fetched().filter((p) => p === "/assets")).toHaveLength(1);
+    expect(fetched()).toContain("/assets/a1");
+    server.calls.length = 0;
+    server.events.push({ id: "01E3", event: { v: 1, kind: "version.created", project_id: PROJECT, actor_id: ada.id, at: "2026-10-18T12:01:00Z", part_id: "p-new", version_id: "v9", published: false } });
+    await source.poll(PROJECT);
+    expect(fetched()).toContain("/studio/members");
+  });
+
   it("relays server events as DataEvents and keeps its cursor", async () => {
     const { source, events, server } = await booted();
     await source.listAssets(PROJECT);
