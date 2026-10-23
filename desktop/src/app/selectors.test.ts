@@ -195,9 +195,11 @@ describe("the lead's second look", () => {
 });
 
 describe("publish on the asset page", () => {
-  it("only the asset's own artist, and only once it has a save", async () => {
+  it("only the asset's own artist, and only when the newest save is not a Version yet", async () => {
     const { assets } = await load("studio", "artist");
-    const mine = assets.find((a) => a.owner.id === ME.artist.id)!;
+    const own = assets.find((a) => a.owner.id === ME.artist.id)!;
+    const mine = { ...own, versions: [{ ...own.versions[0]!, note: "" }, ...own.versions.slice(1)] };
+    expect(canPublishHere({ ...mine, versions: [{ ...mine.versions[0]!, note: "Published." }] }, ME.artist)).toBe(false);
     const theirs = assets.find((a) => a.owner.id !== ME.artist.id)!;
     expect(canPublishHere(mine, ME.artist)).toBe(true);
     expect(canPublishHere(theirs, ME.artist)).toBe(false);
