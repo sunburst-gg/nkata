@@ -279,7 +279,8 @@ async fn local_api_serves_me_parts_locks_saves_and_mirrors() {
     assert!(command.contains("import_character.py"), "{command}");
     let args_path = command.split('"').nth(3).unwrap().to_string();
     let args: Value = serde_json::from_str(&std::fs::read_to_string(&args_path).unwrap()).unwrap();
-    assert_eq!(args["destination_path"], "/Game/Nkata/Ojukwu/face");
+    // v8 step 19: a save previews; only Publish imports into /Game/Nkata/Ojukwu/face.
+    assert_eq!(args["destination_path"], "/Game/Nkata/_Preview/Ojukwu/face");
     assert_eq!(args["asset_name"], "face");
     assert_eq!(args["kind"], "character");
     assert_eq!(args["bone_count"], 42);
