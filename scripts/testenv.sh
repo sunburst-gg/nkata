@@ -2,7 +2,8 @@
 # Brings up Postgres 16 and an S3 store for tests and exports their URLs.
 # Order of preference:
 #   1. DATABASE_URL and S3_ENDPOINT already set: use them as they are.
-#   2. Docker available: infra/docker-compose.yml.
+#   2. Docker available: infra/docker-compose.yml as its own project, nkata-test, on its own
+#      ports. `down -v` then removes the test volumes alone and never the `make dev` stack.
 #   3. Local binaries: initdb/pg_ctl and a rustfs or minio binary on PATH or in ~/go/bin.
 #      RustFS is the store since MinIO stopped shipping binaries (docs/decisions.md, 2026-10-09).
 #      https://docs.rustfs.com/installation/linux.html
@@ -12,6 +13,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_DIR="$ROOT/.testenv"
 STATE_FILE="$ENV_DIR/state"
+# The test stack beside the dev one: a separate compose project and host ports.
+TEST_PG_PORT="${TEST_PG_PORT:-54329}"
+TEST_STORE_PORT="${TEST_STORE_PORT:-${TEST_MINIO_PORT:-9100}}"
+compose_test() {
+  NKATA_PG_PORT="$TEST_PG_PORT" NKATA_S3_PORT="$TEST_STORE_PORT" NKATA_S3_CONSOLE_PORT="$((TEST_STORE_PORT + 1))" \
+    docker compose -p nkata-test -f "$ROOT/infra/docker-compose.yml" "$@"
+}
 
 testenv_up() {
   if [[ -n "${DATABASE_URL:-}" && -n "${S3_ENDPOINT:-}" ]]; then
@@ -28,9 +36,9 @@ testenv_up() {
 
   if docker info >/dev/null 2>&1; then
     echo "testenv: starting Postgres and RustFS with Docker" >&2
-    docker compose -f "$ROOT/infra/docker-compose.yml" up -d --wait
-    export DATABASE_URL="postgres://nkata:nkata@localhost:${NKATA_PG_PORT:-5432}/nkata"
-    export S3_ENDPOINT="http://localhost:${NKATA_S3_PORT:-9000}"
+    compose_test up -d --wait
+    export DATABASE_URL="postgres://nkata:nkata@localhost:$TEST_PG_PORT/nkata"
+    export S3_ENDPOINT="http://localhost:$TEST_STORE_PORT"
     echo "docker" > "$STATE_FILE"
     return 0
   fi
@@ -39,7 +47,7 @@ testenv_up() {
   local PG_BIN
   PG_BIN="$(dirname "$(command -v pg_ctl 2>/dev/null || ls /usr/lib/postgresql/16/bin/pg_ctl)")"
   local PGDATA="$ENV_DIR/pg"
-  local PGPORT="${TEST_PG_PORT:-54329}"
+  local PGPORT="$TEST_PG_PORT"
   # Postgres refuses to run as root. In a root container, run it as the postgres user.
   local AS_PG=()
   if [[ "$(id -u)" == "0" ]]; then
@@ -69,7 +77,7 @@ testenv_up() {
     echo "testenv: no rustfs or minio binary found. Install Docker or put rustfs on PATH." >&2
     return 1
   fi
-  local STORE_PORT="${TEST_STORE_PORT:-${TEST_MINIO_PORT:-9100}}"
+  local STORE_PORT="$TEST_STORE_PORT"
   rm -rf "$ENV_DIR/store-data"
   mkdir -p "$ENV_DIR/store-data"
   if [[ "$STORE_KIND" == rustfs ]]; then
@@ -96,7 +104,7 @@ testenv_down() {
   state="$(cat "$STATE_FILE" 2>/dev/null || echo none)"
   case "$state" in
     docker)
-      docker compose -f "$ROOT/infra/docker-compose.yml" down -v >/dev/null 2>&1 || true
+      compose_test down -v >/dev/null 2>&1 || true
       ;;
     local)
       if [[ -f "$ENV_DIR/store.pid" ]]; then kill "$(cat "$ENV_DIR/store.pid")" 2>/dev/null || true; rm -f "$ENV_DIR/store.pid"; fi
