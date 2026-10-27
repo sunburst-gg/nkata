@@ -21,12 +21,12 @@ Done means each item holds with a real Blender and a real Unreal Engine, and `ma
 
 ## In Unreal
 
-- [ ] 3. Live: the plugin keeps one USD Stage per environment asset, in its own level under
+- [x] 3. Live: the plugin keeps one USD Stage per environment asset, in its own level under
       /Game/Nkata, and reloads it after each save. Nothing is imported yet, as in the video.
-- [ ] 4. Publish imports: actors placed as in Blender, assets under /Game/Nkata/<asset>, and a
+- [x] 4. Publish imports: actors placed as in Blender, assets under /Game/Nkata/<asset>, and a
       Nanite triangle threshold from the project's settings (500,000 by default). Reimport on the
       next Publish keeps collisions and material edits made in Unreal.
-- [ ] 5. The import is checked like step 17's: the actors, the distinct meshes (fewer than the
+- [x] 5. The import is checked like step 17's: the actors, the distinct meshes (fewer than the
       actors when there are instances), the lights, the material slots.
 
 ## In the app

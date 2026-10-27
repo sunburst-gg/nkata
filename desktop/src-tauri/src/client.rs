@@ -138,6 +138,9 @@ pub struct VersionRow {
     pub mirror_status: String,
     pub mirror_ms: Option<u64>,
     pub published: bool,
+    /// The save's manifest, as the add-on wrote it. Absent on a version with no export.
+    #[serde(default)]
+    pub manifest: Option<crate::protocol::ObjectManifest>,
 }
 
 #[derive(Debug, Clone, Serialize)]

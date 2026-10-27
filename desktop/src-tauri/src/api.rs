@@ -45,6 +45,8 @@ pub struct ApiState {
     pub project: ProjectRef,
     pub package_version: String,
     pub spool_dir: PathBuf,
+    /// The project folder this agent serves: where the add-on writes an environment's USD.
+    pub folder: PathBuf,
     pub mode: AgentMode,
     /// UNREAL_ENABLED on the server. Off: no mirror job, no capture, no area export.
     pub unreal: bool,
@@ -613,6 +615,59 @@ async fn publish(
             }
         }
     }
+    // v8 step 18: Publish on an environment saved in Blender imports its USD with the actors.
+    if out.published && s.unreal {
+        if let Ok(part) = s.server.part(&id).await {
+            if let (
+                crate::protocol::TemplateKind::LevelArea,
+                crate::protocol::PartMapping::BlendCollection { file, .. },
+            ) = (part.kind, &part.mapping)
+            {
+                let usd = crate::mirror::usd_for(&s.folder, file);
+                if usd.is_file() {
+                    let destination =
+                        crate::mirror::destination_for(&part.mapping, &part.asset_name, &part.name);
+                    let meshes = s
+                        .server
+                        .versions(&id)
+                        .await
+                        .ok()
+                        .and_then(|rows| rows.into_iter().find(|v| v.id == version_id))
+                        .and_then(|v| v.manifest)
+                        .map(|m| m.objects.len())
+                        .unwrap_or(0);
+                    match s
+                        .mirror
+                        .import_environment(
+                            &crate::mirror::EnvironmentImport {
+                                part_id: &id,
+                                version_id: &version_id,
+                                usd: &usd,
+                                destination: &destination,
+                                asset_name: &part.asset_name,
+                                meshes,
+                            },
+                            &s.spool_dir,
+                        )
+                        .await
+                    {
+                        Some(r) => tracing::info!(
+                            project_id = s.project.id,
+                            part_id = id,
+                            ok = r.ok,
+                            message = r.message,
+                            "environment imported"
+                        ),
+                        None => tracing::info!(
+                            project_id = s.project.id,
+                            part_id = id,
+                            "environment not imported"
+                        ),
+                    }
+                }
+            }
+        }
+    }
     // Mark Ready: the engine's viewport becomes the version's render. No capture, or no Unreal:
     // Blender's turn.
     if out.published && body.ready {
@@ -849,6 +904,7 @@ pub async fn bind(
         },
         package_version: crate::PACKAGE_VERSION.to_string(),
         spool_dir,
+        folder: opts.folder.clone(),
         mode: opts.mode,
         unreal: me.features.unreal,
         budgets: project.budgets,

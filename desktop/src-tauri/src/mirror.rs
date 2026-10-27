@@ -61,6 +61,8 @@ pub struct ImportArgs<'a> {
     pub bone_count: Option<u64>,
     /// v8 step 17: what the export held, for the script to set beside what Unreal made.
     pub expect: Expect,
+    /// v8 step 18: an environment is staged on save ("stage") and imported on Publish ("import").
+    pub mode: &'a str,
     /// Static mesh settings, applied on first import only. See docs/engineering.md, Static.
     pub nanite: bool,
     pub lod_group: Option<&'a str>,
@@ -73,6 +75,8 @@ pub struct Expect {
     pub materials: Vec<String>,
     pub bones: Vec<String>,
     pub animations: Vec<ManifestAnimation>,
+    /// The meshes the export held: what an environment's stage or import must show (step 18).
+    pub meshes: usize,
 }
 
 impl Expect {
@@ -88,6 +92,7 @@ impl Expect {
             materials,
             bones: manifest.bones.clone().unwrap_or_default(),
             animations: manifest.animations.clone().unwrap_or_default(),
+            meshes: manifest.objects.len(),
         }
     }
 }
@@ -144,6 +149,31 @@ pub struct MirrorRunner {
 
 /// Destination path in the engine for a part. ue_asset carries it; blend_collection and file
 /// parts land under /Game/Nkata/<asset>/<part> until the template export rules apply (step 3).
+/// One Publish import of an environment's USD (import_environment.py, mode "import").
+#[derive(Debug, Clone, Copy)]
+pub struct EnvironmentImport<'a> {
+    pub part_id: &'a str,
+    pub version_id: &'a str,
+    pub usd: &'a Path,
+    pub destination: &'a str,
+    pub asset_name: &'a str,
+    pub meshes: usize,
+}
+
+/// Where the add-on writes an environment's USD: beside its .blend in .nkata-exports/, named
+/// after the file (blender-addon/nkata/kind.py, export_path).
+pub fn usd_for(folder: &Path, blend: &str) -> PathBuf {
+    let file = folder.join(blend);
+    let stem = file
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    file.parent()
+        .unwrap_or(folder)
+        .join(".nkata-exports")
+        .join(format!("{stem}.usdc"))
+}
+
 pub fn destination_for(mapping: &PartMapping, asset_name: &str, part_name: &str) -> String {
     match mapping {
         PartMapping::UeAsset { path } => path.clone(),
@@ -291,6 +321,47 @@ impl MirrorRunner {
 
     /// Mark Ready on a level area: the editor exports the tagged actors as one GLB and the
     /// caller stores it as the version's model. None when the editor is closed or refuses.
+    /// Publish on an environment saved in Blender: its USD imported with the actors placed
+    /// (import_environment.py, mode "import"). Returns the script's result, or None when UE5 is
+    /// not reachable or the script could not run.
+    pub async fn import_environment(
+        &self,
+        job: &EnvironmentImport<'_>,
+        spool_dir: &Path,
+    ) -> Option<crate::ue5::ScriptResult> {
+        let EnvironmentImport {
+            part_id,
+            version_id,
+            usd,
+            destination,
+            asset_name,
+            meshes,
+        } = *job;
+        let script = self.scripts_dir.join("import_environment.py");
+        let dir = spool_dir.join(part_id);
+        if let Err(e) = std::fs::create_dir_all(&dir) {
+            tracing::warn!(part_id, error = %e, "import environment: spool dir");
+            return None;
+        }
+        let args_path = dir.join(format!("{version_id}.environment.args.json"));
+        let args = serde_json::json!({ "v": 1, "mode": "import", "part_id": part_id, "version_id": version_id, "spool_path": usd, "destination_path": destination, "asset_name": asset_name, "expect": { "meshes": meshes } });
+        if let Err(e) = std::fs::write(&args_path, serde_json::to_vec_pretty(&args).ok()?) {
+            tracing::warn!(part_id, error = %e, "import environment: args not written");
+            return None;
+        }
+        match self.ue5.run_script(&script, &args_path).await {
+            Ok(CallOutcome::Done(r)) => Some(r),
+            Ok(CallOutcome::Unreachable(why)) => {
+                tracing::info!(part_id, why, "import environment: UE5 not reachable");
+                None
+            }
+            Err(e) => {
+                tracing::warn!(part_id, error = %e, "import environment: error");
+                None
+            }
+        }
+    }
+
     pub async fn export_area(
         &self,
         part_id: &str,
@@ -578,6 +649,7 @@ impl MirrorRunner {
             armature: job.manifest.armature.as_deref(),
             bone_count: job.manifest.bone_count,
             expect: Expect::of(&job.manifest),
+            mode: "stage",
             nanite: false,
             lod_group: None,
             generate_collision: true,
@@ -598,6 +670,14 @@ impl MirrorRunner {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn an_environments_usd_sits_beside_its_blend() {
+        assert_eq!(
+            usd_for(Path::new("/p"), "Environments/Station/Station.blend"),
+            PathBuf::from("/p/Environments/Station/.nkata-exports/Station.usdc")
+        );
+    }
+
     #[test]
     fn the_import_is_told_what_the_export_held() {
         let manifest: ObjectManifest = serde_json::from_value(serde_json::json!({
