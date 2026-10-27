@@ -1,4 +1,4 @@
-.PHONY: hooks dev dev-down test addon-vendor addon ue e2e quality fixtures fixtures-v8 export-intact environment-usd preview-then-import studio-rules
+.PHONY: hooks dev dev-down test addon-vendor addon ue e2e quality fixtures fixtures-v8 export-intact environment-usd preview-then-import studio-rules unreal-validators
 
 # One-time: route git hooks to the repo's .githooks folder.
 hooks:
@@ -72,3 +72,9 @@ preview-then-import:
 # lead accepts it; the barrel stays held. Set NKATA_BLENDER to the Blender executable.
 studio-rules:
 	e2e/studio_rules.sh
+
+# The step 22 gate: a studio validator in an open Unreal editor holds Publish in its own words
+# until the artist fixes it or a lead accepts it. Needs Blender and an open Unreal editor with
+# Remote Control: NKATA_BLENDER=/path/to/Blender make unreal-validators
+unreal-validators:
+	e2e/unreal_validators.sh
