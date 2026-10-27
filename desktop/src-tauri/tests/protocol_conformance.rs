@@ -43,12 +43,22 @@ fn samples() -> Vec<(&'static str, Value)> {
         textures: vec![],
         unit_scale: Some(1.0),
         asset_kind: Some(AssetKind::Object),
-        checks: Some(vec![ManifestCheck {
-            key: CheckKey::Tris,
-            pass: true,
-            sentence: "12 triangles, within budget.".into(),
-            fix: "Decimate.".into(),
-        }]),
+        checks: Some(vec![
+            ManifestCheck {
+                key: CheckKey::Tris,
+                pass: true,
+                level: None,
+                sentence: "12 triangles, within budget.".into(),
+                fix: "Decimate.".into(),
+            },
+            ManifestCheck {
+                key: CheckKey::Pivot,
+                pass: false,
+                level: Some(CheckSeverity::Note),
+                sentence: "Origin is not at the base of SM_Door.".into(),
+                fix: "Fix origin moves it to the base.".into(),
+            },
+        ]),
         bones: Some(vec!["root".into()]),
         animations: Some(vec![ManifestAnimation {
             name: "Walk".into(),

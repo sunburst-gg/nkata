@@ -1078,11 +1078,16 @@
             "textures",
             "scale",
             "uv",
-            "tris"
+            "tris",
+            "pivot"
           ]
         },
         "pass": {
           "type": "boolean"
+        },
+        "level": {
+          "$ref": "common.schema.json#/$defs/CheckSeverity",
+          "description": "The template's level for this check (v8 step 21). Absent means block."
         },
         "sentence": {
           "type": "string"

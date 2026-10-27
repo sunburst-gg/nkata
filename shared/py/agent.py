@@ -372,10 +372,11 @@ class ExportResponse:
 
 @dataclass(frozen=True)
 class ManifestCheck:
-    key: Literal["textures", "scale", "uv", "tris"]
+    key: Literal["textures", "scale", "uv", "tris", "pivot"]
     pass_: bool = field(metadata={"json_key": "pass"})
     sentence: str
     fix: str
+    level: CheckSeverity | None = field(default=None, metadata={"optional": True})
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -1124,7 +1125,7 @@ def validate_ExportResponse(value: object, path: str = "$") -> ExportResponse:
     )
 
 def _v_ManifestCheck_key(value: object, path: str) -> Any:
-    return _rt.check_literal(value, path, ("textures", "scale", "uv", "tris",))
+    return _rt.check_literal(value, path, ("textures", "scale", "uv", "tris", "pivot",))
 
 def _v_ManifestCheck_pass(value: object, path: str) -> bool:
     return _rt.check_bool(value, path)
@@ -1136,10 +1137,11 @@ def _v_ManifestCheck_fix(value: object, path: str) -> str:
     return _rt.check_str(value, path, min_length=0, pattern=None, fmt=None)
 
 def validate_ManifestCheck(value: object, path: str = "$") -> ManifestCheck:
-    obj = _rt.check_object(value, path, required=("key", "pass", "sentence", "fix",), allowed=("key", "pass", "sentence", "fix",))
+    obj = _rt.check_object(value, path, required=("key", "pass", "sentence", "fix",), allowed=("key", "pass", "level", "sentence", "fix",))
     return ManifestCheck(
         key=_v_ManifestCheck_key(obj["key"], path + ".key"),
         pass_=_v_ManifestCheck_pass(obj["pass"], path + ".pass"),
+        level=validate_CheckSeverity(obj["level"], path + ".level") if "level" in obj else None,
         sentence=_v_ManifestCheck_sentence(obj["sentence"], path + ".sentence"),
         fix=_v_ManifestCheck_fix(obj["fix"], path + ".fix"),
     )

@@ -123,8 +123,9 @@ export const ManifestAnimation = z.strictObject({
 export type ManifestAnimation = z.infer<typeof ManifestAnimation>;
 
 export const ManifestCheck = z.strictObject({
-  "key": z.enum(["textures", "scale", "uv", "tris"]),
+  "key": z.enum(["textures", "scale", "uv", "tris", "pivot"]),
   "pass": z.boolean(),
+  "level": CheckSeverity.optional(),
   "sentence": z.string(),
   "fix": z.string(),
 });

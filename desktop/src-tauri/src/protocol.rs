@@ -275,12 +275,17 @@ pub enum CheckKey {
     Scale,
     Uv,
     Tris,
+    /// v8 step 21: the pivot rule, when the template runs it.
+    Pivot,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ManifestCheck {
     pub key: CheckKey,
     pub pass: bool,
+    /// The template's level for this check (v8 step 21). None means block.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub level: Option<CheckSeverity>,
     pub sentence: String,
     pub fix: String,
 }
