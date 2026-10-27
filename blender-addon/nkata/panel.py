@@ -158,16 +158,29 @@ class NKATA_OT_add_to_project(bpy.types.Operator):
     bl_idname = "nkata.add_to_project"
     bl_label = "Add to project"
     bl_description = "Move this file into the project. Textures keep working. The team sees it on the next save"
+    name: bpy.props.StringProperty(name="Name", description="The asset's name in the project")  # type: ignore[valid-type]
+
+    def invoke(self, context: bpy.types.Context, _event: Any) -> set[str]:
+        # A file never saved has no name to file it under: ask in Blender's own small dialog,
+        # then save straight into the project. https://docs.blender.org/api/current/bpy.types.WindowManager.html#bpy.types.WindowManager.invoke_props_dialog
+        if not bpy.data.filepath and mapping.current_project() is not None:
+            return context.window_manager.invoke_props_dialog(self)
+        return self.execute(context)
 
     def execute(self, _context: bpy.types.Context) -> set[str]:
         root = mapping.current_project()
         if root is None:
             self.report({"WARNING"}, "Open the project in Nkata first")
             return {"CANCELLED"}
-        if not bpy.data.filepath:
-            self.report({"WARNING"}, "Save this file once, anywhere, then add it")
-            return {"CANCELLED"}
-        current = Path(bpy.data.filepath)
+        saved = bool(bpy.data.filepath)
+        if saved:
+            current = Path(bpy.data.filepath)
+        else:
+            name = str(self.name or "").strip().replace("/", " ").replace("\\", " ")
+            if not name:
+                self.report({"WARNING"}, "Name it first")
+                return {"CANCELLED"}
+            current = Path(f"{name}.blend")
         guess = kind_rules.kind_from_scene(save_hook.scene_bounds(), save_hook.scene_skinned())
         target = add_target(root, current, guess)
         if target.exists():
@@ -179,7 +192,7 @@ class NKATA_OT_add_to_project(bpy.types.Operator):
         if "FINISHED" not in result:
             self.report({"ERROR"}, f"Blender did not save: {result}")
             return {"CANCELLED"}
-        if current.is_file() and current.resolve() != target.resolve():
+        if saved and current.is_file() and current.resolve() != target.resolve():
             try:
                 current.unlink()
             except OSError as e:
@@ -354,18 +367,80 @@ def _first_name(c: dict[str, Any]) -> str:
     return str((c.get("author") or {}).get("name", "")).split(" ")[0]
 
 
+# ---- Start one of yours
+
+
+def refresh_startable() -> None:
+    """My Blender assets whose file is not on disk yet, for the panel while no project file is
+    open. The live timer calls it; the draw never calls the agent."""
+    root = mapping.current_project()
+    if root is None:
+        found: list[dict[str, Any]] = []
+    else:
+        client = AgentClient(mapping.read_token(root))
+        found = mapping.startable_parts(client.parts(), root, client.me().user.id)
+    with STATE.lock:
+        if found != STATE.startable:
+            STATE.startable = found
+            STATE.dirty = True
+
+
+class NKATA_OT_start_part(bpy.types.Operator):
+    """Saves the open scene where an asset made ahead of time (in Nkata, or seeded) expects its
+    .blend. Saved anywhere else it would become a second asset."""
+
+    bl_idname = "nkata.start_part"
+    bl_label = "Start"
+    bl_description = "Save this scene where this asset lives in the project"
+    part_id: bpy.props.StringProperty()  # type: ignore[valid-type]
+
+    def execute(self, _context: bpy.types.Context) -> set[str]:
+        part = next((p for p in STATE.startable if p["id"] == self.part_id), None)
+        root = mapping.current_project()
+        if part is None or root is None:
+            self.report({"WARNING"}, "Open the project in Nkata first")
+            return {"CANCELLED"}
+        save_hook.ensure_collection(str(part["mapping"]["collection"]))
+        target = root / str(part["mapping"]["file"])
+        if target.exists():
+            self.report({"WARNING"}, f"{part.get('asset_name')} already has a file. Open it from Nkata")
+            return {"CANCELLED"}
+        target.parent.mkdir(parents=True, exist_ok=True)
+        result = bpy.ops.wm.save_as_mainfile(filepath=str(target))
+        if "FINISHED" not in result:
+            self.report({"ERROR"}, f"Blender did not save: {result}")
+            return {"CANCELLED"}
+        # save_post has run by now. Open the part as a load would: the lock and the panel.
+        try:
+            save_hook.handle_open(str(target))
+        except AgentError as e:
+            self.report({"WARNING"}, e.message)
+        with STATE.lock:
+            STATE.startable = []
+            STATE.dirty = True
+        log("part.started", part_id=part["id"], file=str(part["mapping"]["file"]))
+        return {"FINISHED"}
+
+
 def draw_outside(layout: Any) -> None:
-    """The file is outside the project (or not saved): one button, one line."""
+    """The file is outside the project (or not saved): my assets waiting for a first save, then
+    one button and one line."""
     project = STATE.project_name or (mapping.current_project() or Path("")).name
     if STATE.added_line:
         layout.label(text=STATE.added_line, icon="CHECKMARK")
     if not project:
         layout.label(text="Open the project in Nkata first", icon="INFO")
         return
+    if STATE.startable:
+        layout.label(text="Yours, waiting for a first save")
+        for part in STATE.startable:
+            op = layout.operator(NKATA_OT_start_part.bl_idname, text=f"Start {part.get('asset_name')}", icon="FILE_NEW")
+            op.part_id = part["id"]
+        layout.separator()
     row = layout.row()
     row.scale_y = 1.4
     row.operator(NKATA_OT_add_to_project.bl_idname, text=f"Add to {project}", icon="IMPORT")
-    layout.label(text="Saves in the project reach the team in seconds")
+    layout.label(text="The team sees each save in seconds")
 
 
 def draw_connected(layout: Any, part: dict[str, Any]) -> None:
@@ -483,6 +558,9 @@ class NKATA_PT_panel(bpy.types.Panel):
 
 _throttle = live.Throttle(live.CHECK_EVERY_S)
 _heartbeat = live.Heartbeat()
+# While no project file is open, the start list is asked for again every this many seconds.
+STARTABLE_EVERY_S = 10.0
+_startable_at = [float("-inf")]
 
 
 def on_depsgraph_update(*_args: Any) -> None:
@@ -491,9 +569,16 @@ def on_depsgraph_update(*_args: Any) -> None:
 
 def live_tick() -> float:
     """Every half second: re-run the checks when the scene changed and 2 s passed; send the
-    heartbeat every 20 s with the open file."""
+    heartbeat every 20 s with the open file. With no project file open, refresh the start list
+    every 10 s."""
     now = time.monotonic()
     part = STATE.part
+    if part is None and now - _startable_at[0] >= STARTABLE_EVERY_S:
+        _startable_at[0] = now
+        try:
+            refresh_startable()
+        except (AgentError, OSError) as e:
+            log("startable.failed", error=str(e))
     if part is not None and _throttle.due(now):
         try:
             run_checks(part, fix=False)
@@ -513,6 +598,7 @@ def live_tick() -> float:
 
 CLASSES = (
     NKATA_OT_add_to_project,
+    NKATA_OT_start_part,
     NKATA_OT_set_kind,
     NKATA_OT_fix_checks,
     NKATA_OT_publish,

@@ -126,6 +126,9 @@ class FakeLayout:
         self.lines.append("box")
         return FakeLayout(self.lines)
 
+    def separator(self) -> None:
+        self.lines.append("separator")
+
 
 class PanelTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -417,6 +420,53 @@ class PanelTest(unittest.TestCase):
         self.assertIn("file.make_paths_absolute", calls)
         self.assertNotIn("file.pack_all", calls)
         self.assertIn("Textures relinked", self.state.added_line)
+
+    def _pointer(self) -> Path:
+        home = Path(self.tmp.name) / "home"
+        (home / ".nkata").mkdir(parents=True)
+        (home / ".nkata" / "agent.json").write_text(json.dumps({"v": 1, "folder": str(self.root), "port": 7420}))
+        return home
+
+    def test_an_unsaved_file_asks_for_a_name_and_saves_straight_into_the_project(self) -> None:
+        # It had said "Save this file once, anywhere, then add it": a trip through a file dialog
+        # for a file the next click moves anyway.
+        self.bpy = bpy_stub.install({"model": self.collection}, "")
+        self.bpy.data.images = []
+        home = self._pointer()
+        self.save_hook.register()
+        with mock.patch.dict(os.environ, {"HOME": str(home)}):
+            op = self.panel.NKATA_OT_add_to_project()
+            self.assertEqual(op.invoke(self.bpy.context, None), {"RUNNING_MODAL"}, "an unsaved file asks for a name")
+            op.name = "  "
+            self.assertEqual(op.execute(None), {"CANCELLED"})
+            op.name = "Lantern"
+            self.assertEqual(op.execute(None), {"FINISHED"})
+        target = self.root / "Objects" / "Lantern" / "Lantern.blend"
+        self.assertTrue(target.is_file())
+        made = [c for c in FakeAgent.calls if c[1] == "/assets"]
+        self.assertEqual(made[0][2]["name"], "Lantern")
+
+    def test_my_assets_with_no_save_yet_are_offered_and_start_saves_where_they_live(self) -> None:
+        # An asset made ahead of time (the seed, the app) has its .blend path already; saved
+        # anywhere else it would become a second asset.
+        stall = {**PART, "id": "01MARKETSTA770000000000000", "asset_name": "Market stall", "mapping": {"kind": "blend_collection", "file": "Market stall/model.blend", "collection": "model"}}
+        theirs = {**stall, "id": "01THERS0000000000000000000", "asset_name": "Ojukwu", "owner": {"id": "01SMNE0000000000000000000A", "name": "Ada", "avatar_url": None}, "mapping": {"kind": "blend_collection", "file": "Ojukwu/face.blend", "collection": "face"}}
+        FakeAgent.parts = [PART, stall, theirs]
+        self.bpy = bpy_stub.install({"model": self.collection}, "")
+        home = self._pointer()
+        self.save_hook.register()
+        with mock.patch.dict(os.environ, {"HOME": str(home)}):
+            self.panel.refresh_startable()
+            self.assertEqual([p["asset_name"] for p in self.state.startable], ["Market stall"], "Radio is on disk, Ojukwu is Ada's")
+            lines = self.draw()
+            self.assertIn("label:Yours, waiting for a first save", lines)
+            self.assertIn("op:nkata.start_part:Start Market stall", lines)
+            op = self.panel.NKATA_OT_start_part()
+            op.part_id = stall["id"]
+            self.assertEqual(op.execute(None), {"FINISHED"})
+        self.assertTrue((self.root / "Market stall" / "model.blend").is_file())
+        self.assertEqual(self.state.startable, [])
+        self.assertFalse([c for c in FakeAgent.calls if c[1] == "/assets"], "starting an asset makes no new one")
 
     def test_without_the_app_the_panel_says_so(self) -> None:
         self.bpy = bpy_stub.install({"model": self.collection}, "")

@@ -271,7 +271,7 @@ def install(collections: dict[str, FakeCollection], filepath: str) -> types.Modu
             FakeOps.reports.append(message)
 
     bpy.types = types.SimpleNamespace(Operator=Operator, Panel=object, Context=object, SpaceView3D=None, WindowManager=types.SimpleNamespace(), RenderSettings=None)
-    Context.window_manager = types.SimpleNamespace(nkata_note="", nkata_note_engineering="", nkata_details_open=False)
+    Context.window_manager = types.SimpleNamespace(nkata_note="", nkata_note_engineering="", nkata_details_open=False, invoke_props_dialog=lambda _op: {"RUNNING_MODAL"})
     bpy.props = types.SimpleNamespace(StringProperty=lambda **_k: "", BoolProperty=lambda **_k: False, IntProperty=lambda **_k: 0)
     bpy.utils = types.SimpleNamespace(register_class=lambda _c: None, unregister_class=lambda _c: None)
     bpy._ops = ops
