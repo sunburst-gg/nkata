@@ -74,6 +74,7 @@ const agent = {
   downloadFile: async () => "/tmp/x",
   listBlendFiles: async () => [],
   placeFor: async (folder: string) => folder,
+  blenderRunning: async () => false,
 };
 
 async function booted() {
@@ -237,6 +238,18 @@ describe("LiveDataSource", () => {
     // Connecting Blender says nothing about the project: only a place on this computer does.
     expect(events.map((e) => e.type)).toEqual(["toolDetected", "addonInstalled", "paused", "agent", "resumed"]);
     expect(await source.listLocalProjects()).toEqual([{ projectId: PROJECT, name: "Rising Sun", path: "/Users/emeka/Nkata/Rising Sun", bytes: 0, syncing: true }]);
+  });
+
+  it("connecting while Blender is open says to restart it, since the add-on loads at start", async () => {
+    // Connect said nothing with Blender open, and the panel kept the old add-on until a restart.
+    for (const running of [true, false]) {
+      const server = fakeServer();
+      const source = new LiveDataSource({ serverUrl: "http://server", token: "tok", folder: null, fetch: server.fetchImpl, now: () => NOW, agent: { ...agent, blenderRunning: async () => running }, pollMs: 0 });
+      await source.loadAccount();
+      await source.detectBlender();
+      await source.connectBlender();
+      expect(source.blender).toEqual(running ? { kind: "connected", version: "4.2.3", addon: "1.4.0", restart: true } : { kind: "connected", version: "4.2.3", addon: "1.4.0" });
+    }
   });
 
   it("puts the project on this computer: keeps it in step there, knows the place, ticks the setup row", async () => {

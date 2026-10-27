@@ -22,6 +22,7 @@ const agent = {
   downloadFile: async () => "",
   listBlendFiles: async () => [],
   placeFor: async (folder: string) => folder,
+  blenderRunning: async () => false,
 };
 
 async function signIn(email: string): Promise<{ source: LiveDataSource; token: string }> {

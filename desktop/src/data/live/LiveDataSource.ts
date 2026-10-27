@@ -574,7 +574,9 @@ export class LiveDataSource implements DataSource {
     if (this.blenderState.kind !== "found") return;
     await this.agent.toolsInstallBlender();
     writeFlag("nkata.blender.connected", true);
-    this.connection({ type: "addonInstalled", addon: this.config.addonVersion ?? ADDON_VERSION });
+    // Blender loads an add-on at start: one installed while it runs needs a restart to show.
+    const restart = await this.agent.blenderRunning();
+    this.connection(restart ? { type: "addonInstalled", addon: this.config.addonVersion ?? ADDON_VERSION, restart: true } : { type: "addonInstalled", addon: this.config.addonVersion ?? ADDON_VERSION });
   }
   async updateAddon(): Promise<void> {
     if (this.blenderState.kind !== "outdated") return;

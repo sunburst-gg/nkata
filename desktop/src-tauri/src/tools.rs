@@ -45,6 +45,33 @@ pub struct BlenderInstall {
 }
 
 /// Blender on this machine: the standard install folders, then PATH. `NKATA_BLENDER` wins.
+/// Whether Blender is running on this computer. An add-on installed while it runs loads only at
+/// its next start, so Connect says to restart it. pgrep on macOS and Linux, tasklist on Windows:
+/// https://man.freebsd.org/cgi/man.cgi?query=pgrep
+/// https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/tasklist
+pub fn blender_running() -> bool {
+    if cfg!(target_os = "windows") {
+        Command::new("tasklist")
+            .args(["/FI", "IMAGENAME eq blender.exe", "/NH"])
+            .output()
+            .is_ok_and(|o| tasklist_has_blender(&String::from_utf8_lossy(&o.stdout)))
+    } else {
+        Command::new("pgrep")
+            .args(["-ix", "blender"])
+            .output()
+            .is_ok_and(|o| o.status.success())
+    }
+}
+
+/// tasklist prints the matching rows, or an INFO line when nothing matches.
+fn tasklist_has_blender(out: &str) -> bool {
+    out.lines().any(|l| {
+        l.trim_start()
+            .to_ascii_lowercase()
+            .starts_with("blender.exe")
+    })
+}
+
 pub fn find_blender() -> Option<BlenderInstall> {
     for exe in blender_candidates() {
         if !exe.is_file() {
@@ -453,6 +480,16 @@ mod tests {
 
     fn repo_root() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+    }
+
+    #[test]
+    fn tasklist_names_blender_only_when_it_runs() {
+        assert!(tasklist_has_blender(
+            "\r\nblender.exe                  4242 Console    1    812,344 K\r\n"
+        ));
+        assert!(!tasklist_has_blender(
+            "INFO: No tasks are running which match the specified criteria.\r\n"
+        ));
     }
 
     #[test]

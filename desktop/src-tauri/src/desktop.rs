@@ -165,6 +165,14 @@ async fn list_blend_files(folder: String) -> Result<Vec<String>, String> {
     .map_err(|e| e.to_string())
 }
 
+/// Whether Blender is running: Connect then says to restart it (tools::blender_running).
+#[tauri::command]
+async fn blender_running() -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(nkata_agent::tools::blender_running)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 /// Where a project lives when the person picks `folder` for it (tools::place_in).
 #[tauri::command]
 async fn place_for(folder: String, name: String, project_id: String) -> Result<String, String> {
@@ -275,6 +283,7 @@ fn main() {
             tools_detect,
             list_blend_files,
             place_for,
+            blender_running,
             download_file,
             open_version,
             open_in_blender,

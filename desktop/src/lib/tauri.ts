@@ -59,4 +59,6 @@ export const agent = {
   /** Where the project lives if the person picks `folder`: the folder, or one named after the project inside it. */
   placeFor: (folder: string, name: string, projectId: string): Promise<string> =>
     inTauri() ? invoke<string>("place_for", { folder, name, projectId }) : Promise.resolve(folder),
+  /** Whether Blender is running: an add-on installed now loads at its next start. */
+  blenderRunning: (): Promise<boolean> => (inTauri() ? invoke<boolean>("blender_running") : Promise.resolve(false)),
 };
