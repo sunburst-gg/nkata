@@ -588,6 +588,20 @@ class PanelTest(unittest.TestCase):
         self.assertNotIn("op:nkata.fix_origin:Fix origin", lines, "an accepted pivot is not offered a fix")
         self.assertIn("op:nkata.publish:Publish, after the note", lines)
 
+    def test_what_unreals_validators_said_shows_under_the_checks_and_holds_publish(self) -> None:
+        FakeAgent.parts = [{**PART, "kind": "prop"}]
+        self.save_hook.handle_open(str(self.blend))
+        self.save_hook.handle_save(str(self.blend))
+        part_id = FakeAgent.parts[0]["id"]
+        found = [{"asset": "Door", "level": "error", "message": "Static mesh Door must start with SM_."}]
+        self.state.apply_event({"kind": "mirror.result", "part_id": part_id, "status": "synced", "message": "", "validation": found})
+        lines = self.draw()
+        self.assertIn("label:Unreal: Door: Static mesh Door must start with SM_.", lines)
+        self.assertIn("op:nkata.publish:Publish, after the red one", lines)
+        # The next save waits on its own preview.
+        self.save_hook.handle_save(str(self.blend))
+        self.assertNotIn("label:Unreal: Door: Static mesh Door must start with SM_.", self.draw())
+
     def _pointer(self) -> Path:
         home = Path(self.tmp.name) / "home"
         (home / ".nkata").mkdir(parents=True)

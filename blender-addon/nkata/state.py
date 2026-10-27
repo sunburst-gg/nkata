@@ -17,6 +17,8 @@ class MirrorView:
     version_id: str | None = None
     halted: bool = False
     on_save: bool = True
+    # What Unreal's validators said about the last preview import (v8 step 22).
+    validation: list[dict[str, Any]] = field(default_factory=list)
 
     def line(self, now: float | None = None) -> str:
         """The one line both panels show. See docs/product.md, Blender panel."""
@@ -97,6 +99,7 @@ class AddonState:
                 view.mirror_ms = event.get("mirror_ms")
                 view.version_id = event.get("version_id")
                 view.at = time.time()
+                view.validation = list(event.get("validation") or [])
             elif kind == "presence.changed":
                 self.online = list(event.get("online") or [])
             elif kind == "comment.created":

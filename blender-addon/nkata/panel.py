@@ -76,7 +76,10 @@ def run_checks(part: dict[str, Any], fix: bool) -> list[dict[str, Any]]:
 
 
 def check_lines(part: dict[str, Any]) -> list[live.CheckLine]:
-    return live.lines(STATE.checks.get(part["id"]) or [], STATE.card.get(part["id"], {}), asset_budget(part), part.get("exceptions"))
+    rows = live.lines(STATE.checks.get(part["id"]) or [], STATE.card.get(part["id"], {}), asset_budget(part), part.get("exceptions"))
+    # v8 step 22: what Unreal's validators said about the last preview, under the checks.
+    unreal = live.validator_line(STATE.mirror_for(part["id"]).validation, part.get("exceptions"))
+    return [*rows, unreal] if unreal else rows
 
 
 def export_lost(part: dict[str, Any]) -> bool:
@@ -551,7 +554,9 @@ def draw_checks(layout: Any, part: dict[str, Any]) -> None:
     fixable = False
     origin = False
     for r in rows:
-        box.label(text=r.sentence, icon=line_icon(r))
+        # The validators' line holds one finding per row, each in its own words.
+        for i, text in enumerate(r.sentence.split("\n")):
+            box.label(text=text, icon=line_icon(r) if i == 0 else "BLANK1")
         if r.accepted:
             # A lead accepted it (step 21): who and why, and it no longer holds Publish.
             box.label(text=r.accepted, icon="CHECKMARK")

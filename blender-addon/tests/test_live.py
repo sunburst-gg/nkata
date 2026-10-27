@@ -106,6 +106,31 @@ class StudioRulesTest(unittest.TestCase):
         self.assertEqual(after.objects[0].origin, (0.0, 0.0, 0.5))
 
 
+class ValidatorLineTest(unittest.TestCase):
+    """v8 step 22: what Unreal's validators said, in their words, under the checks."""
+
+    def test_an_error_holds_publish_and_warnings_alone_do_not(self) -> None:
+        self.assertIsNone(live.validator_line([]))
+        error = {"asset": "Door", "level": "error", "message": "Static mesh Door must start with SM_."}
+        warning = {"asset": "Door", "level": "warning", "message": "Door has no LODs."}
+        line = live.validator_line([warning, error])
+        assert line is not None
+        self.assertEqual(line.sentence, "Unreal: Door: Static mesh Door must start with SM_.\nUnreal: Door: Door has no LODs.")
+        self.assertTrue(line.holds)
+        self.assertEqual(live.publish_label([line], "Door hung."), "Publish, after the red one")
+        warned = live.validator_line([warning])
+        assert warned is not None
+        self.assertEqual(warned.level, "warn")
+        self.assertFalse(warned.holds)
+
+    def test_a_lead_accepted_finding_says_who_and_why(self) -> None:
+        accepted = {**HINGE, "check_id": "unreal_validators", "reason": "Named by the vendor, renamed in the next pass."}
+        line = live.validator_line([{"asset": "Door", "level": "error", "message": "x"}], [accepted])
+        assert line is not None
+        self.assertEqual(line.accepted, "Accepted by Ada: Named by the vendor, renamed in the next pass.")
+        self.assertFalse(line.holds)
+
+
 class ClockTest(unittest.TestCase):
     def test_checks_run_at_most_every_two_seconds_and_only_after_a_change(self) -> None:
         t = live.Throttle(2.0)

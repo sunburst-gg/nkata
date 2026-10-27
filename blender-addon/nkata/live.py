@@ -120,6 +120,23 @@ def green_sentence(key: str, card: dict[str, Any], budget: int) -> str:
     return f"{card.get('triangles', 0):,} triangles, within budget of {budget:,}"
 
 
+VALIDATORS = "unreal_validators"
+
+
+def validator_line(findings: list[dict[str, Any]], exceptions: list[dict[str, Any]] | None = None) -> CheckLine | None:
+    """What Unreal's validators said about the preview, as one line in their words, one finding
+    per row of the sentence (v8 step 22). An error holds Publish, as a block check does; warnings
+    alone are shown. None when they found nothing or did not run."""
+    if not findings:
+        return None
+    ordered = sorted(findings, key=lambda f: f.get("level") != "error")
+    errors = any(f.get("level") == "error" for f in findings)
+    sentence = "\n".join(f"Unreal: {f.get('asset')}: {f.get('message')}" for f in ordered)
+    e = next((x for x in exceptions or [] if x.get("check_id") == VALIDATORS), None)
+    accepted = f"Accepted by {_first(e.get('by'))}: {e.get('reason', '')}" if e else ""
+    return CheckLine("unreal", False, sentence, "Fix it in Blender and save again, or a lead accepts it.", level="block" if errors else "warn", accepted=accepted)
+
+
 def manifest_checks(rows: list[CheckLine]) -> list[dict[str, Any]]:
     return [{"key": r.key, "pass": r.passed, "level": r.level, "sentence": r.sentence, "fix": r.fix} for r in rows]
 

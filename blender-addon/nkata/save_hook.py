@@ -324,6 +324,8 @@ def handle_save(filepath: str) -> dict[str, Any]:
         view.version_id = res.version_id
         view.message = ""
         view.at = time.time()
+        # A new save waits on its own preview: the last one's findings no longer apply.
+        view.validation = []
         STATE.dirty = True
     total_ms = int((time.monotonic() - started) * 1000)
     log("save.posted", part_id=part["id"], version_id=res.version_id, changed=changed, export_ms=export_ms, total_ms=total_ms)
