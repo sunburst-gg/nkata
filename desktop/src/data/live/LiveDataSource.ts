@@ -77,6 +77,18 @@ export class LiveDataSource implements DataSource {
   }
 
   get blender(): BlenderState { return this.blenderState; }
+  /** The Unreal projects inside the place on this computer: what Connect Unreal offers. */
+  async detectUnreal(): Promise<string[]> {
+    if (!this.folder) return [];
+    return (await this.agent.toolsDetect(this.folder)).uprojects;
+  }
+  /** Connect Unreal: the plugin into that project, with Python and Remote Control on. */
+  async connectUnreal(uproject: string): Promise<void> {
+    await this.agent.toolsInstallUe(uproject);
+    writeFlag("nkata.unreal.connected", true);
+  }
+  /** Whether Unreal was connected on this computer before. */
+  unrealConnectedBefore(): boolean { return readFlag("nkata.unreal.connected"); }
   /** Whether the server has the Unreal mirror on (UNREAL_ENABLED): Unreal settings show only then. */
   unrealEnabled(): boolean { return !!this.account?.features?.unreal; }
   /** Whether Blender connected on this computer before: known at launch, before detection. */

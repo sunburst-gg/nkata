@@ -77,6 +77,7 @@ const agent = {
   blenderRunning: async () => false,
   folderBytes: async () => 96_040,
   toolsRemoveBlender: async () => "removed",
+  toolsInstallUe: async () => "installed",
 };
 
 async function booted() {
@@ -240,6 +241,18 @@ describe("LiveDataSource", () => {
     // Connecting Blender says nothing about the project: only a place on this computer does.
     expect(events.map((e) => e.type)).toEqual(["toolDetected", "addonInstalled", "paused", "agent", "resumed"]);
     expect(await source.listLocalProjects()).toEqual([{ projectId: PROJECT, name: "Rising Sun", path: "/Users/emeka/Nkata/Rising Sun", bytes: 96_040, syncing: true }]);
+  });
+
+  it("Unreal: finds the project's .uproject in the place and connects it with the plugin", async () => {
+    const server = fakeServer();
+    const toolsInstallUe = vi.fn(async () => "/x/Plugins/Nkata");
+    const source = new LiveDataSource({ serverUrl: "http://server", token: "tok", folder: "/Users/emeka/Nkata/Rising Sun", fetch: server.fetchImpl, now: () => NOW, agent: { ...agent, toolsDetect: async () => ({ blender: null, uprojects: ["/Users/emeka/Nkata/Rising Sun/Game/Game.uproject"], addon_shipped: true, plugin_shipped: true }), toolsInstallUe }, pollMs: 0 });
+    await source.loadAccount();
+    expect(await source.detectUnreal()).toEqual(["/Users/emeka/Nkata/Rising Sun/Game/Game.uproject"]);
+    await source.connectUnreal("/Users/emeka/Nkata/Rising Sun/Game/Game.uproject");
+    expect(toolsInstallUe).toHaveBeenCalledWith("/Users/emeka/Nkata/Rising Sun/Game/Game.uproject");
+    const nowhere = new LiveDataSource({ serverUrl: "http://server", token: "tok", folder: null, fetch: server.fetchImpl, now: () => NOW, agent, pollMs: 0 });
+    expect(await nowhere.detectUnreal()).toEqual([]);
   });
 
   it("a full disk reaches the window as the project's problem line, in the agent's words", async () => {

@@ -17,7 +17,7 @@ export interface PartWire { id: string; asset_id: string; name: string; owner: U
 export interface ManifestCheckWire { key: "textures" | "scale" | "uv" | "tris"; pass: boolean; sentence: string; fix: string }
 export interface ExportLossWire { kind: string; names: string[]; sentence: string }
 export interface ManifestWire { objects: { name: string; triangles: number; materials: string[]; hash: string; uv_sets?: string[] }[]; textures?: { name: string; width: number; height: number }[]; unit_scale?: number | null; asset_kind?: "object" | "environment"; checks?: ManifestCheckWire[]; bones?: string[]; animations?: { name: string; seconds: number }[]; export?: { intact: boolean; losses: ExportLossWire[]; bones_changed?: string[] } }
-export interface VersionWire { id: string; part_id: string; author_id: string; published: boolean; note: string; note_engineering?: string; created_at: string; render_url?: string | null; model_url?: string | null; manifest?: ManifestWire | null }
+export interface VersionWire { mirror_status?: string; id: string; part_id: string; author_id: string; published: boolean; note: string; note_engineering?: string; created_at: string; render_url?: string | null; model_url?: string | null; manifest?: ManifestWire | null }
 export interface CheckWire { check_id: string; severity: "block" | "warn"; passed: boolean; auto_fixed: boolean; message: string }
 export interface ReviewWire { id: string; part_id: string; version_id: string; reviewer_id: string; decision: "approve" | "send_back"; note: string; created_at: string }
 export interface CommentWire { id: string; part_id: string; version_id: string; author: UserRef; body: string; kind: "pin" | "take_a_look"; point: number[]; created_at: string; resolved_at?: string | null }
@@ -143,6 +143,8 @@ export function versionOf({ v, checks, reviews, partApproved }: VersionInput, n:
     approved: decided?.decision === "approve" || (partApproved && !decided),
     changesRequested: decided?.decision === "send_back",
     ...(v.model_url ? { glb: v.model_url } : {}), ...(v.render_url ? { render: v.render_url } : {}),
+    // The Unreal mirror's state for this save. Skipped (Unreal off, or nothing to mirror) is none.
+    ...(v.mirror_status === "pending" || v.mirror_status === "synced" || v.mirror_status === "failed" ? { unreal: v.mirror_status } : {}),
   };
 }
 

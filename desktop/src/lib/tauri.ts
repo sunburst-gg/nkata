@@ -61,6 +61,9 @@ export const agent = {
   /** Where the project lives if the person picks `folder`: the folder, or one named after the project inside it. */
   placeFor: (folder: string, name: string, projectId: string): Promise<string> =>
     inTauri() ? invoke<string>("place_for", { folder, name, projectId }) : Promise.resolve(folder),
+  /** Connect Unreal: the plugin into the project, with Python and Remote Control on. Resolves to the plugin's folder. */
+  toolsInstallUe: (uproject: string): Promise<string> =>
+    inTauri() ? invoke<string>("tools_install_ue", { uproject }) : Promise.reject(new Error("Unreal connects from the desktop app.")),
   /** Disconnect: Blender disables and removes the add-on. Resolves to Blender's last line. */
   toolsRemoveBlender: (): Promise<string> =>
     inTauri() ? invoke<string>("tools_remove_blender") : Promise.resolve("removed"),

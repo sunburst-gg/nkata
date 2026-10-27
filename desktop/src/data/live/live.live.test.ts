@@ -25,6 +25,7 @@ const agent = {
   blenderRunning: async () => false,
   folderBytes: async () => 96_040,
   toolsRemoveBlender: async () => "removed",
+  toolsInstallUe: async () => "installed",
 };
 
 async function signIn(email: string): Promise<{ source: LiveDataSource; token: string }> {

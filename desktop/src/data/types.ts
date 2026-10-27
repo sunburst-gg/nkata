@@ -89,6 +89,8 @@ export interface Version {
   /** This save's own model and still, when the agent uploaded them. The mock has one model per asset. */
   glb?: string;
   render?: string;
+  /** Where this save is in Unreal when the mirror is on: on its way, in the editor, or did not arrive. */
+  unreal?: "pending" | "synced" | "failed";
 }
 
 export type AssetKind = "object" | "environment";

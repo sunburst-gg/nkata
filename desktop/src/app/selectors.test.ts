@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { ME, MockDataSource, RISING_SUN } from "@/data/mock";
 import { needsMe, waitingOnLead } from "@/data/rules";
+import { unrealRow } from "./selectors";
 import { applyFilter, canPublishHere, canResolve, cardOrder, carried, openPinsLine, openPinsUpTo, factsWithDeltas, filterCounts, journey, modelOf, publishState, sectionsByGroup, stripLabel, trisDelta, canReview } from "./selectors";
 
 async function load(stage: "studio" | "empty" | "joining" | "firstsave" | "firstcomment", role: "lead" | "artist" | "viewer") {
@@ -210,6 +211,15 @@ describe("the facts say what the checks found", () => {
     const rows = factsWithDeltas({ ...facts, textures: 3, uvSets: 2 }, facts, []);
     expect(rows.map((r) => [r.name, r.delta])).toEqual([["Triangles", "same"], ["Textures", "+2"], ["Scale", "metres"], ["UV sets", "+1"]]);
     expect(factsWithDeltas(facts, facts, []).map((r) => r.delta)).toEqual(["same", "same", "metres", "same"]);
+  });
+});
+
+describe("the save in Unreal", () => {
+  it("a mirrored save says where it is in plain words; with Unreal off there is no row", () => {
+    expect(unrealRow(undefined)).toBeNull();
+    expect(unrealRow("synced")).toMatchObject({ name: "Unreal", value: "In the editor", failed: false });
+    expect(unrealRow("pending")).toMatchObject({ value: "On its way", pending: true });
+    expect(unrealRow("failed")).toMatchObject({ value: "Did not arrive", failed: true, fix: "Open Unreal with the project, then save again in Blender." });
   });
 });
 

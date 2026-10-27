@@ -34,6 +34,14 @@ describe("people and time", () => {
   });
 });
 
+describe("the save in Unreal", () => {
+  it("a version carries its mirror status, and a skipped one carries none", () => {
+    const base = { id: "v", part_id: "p", author_id: "a", published: false, note: "", created_at: "2026-10-18T11:30:00Z" };
+    expect(versionOf({ v: { ...base, mirror_status: "synced" }, checks: [], reviews: [], partApproved: false }, 1, 30_000, new Date("2026-10-18T12:00:00Z")).unreal).toBe("synced");
+    expect(versionOf({ v: { ...base, mirror_status: "skipped" }, checks: [], reviews: [], partApproved: false }, 1, 30_000, new Date("2026-10-18T12:00:00Z")).unreal).toBeUndefined();
+  });
+});
+
 describe("the export the add-on read back (v8 step 17)", () => {
   it("carries the rig, the animations and the export in the add-on's own words", () => {
     const facts = factsOf({ ...manifest, bones: ["root", "hand_L"], animations: [{ name: "Walk", seconds: 1.25 }], export: { intact: false, losses: [{ kind: "animation", names: ["Idle"], sentence: "Animations not in the export: Idle." }], bones_changed: ["hand_R"] } })!;

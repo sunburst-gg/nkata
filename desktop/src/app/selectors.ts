@@ -129,6 +129,14 @@ export function trisDelta(now: number, prev: number | null | undefined): { text:
   return now > prev ? { text: `+${k}k tris`, tone: "neutral" } : { text: `−${k}k tris`, tone: "good" };
 }
 
+/** Where a save is in Unreal, as one row of the facts; none when the mirror did not run. */
+export function unrealRow(status: Version["unreal"]): FactRow | null {
+  if (!status) return null;
+  if (status === "synced") return { name: "Unreal", value: "In the editor", delta: "", tone: "muted", failed: false, fix: "" };
+  if (status === "pending") return { name: "Unreal", value: "On its way", delta: "", tone: "muted", failed: false, pending: true, fix: "" };
+  return { name: "Unreal", value: "Did not arrive", delta: "", tone: "muted", failed: true, fix: "Open Unreal with the project, then save again in Blender." };
+}
+
 /** The four facts with their deltas and, under a failed one, the fix. Every fact appears once. */
 export function factsWithDeltas(facts: Facts | undefined, previous: Facts | undefined, checks: Version["checks"]): FactRow[] {
   if (!facts) return [];
