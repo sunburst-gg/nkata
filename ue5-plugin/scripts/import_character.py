@@ -28,6 +28,7 @@ import time
 from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import validate  # noqa: E402
 import verify  # noqa: E402
 from _assets import find_existing, imported_mesh  # noqa: E402
 from _result import emit, read_args  # noqa: E402
@@ -140,6 +141,16 @@ def refresh(asset_path: str) -> None:
             unreal.EditorAssetLibrary.sync_browser_to_objects([asset_path])
 
 
+def validated(paths: list[str]) -> dict[str, Any]:
+    """v8 step 22: what Unreal's validators said about the import. A validator that throws does not
+    undo the import: it is logged, and the result carries no findings."""
+    try:
+        return {"validation": validate.run(paths)}
+    except Exception as e:  # noqa: BLE001 - any validator, Epic's or the studio's, can throw
+        unreal.log_warning(f"Nkata: the validators did not run: {type(e).__name__}: {e}")
+        return {"validation_error": f"{type(e).__name__}: {e}"}
+
+
 def main(argv: list[str]) -> None:
     started = time.monotonic()
     args = read_args(argv)
@@ -170,6 +181,7 @@ def main(argv: list[str]) -> None:
     emit(
         True,
         "",
+        **validated([*imported, asset_path]),
         asset_path=asset_path,
         verify=checked,
         first_import=existing is None,
