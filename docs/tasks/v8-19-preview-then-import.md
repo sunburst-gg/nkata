@@ -24,3 +24,5 @@ Done means each item holds with a real Blender and an open Unreal editor, and `m
 Gate: with an open editor, three saves of a prop reach the preview folder and change nothing in
 /Game/Nkata/<asset>; Publish puts the third into /Game/Nkata/<asset>; with the switch off, a save
 reaches the team and not Unreal.
+
+Gate passed 2026-10-27 on this Mac: see docs/decisions.md.

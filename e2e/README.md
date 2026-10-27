@@ -35,3 +35,10 @@ lights into Environments/Station. Each save must reach the editor as a USD stage
 a light removed in Blender must leave the stage on the next save; Publish imports the environment
 with its actors and one mesh asset per identical mesh.
 `NKATA_BLENDER=/Applications/Blender.app/Contents/MacOS/Blender make environment-usd`.
+
+## preview_then_import.sh (v8 step 19)
+
+Needs an Unreal editor open with the Nkata plugin installed by Connect. A real Blender saves a
+crate three times: each save must land in /Game/Nkata/_Preview and leave /Game/Nkata/Crate empty;
+Publish must put it in /Game/Nkata/Crate; with Live in Unreal off, a save versions and stays out
+of Unreal. `NKATA_BLENDER=/Applications/Blender.app/Contents/MacOS/Blender make preview-then-import`.

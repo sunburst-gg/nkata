@@ -1,4 +1,4 @@
-.PHONY: hooks dev dev-down test addon-vendor addon ue e2e quality fixtures fixtures-v8 export-intact environment-usd
+.PHONY: hooks dev dev-down test addon-vendor addon ue e2e quality fixtures fixtures-v8 export-intact environment-usd preview-then-import
 
 # One-time: route git hooks to the repo's .githooks folder.
 hooks:
@@ -61,3 +61,9 @@ export-intact:
 # the Nkata plugin and Remote Control: NKATA_BLENDER=/path/to/Blender make environment-usd
 environment-usd:
 	e2e/environment_usd.sh
+
+# The step 19 gate: saves preview in Unreal and leave the game's assets alone; Publish imports;
+# Live in Unreal off keeps a save out of Unreal. Needs Blender and an open Unreal editor with the
+# Nkata plugin: NKATA_BLENDER=/path/to/Blender make preview-then-import
+preview-then-import:
+	e2e/preview_then_import.sh
