@@ -188,6 +188,18 @@ describe("LiveDataSource", () => {
     expect((await source.listMembers(PROJECT)).find((m) => m.person.first === "Ada")?.journey).toBe("inBlender");
   });
 
+  it("the first poll after sign in catches up quietly: an old approval is not news", async () => {
+    // Signing in replayed the project's history: "Ngozi approved v2 of Kettle" toasted an hour on.
+    const { source, events, server } = await booted();
+    await source.listAssets(PROJECT);
+    server.events.push({ id: "01E0", event: { v: 1, kind: "review.decided", project_id: PROJECT, actor_id: emeka.id, at: "2026-10-18T10:00:00Z", part_id: "p1", version_id: "v1", decision: "approve" } });
+    await source.poll(PROJECT);
+    expect(events).toEqual([]);
+    server.events.push({ id: "01E1", event: { v: 1, kind: "version.created", project_id: PROJECT, actor_id: ada.id, at: "2026-10-18T11:59:00Z", part_id: "p1", version_id: "v2", published: false } });
+    await source.poll(PROJECT);
+    expect(events.map((e) => e.type)).toEqual(["saved"]);
+  });
+
   it("a lost server reads as offline once, and online once it answers again", async () => {
     const { source, events, server } = await booted();
     await source.listAssets(PROJECT);

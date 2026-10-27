@@ -11,6 +11,9 @@ import { isViewer } from "@/auth/permissions";
 import { assetOf, budgetsOf, budgetsWire, colorOf, commentOf, memberOf, mentionsOf, namesMe, personOf, projectOf, roleOf, studioRefsOf, SERVER_ROLE, type AccountWire, type AssetWire, type CheckWire, type CommentWire, type EventWire, type MemberWire, type PartWire, type ProjectWire, type ReviewWire, type VersionWire } from "./wire";
 import { readSession, writeSession, type SavedSession } from "./session";
 
+/** Events per /events page. */
+const EVENT_PAGE = 200;
+
 export type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
 export interface LiveConfig {
@@ -56,6 +59,8 @@ export class LiveDataSource implements DataSource {
   private readonly handlers = new Set<(e: DataEvent) => void>();
   private loaded: Loaded | null = null;
   private lastEventId: string | null = null;
+  /** The project whose history the cursor has caught up with. Until then nothing is relayed. */
+  private caughtUp: string | null = null;
   private online = true;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private beatTimer: ReturnType<typeof setTimeout> | null = null;
@@ -141,6 +146,8 @@ export class LiveDataSource implements DataSource {
     this.account = null;
     this.me = null;
     this.loaded = null;
+    this.lastEventId = null;
+    this.caughtUp = null;
     this.folder = null;
     writeSession({ ...this.session(), projectId: "" });
   }
@@ -157,6 +164,7 @@ export class LiveDataSource implements DataSource {
     this.token = acc.token;
     this.loaded = null;
     this.lastEventId = null;
+    this.caughtUp = null;
     this.remember();
     await this.loadAccount();
   }
@@ -444,12 +452,23 @@ export class LiveDataSource implements DataSource {
   }
   /** One round of /events. Exposed for tests. */
   async poll(projectId: string): Promise<void> {
-    const since = this.lastEventId ? `&since=${this.lastEventId}` : "";
-    const res = await this.call<{ events: EventWire[]; next: string | null }>("GET", `/events?project_id=${projectId}${since}&limit=200`);
-    if (res.events.length === 0) return;
-    this.lastEventId = res.next ?? res.events[res.events.length - 1]!.id;
-    await this.refreshFor(projectId, res.events.map((x) => x.event));
-    for (const { event } of res.events) this.relay(event);
+    const page = async () => {
+      const since = this.lastEventId ? `&since=${this.lastEventId}` : "";
+      const res = await this.call<{ events: EventWire[]; next: string | null }>("GET", `/events?project_id=${projectId}${since}&limit=${EVENT_PAGE}`);
+      if (res.events.length > 0) this.lastEventId = res.next ?? res.events[res.events.length - 1]!.id;
+      return res.events;
+    };
+    // The first round for a project only moves the cursor to now. The wall load already holds
+    // what those events did; relayed, they toasted an approval from an hour ago as news.
+    if (this.caughtUp !== projectId) {
+      while ((await page()).length === EVENT_PAGE);
+      this.caughtUp = projectId;
+      return;
+    }
+    const events = await page();
+    if (events.length === 0) return;
+    await this.refreshFor(projectId, events.map((x) => x.event));
+    for (const { event } of events) this.relay(event);
   }
   /**
    * What a batch of events needs: presence only rebuilds from the rows in hand; an event on a
