@@ -43,7 +43,7 @@ async function api<T>(token: string, method: string, path: string, body?: unknow
   return json;
 }
 
-const manifest = { v: 1, kind: "prop", objects: [{ name: "Kettle", triangles: 4_200, materials: ["M_Kettle"], bounds_min: [0, 0, 0], bounds_max: [1, 1, 1], hash: "k1", origin: [0, 0, 0], scale: [1, 1, 1], uv_sets: ["UVMap"] }], bone_count: null, armature: null, mirror_target: null, textures: [], unit_scale: 1 };
+const manifest = { v: 1, kind: "prop", objects: [{ name: "Stool", triangles: 4_200, materials: ["M_Stool"], bounds_min: [0, 0, 0], bounds_max: [1, 1, 1], hash: "k1", origin: [0, 0, 0], scale: [1, 1, 1], uv_sets: ["UVMap"] }], bone_count: null, armature: null, mirror_target: null, textures: [], unit_scale: 1 };
 
 describe.skipIf(!SERVER)("two machines, one project", () => {
   it("a save on machine A shows on machine B within one poll, with its owner; then the strip walks Invited, Joined, Blender", async () => {
@@ -54,22 +54,24 @@ describe.skipIf(!SERVER)("two machines, one project", () => {
     const events: DataEvent[] = [];
     b.source.subscribe((e) => events.push(e));
     const wall = await b.source.listAssets(project.id);
-    const kettle = wall.find((x) => x.name === "Kettle")!;
-    expect(kettle.owner.first).toBe("Chidi");
+    // Wooden stool: no other test uses it. The agent tests save into Kettle after this file runs,
+    // over the same database, and an approved part is read-only.
+    const stool = wall.find((x) => x.name === "Wooden stool")!;
+    expect(stool.owner.first).toBe("Chidi");
     await b.source.poll(project.id);
     events.length = 0;
 
     // Machine A: the artist's agent posts the save the add-on made.
     // The add-on saves into the part with the .blend, as the wall shows it (not concept, first).
-    const detail = await api<{ parts: { id: string; mapping: { kind: string } }[] }>(a.token, "GET", `/assets/${kettle.id}`);
+    const detail = await api<{ parts: { id: string; mapping: { kind: string } }[] }>(a.token, "GET", `/assets/${stool.id}`);
     const partId = detail.parts.find((p) => p.mapping.kind === "blend_collection")!.id;
     const t0 = Date.now();
     await api(a.token, "POST", `/parts/${partId}/versions`, { manifest, mirror_status: "skipped", note: "" });
     await b.source.poll(project.id);
     const saved = events.find((e) => e.type === "saved");
-    expect(saved).toMatchObject({ type: "saved", assetId: kettle.id, by: a.source.me!.id });
+    expect(saved).toMatchObject({ type: "saved", assetId: stool.id, by: a.source.me!.id });
     expect(Date.now() - t0).toBeLessThan(5_000);
-    const after = (await b.source.getAsset(kettle.id))!;
+    const after = (await b.source.getAsset(stool.id))!;
     expect(after.live).toBeDefined();
     expect(after.versions[0]!.facts?.tris).toBe(4_200);
     expect(after.versions[0]!.checks.find((c) => c.key === "tris")).toMatchObject({ pass: true });
@@ -77,14 +79,14 @@ describe.skipIf(!SERVER)("two machines, one project", () => {
 
     // Publish from A's desktop with a note; B sees the Version and approves it.
     await a.source.listAssets(project.id);
-    await a.source.publish(kettle.id, "Spout reshaped.");
+    await a.source.publish(stool.id, "Legs reshaped.");
     await b.source.poll(project.id);
     expect(events.map((e) => e.type)).toContain("published");
-    const published = (await b.source.getAsset(kettle.id))!;
-    expect(published.versions[0]).toMatchObject({ n: 1, note: "Spout reshaped.", approved: false });
-    expect((await b.source.listMentions(project.id)).some((m) => m.asset.id === kettle.id && m.verb === "published, for you to approve")).toBe(true);
-    await b.source.approve(kettle.id, 1);
-    expect((await b.source.getAsset(kettle.id))!.versions[0]!.approved).toBe(true);
+    const published = (await b.source.getAsset(stool.id))!;
+    expect(published.versions[0]).toMatchObject({ n: 1, note: "Legs reshaped.", approved: false });
+    expect((await b.source.listMentions(project.id)).some((m) => m.asset.id === stool.id && m.verb === "published, for you to approve")).toBe(true);
+    await b.source.approve(stool.id, 1);
+    expect((await b.source.getAsset(stool.id))!.versions[0]!.approved).toBe(true);
     await a.source.poll(project.id);
 
     // Invite from B, sign in on C, name, heartbeat: B's strip walks Invited, Joined, Blender.
