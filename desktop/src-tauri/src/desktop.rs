@@ -198,6 +198,17 @@ async fn place_for(folder: String, name: String, project_id: String) -> Result<S
     .map_err(|e| e.to_string())
 }
 
+/// Disconnect: disables and removes the add-on through Blender's command line (tools::remove_blender_addon).
+#[tauri::command]
+async fn tools_remove_blender() -> Result<String, String> {
+    let blender = nkata_agent::tools::find_blender().ok_or("Blender was not found")?;
+    tauri::async_runtime::spawn_blocking(move || {
+        nkata_agent::tools::remove_blender_addon(&blender.exe).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Installs and enables the add-on through Blender's command line. Returns Blender's last line.
 #[tauri::command]
 async fn tools_install_blender() -> Result<String, String> {
@@ -301,6 +312,7 @@ fn main() {
             open_version,
             open_in_blender,
             tools_install_blender,
+            tools_remove_blender,
             tools_install_ue
         ])
         .run(tauri::generate_context!())

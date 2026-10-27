@@ -76,6 +76,7 @@ const agent = {
   placeFor: async (folder: string) => folder,
   blenderRunning: async () => false,
   folderBytes: async () => 96_040,
+  toolsRemoveBlender: async () => "removed",
 };
 
 async function booted() {
@@ -239,6 +240,19 @@ describe("LiveDataSource", () => {
     // Connecting Blender says nothing about the project: only a place on this computer does.
     expect(events.map((e) => e.type)).toEqual(["toolDetected", "addonInstalled", "paused", "agent", "resumed"]);
     expect(await source.listLocalProjects()).toEqual([{ projectId: PROJECT, name: "Rising Sun", path: "/Users/emeka/Nkata/Rising Sun", bytes: 96_040, syncing: true }]);
+  });
+
+  it("disconnect removes the add-on from Blender, as the dialog says, then reads disconnected", async () => {
+    // The dialog said "The add-on is removed." and nothing removed it: saves kept syncing.
+    const server = fakeServer();
+    const toolsRemoveBlender = vi.fn(async () => "STATUS Removed \"nkata\"");
+    const source = new LiveDataSource({ serverUrl: "http://server", token: "tok", folder: null, fetch: server.fetchImpl, now: () => NOW, agent: { ...agent, toolsRemoveBlender }, pollMs: 0 });
+    await source.loadAccount();
+    await source.detectBlender();
+    await source.connectBlender();
+    await source.disconnect();
+    expect(toolsRemoveBlender).toHaveBeenCalledTimes(1);
+    expect(source.blender.kind).toBe("disconnected");
   });
 
   it("connecting while Blender is open says to restart it, since the add-on loads at start", async () => {

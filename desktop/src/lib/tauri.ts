@@ -59,6 +59,9 @@ export const agent = {
   /** Where the project lives if the person picks `folder`: the folder, or one named after the project inside it. */
   placeFor: (folder: string, name: string, projectId: string): Promise<string> =>
     inTauri() ? invoke<string>("place_for", { folder, name, projectId }) : Promise.resolve(folder),
+  /** Disconnect: Blender disables and removes the add-on. Resolves to Blender's last line. */
+  toolsRemoveBlender: (): Promise<string> =>
+    inTauri() ? invoke<string>("tools_remove_blender") : Promise.resolve("removed"),
   /** What a place takes on this computer, the agent's own folder left out. */
   folderBytes: (folder: string): Promise<number> => (inTauri() ? invoke<number>("folder_bytes", { folder }) : Promise.resolve(0)),
   /** Whether Blender is running: an add-on installed now loads at its next start. */

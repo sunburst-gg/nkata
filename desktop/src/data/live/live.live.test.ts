@@ -24,6 +24,7 @@ const agent = {
   placeFor: async (folder: string) => folder,
   blenderRunning: async () => false,
   folderBytes: async () => 96_040,
+  toolsRemoveBlender: async () => "removed",
 };
 
 async function signIn(email: string): Promise<{ source: LiveDataSource; token: string }> {

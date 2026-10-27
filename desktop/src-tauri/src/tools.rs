@@ -22,6 +22,9 @@ use walkdir::WalkDir;
 
 use crate::error::{AgentError, Result};
 
+/// The add-on's id in its blender_manifest.toml: what Blender installs and removes it by.
+const ADDON_ID: &str = "nkata";
+
 /// The Blender repository the add-on lands in. Blender 4.2+ ships it by default.
 pub const BLENDER_REPO: &str = "user_default";
 pub const UE_PLUGIN_NAME: &str = "Nkata";
@@ -218,7 +221,8 @@ pub fn install_blender_addon(
 ) -> Result<String> {
     let zip_path = work_dir.join("nkata-addon.zip");
     extension_zip(addon_dir, shared_py, &zip_path)?;
-    let out = Command::new(blender)
+    let mut command = Command::new(blender);
+    command
         .args([
             "--command",
             "extension",
@@ -227,9 +231,22 @@ pub fn install_blender_addon(
             BLENDER_REPO,
             "-e",
         ])
-        .arg(&zip_path)
-        .output()
-        .map_err(|e| AgentError::io(blender, e))?;
+        .arg(&zip_path);
+    blender_command(blender, command, "install")
+}
+
+/// Disconnect: Blender disables and removes the add-on, as the dialog says. The files and the
+/// project stay. `blender --command extension remove nkata` (checked on Blender 5.2.2).
+/// https://docs.blender.org/manual/en/latest/advanced/command_line/extension_arguments.html
+pub fn remove_blender_addon(blender: &Path) -> Result<String> {
+    let mut command = Command::new(blender);
+    command.args(["--command", "extension", "remove", ADDON_ID]);
+    blender_command(blender, command, "remove")
+}
+
+/// Runs one Blender command line and returns its last line, or the error line it printed.
+fn blender_command(blender: &Path, mut command: Command, what: &str) -> Result<String> {
+    let out = command.output().map_err(|e| AgentError::io(blender, e))?;
     let text = format!(
         "{}{}",
         String::from_utf8_lossy(&out.stdout),
@@ -248,7 +265,7 @@ pub fn install_blender_addon(
             .find(|l| l.starts_with("Error"))
             .unwrap_or(&last);
         return Err(AgentError::Config(format!(
-            "Blender could not install the add-on: {cause}"
+            "Blender could not {what} the add-on: {cause}"
         )));
     }
     Ok(last)
@@ -711,6 +728,29 @@ mod tests {
         );
         assert!(args.trim().ends_with("nkata-addon.zip"), "{args}");
         assert!(tmp.path().join("nkata-addon.zip").is_file());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn disconnect_removes_the_add_on_through_blenders_command_line() {
+        use std::os::unix::fs::PermissionsExt;
+        let tmp = tempfile::tempdir().unwrap();
+        let fake = tmp.path().join("blender");
+        std::fs::write(&fake, "#!/bin/sh\necho \"$@\" > \"$(dirname \"$0\")/args\"\necho 'STATUS Removed \"nkata\"'\n").unwrap();
+        std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+        assert_eq!(
+            remove_blender_addon(&fake).unwrap(),
+            "STATUS Removed \"nkata\""
+        );
+        let args = std::fs::read_to_string(tmp.path().join("args")).unwrap();
+        assert_eq!(args.trim(), "--command extension remove nkata");
+        let manifest =
+            std::fs::read_to_string(repo_root().join("blender-addon/blender_manifest.toml"))
+                .unwrap();
+        assert!(
+            manifest.contains(&format!("id = \"{ADDON_ID}\"")),
+            "the id Blender removes by is the manifest's"
+        );
     }
 
     #[cfg(unix)]

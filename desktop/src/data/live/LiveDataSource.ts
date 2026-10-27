@@ -607,6 +607,8 @@ export class LiveDataSource implements DataSource {
     this.connection({ type: "resumed" });
   }
   async disconnect(): Promise<void> {
+    // The dialog says the add-on is removed: Blender removes it, then this computer forgets it.
+    await this.agent.toolsRemoveBlender();
     writeFlag("nkata.blender.connected", false);
     this.connection({ type: "disconnected" });
   }
