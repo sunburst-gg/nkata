@@ -45,7 +45,7 @@ class LinesTest(unittest.TestCase):
         self.assertFalse(rows[3].passed)
         self.assertIn("16200", rows[3].sentence.replace(",", ""))
         self.assertEqual(rows[3].fix, "Over budget. Decimate or split the mesh.")
-        self.assertEqual(live.manifest_checks(rows)[3], {"key": "tris", "pass": False, "sentence": rows[3].sentence, "fix": rows[3].fix})
+        self.assertEqual(live.manifest_checks(rows)[3], {"key": "tris", "pass": False, "level": "block", "sentence": rows[3].sentence, "fix": rows[3].fix})
         pending = live.lines([], {}, 30_000)
         self.assertTrue(all(r.sentence == "Not checked yet." and not r.passed for r in pending))
 
@@ -63,6 +63,47 @@ class LinesTest(unittest.TestCase):
         self.assertTrue(all(r.pending and not r.passed for r in pending))
         self.assertEqual(live.publish_label(pending, ""), "Publish, after the note")
         self.assertEqual(live.publish_label(pending, "Dial added."), "Publish")
+
+
+# A door on its hinge: the origin at the side, half a metre above the base of the bounds.
+DOOR = checks.SceneFacts(unit_scale=1.0, objects=(checks.ObjectFacts("SM_Door", 200, ("UVMap",), (0.0, 0.0, 0.0), (0.0, 0.0, 0.5)),))
+PIVOT = {"id": "pivot_at_base", "severity": "block", "params": {"convention": "base"}}
+HINGE = {"check_id": "pivot_at_base", "reason": "Hinge pivot, on purpose.", "by": {"id": "01ARZ3NDEKTSV4RRFFQ69G5FAW", "name": "Ada Obi", "avatar_url": None}, "at": "2026-10-27T10:00:00Z"}
+
+
+class StudioRulesTest(unittest.TestCase):
+    """v8 step 21: the template sets each check's level and the pivot rule; a lead's accept shows."""
+
+    def test_the_template_sets_the_level_and_the_pivot_follows_when_it_runs(self) -> None:
+        sp = live.specs(30_000, None, [{"id": "uv_set_present", "severity": "warn", "params": {}}, PIVOT])
+        self.assertEqual([(c["id"], c["severity"]) for c in sp], [("texture_names", "block"), ("unit_scale", "block"), ("uv_set_present", "warn"), ("triangle_budget", "block"), ("pivot_at_base", "block")])
+        authored = {**PIVOT, "params": {"convention": "authored"}}
+        self.assertNotIn("pivot_at_base", [c["id"] for c in live.specs(30_000, None, [authored])])
+        self.assertNotIn("pivot_at_base", [c["id"] for c in live.specs(30_000)], "no template, no pivot line")
+
+    def test_a_door_on_its_hinge_is_red_at_block_and_quiet_at_note(self) -> None:
+        held, _ = live.run_four(DOOR, 30_000, template=[PIVOT])
+        rows = live.lines(held, checks.summary(DOOR), 30_000)
+        self.assertEqual(rows[-1].key, "pivot")
+        self.assertIn("SM_Door", rows[-1].sentence)
+        self.assertTrue(rows[-1].holds)
+        self.assertEqual(live.publish_label(rows, "Door hung."), "Publish, after the red one")
+        noted, _ = live.run_four(DOOR, 30_000, template=[{**PIVOT, "severity": "note"}])
+        rows = live.lines(noted, checks.summary(DOOR), 30_000)
+        self.assertFalse(rows[-1].passed)
+        self.assertFalse(rows[-1].holds)
+        self.assertEqual(live.publish_label(rows, "Door hung."), "Publish")
+
+    def test_a_lead_accepted_pivot_shows_who_and_why_and_no_longer_holds(self) -> None:
+        held, _ = live.run_four(DOOR, 30_000, template=[PIVOT])
+        rows = live.lines(held, checks.summary(DOOR), 30_000, [HINGE])
+        self.assertEqual(rows[-1].accepted, "Accepted by Ada: Hinge pivot, on purpose.")
+        self.assertFalse(rows[-1].holds)
+        self.assertEqual(live.publish_label(rows, "Door hung."), "Publish")
+
+    def test_fix_never_moves_an_origin(self) -> None:
+        _, after = live.run_four(DOOR, 30_000, fix=True, template=[PIVOT])
+        self.assertEqual(after.objects[0].origin, (0.0, 0.0, 0.5))
 
 
 class ClockTest(unittest.TestCase):

@@ -195,7 +195,7 @@ def run_part_checks(part: dict[str, Any], collection: Any) -> list[dict[str, Any
     facts = gather_facts(collection)
     group = kind_rules.group_of(STATE.rel_file or "")
     budget = live.budget_for(STATE.budgets, STATE.kind.get(part["id"], "object"), group, part.get("budget"))
-    results, _ = live.run_four(facts, budget, (STATE.budgets or {}).get("max_texture"), fix=False)
+    results, _ = live.run_four(facts, budget, (STATE.budgets or {}).get("max_texture"), fix=False, template=part.get("checks"))
     with STATE.lock:
         STATE.checks[part["id"]] = results
         STATE.card[part["id"]] = checks.summary(facts)
@@ -248,13 +248,10 @@ def handle_save(filepath: str) -> dict[str, Any]:
     usd_path: str | None = None
     manifest_data: dict[str, Any] | None = None
     export_ms = 0
-    # A prop placed in a level sits on its origin, so an origin off the base is worth saying; but a
-    # save is never refused for it: the team and the preview still get the work (2026-10-27).
-    notes = manifest.static_problems(infos) if kind == "prop" else []
-    with STATE.lock:
-        STATE.origin_notes[part["id"]] = notes
+    # A save is never refused for a check: the team and the preview still get the work. The pivot
+    # is one of the template's checks, at the level the studio set (step 21).
     results = run_part_checks(part, collection)
-    rows = live.lines(results, STATE.card.get(part["id"], {}), live.budget_for(STATE.budgets, asset_kind, kind_rules.group_of(rel), part.get("budget")))
+    rows = live.lines(results, STATE.card.get(part["id"], {}), live.budget_for(STATE.budgets, asset_kind, kind_rules.group_of(rel), part.get("budget")), part.get("exceptions"))
     still_path: Path | None = None
     if changed:
         # v8 (step 13): the GLB and its manifest sit beside the .blend in .nkata-exports/, which the sync
@@ -330,7 +327,7 @@ def handle_save(filepath: str) -> dict[str, Any]:
         STATE.dirty = True
     total_ms = int((time.monotonic() - started) * 1000)
     log("save.posted", part_id=part["id"], version_id=res.version_id, changed=changed, export_ms=export_ms, total_ms=total_ms)
-    return {"part_id": part["id"], "version_id": res.version_id, "changed": changed, "export_ms": export_ms, "total_ms": total_ms, "notes": notes}
+    return {"part_id": part["id"], "version_id": res.version_id, "changed": changed, "export_ms": export_ms, "total_ms": total_ms}
 
 
 def ensure_collection(name: str) -> Any:

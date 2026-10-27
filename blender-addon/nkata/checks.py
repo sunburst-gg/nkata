@@ -149,8 +149,25 @@ def _rig_bone_count(facts: SceneFacts, params: dict[str, Any]) -> Outcome:
 
 
 def _pivot_at_base(facts: SceneFacts, params: dict[str, Any]) -> Outcome:
+    """The project's pivot rule for this kind of asset (v8 step 21): base, the bottom of the bounds,
+    for a prop on the floor; grid, the low corner of the bounds on the grid, for a modular piece;
+    authored, not checked, for a door on its hinge."""
+    convention = str(params.get("convention", "base"))
+    if convention == "authored":
+        return True, ""
+    if convention == "grid":
+        step = float(params.get("grid_m", 0) or 0)
+        off = [o.name for o in facts.objects if not _on_grid_corner(o, step)]
+        return not off, "" if not off else f"origin is not on a grid corner of {', '.join(off[:5])}"
     high = [o.name for o in facts.objects if abs(o.origin[2] - o.bounds_min[2]) > PIVOT_TOLERANCE_M]
     return not high, "" if not high else f"origin is not at the base of {', '.join(high[:5])}"
+
+
+def _on_grid_corner(o: ObjectFacts, step: float) -> bool:
+    at_corner = all(abs(o.origin[i] - o.bounds_min[i]) <= PIVOT_TOLERANCE_M for i in range(3))
+    if not at_corner or step <= 0:
+        return at_corner
+    return all(abs(c / step - round(c / step)) * step <= PIVOT_TOLERANCE_M for c in o.origin)
 
 
 def _fix_pivot_at_base(facts: SceneFacts, params: dict[str, Any]) -> SceneFacts:
@@ -186,10 +203,12 @@ def run_checks(
     severities: dict[str, str],
     facts: SceneFacts,
     fix: bool = True,
+    never_fix: frozenset[str] = frozenset(),
 ) -> tuple[list[dict[str, Any]], SceneFacts]:
     """Runs the template's checks that Blender owns, in template order. Applies fixes when asked
-    and reports auto_fixed. Returns the results and the facts after any fix, so the caller can
-    write the fixes back into the scene. Checks Blender does not own are skipped: UE5 runs them."""
+    and reports auto_fixed, except for the checks in never_fix. Returns the results and the facts
+    after any fix, so the caller can write the fixes back into the scene. Checks Blender does not
+    own are skipped: UE5 runs them."""
     results: list[dict[str, Any]] = []
     for check_id in check_ids:
         run = CHECKS.get(check_id)
@@ -198,7 +217,7 @@ def run_checks(
         p = dict(params.get(check_id) or {})
         passed, message = _run_one(run, facts, p)
         fixed = False
-        if not passed and fix and check_id in FIXERS and _has_params(check_id, p):
+        if not passed and fix and check_id not in never_fix and check_id in FIXERS and _has_params(check_id, p):
             facts = FIXERS[check_id](facts, p)
             passed, message = run(facts, p)
             fixed = passed
@@ -220,6 +239,9 @@ def _run_one(run: Callable[[SceneFacts, dict[str, Any]], Outcome], facts: SceneF
 
 
 def _has_params(check_id: str, params: dict[str, Any]) -> bool:
+    """A fixer runs only when its params say what to fix toward. The pivot fixer knows the base."""
+    if check_id == "pivot_at_base":
+        return str(params.get("convention", "base")) == "base"
     return check_id not in ("name_pattern", "texture_names") or "pattern" in params
 
 

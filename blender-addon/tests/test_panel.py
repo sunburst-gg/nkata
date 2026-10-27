@@ -558,18 +558,35 @@ class PanelTest(unittest.TestCase):
         floating = bpy_stub.FakeObject("Radio", coords=[-0.5, -0.5, 0.2, 0.5, -0.5, 0.2, 0.0, 0.5, 0.5])
         self.collection.objects = [floating]
         self.collection.all_objects = [floating]
-        FakeAgent.parts = [{**PART, "kind": "prop"}]
+        # The Object template's pivot rule, as it ships: the base, as a note (step 21).
+        FakeAgent.parts = [{**PART, "kind": "prop", "checks": [{"id": "pivot_at_base", "severity": "note", "params": {"convention": "base"}}]}]
         self.save_hook.handle_open(str(self.blend))
         self.save_hook.handle_save(str(self.blend))
         lines = self.draw()
-        self.assertTrue([x for x in lines if x.startswith("label:Radio: origin is")], lines)
+        self.assertIn("label:Origin is not at the base of Radio.", lines)
         self.assertIn("op:nkata.fix_origin:Fix origin", lines)
-        self.assertTrue([x for x in lines if x.startswith("op:nkata.publish")], "the note never holds Publish")
+        self.assertIn("op:nkata.publish:Publish, after the note", lines, "the note never holds Publish")
         self.assertEqual(self.panel.NKATA_OT_fix_origin().execute(None), {"FINISHED"})
         # The origin moved up to the base, 0.2 m; the stub's bound_box does not follow vertex
         # edits as Blender's does, so the origin is read from the world matrix.
         self.assertAlmostEqual(float(floating.matrix_world[2][3]), 0.2, places=5)
-        self.assertNotIn("op:nkata.fix_origin:Fix origin", self.draw())
+
+    def test_a_blocking_pivot_holds_publish_until_a_lead_accepts_it_and_the_panel_says_who_and_why(self) -> None:
+        door = bpy_stub.FakeObject("SM_Door", coords=[-0.5, -0.5, 0.2, 0.5, -0.5, 0.2, 0.0, 0.5, 0.5])
+        self.collection.objects = [door]
+        self.collection.all_objects = [door]
+        pivot = {"id": "pivot_at_base", "severity": "block", "params": {"convention": "base"}}
+        FakeAgent.parts = [{**PART, "kind": "prop", "checks": [pivot]}]
+        self.save_hook.handle_open(str(self.blend))
+        self.save_hook.handle_save(str(self.blend))
+        self.assertIn("op:nkata.publish:Publish, after the red one", self.draw())
+        accepted = {"check_id": "pivot_at_base", "reason": "Hinge pivot, on purpose.", "by": {"id": "01ARZ3NDEKTSV4RRFFQ69G5FAW", "name": "Ada Obi", "avatar_url": None}, "at": "2026-10-27T10:00:00Z"}
+        FakeAgent.parts = [{**FakeAgent.parts[0], "exceptions": [accepted]}]
+        self.save_hook.handle_save(str(self.blend))
+        lines = self.draw()
+        self.assertIn("label:Accepted by Ada: Hinge pivot, on purpose.", lines)
+        self.assertNotIn("op:nkata.fix_origin:Fix origin", lines, "an accepted pivot is not offered a fix")
+        self.assertIn("op:nkata.publish:Publish, after the note", lines)
 
     def _pointer(self) -> Path:
         home = Path(self.tmp.name) / "home"

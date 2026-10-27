@@ -64,7 +64,7 @@ def run_checks(part: dict[str, Any], fix: bool) -> list[dict[str, Any]]:
     facts = save_hook.gather_facts(col)
     budget = asset_budget(part)
     max_texture = (STATE.budgets or {}).get("max_texture")
-    results, after = live.run_four(facts, budget, max_texture, fix=fix)
+    results, after = live.run_four(facts, budget, max_texture, fix=fix, template=part.get("checks"))
     if fix:
         apply_fixes(col, facts, after)
     with STATE.lock:
@@ -76,7 +76,7 @@ def run_checks(part: dict[str, Any], fix: bool) -> list[dict[str, Any]]:
 
 
 def check_lines(part: dict[str, Any]) -> list[live.CheckLine]:
-    return live.lines(STATE.checks.get(part["id"]) or [], STATE.card.get(part["id"], {}), asset_budget(part))
+    return live.lines(STATE.checks.get(part["id"]) or [], STATE.card.get(part["id"], {}), asset_budget(part), part.get("exceptions"))
 
 
 def export_lost(part: dict[str, Any]) -> bool:
@@ -243,9 +243,7 @@ class NKATA_OT_fix_origin(bpy.types.Operator):
                 delta = float(info.origin[2]) - float(info.bounds_min[2])
                 if abs(delta) > 1e-6:
                     move_origin_down(obj, delta)
-        with STATE.lock:
-            STATE.origin_notes[part["id"]] = []
-            STATE.dirty = True
+        run_checks(part, fix=False)
         return {"FINISHED"}
 
 
@@ -538,22 +536,32 @@ def draw_team(layout: Any, part: dict[str, Any]) -> None:
         row.label(text=f"{name[:1].upper()} {name.split(' ')[0]}" + (" · in this file" if in_file else ""), icon="USER")
 
 
+def line_icon(r: live.CheckLine) -> str:
+    """Red only for what holds Publish; a warn or a note, or an accepted one, is quieter (step 21)."""
+    if r.passed:
+        return "CHECKMARK"
+    if r.pending:
+        return "TIME"
+    return "ERROR" if r.holds else "INFO"
+
+
 def draw_checks(layout: Any, part: dict[str, Any]) -> None:
     box = layout.box()
     rows = check_lines(part)
     fixable = False
+    origin = False
     for r in rows:
-        box.label(text=r.sentence, icon="CHECKMARK" if r.passed else "TIME" if r.pending else "ERROR")
-        if not r.passed and STATE.checks.get(part["id"]):
+        box.label(text=r.sentence, icon=line_icon(r))
+        if r.accepted:
+            # A lead accepted it (step 21): who and why, and it no longer holds Publish.
+            box.label(text=r.accepted, icon="CHECKMARK")
+        elif not r.passed and STATE.checks.get(part["id"]):
             box.label(text=r.fix)
             fixable |= r.key in ("textures", "scale")
+            origin |= r.key == "pivot" and r.fix == live.FIX["pivot"]
     if fixable:
         box.operator(NKATA_OT_fix_checks.bl_idname, text="Fix")
-    # A prop's origin off its base: a note and Fix origin, never a refusal (2026-10-27).
-    notes = STATE.origin_notes.get(part["id"]) or []
-    for note in notes:
-        box.label(text=note, icon="INFO")
-    if notes:
+    if origin:
         box.operator(NKATA_OT_fix_origin.bl_idname, text="Fix origin")
     # The fifth line: the export read back beside the scene (v8 step 17).
     for text in intact.lines(STATE.export.get(part["id"])):

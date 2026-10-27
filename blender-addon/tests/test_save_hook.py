@@ -178,7 +178,9 @@ class SaveHookTest(unittest.TestCase):
         self.assertTrue(self.bpy._ops.calls[0][1]["export_skins"], "a character exports with its armature")
 
     def _as_prop(self, obj: bpy_stub.FakeObject) -> None:
-        FakeAgent.parts = [{**FakeAgent.parts[0], "kind": "prop", "asset_name": "Kettle", "name": "model", "mapping": {"kind": "blend_collection", "file": "Ojukwu/face.blend", "collection": "face"}}]
+        # The Object template's pivot rule: the base, as a note (step 21).
+        pivot = {"id": "pivot_at_base", "severity": "note", "params": {"convention": "base"}}
+        FakeAgent.parts = [{**FakeAgent.parts[0], "kind": "prop", "asset_name": "Kettle", "name": "model", "mapping": {"kind": "blend_collection", "file": "Ojukwu/face.blend", "collection": "face"}, "checks": [pivot]}]
         self.collection.objects = [obj]
         self.collection.all_objects = [obj]
         self.collection.exporters = []
@@ -188,7 +190,6 @@ class SaveHookTest(unittest.TestCase):
         self._as_prop(kettle)
         out = self.save_hook.handle_save(str(self.blend))
         self.assertTrue(out["changed"])
-        self.assertEqual(out["notes"], [])
         self.assertFalse(self.bpy._ops.calls[0][1]["export_skins"])
         req = FakeAgent.saved[0]
         self.assertEqual(req["manifest"]["kind"], "prop")
@@ -203,7 +204,6 @@ class SaveHookTest(unittest.TestCase):
         self.face.matrix_world[2][3] = 0.5
         out = self.save_hook.handle_save(str(self.blend))
         self.assertTrue(out["changed"])
-        self.assertEqual(out["notes"], [])
         self.assertIsNotNone(FakeAgent.saved[0]["spool_path"])
         self.assertEqual(self.state.error, "")
 
@@ -219,10 +219,14 @@ class SaveHookTest(unittest.TestCase):
         self.assertTrue(out["changed"])
         self.assertIsNotNone(FakeAgent.saved[0]["spool_path"], "the export ran")
         self.assertEqual(self.state.error, "")
-        notes = self.state.origin_notes[FakeAgent.parts[0]["id"]]
-        self.assertEqual(len(notes), 1)
-        self.assertIn("origin is", notes[0])
-        self.assertNotIn("scale", notes[0])
+        pivot = [r for r in self.state.checks[FakeAgent.parts[0]["id"]] if r["check_id"] == "pivot_at_base"]
+        self.assertEqual(len(pivot), 1)
+        self.assertFalse(pivot[0]["passed"])
+        self.assertEqual(pivot[0]["severity"], "note")
+        self.assertIn("origin is", pivot[0]["message"])
+        self.assertNotIn("scale", pivot[0]["message"])
+        line = [c for c in FakeAgent.saved[0]["manifest"]["checks"] if c["key"] == "pivot"]
+        self.assertEqual(line[0]["level"], "note")
 
     def test_gather_facts_reads_the_scene_for_the_checks(self) -> None:
         from nkata import checks

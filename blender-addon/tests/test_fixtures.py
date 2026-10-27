@@ -10,7 +10,7 @@ from pathlib import Path
 from . import conftest_shim  # noqa: F401
 
 import py as shared
-from nkata import checks, manifest
+from nkata import checks
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures"
 GLB_MAGIC = 0x46546C67
@@ -74,8 +74,6 @@ class FixtureCorpusTest(unittest.TestCase):
             self.assertIn("extent", json.loads((folder / "collision.json").read_text()))
             data = json.loads((folder / "manifest.json").read_text())
             self.assertEqual(data["kind"], "prop")
-            infos = [manifest.ObjectInfo(o["name"], o["triangles"], o["materials"], tuple(o["bounds_min"]), tuple(o["bounds_max"]), o["hash"], tuple(o["origin"]), tuple(o["scale"])) for o in data["objects"]]
-            self.assertEqual(manifest.static_problems(infos), [], folder.name)
             results, _ = checks.run_checks(["name_pattern", "triangle_budget", "pivot_at_base"], {"name_pattern": {"pattern": "SM_.*"}, "triangle_budget": {"max": 15000}}, {}, facts_from_manifest(data))
             self.assertTrue(all(r["passed"] for r in results), results)
 

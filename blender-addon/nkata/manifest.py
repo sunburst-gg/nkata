@@ -81,22 +81,6 @@ def build_manifest(
     return shared.validate_ObjectManifest(data).to_dict()
 
 
-# A prop sits on its origin and exports at scale 1. See docs/engineering.md, The mirror, step 2.
-PIVOT_TOLERANCE_M = 0.001
-
-
-def static_problems(objects: list[ObjectInfo]) -> list[str]:
-    """A prop's origin off the base of its bounds, one note per object. Pure, so it runs without
-    bpy. A note, never a refusal: the save still reaches the team and the preview, and a pivot
-    can be off the base on purpose (a hinge, an axle). Object scale is not checked: UE 5.8 bakes it
-    into the asset on import (measured, docs/decisions.md, 2026-10-27)."""
-    problems: list[str] = []
-    for o in objects:
-        if abs(float(o.origin[2]) - float(o.bounds_min[2])) > PIVOT_TOLERANCE_M:
-            problems.append(f"{o.name}: origin is {round(float(o.origin[2]) - float(o.bounds_min[2]), 4)} m above the base, set origin to the bottom")
-    return problems
-
-
 def write_manifest(path: Path, manifest: dict[str, Any]) -> None:
     path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 

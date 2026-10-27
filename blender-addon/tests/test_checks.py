@@ -109,6 +109,20 @@ class ChecksTest(unittest.TestCase):
         self.assertIn("SM_Big", by_id["pivot_at_base"]["message"])
         self.assertEqual(checks.blocked_by(results), ["triangle_budget", "uv_set_present", "rig_bone_names", "rig_bone_count", "pivot_at_base"])
 
+    def test_the_pivot_follows_the_convention_base_grid_or_authored(self) -> None:
+        # A modular wall: origin on its low corner, on a 1 m grid. A door: origin on its hinge.
+        wall = SceneFacts(unit_scale=1.0, objects=(ObjectFacts("SM_Wall", 12, ("UVMap",), (2.0, 1.0, 0.0), (2.0, 1.0, 0.0)),))
+        door = SceneFacts(unit_scale=1.0, objects=(ObjectFacts("SM_Door", 12, ("UVMap",), (0.0, -0.5, 0.0), (0.0, 0.0, 1.0)),))
+        run = lambda f, p: checks.run_checks(["pivot_at_base"], {"pivot_at_base": p}, SEV, f, fix=False)[0][0]  # noqa: E731
+        self.assertTrue(run(wall, {"convention": "grid", "grid_m": 1.0})["passed"])
+        self.assertFalse(run(wall, {"convention": "grid", "grid_m": 0.75})["passed"], "2 m is not on a 0.75 m grid")
+        self.assertIn("grid corner of SM_Door", run(door, {"convention": "grid", "grid_m": 1.0})["message"])
+        self.assertFalse(run(door, {"convention": "base"})["passed"])
+        self.assertTrue(run(door, {"convention": "authored"})["passed"])
+        # Only the base has a fixer: a grid fix would guess where on the grid the piece belongs.
+        fixed = checks.run_checks(["pivot_at_base"], {"pivot_at_base": {"convention": "grid", "grid_m": 1.0}}, SEV, door)[0][0]
+        self.assertFalse(fixed["auto_fixed"])
+
     def test_a_check_with_a_missing_param_fails_and_does_not_raise(self) -> None:
         results, _ = checks.run_checks(["name_pattern", "triangle_budget"], {}, SEV, facts())
         by_id = {r["check_id"]: r for r in results}

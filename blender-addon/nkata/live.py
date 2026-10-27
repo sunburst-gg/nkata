@@ -12,14 +12,17 @@ from . import checks
 CHECK_EVERY_S = 2.0
 HEARTBEAT_EVERY_S = 20.0
 
-# v8 keys for the four checks, in panel order, and the Blender check that runs each.
-KEYS = (("textures", "texture_names"), ("scale", "unit_scale"), ("uv", "uv_set_present"), ("tris", "triangle_budget"))
+# v8 keys for the four checks, in panel order, and the Blender check that runs each. The pivot
+# line follows when the template runs it (step 21).
+KEYS = (("textures", "texture_names"), ("scale", "unit_scale"), ("uv", "uv_set_present"), ("tris", "triangle_budget"), ("pivot", "pivot_at_base"))
 FIX = {
     "textures": "Rename the images T_<asset>_<map>. Fix does it.",
     "scale": "Apply scale in Blender. Fix does it.",
     "uv": "Unwrap the mesh.",
     "tris": "Over budget. Decimate or split the mesh.",
+    "pivot": "Fix origin moves it to the base. A pivot off the base on purpose needs a lead to accept it.",
 }
+FIX_GRID = "Snap the origin to the low corner on the grid. A pivot off the grid on purpose needs a lead to accept it."
 DEFAULT_BUDGETS = {"prop": 30_000, "vehicle": 60_000, "character": 80_000, "environment": 2_000_000, "max_texture": None}
 
 
@@ -39,16 +42,26 @@ def budget_for(budgets: dict[str, Any] | None, kind: str, group: str | None, ove
     return int(b.get("prop", DEFAULT_BUDGETS["prop"]))
 
 
-def specs(budget: int, max_texture: int | None = None) -> list[dict[str, Any]]:
-    """The four checks with their params, all blocking."""
+def specs(budget: int, max_texture: int | None = None, template: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    """The four checks with their params, then the pivot rule when the template runs it. Each
+    takes the template's level when the template names it, else block (step 21). The budget is
+    always the project's."""
+    named = {c["id"]: c for c in template or []}
+
+    def level(check_id: str) -> str:
+        return str(named[check_id]["severity"]) if check_id in named else "block"
+
     out = [
-        {"id": "texture_names", "severity": "block", "params": {"pattern": "T_.*"}},
-        {"id": "unit_scale", "severity": "block", "params": {}},
-        {"id": "uv_set_present", "severity": "block", "params": {}},
-        {"id": "triangle_budget", "severity": "block", "params": {"max": int(budget)}},
+        {"id": "texture_names", "severity": level("texture_names"), "params": {"pattern": "T_.*"}},
+        {"id": "unit_scale", "severity": level("unit_scale"), "params": {}},
+        {"id": "uv_set_present", "severity": level("uv_set_present"), "params": {}},
+        {"id": "triangle_budget", "severity": level("triangle_budget"), "params": {"max": int(budget)}},
     ]
     if max_texture:
         out.append({"id": "texture_size", "severity": "block", "params": {"max": int(max_texture)}})
+    pivot = named.get("pivot_at_base")
+    if pivot is not None and (pivot.get("params") or {}).get("convention", "base") != "authored":
+        out.append({"id": "pivot_at_base", "severity": level("pivot_at_base"), "params": dict(pivot.get("params") or {})})
     return out
 
 
@@ -60,22 +73,38 @@ class CheckLine:
     fix: str
     # Not run yet: neither a pass nor a fail, and never the red one Publish waits on.
     pending: bool = False
+    # The template's level (step 21): only a failing block line holds Publish.
+    level: str = "block"
+    # A lead accepted this failing check: who and why, in one line. Empty otherwise.
+    accepted: str = ""
+
+    @property
+    def holds(self) -> bool:
+        return not self.passed and not self.pending and self.level == "block" and not self.accepted
 
 
-def lines(results: list[dict[str, Any]], card: dict[str, Any], budget: int) -> list[CheckLine]:
-    """The four lines the panel shows and the manifest carries: a pass says its number, a fail
-    says the problem in one line and its fix in the next."""
+def lines(results: list[dict[str, Any]], card: dict[str, Any], budget: int, exceptions: list[dict[str, Any]] | None = None) -> list[CheckLine]:
+    """The four lines the panel shows and the manifest carries, then the pivot line when it ran: a
+    pass says its number, a fail says the problem in one line and its fix in the next."""
     by_id = {r["check_id"]: r for r in results}
+    taken = {str(e.get("check_id")): e for e in exceptions or []}
     out: list[CheckLine] = []
     for key, check_id in KEYS:
         r = by_id.get(check_id)
         if r is None:
-            out.append(CheckLine(key, False, "Not checked yet.", FIX[key], pending=True))
+            if key != "pivot":
+                out.append(CheckLine(key, False, "Not checked yet.", FIX[key], pending=True))
             continue
+        level = str(r.get("severity", "block"))
+        fix = FIX_GRID if key == "pivot" and "grid" in str(r["message"]) else FIX[key]
         if r["passed"]:
-            out.append(CheckLine(key, True, green_sentence(key, card, budget), FIX[key]))
+            sentence = "Pivot follows the project's rule." if key == "pivot" else green_sentence(key, card, budget)
+            out.append(CheckLine(key, True, sentence, fix, level=level))
         else:
-            out.append(CheckLine(key, False, str(r["message"]).rstrip(".") + ".", FIX[key]))
+            e = taken.get(check_id)
+            accepted = f"Accepted by {_first(e.get('by'))}: {e.get('reason', '')}" if e else ""
+            message = str(r["message"]).rstrip(".")
+            out.append(CheckLine(key, False, message[:1].upper() + message[1:] + ".", fix, level=level, accepted=accepted))
     return out
 
 
@@ -92,7 +121,7 @@ def green_sentence(key: str, card: dict[str, Any], budget: int) -> str:
 
 
 def manifest_checks(rows: list[CheckLine]) -> list[dict[str, Any]]:
-    return [{"key": r.key, "pass": r.passed, "sentence": r.sentence, "fix": r.fix} for r in rows]
+    return [{"key": r.key, "pass": r.passed, "level": r.level, "sentence": r.sentence, "fix": r.fix} for r in rows]
 
 
 def _first(user: dict[str, Any] | None) -> str:
@@ -138,8 +167,9 @@ def open_refused_line(code: str, message: str) -> str:
 
 def publish_label(rows: list[CheckLine], note: str) -> str:
     """The app's labels: a red check first, then the note, then Publish. A check not run yet is
-    not red: Publish runs the checks itself (the app's rule since v8 step 11)."""
-    if any(not r.passed and not r.pending for r in rows):
+    not red: Publish runs the checks itself (the app's rule since v8 step 11). Only a failing
+    block level check nobody accepted is red (step 21)."""
+    if any(r.holds for r in rows):
         return "Publish, after the red one"
     if not note.strip():
         return "Publish, after the note"
@@ -179,10 +209,14 @@ class Heartbeat:
         return True
 
 
-def run_four(facts: checks.SceneFacts, budget: int, max_texture: int | None = None, fix: bool = False) -> tuple[list[dict[str, Any]], checks.SceneFacts]:
-    """The four checks on the scene facts, with the budget from the project."""
-    sp = specs(budget, max_texture)
+def run_four(
+    facts: checks.SceneFacts, budget: int, max_texture: int | None = None, fix: bool = False, template: list[dict[str, Any]] | None = None
+) -> tuple[list[dict[str, Any]], checks.SceneFacts]:
+    """The four checks on the scene facts, with the budget from the project, and the pivot rule
+    when the template runs it. Fix never moves an origin: Fix origin does, when asked, because a
+    pivot off the base can be on purpose."""
+    sp = specs(budget, max_texture, template)
     ids = [c["id"] for c in sp]
     params = {c["id"]: dict(c["params"]) for c in sp}
     sev = {c["id"]: c["severity"] for c in sp}
-    return checks.run_checks(ids, params, sev, facts, fix=fix)
+    return checks.run_checks(ids, params, sev, facts, fix=fix, never_fix=frozenset({"pivot_at_base"}))
