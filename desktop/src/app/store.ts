@@ -148,6 +148,8 @@ export const useStore = create<AppState>((set, get) => ({
         const { assets, members, me } = get();
         const asset = assets.find((a) => a.id === e.assetId);
         if (!asset) return;
+        const heard = heardLine(e, get());
+        if (heard) { get().showToast(heard.text, heard.color, heard.thumb, () => get().go("asset", { assetId: heard.assetId })); return; }
         const who = e.by === me?.id ? "You" : (members.find((m) => m.person.id === e.by)?.person.first ?? asset.owner.first);
         get().showToast(`${who} saved ${asset.name}.`, asset.owner.color, asset.render, () => get().go("asset", { assetId: asset.id }));
       });

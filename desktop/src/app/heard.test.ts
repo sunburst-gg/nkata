@@ -21,4 +21,15 @@ describe("the owner hears the lead", () => {
     expect(heardLine({ type: "approved", assetId: mine.id, version: 2, by: ME.artist.id }, s)).toBeNull();
     expect(heardLine({ type: "approved", assetId: theirs.id, version: 1, by: lead }, s)).toBeNull();
   });
+  it("a save of my asset by someone else, since it replaces the file on my computer; nothing for my own save or theirs", async () => {
+    const mock = new MockDataSource({ stage: "studio", role: "artist" });
+    const assets = await mock.listAssets(RISING_SUN.id);
+    const members = await mock.listMembers(RISING_SUN.id);
+    const mine = assets.find((a) => a.owner.id === ME.artist.id)!;
+    const theirs = assets.find((a) => a.owner.id !== ME.artist.id)!;
+    const s = { me: ME.artist, assets, members };
+    expect(heardLine({ type: "saved", assetId: mine.id, by: ME.lead.id }, s)?.text).toBe(`Emeka saved ${mine.name}. Your copy has their change. Your last save is in Versions.`);
+    expect(heardLine({ type: "saved", assetId: mine.id, by: ME.artist.id }, s)).toBeNull();
+    expect(heardLine({ type: "saved", assetId: theirs.id, by: ME.lead.id }, s)).toBeNull();
+  });
 });
