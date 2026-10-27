@@ -179,6 +179,9 @@ export const version = pgTable(
     model_key: text("model_key"),
     // The FBX the add-on exported on Publish, named for the engine. Null until stored.
     fbx_key: text("fbx_key"),
+    // A lead published past a failing block level check: the one line why, and who. Null otherwise.
+    override_reason: text("override_reason"),
+    override_by: ulid("override_by").references(() => user.id),
   },
   (t) => [index("version_part_created_idx").on(t.part_id, sql`${t.created_at} desc`)],
 );
@@ -261,6 +264,21 @@ export const check_run = pgTable("check_run", {
   message: text("message").notNull().default(""),
   capture_eligible: boolean("capture_eligible").notNull().default(false),
 });
+
+// A lead accepted a failing check on one part, with a reason (docs/tasks/v8-21-studio-rules.md).
+// It holds until someone takes it back, which deletes the row; the audit log keeps both.
+export const check_exception = pgTable(
+  "check_exception",
+  {
+    ...base,
+    studio_id: ulid("studio_id").notNull().references(() => studio.id),
+    part_id: ulid("part_id").notNull().references(() => part.id),
+    check_id: text("check_id").notNull(),
+    reason: text("reason").notNull(),
+    accepted_by: ulid("accepted_by").notNull().references(() => user.id),
+  },
+  (t) => [uniqueIndex("check_exception_part_check_idx").on(t.part_id, t.check_id)],
+);
 
 export const event = pgTable(
   "event",

@@ -3,11 +3,11 @@ import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
-import { Template, Ulid, type CheckSpec, type LockInfo, type PartState, type Role, type TemplateKind, type UserRef } from "@nkata/shared";
+import { Template, Ulid, type CheckException, type CheckSpec, type LockInfo, type PartState, type Role, type TemplateKind, type UserRef } from "@nkata/shared";
 import { checkSeverity } from "../domain/checks.js";
 import type { Principal } from "../auth/tokens.js";
 import type { Db } from "../db/client.js";
-import { asset, lock, part, project, studio, template, user } from "../db/schema.js";
+import { asset, check_exception, lock, part, project, studio, template, user } from "../db/schema.js";
 import { waitingOn } from "../domain/gates.js";
 import { AppError, notFound } from "../domain/errors.js";
 import { isStale } from "../domain/locks.js";
@@ -108,19 +108,33 @@ export async function templateOf(db: Db, templateId: string): Promise<Template> 
 }
 
 /** What every part of one asset shares on the wire: the template, the reference, and the siblings for gates. */
-export type PartContext = { asset_name: string; template: Template; reference_files: string[]; siblings: { name: string; state: PartState }[] };
+export type PartContext = {
+  asset_name: string; template: Template; reference_files: string[]; siblings: { name: string; state: PartState }[];
+  /** Accepted checks per part id (step 21). */
+  exceptions: Map<string, CheckException[]>;
+};
 
 export async function partContext(db: Db, a: AssetRow): Promise<PartContext> {
   const tpl = await templateOf(db, a.template_id);
-  const siblings = await db.select({ name: part.name, state: part.state }).from(part).where(eq(part.asset_id, a.id));
-  return { asset_name: a.name, template: tpl, reference_files: a.reference_files, siblings };
+  const siblings = await db.select({ id: part.id, name: part.name, state: part.state }).from(part).where(eq(part.asset_id, a.id));
+  const exceptions = new Map<string, CheckException[]>();
+  for (const s of siblings) exceptions.set(s.id, await exceptionsOf(db, s.id));
+  return { asset_name: a.name, template: tpl, reference_files: a.reference_files, siblings, exceptions };
 }
 
-/** The checks a template runs on a part, with severity from the contract and params from the template. */
+/** The checks a lead accepted on one part, oldest first. */
+export async function exceptionsOf(db: Db, partId: string): Promise<CheckException[]> {
+  const rows = await db.select().from(check_exception).where(eq(check_exception.part_id, partId)).orderBy(check_exception.created_at);
+  const refs = await userRefs(db, rows.map((r) => r.accepted_by));
+  return rows.map((r) => ({ check_id: r.check_id, reason: r.reason, by: refs.get(r.accepted_by)!, at: r.created_at.toISOString() }));
+}
+
+/** The checks a template runs on a part: the level from the template, else the contract's, and
+ * the params from the template (docs/tasks/v8-21-studio-rules.md). */
 export function checkSpecs(tpl: Template, partName: string): CheckSpec[] {
   const tp = tpl.parts.find((x) => x.name === partName);
   if (!tp) return [];
-  return tp.checks.map((id) => ({ id, severity: checkSeverity(id), params: (tp.params?.[id] as Record<string, unknown> | undefined) ?? {} }));
+  return tp.checks.map((id) => ({ id, severity: tp.severity?.[id] ?? checkSeverity(id), params: (tp.params?.[id] as Record<string, unknown> | undefined) ?? {} }));
 }
 
 /** The file name the engine expects for this part, from the template: SM_{asset}, SK_{asset}_{part}. */
@@ -138,6 +152,7 @@ export function partWire(row: PartRow, ctx: PartContext, owner: UserRef | null, 
     export_name: exportName(ctx.template, ctx.asset_name, row.name),
     checks: checkSpecs(ctx.template, row.name),
     reference_files: ctx.reference_files,
+    exceptions: ctx.exceptions.get(row.id) ?? [],
     waiting_on: waitingOn({ id: row.id, name: row.name, state: row.state, gate: row.gate }, ctx.siblings.map((s) => ({ id: s.name, name: s.name, state: s.state, gate: { after: [] } }))),
     name: row.name,
     position: row.position,

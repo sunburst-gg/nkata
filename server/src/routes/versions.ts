@@ -5,13 +5,13 @@
 // on Mark Ready, kept in the store under the version (docs/decisions.md, 2026-10-10).
 import { and, asc, desc, eq, gte, lt } from "drizzle-orm";
 import { z } from "zod";
-import { CheckResult, MirrorStatus, ObjectManifest, Timestamp, Ulid } from "@nkata/shared";
-import { check_run, file_version, version } from "../db/schema.js";
+import { CheckResult, CheckSeverity, MirrorStatus, ObjectManifest, Timestamp, Ulid } from "@nkata/shared";
+import { check_exception, check_run, file_version, version } from "../db/schema.js";
 import { AppError, notFound } from "../domain/errors.js";
 import { newId } from "../domain/ids.js";
 import { transition } from "../domain/state.js";
 import { part } from "../db/schema.js";
-import { IdParam, isReviewer, loadPart, requireCanEdit, requireNotHeldByOther, trainingOn, type TypedApp } from "./_shared.js";
+import { checkSpecs, IdParam, isReviewer, loadPart, requireCanEdit, requireNotHeldByOther, templateOf, trainingOn, type TypedApp } from "./_shared.js";
 import { releaseLock } from "./locks.js";
 
 const VersionBody = z.object({
@@ -48,6 +48,8 @@ const PublishBody = z.object({
   note: z.string().trim().min(1, "write one line on what changed").max(200),
   /** Details for engineers. Optional. */
   note_engineering: z.string().trim().max(2000).default(""),
+  /** A lead publishes past a failing block level check with one line of why (step 21). */
+  override_reason: z.string().trim().min(1).max(200).optional(),
 });
 
 const RollbackBody = z.object({ id: Ulid.optional(), version_id: Ulid });
@@ -178,22 +180,43 @@ export async function versionRoutes(app: TypedApp): Promise<void> {
     await requireNotHeldByOther(app.db, req.principal, row.id, app.now());
     const ver = (await app.db.select().from(version).where(and(eq(version.id, req.body.version_id), eq(version.part_id, row.id))).limit(1))[0];
     if (!ver) throw notFound("version", req.body.version_id);
+    if (req.body.override_reason && !isReviewer(req.principal)) {
+      throw new AppError("forbidden", "only a lead can publish past a blocking check", { part_id: row.id });
+    }
     const now = app.now();
     const training = await trainingOn(app.db, a.studio_id);
-    if (req.body.check_results.length > 0) {
+    // The template sets each check's level, not the editor that ran it (step 21).
+    const levels = new Map(checkSpecs(await templateOf(app.db, a.template_id), row.name).map((c) => [c.id, c.severity]));
+    const leveled = req.body.check_results.map((c) => ({ ...c, severity: levels.get(c.check_id) ?? c.severity }));
+    if (leveled.length > 0) {
       await app.db.insert(check_run).values(
-        req.body.check_results.map((c) => ({ id: newId(), studio_id: a.studio_id, version_id: ver.id, check_id: c.check_id, severity: c.severity, passed: c.passed, auto_fixed: c.auto_fixed, message: c.message, capture_eligible: training, created_at: now, updated_at: now })),
+        leveled.map((c) => ({ id: newId(), studio_id: a.studio_id, version_id: ver.id, check_id: c.check_id, severity: c.severity, passed: c.passed, auto_fixed: c.auto_fixed, message: c.message, capture_eligible: training, created_at: now, updated_at: now })),
       );
     }
-    const blocked_by = req.body.check_results.filter((c) => !c.passed && c.severity === "block");
-    if (blocked_by.length > 0) {
+    // Every check the version has run counts, newest per check, so a Publish that sends no
+    // results (the app) is held the same as one that does (the panel).
+    const runs = await app.db.select().from(check_run).where(eq(check_run.version_id, ver.id)).orderBy(asc(check_run.created_at));
+    const newest = new Map<string, (typeof runs)[number]>();
+    for (const r of runs) newest.set(r.check_id, r);
+    const accepted = new Set((await app.db.select({ check_id: check_exception.check_id }).from(check_exception).where(eq(check_exception.part_id, row.id))).map((r) => r.check_id));
+    const blocked_by = [...newest.values()]
+      .map((r) => ({ check_id: r.check_id, severity: levels.get(r.check_id) ?? CheckSeverity.catch("block").parse(r.severity), passed: r.passed, auto_fixed: r.auto_fixed, message: r.message }))
+      .filter((c) => !c.passed && c.severity === "block" && !accepted.has(c.check_id));
+    if (blocked_by.length > 0 && !req.body.override_reason) {
       return { v: 1, published: false, version_id: ver.id, state: row.state, blocked_by };
     }
     // While the studio trains, nothing publishes until a reviewer has confirmed who holds the rights.
     if (training && !a.rights) {
       throw new AppError("rights_required", "confirm who holds the rights to this asset before Publish", { asset_id: a.id });
     }
-    await app.db.update(version).set({ published: true, note: req.body.note, note_engineering: req.body.note_engineering, updated_at: now }).where(eq(version.id, ver.id));
+    const override = blocked_by.length > 0 && req.body.override_reason ? { override_reason: req.body.override_reason, override_by: req.principal.user_id } : {};
+    await app.db.update(version).set({ published: true, note: req.body.note, note_engineering: req.body.note_engineering, ...override, updated_at: now }).where(eq(version.id, ver.id));
+    if (override.override_reason) {
+      await app.bus.audit({
+        studio_id: a.studio_id, project_id: a.project_id, actor_id: req.principal.user_id,
+        kind: "audit.publish_override", target_kind: "version", target_id: ver.id, payload: { reason: override.override_reason, checks: blocked_by.map((c) => c.check_id) },
+      });
+    }
     await app.bus.emit({
       studio_id: a.studio_id, target_kind: "version", target_id: ver.id,
       message: { v: 1, kind: "version.created", project_id: a.project_id, actor_id: req.principal.user_id, at: now.toISOString(), part_id: row.id, version_id: ver.id, published: true },

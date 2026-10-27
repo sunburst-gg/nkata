@@ -65,7 +65,9 @@ export const OBJECT_TEMPLATE: Template = {
   v: 1,
   name: "Object",
   kind: "prop",
-  parts: [{ name: "model", mapping: "blend_collection", gate: [], checks: FOUR_CHECKS, params: { texture_names: { pattern: "T_.*" } } }],
+  // v8 step 21: the pivot sits at the base of a prop, said as a note. A studio raises it to block,
+  // or sets grid or authored, in the template.
+  parts: [{ name: "model", mapping: "blend_collection", gate: [], checks: [...FOUR_CHECKS, "pivot_at_base"], params: { texture_names: { pattern: "T_.*" }, pivot_at_base: { convention: "base" } }, severity: { pivot_at_base: "note" } }],
   reference_slots: [],
   export: { ue_path: "/Game/Objects/{asset}", name: "SM_{asset}" },
   blend_layout: "one_file_per_asset",

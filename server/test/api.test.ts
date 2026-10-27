@@ -355,7 +355,7 @@ describe.skipIf(!hasInfra)("server api", () => {
       expect(blocked.json()).toMatchObject({ published: false, state: "draft" });
       const ok = await h.app.inject({
         method: "POST", url: `/parts/${face}/publish`, ...h.as(ARTIST),
-        payload: { version_id: faceVersion, ready: true, note: "Face blocked in, eyes still rough", note_engineering: "Skin material uses the shared T_Skin set.", check_results: [{ check_id: "unit_scale", severity: "block", passed: true, auto_fixed: true, message: "" }] },
+        payload: { version_id: faceVersion, ready: true, note: "Face blocked in, eyes still rough", note_engineering: "Skin material uses the shared T_Skin set.", check_results: [{ check_id: "unit_scale", severity: "block", passed: true, auto_fixed: true, message: "" }, { check_id: "triangle_budget", severity: "block", passed: true, auto_fixed: false, message: "" }] },
       });
       expect(ok.json()).toMatchObject({ published: true, state: "ready", blocked_by: [] });
       // The note is required and travels with the version; the engineering details are optional.

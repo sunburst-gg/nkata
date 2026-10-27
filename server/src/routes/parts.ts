@@ -2,11 +2,12 @@
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { Ulid } from "@nkata/shared";
-import { asset, part } from "../db/schema.js";
+import { asset, check_exception, part } from "../db/schema.js";
 import { AppError } from "../domain/errors.js";
+import { newId } from "../domain/ids.js";
 import { evaluateGates } from "../domain/gates.js";
 import { transition, type StateAction } from "../domain/state.js";
-import { assetState, currentLock, IdParam, loadAsset, loadPart, loadProject, partContext, partWire, requireRole, userRefs, type PartContext, type TypedApp } from "./_shared.js";
+import { assetState, currentLock, IdParam, exceptionsOf, loadAsset, loadPart, loadProject, partContext, partWire, requireRole, userRefs, type PartContext, type TypedApp } from "./_shared.js";
 import { releaseLock } from "./locks.js";
 
 const PartsQuery = z.object({ asset_id: Ulid.optional(), project_id: Ulid.optional(), file: z.string().optional() });
@@ -101,6 +102,37 @@ export async function partRoutes(app: TypedApp): Promise<void> {
     });
     const opened = await openGates(app, a.studio_id, a.project_id, a.id, req.principal.user_id);
     return { v: 1, part_id: row.id, opened };
+  });
+
+  // A lead accepts a failing check on one part with one line of why; it holds until taken back.
+  // Safe to retry: a second accept replaces the reason. docs/tasks/v8-21-studio-rules.md.
+  app.post("/parts/:id/exceptions", { schema: { params: IdParam, body: z.object({ check_id: z.string().min(1), reason: z.string().trim().min(1).max(200) }) } }, async (req) => {
+    requireRole(req.principal, ["art_director", "producer"], "accepting a check");
+    const { part: row, asset: a } = await loadPart(app.db, req.principal, req.params.id);
+    const now = app.now();
+    await app.db
+      .insert(check_exception)
+      .values({ id: newId(), studio_id: a.studio_id, part_id: row.id, check_id: req.body.check_id, reason: req.body.reason, accepted_by: req.principal.user_id, created_at: now, updated_at: now })
+      .onConflictDoUpdate({ target: [check_exception.part_id, check_exception.check_id], set: { reason: req.body.reason, accepted_by: req.principal.user_id, created_at: now, updated_at: now } });
+    await app.bus.audit({
+      studio_id: a.studio_id, project_id: a.project_id, actor_id: req.principal.user_id,
+      kind: "audit.check_accepted", target_kind: "part", target_id: row.id, payload: { check_id: req.body.check_id, reason: req.body.reason },
+    });
+    return { v: 1, part_id: row.id, exceptions: await exceptionsOf(app.db, row.id) };
+  });
+
+  // Taking it back is a delete of the row; the audit log keeps the accept and the take back.
+  app.delete("/parts/:id/exceptions/:check_id", { schema: { params: z.object({ id: Ulid, check_id: z.string().min(1) }) } }, async (req) => {
+    requireRole(req.principal, ["art_director", "producer"], "taking back an accepted check");
+    const { part: row, asset: a } = await loadPart(app.db, req.principal, req.params.id);
+    const gone = await app.db.delete(check_exception).where(and(eq(check_exception.part_id, row.id), eq(check_exception.check_id, req.params.check_id))).returning();
+    if (gone.length > 0) {
+      await app.bus.audit({
+        studio_id: a.studio_id, project_id: a.project_id, actor_id: req.principal.user_id,
+        kind: "audit.check_taken_back", target_kind: "part", target_id: row.id, payload: { check_id: req.params.check_id, reason: gone[0]!.reason },
+      });
+    }
+    return { v: 1, part_id: row.id, exceptions: await exceptionsOf(app.db, row.id) };
   });
 
   // A producer can break a lock, logged. See docs/engineering.md, Lock grant.

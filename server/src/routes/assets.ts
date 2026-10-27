@@ -137,7 +137,7 @@ export async function assetRoutes(app: TypedApp): Promise<void> {
       kind: "audit.asset_created", target_kind: "asset", target_id: id, payload: { name: req.body.name, template: tpl.name },
     });
     req.log.info({ project_id: proj.id, asset_id: id }, "asset created");
-    const ctx = { asset_name: created.asset!.name, template: tpl, reference_files: created.asset!.reference_files, siblings: created.parts.map((p) => ({ name: p.name, state: p.state })) };
+    const ctx = { asset_name: created.asset!.name, template: tpl, reference_files: created.asset!.reference_files, siblings: created.parts.map((p) => ({ name: p.name, state: p.state })), exceptions: new Map() };
     return reply.status(201).send({ v: 1, asset: created.asset, parts: created.parts.map((p) => partWire(p, ctx, null, null)) });
   });
 
