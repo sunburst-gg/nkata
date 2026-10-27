@@ -8,14 +8,17 @@ Decisions in docs/decisions.md.
 
 Done means each item holds with an open Unreal editor, and `make test` is green.
 
-- [ ] 1. After each preview import, the plugin runs the editor's validators on what the import
+- [x] 1. After each preview import, the plugin runs the editor's validators on what the import
       made (EditorValidatorSubsystem: Epic's and the studio's own), and the mirror result carries
       what they found: errors and warnings, each with the asset and the validator's own words.
-- [ ] 2. The app shows them on the asset page under Unreal, and the Blender panel shows them under
+- [x] 2. The app shows them on the asset page under Unreal, and the Blender panel shows them under
       the checks, in the validator's words.
-- [ ] 3. A validator error holds Publish into the game, as a block level check does in step 21,
+- [x] 3. A validator error holds Publish into the game, as a block level check does in step 21,
       and a lead can accept it with a reason in the same way.
 
 Gate: a studio validator that rejects a mesh named without its prefix shows its message in the
 app and the panel after the next save, and holds Publish until the mesh is renamed or a lead
 accepts it.
+
+Gate passed 2026-10-27 on this Mac, with a vertex limit as the studio's rule in place of a mesh
+prefix: Nkata's import names the mesh, so a prefix is not the artist's to fix. See docs/decisions.md.
