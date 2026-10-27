@@ -43,7 +43,7 @@ export function InviteDialog() {
         <Dialog.Content aria-describedby={undefined} style={{ position: "fixed", left: "50%", top: "50%", transform: "translate(-50%, -50%)", width: 480, background: "var(--raised)", borderRadius: "var(--r-16)", boxShadow: "var(--shadow-lift)", padding: 28, display: "flex", flexDirection: "column", gap: 20, zIndex: 41, outline: "none", animation: "nk-rise var(--t-panel) var(--ease)" }}>
           <Dialog.Title style={{ margin: 0, font: "400 var(--t-28) var(--serif)", letterSpacing: "-0.02em", color: "var(--ink)" }}>Invite people</Dialog.Title>
           <form onSubmit={(e) => { e.preventDefault(); void send(); }} style={{ display: "flex", gap: 8 }}>
-            <input autoFocus type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@studio.com" aria-label="Email" style={{ ...field, flex: 1 }} />
+            <input autoFocus type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@studio.com" aria-label="Email" style={{ ...field, flex: 1, minWidth: 0 }} />
             <select value={role} onChange={(e) => setRole(e.target.value as Role)} aria-label="Role" style={{ ...field, padding: "0 10px" }}>
               {roles.map((r) => <option key={r} value={r}>{ROLE_WORD[r]}</option>)}
             </select>

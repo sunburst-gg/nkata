@@ -39,7 +39,7 @@ function You() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <SectionTitle>You</SectionTitle>
-      <div style={row}><span style={{ width: 120, fontSize: 13, color: "var(--ink60)" }}>Name</span><input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => void save()} onKeyDown={(e) => { if (e.key === "Enter") void save(); }} aria-label="Name" style={{ ...field, flex: 1 }} /></div>
+      <div style={row}><span style={{ width: 120, fontSize: 13, color: "var(--ink60)" }}>Name</span><input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => void save()} onKeyDown={(e) => { if (e.key === "Enter") void save(); }} aria-label="Name" style={{ ...field, flex: 1, minWidth: 0 }} /></div>
       <div style={row}><span style={{ width: 120, fontSize: 13, color: "var(--ink60)" }}>Theme</span>
         <div role="radiogroup" aria-label="Theme" style={{ display: "flex", gap: 8 }}>
           {(["light", "dark", "system"] as const).map((c) => <button key={c} type="button" role="radio" aria-checked={choice === c} onClick={() => setTheme(c)} style={{ ...button, boxShadow: choice === c ? "0 0 0 1.5px var(--amber), var(--shadow)" : "var(--shadow)" }}>{c === "light" ? "Light" : c === "dark" ? "Dark" : "Match system"}</button>)}
@@ -105,7 +105,7 @@ function ProjectSection() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <SectionTitle>Project</SectionTitle>
-      {canRename ? <div style={row}><span style={{ width: 120, fontSize: 13, color: "var(--ink60)" }}>Name</span><input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void rename(); }} aria-label="Project name" style={{ ...field, flex: 1 }} /><button type="button" onClick={() => void rename()} style={button}>Rename</button></div> : <div style={row}><span style={{ width: 120, fontSize: 13, color: "var(--ink60)" }}>Name</span><span style={{ color: "var(--ink)" }}>{project.name}</span></div>}
+      {canRename ? <div style={row}><span style={{ width: 120, fontSize: 13, color: "var(--ink60)" }}>Name</span><input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void rename(); }} aria-label="Project name" style={{ ...field, flex: 1, minWidth: 0 }} /><button type="button" onClick={() => void rename()} style={button}>Rename</button></div> : <div style={row}><span style={{ width: 120, fontSize: 13, color: "var(--ink60)" }}>Name</span><span style={{ color: "var(--ink)" }}>{project.name}</span></div>}
       {canDelete && !project.sample ? <div style={row}><span style={{ flex: 1, fontSize: 13, color: "var(--ink60)" }}>Delete keeps every version. The project leaves the sidebar; restore it here.</span><button type="button" onClick={() => void del()} style={{ ...button, color: "var(--bad)" }}>Delete {project.name}</button></div> : null}
       {canDelete ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingTop: 8 }}>

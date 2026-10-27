@@ -33,9 +33,9 @@ export function LeadEmpty() {
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         <span style={{ font: "400 28px/1.2 var(--serif)", letterSpacing: "-0.02em", color: "var(--ink)" }}>Bring your artists.</span>
         <form onSubmit={(e) => { e.preventDefault(); void invite(); }} style={{ display: "flex", gap: 8 }}>
-          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="ada@sunburst.studio" aria-label="Email" style={{ ...field, flex: 1 }} />
+          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="ada@sunburst.studio" aria-label="Email" style={{ ...field, flex: 1, minWidth: 0 }} />
           <select value={role} onChange={(e) => setRole(e.target.value as Role)} aria-label="Role" style={{ ...field, padding: "0 10px" }}>{roles.map((r) => <option key={r} value={r}>{ROLE_WORD[r]}</option>)}</select>
-          <button type="submit" style={{ height: 44, padding: "0 18px", borderRadius: "var(--r-6)", border: 0, background: "var(--amber)", color: "var(--amber-fg)", font: "500 15px var(--sans)", cursor: "pointer" }}>Invite</button>
+          <button type="submit" style={{ flexShrink: 0, height: 44, padding: "0 18px", borderRadius: "var(--r-6)", border: 0, background: "var(--amber)", color: "var(--amber-fg)", font: "500 15px var(--sans)", cursor: "pointer" }}>Invite</button>
         </form>
         <span style={{ fontSize: 13, color: "var(--ink60)" }}>{ROLE_LINE[role]}</span>
         {source instanceof LiveDataSource ? null : <span style={{ fontSize: 13, color: "var(--ink60)", paddingTop: 8 }}>While you wait, <button type="button" onClick={() => go("asset", { projectId: "try-nkata", assetId: "try-nkata/market-stall" })} style={{ border: 0, background: "transparent", padding: 0, font: "inherit", color: "var(--ink)", textDecoration: "underline", textUnderlineOffset: 3, cursor: "pointer" }}>leave a comment on a sample</button>.</span>}
