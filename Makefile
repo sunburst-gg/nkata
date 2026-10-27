@@ -1,4 +1,4 @@
-.PHONY: hooks dev dev-down test addon-vendor addon ue e2e quality fixtures fixtures-v8
+.PHONY: hooks dev dev-down test addon-vendor addon ue e2e quality fixtures fixtures-v8 export-intact
 
 # One-time: route git hooks to the repo's .githooks folder.
 hooks:
@@ -50,3 +50,8 @@ e2e:
 quality:
 	@test -n "$(PROJECT)" || { echo "set PROJECT to the project folder"; exit 1; }
 	python3 e2e/quality.py --project "$(PROJECT)"
+
+# The step 17 gate, Blender half: a rigged, animated, textured save reaches the server whole,
+# and each loss is named. Needs Blender: NKATA_BLENDER=/path/to/Blender make export-intact
+export-intact:
+	e2e/export_intact.sh

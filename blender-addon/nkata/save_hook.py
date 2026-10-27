@@ -96,6 +96,7 @@ def scene_side(collection: Any) -> tuple[intact.Side, list[intact.MissingFile]]:
     a file but neither on disk nor packed is lost before the export runs."""
     materials: set[str] = set()
     textures: set[str] = set()
+    names: dict[str, str] = {}
     missing: list[intact.MissingFile] = []
     bones: list[str] = []
     animations: dict[str, float] = {}
@@ -113,6 +114,7 @@ def scene_side(collection: Any) -> tuple[intact.Side, list[intact.MissingFile]]:
                 if img is None or getattr(img, "type", "IMAGE") in NOT_TEXTURES:
                     continue
                 textures.add(intact.stem(str(img.name)))
+                names[intact.stem(str(img.name))] = str(img.name)
                 path = str(getattr(img, "filepath", "") or "")
                 if getattr(img, "source", "FILE") == "FILE" and path and not getattr(img, "packed_file", None) and not Path(bpy.path.abspath(path)).is_file():
                     missing.append(intact.MissingFile(str(img.name), path))
@@ -121,7 +123,7 @@ def scene_side(collection: Any) -> tuple[intact.Side, list[intact.MissingFile]]:
         for action in _actions(obj):
             start, end = (float(x) for x in action.frame_range)
             animations[str(action.name)] = round((end - start) / fps, 4)
-    return intact.Side(frozenset(materials), frozenset(textures), tuple(bones), animations), missing
+    return intact.Side(frozenset(materials), frozenset(textures), tuple(bones), animations, names), missing
 
 
 def previous_bones(manifest_path: Path) -> list[str] | None:

@@ -31,6 +31,8 @@ class Side:
     textures: frozenset[str] = frozenset()
     bones: tuple[str, ...] = ()
     animations: dict[str, float] = field(default_factory=dict)
+    # The name the artist gave each texture, by its compared stem: what a loss shows.
+    texture_names: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -105,9 +107,10 @@ def losses(scene: Side, missing: list[MissingFile], export: Side) -> list[dict[s
     for m in missing:
         out.append({"kind": "texture_file", "names": [m.name], "sentence": f"{m.name} is not on disk: {m.path}. Find it or pack it."})
     lost_files = {stem(m.name) for m in missing}
-    textures = sorted(t for t in scene.textures - export.textures if t not in lost_files)
+    textures = sorted(scene.texture_names.get(t, t) for t in scene.textures - export.textures if t not in lost_files)
     if textures:
-        out.append({"kind": "texture", "names": textures, "sentence": f"Not in the export: {_names(textures)}. Wire them into the Principled BSDF."})
+        it = "it" if len(textures) == 1 else "them"
+        out.append({"kind": "texture", "names": textures, "sentence": f"Not in the export: {_names(textures)}. Wire {it} into the Principled BSDF."})
     materials = sorted(scene.materials - export.materials)
     if materials:
         out.append({"kind": "material", "names": materials, "sentence": f"Materials not in the export: {_names(materials)}."})

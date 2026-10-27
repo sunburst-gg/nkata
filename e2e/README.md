@@ -19,3 +19,10 @@ python3 e2e/mirror.py --blend rising-sun/Ojukwu/face.blend --object Face --asset
 python3 e2e/environment.py --blend rising-sun/Kettle/model.blend --object SM_K_LOD0 --asset /Game/Nkata/Kettle/model
 python3 e2e/quality.py --project rising-sun
 ```
+
+## export_intact.sh (v8 step 17)
+
+A real Blender builds a two bone rig skinning a cube, a 30 frame Walk, and a material with three
+textures: one wired in, one wired to nothing, one whose file is gone. Three saves reach the
+server: the first names the two lost textures, the second is intact, the third names a renamed
+bone. `NKATA_BLENDER=/Applications/Blender.app/Contents/MacOS/Blender make export-intact`.

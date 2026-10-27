@@ -494,6 +494,7 @@ class PanelTest(unittest.TestCase):
         scene, missing = self.save_hook.scene_side(self.collection)
         self.assertEqual(scene.materials, frozenset({"M_Radio"}))
         self.assertEqual(scene.textures, frozenset({"t_radio_d", "t_radio_n", "t_radio_r"}))
+        self.assertEqual(scene.texture_names["t_radio_n"], "T_Radio_N.png")
         self.assertEqual(missing, [intact.MissingFile("T_Radio_N.png", "//gone/T_Radio_N.png")], "a packed image is never missing")
         self.assertEqual(scene.animations, {"Walk": 1.25})
 

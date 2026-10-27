@@ -62,6 +62,7 @@ class LossTest(unittest.TestCase):
         textures=frozenset({"t_face_d", "t_face_n", "t_eyes_d"}),
         bones=("root", "hand_L", "hand_R"),
         animations={"Walk": 1.25, "Idle": 2.0},
+        texture_names={"t_face_d": "T_Face_D.png", "t_face_n": "T_Face_N.png", "t_eyes_d": "T_Eyes_D.png"},
     )
 
     def test_an_intact_export_says_so(self) -> None:
@@ -75,8 +76,8 @@ class LossTest(unittest.TestCase):
         self.assertFalse(result["intact"])
         by_kind = {loss["kind"]: loss for loss in result["losses"]}
         self.assertEqual(by_kind["texture_file"]["sentence"], "T_Eyes_D.png is not on disk: //tex/T_Eyes_D.png. Find it or pack it.")
-        self.assertEqual(by_kind["texture"]["names"], ["t_face_n"], "a missing file is said once, as missing")
-        self.assertIn("Principled BSDF", by_kind["texture"]["sentence"])
+        self.assertEqual(by_kind["texture"]["names"], ["T_Face_N.png"], "a missing file is said once, as missing, and names keep the artist's spelling")
+        self.assertEqual(by_kind["texture"]["sentence"], "Not in the export: T_Face_N.png. Wire it into the Principled BSDF.")
         self.assertEqual(by_kind["material"]["names"], ["M_Eyes"])
         self.assertEqual(by_kind["bone"]["names"], ["hand_R"])
         self.assertEqual(by_kind["animation"]["sentence"], "Animations not in the export: Idle.")
