@@ -55,7 +55,7 @@ class NkViewer extends HTMLElement {
   _captureStill() { try { const key = this._stillKey(); if (NkViewer._stills.has(key)) return; const url = this._canvas.toDataURL('image/webp', 0.9); NkViewer._stills.set(key, url); } catch (e) { /* a tainted or lost canvas yields no still; the ghost stays */ } }
   get still() { return NkViewer._stills.get(this._stillKey()) || null; }
   _release(force) { const P = NkViewer._pool; const k = P.indexOf(this); if (k >= 0) P.splice(k, 1); if (!this._renderer) return; cancelAnimationFrame(this._raf);
-    if (this._model) { const still = this.still; if (still) { this._poster.style.backgroundImage = 'url(' + still + ')'; this._poster.style.opacity = 1; this.setAttribute('data-still', 'true'); } } /* NKATA (d) */ if (this._ro) this._ro.disconnect(); if (this._model) { this._scene.remove(this._model); this._model = null; } this._renderer.dispose(); if (this._renderer.forceContextLoss) this._renderer.forceContextLoss(); this._renderer = null; this._spent = true; this.removeAttribute('data-live'); this._loadingSrc = null; this._loading.style.opacity = 0; } // NKATA (f, g)
+    if (this._model) { const still = this.still; if (still) { this._poster.style.backgroundImage = 'url(' + still + ')'; this._poster.style.opacity = 1; this.setAttribute('data-still', 'true'); } } /* NKATA (d) */ if (this._ro) this._ro.disconnect(); if (this._model) { this._scene.remove(this._model); this._model = null; } this._renderer.dispose(); if (this._renderer.forceContextLoss) this._renderer.forceContextLoss(); this._renderer = null; this._spent = true; this.removeAttribute('data-live'); this._loadingSrc = null; this._loading.style.opacity = 0; this._loading.setAttribute('aria-hidden', 'true'); } // NKATA (f, g, l)
   _boot() {
     if (this._spent) { const fresh = document.createElement('canvas'); this._canvas.replaceWith(fresh); this._canvas = fresh; this._spent = false; } // NKATA (f)
     this.setAttribute('data-live', 'true'); // NKATA (g)
@@ -93,8 +93,8 @@ class NkViewer extends HTMLElement {
     if (src === this._loadingSrc) return;
     this._loadingSrc = src; const token = this._token = (this._token || 0) + 1;
     if (this._model) { this._scene.remove(this._model); this._model = null; }
-    this._loading.style.opacity = 1; this._loading.textContent = 'Loading model'; this._poster.style.opacity = 1;
-    const finish = () => { if (token !== this._token) return; this._done = token; this._loading.style.opacity = 0; this._poster.style.opacity = 0; this.removeAttribute('data-still'); };
+    this._loading.style.opacity = 1; this._loading.removeAttribute('aria-hidden'); this._loading.textContent = 'Loading model'; this._poster.style.opacity = 1; // NKATA (l)
+    const finish = () => { if (token !== this._token) return; this._done = token; this._loading.style.opacity = 0; this._loading.setAttribute('aria-hidden', 'true'); this._poster.style.opacity = 0; this.removeAttribute('data-still'); }; // NKATA (l): a faded label leaves the accessibility tree too
     new GLTFLoader().load(src, (g) => {
       if (token !== this._token) return;
       try {
