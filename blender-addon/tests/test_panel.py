@@ -35,6 +35,7 @@ class FakeAgent(BaseHTTPRequestHandler):
     calls: list[tuple[str, str, Any]] = []
     comments: list[dict[str, Any]] = []
     parts: list[dict[str, Any]] = [PART]
+    refuse_open: bool = False
     budgets: dict[str, Any] | None = BUDGETS
     online: list[dict[str, Any]] = []
 
@@ -66,6 +67,8 @@ class FakeAgent(BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length") or 0)
         body = json.loads(self.rfile.read(n)) if n else None
         FakeAgent.calls.append(("POST", self.path, body))
+        if self.path.endswith("/open") and FakeAgent.refuse_open:
+            return self._json(403, {"v": 1, "error": {"code": "forbidden", "message": "an approved part is read-only unless you are an art director or producer"}})
         if self.path.endswith("/open"):
             return self._json(200, {"v": 1, "granted": True, "lock": {"holder": USER, "granted_at": AT, "heartbeat_at": AT, "expires_at": AT, "stale": False}})
         if self.path == "/presence":
@@ -144,6 +147,7 @@ class PanelTest(unittest.TestCase):
         FakeAgent.parts = [PART]
         FakeAgent.budgets = BUDGETS
         FakeAgent.online = []
+        FakeAgent.refuse_open = False
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), FakeAgent)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
         self.radio = bpy_stub.FakeObject("Radio", coords=[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0], materials=["M_Radio"])
@@ -202,8 +206,8 @@ class PanelTest(unittest.TestCase):
         self.assertIn("label:Not checked yet.", text)
         self.assertIn("label:No new comments", text)
         self.assertIn("prop:nkata_note:", text)
-        self.assertIn("op:nkata.publish:Publish, after the red one", text, "nothing checked reads as red")
-        order = [lines.index(x) for x in ("label:Connected to Rising Sun", "label:Only you in the project now", "label:Not checked yet.", "label:No new comments", "op:nkata.publish:Publish, after the red one")]
+        self.assertIn("op:nkata.publish:Publish, after the note", text, "nothing checked is not red")
+        order = [lines.index(x) for x in ("label:Connected to Rising Sun", "label:Only you in the project now", "label:Not checked yet.", "label:No new comments", "op:nkata.publish:Publish, after the note")]
         self.assertEqual(order, sorted(order), "the five elements keep their order")
         for banned in ("Draft", "Locked", "Mark Ready", "Mirror", "gate", "state", "Reference"):
             self.assertNotIn(banned, text)
@@ -366,10 +370,15 @@ class PanelTest(unittest.TestCase):
         self.save_hook.handle_open(str(self.blend))
         self.panel._throttle.last = -1e9
         self.panel._throttle.dirty = False
-        self.panel.live_tick()
-        self.assertNotIn(ID, self.state.checks, "nothing changed, nothing ran")
-        self.panel.on_depsgraph_update()
-        self.panel.live_tick()
+        with mock.patch.object(self.panel, "run_checks", wraps=self.panel.run_checks) as run:
+            self.panel.live_tick()
+            self.assertEqual(run.call_count, 1, "a file just opened is checked once")
+            self.panel._throttle.last = -1e9
+            self.panel.live_tick()
+            self.assertEqual(run.call_count, 1, "nothing changed, nothing ran")
+            self.panel.on_depsgraph_update()
+            self.panel.live_tick()
+            self.assertEqual(run.call_count, 2, "a change runs them again")
         self.assertIn(ID, self.state.checks)
         self.assertTrue(all(r["passed"] for r in self.state.checks[ID]))
         self.assertIn("label:1 triangles, within budget of 30,000", self.draw())
@@ -420,6 +429,24 @@ class PanelTest(unittest.TestCase):
         self.assertIn("file.make_paths_absolute", calls)
         self.assertNotIn("file.pack_all", calls)
         self.assertIn("Textures relinked", self.state.added_line)
+
+    def test_an_approved_part_opens_read_only_in_plain_words_and_offers_no_publish(self) -> None:
+        FakeAgent.refuse_open = True
+        self.save_hook.handle_open(str(self.blend))
+        lines = self.draw()
+        self.assertIn("label:Approved. A lead can reopen it.", lines)
+        self.assertFalse([x for x in lines if x.startswith("op:nkata.publish")], lines)
+        FakeAgent.refuse_open = False
+        self.save_hook.handle_open(str(self.blend))
+        self.assertTrue([x for x in self.draw() if x.startswith("op:nkata.publish")], "a granted open publishes again")
+
+    def test_the_checks_run_when_a_file_opens_not_only_after_an_edit(self) -> None:
+        self.save_hook.handle_open(str(self.blend))
+        self.assertFalse(self.state.checks.get(PART["id"]))
+        self.panel._throttle.last = -1e9
+        self.panel._throttle.dirty = False
+        self.panel.live_tick()
+        self.assertTrue(self.state.checks.get(PART["id"]), "the open file's checks ran without a scene change")
 
     def _pointer(self) -> Path:
         home = Path(self.tmp.name) / "home"

@@ -57,6 +57,13 @@ class LinesTest(unittest.TestCase):
         red, _ = live.run_four(FACTS, 100)
         self.assertEqual(live.publish_label(live.lines(red, checks.summary(FACTS), 100), "Dial added."), "Publish, after the red one")
 
+    def test_a_check_not_run_yet_is_not_red(self) -> None:
+        # The panel said "Publish, after the red one" over four "Not checked yet." lines.
+        pending = live.lines([], {}, 30_000)
+        self.assertTrue(all(r.pending and not r.passed for r in pending))
+        self.assertEqual(live.publish_label(pending, ""), "Publish, after the note")
+        self.assertEqual(live.publish_label(pending, "Dial added."), "Publish")
+
 
 class ClockTest(unittest.TestCase):
     def test_checks_run_at_most_every_two_seconds_and_only_after_a_change(self) -> None:
@@ -90,6 +97,12 @@ class PinColorTest(unittest.TestCase):
         self.assertEqual(live.save_refused_line("lock_held", "Ada Eze has this part"), "Ada has this file open. Your save stays on this computer.")
         self.assertIn("Only the owner or a lead", live.save_refused_line("forbidden", "only the owner, an art director, or a producer can edit this part"))
         self.assertEqual(live.save_refused_line("offline", "the agent did not answer"), "the agent did not answer")
+
+    def test_a_refused_open_reads_in_plain_words(self) -> None:
+        # The panel showed the server's sentence, cut: "an approved part i...irector or producer".
+        self.assertEqual(live.open_refused_line("forbidden", "an approved part is read-only unless you are an art director or producer"), "Approved. A lead can reopen it.")
+        self.assertEqual(live.open_refused_line("gate_closed", "waits on face"), "This asset waits on another one first.")
+        self.assertEqual(live.open_refused_line("offline", "the agent did not answer"), "the agent did not answer")
 
     def test_pins_take_the_commenters_color_and_hash_like_the_app(self) -> None:
         a = pins.person_color({"author": {"id": "01ADA000000000000000000000"}, "resolved_at": None})

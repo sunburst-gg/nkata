@@ -478,7 +478,7 @@ def draw_checks(layout: Any, part: dict[str, Any]) -> None:
     rows = check_lines(part)
     fixable = False
     for r in rows:
-        box.label(text=r.sentence, icon="CHECKMARK" if r.passed else "ERROR")
+        box.label(text=r.sentence, icon="CHECKMARK" if r.passed else "TIME" if r.pending else "ERROR")
         if not r.passed and STATE.checks.get(part["id"]):
             box.label(text=r.fix)
             fixable |= r.key in ("textures", "scale")
@@ -551,7 +551,8 @@ class NKATA_PT_panel(bpy.types.Panel):
         draw_team(layout, part)
         draw_checks(layout, part)
         draw_comments(layout, part)
-        draw_publish(layout, part)
+        if not STATE.read_only:
+            draw_publish(layout, part)
 
 
 # ---- live: checks on scene change, the heartbeat
@@ -573,6 +574,9 @@ def live_tick() -> float:
     every 10 s."""
     now = time.monotonic()
     part = STATE.part
+    if part is not None and not STATE.checks.get(part["id"]):
+        # A file just opened has no checks yet: run them without waiting for an edit.
+        _throttle.mark()
     if part is None and now - _startable_at[0] >= STARTABLE_EVERY_S:
         _startable_at[0] = now
         try:

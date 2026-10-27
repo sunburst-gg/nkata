@@ -288,6 +288,7 @@ def handle_open(filepath: str) -> dict[str, Any]:
         STATE.part = part
         STATE.rel_file = rel
         STATE.error = ""
+        STATE.read_only = False
         STATE.publish_line = ""
         STATE.added_line = ""
         STATE.opened_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -308,7 +309,8 @@ def handle_open(filepath: str) -> dict[str, Any]:
                 raise
             holder = None
             with STATE.lock:
-                STATE.error = e.message
+                STATE.error = live.open_refused_line(e.code, e.message)
+                STATE.read_only = e.code == "forbidden"
     with STATE.lock:
         if STATE.part is not None:
             STATE.part = {**STATE.part, "lock": holder}

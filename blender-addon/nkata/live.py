@@ -58,6 +58,8 @@ class CheckLine:
     passed: bool
     sentence: str
     fix: str
+    # Not run yet: neither a pass nor a fail, and never the red one Publish waits on.
+    pending: bool = False
 
 
 def lines(results: list[dict[str, Any]], card: dict[str, Any], budget: int) -> list[CheckLine]:
@@ -68,7 +70,7 @@ def lines(results: list[dict[str, Any]], card: dict[str, Any], budget: int) -> l
     for key, check_id in KEYS:
         r = by_id.get(check_id)
         if r is None:
-            out.append(CheckLine(key, False, "Not checked yet.", FIX[key]))
+            out.append(CheckLine(key, False, "Not checked yet.", FIX[key], pending=True))
             continue
         if r["passed"]:
             out.append(CheckLine(key, True, green_sentence(key, card, budget), FIX[key]))
@@ -125,9 +127,19 @@ def save_refused_line(code: str, message: str) -> str:
     return message
 
 
+def open_refused_line(code: str, message: str) -> str:
+    """A refused open in plain words, short enough for the sidebar."""
+    if code == "forbidden":
+        return "Approved. A lead can reopen it."
+    if code == "gate_closed":
+        return "This asset waits on another one first."
+    return message
+
+
 def publish_label(rows: list[CheckLine], note: str) -> str:
-    """The app's labels: a red check first, then the note, then Publish."""
-    if any(not r.passed for r in rows):
+    """The app's labels: a red check first, then the note, then Publish. A check not run yet is
+    not red: Publish runs the checks itself (the app's rule since v8 step 11)."""
+    if any(not r.passed and not r.pending for r in rows):
         return "Publish, after the red one"
     if not note.strip():
         return "Publish, after the note"

@@ -67,6 +67,8 @@ class AddonState:
     # When the open file was opened, ISO 8601 UTC, for the version's opened_at.
     opened_at: str | None = None
     error: str = ""
+    # The server refused to open the part (an approved one): the panel offers no Publish.
+    read_only: bool = False
     dirty: bool = False
 
     def mirror_for(self, part_id: str) -> MirrorView:
