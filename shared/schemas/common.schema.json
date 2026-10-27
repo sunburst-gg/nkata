@@ -64,8 +64,7 @@
         },
         "reason": {
           "type": "string",
-          "minLength": 1,
-          "maxLength": 200
+          "minLength": 1
         },
         "by": {
           "$ref": "#/$defs/UserRef"
