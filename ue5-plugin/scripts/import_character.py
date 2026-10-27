@@ -28,6 +28,7 @@ import time
 from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import verify  # noqa: E402
 from _result import emit, read_args  # noqa: E402
 
 try:
@@ -36,11 +37,49 @@ except ImportError:  # pragma: no cover - only inside the editor
     unreal = None
 
 
-def find_existing(asset_path: str) -> Any | None:
-    """The asset at destination_path/asset_name, or None on first import."""
-    if not unreal.EditorAssetLibrary.does_asset_exist(asset_path):
-        return None
-    return unreal.EditorAssetLibrary.load_asset(asset_path)
+def find_existing(destination_path: str, asset_name: str) -> Any | None:
+    """The part's skeletal mesh from an earlier import, or None on the first. Interchange files a
+    glTF import under <destination>/<file>/SkeletalMeshes/ and names the mesh after the file's
+    mesh, not destination_name (measured on UE 5.8), so the mesh is looked for under the
+    destination: the one named asset_name, else the only one there."""
+    meshes = []
+    for path in unreal.EditorAssetLibrary.list_assets(destination_path, recursive=True):
+        asset = unreal.EditorAssetLibrary.load_asset(path)
+        if isinstance(asset, unreal.SkeletalMesh):
+            meshes.append(asset)
+    named = [m for m in meshes if m.get_name() == asset_name]
+    if named:
+        return named[0]
+    return meshes[0] if len(meshes) == 1 else None
+
+
+def imported_mesh(paths: list[str]) -> Any | None:
+    """The skeletal mesh among what the import made. The first path is often a texture or the
+    skeleton (measured on UE 5.8), which had made the link check compare nothing with nothing."""
+    for path in paths:
+        asset = unreal.EditorAssetLibrary.load_asset(path)
+        if isinstance(asset, unreal.SkeletalMesh):
+            return asset
+    return None
+
+
+def what_arrived(mesh: Any, destination_path: str) -> dict[str, Any]:
+    """The material slots, the skeleton's bones and the animations on that skeleton.
+    SkeletonModifier.get_all_bone_names (UE 5.4+, the SkeletalMeshModelingTools plugin):
+    https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/SkeletonModifier"""
+    bones: list[str] = []
+    modifier_cls = getattr(unreal, "SkeletonModifier", None)
+    if modifier_cls is not None:
+        modifier = modifier_cls()
+        modifier.set_skeletal_mesh(mesh)
+        bones = [str(b) for b in modifier.get_all_bone_names()]
+    skeleton = mesh.skeleton
+    animations = []
+    for path in unreal.EditorAssetLibrary.list_assets(destination_path, recursive=True):
+        asset = unreal.EditorAssetLibrary.load_asset(path)
+        if isinstance(asset, unreal.AnimSequence) and asset.get_skeleton() == skeleton:
+            animations.append({"name": asset.get_name(), "seconds": float(asset.get_play_length())})
+    return {"materials": [str(m.material_slot_name) for m in mesh.materials], "bones": bones, "animations": animations}
 
 
 def fbx_options(existing: Any | None) -> Any:
@@ -120,7 +159,10 @@ def refresh(asset_path: str) -> None:
     asset = unreal.EditorAssetLibrary.load_asset(asset_path)
     if asset is not None:
         asset.modify()
-        unreal.EditorAssetLibrary.sync_browser_to_objects([asset_path])
+        # A commandlet has no Slate application, and syncing the Content Browser there asserts
+        # (measured on UE 5.8). The mirror runs in the open editor, which has one.
+        if "-run=" not in unreal.SystemLibrary.get_command_line().lower():
+            unreal.EditorAssetLibrary.sync_browser_to_objects([asset_path])
 
 
 def main(argv: list[str]) -> None:
@@ -129,24 +171,32 @@ def main(argv: list[str]) -> None:
     if unreal is None:
         emit(False, "unreal module not available: run inside the editor")
         return
-    asset_path = f"{args['destination_path']}/{args['asset_name']}"
-    existing = find_existing(asset_path)
+    destination = str(args["destination_path"])
+    existing = find_existing(destination, str(args["asset_name"]))
     before = links_of(existing) if existing is not None else None
     task = build_task(args, existing)
     unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
     imported = list(task.imported_object_paths or [])
-    if not imported:
-        emit(False, "import produced no asset. See the Output Log for the importer error.", asset_path=asset_path, first_import=existing is None)
+    mesh = imported_mesh(imported) if imported else None
+    if mesh is None:
+        emit(False, "import produced no skeletal mesh. See the Output Log for the importer error.", asset_path=destination, first_import=existing is None)
         return
+    asset_path = mesh.get_path_name()
     refresh(asset_path)
-    after = links_of(unreal.EditorAssetLibrary.load_asset(imported[0]))
+    after = links_of(mesh)
     if before is not None and before != after:
-        emit(False, f"reimport changed the links: {before} to {after}", asset_path=imported[0], first_import=False, before=before, after=after)
+        emit(False, f"reimport changed the links: {before} to {after}", asset_path=asset_path, first_import=False, before=before, after=after)
+        return
+    # v8 step 17: what Unreal made, set beside what the export held.
+    checked = verify.differences(args.get("expect") or {}, what_arrived(mesh, destination))
+    if not checked["intact"]:
+        emit(False, " ".join(checked["lines"]), asset_path=asset_path, first_import=existing is None, verify=checked, **after)
         return
     emit(
         True,
         "",
-        asset_path=imported[0],
+        asset_path=asset_path,
+        verify=checked,
         first_import=existing is None,
         ms=int((time.monotonic() - started) * 1000),
         part_id=args.get("part_id"),
