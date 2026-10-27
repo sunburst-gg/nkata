@@ -117,13 +117,18 @@ export function checksOf(facts: Facts | null, results: readonly CheckWire[], bud
     return e ? { ...c, accepted: { by: e.by.name.split(/\s+/)[0] || e.by.name, reason: e.reason, at: e.at } } : c;
   };
   const level = (l: CheckWire["severity"] | undefined) => (l && l !== "block" ? { level: l } : {});
+  const byId = new Map(results.map((r) => [r.check_id, r]));
+  // v8 step 22: what Unreal's validators said about the preview, one finding per line, in their words.
+  const validators = byId.get("unreal_validators");
+  const unreal: Check[] = validators
+    ? [accept({ key: "unreal", pass: validators.passed, ...level(validators.severity), sentence: validators.passed ? "No problems." : validators.message, fix: "Fix it in Blender and save again, or a lead accepts it." })]
+    : [];
   // The add-on's own lines (step 13, the pivot since step 21) win: they carry the sentence and the fix the artist saw.
   if (fromManifest && fromManifest.length >= 4) {
-    return fromManifest.map((c) => accept(c.key === "tris" && facts
+    return [...fromManifest.map((c) => accept(c.key === "tris" && facts
       ? { key: c.key, pass: facts.tris <= budget, ...level(c.level), sentence: facts.tris <= budget ? `${fmt(facts.tris)} triangles, within budget.` : `${fmt(facts.tris)} triangles. Budget is ${fmt(budget)}.`, fix: c.fix }
-      : { key: c.key, pass: c.pass, ...level(c.level), sentence: c.sentence, fix: c.fix }));
+      : { key: c.key, pass: c.pass, ...level(c.level), sentence: c.sentence, fix: c.fix })), ...unreal];
   }
-  const byId = new Map(results.map((r) => [r.check_id, r]));
   const from = (key: Check["key"], ids: string[], okSentence: string, fix: string): Check => {
     const r = ids.map((id) => byId.get(id)).find(Boolean);
     if (!r) return { key, pass: false, pending: true, sentence: "Not checked yet.", fix };
@@ -139,7 +144,7 @@ export function checksOf(facts: Facts | null, results: readonly CheckWire[], bud
     from("uv", ["uv_set_present"], "UVs present.", "Unwrap the mesh."),
     tris,
     ...(pivot ? [from("pivot", ["pivot_at_base"], "Pivot follows the project's rule.", "Fix origin in Blender moves it to the base.")] : []),
-  ].map(accept);
+  ].map(accept).concat(unreal);
 }
 
 export interface VersionInput { v: VersionWire; checks: readonly CheckWire[]; reviews: readonly ReviewWire[]; partApproved: boolean; exceptions?: readonly ExceptionWire[] }

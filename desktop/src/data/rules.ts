@@ -8,7 +8,7 @@ export const slug = (name: string): string => name.toLowerCase().replace(/[^a-z0
 export const holds = (c: Check): boolean => !c.pass && !c.pending && (c.level ?? "block") === "block" && !c.accepted;
 
 /** The check behind each line, as the server and the add-on name it. */
-export const CHECK_ID: Record<Check["key"], string> = { textures: "texture_names", scale: "unit_scale", uv: "uv_set_present", tris: "triangle_budget", pivot: "pivot_at_base" };
+export const CHECK_ID: Record<Check["key"], string> = { textures: "texture_names", scale: "unit_scale", uv: "uv_set_present", tris: "triangle_budget", pivot: "pivot_at_base", unreal: "unreal_validators" };
 
 /** The current Version, or null before the first publish. */
 export const current = (a: Asset): Version | null => a.versions[0] ?? null;

@@ -47,7 +47,7 @@ export type Journey = "invited" | "joined" | "blender" | "inBlender";
 
 export interface Member { person: Person; journey: Journey }
 
-export type CheckKey = "textures" | "scale" | "uv" | "tris" | "pivot";
+export type CheckKey = "textures" | "scale" | "uv" | "tris" | "pivot" | "unreal";
 
 /** How strict the studio set a check (v8 step 21): only a failing block holds Publish. */
 export type CheckLevel = "block" | "warn" | "note";
@@ -56,7 +56,7 @@ export type CheckLevel = "block" | "warn" | "note";
 export type PivotRule = "base" | "grid" | "authored";
 
 /** One of a kind's rules, as Project settings shows it (v8 step 21). Off: the template does not run it. */
-export interface Rule { key: CheckKey; level: CheckLevel | "off"; pivot?: PivotRule; gridM?: number }
+export interface Rule { key: Exclude<CheckKey, "unreal">; level: CheckLevel | "off"; pivot?: PivotRule; gridM?: number }
 
 export interface Check {
   key: CheckKey;

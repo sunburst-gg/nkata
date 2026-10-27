@@ -4,6 +4,7 @@ import { DEFAULT_BUDGETS } from "../types";
 import type { Comment } from "../types";
 import type { Template } from "@nkata/shared";
 import { rulesOf, withRules } from "./wire";
+import { factsWithDeltas } from "@/app/selectors";
 import { ago, assetOf, budgetFor, budgetsOf, budgetsWire, checksOf, colorOf, commentOf, factsOf, journeyOf, mentionsOf, namesMe, personOf, roleOf, versionOf, type AssetWire, type MemberWire, type PartWire, type VersionWire } from "./wire";
 
 const NOW = new Date("2026-10-18T12:00:00Z");
@@ -164,6 +165,26 @@ describe("members and mentions", () => {
     expect(out[0]).toMatchObject({ who: { first: "Ada" }, text: "Emeka, is the dial right?" });
     expect(out[1]).toMatchObject({ text: "First pass.", who: { first: "Ada" } });
     expect(mentionsOf([waiting], comments, people.get(ada.id)!)).toEqual([]);
+  });
+});
+
+// v8 step 22: what Unreal's validators said rides on the save as one check, in their words.
+describe("validators", () => {
+  const found = { check_id: "unreal_validators", severity: "block" as const, passed: false, auto_fixed: false, message: "Door: Static mesh Door must start with SM_.\nDoor: Door has no LODs." };
+  const lines = [{ key: "textures" as const, pass: true, sentence: "ok.", fix: "" }, { key: "scale" as const, pass: true, sentence: "ok.", fix: "" }, { key: "uv" as const, pass: true, sentence: "ok.", fix: "" }, { key: "tris" as const, pass: true, sentence: "ok.", fix: "" }];
+
+  it("follows the add-on's lines and holds Publish on an error, until a lead accepts it", () => {
+    const facts = factsOf(manifest)!;
+    const got = checksOf(facts, [found], 30_000, lines).at(-1)!;
+    expect(got).toMatchObject({ key: "unreal", pass: false, sentence: found.message });
+    expect(got.level).toBeUndefined();
+    const rows = factsWithDeltas(facts, undefined, checksOf(facts, [found], 30_000, lines));
+    expect(rows.find((r) => r.name === "Validators")).toMatchObject({ value: "2 found in Unreal", failed: true });
+    const accepted = checksOf(facts, [found], 30_000, lines, [{ check_id: "unreal_validators", reason: "Vendor names, renamed next pass.", by: ada, at: "2026-10-27T10:00:00Z" }]).at(-1)!;
+    expect(accepted.accepted).toMatchObject({ by: "Ada", reason: "Vendor names, renamed next pass." });
+    expect(checksOf(facts, [{ ...found, severity: "warn", message: "Door: Door has no LODs." }], 30_000, lines).at(-1)!.level).toBe("warn");
+    expect(checksOf(facts, [{ ...found, passed: true, message: "" }], 30_000, lines).at(-1)).toMatchObject({ pass: true, sentence: "No problems." });
+    expect(checksOf(facts, [], 30_000, lines).some((c) => c.key === "unreal")).toBe(false);
   });
 });
 

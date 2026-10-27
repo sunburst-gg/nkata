@@ -171,6 +171,13 @@ export function factsWithDeltas(facts: Facts | undefined, previous: Facts | unde
   // The pivot rule, when the template runs it (v8 step 21).
   const pivot = check("pivot");
   if (pivot) rows.push({ name: "Pivot", value: pivot.pass ? "Follows the rule" : pivot.pending ? "Not checked yet" : pivot.sentence, delta: "", tone: "muted", ...judged("pivot") });
+  // What Unreal's validators said about the preview (v8 step 22): the count here, their words under it.
+  const unreal = check("unreal");
+  if (unreal) {
+    const found = unreal.pass ? 0 : unreal.sentence.split("\n").length;
+    const row = judged("unreal");
+    rows.push({ name: "Validators", value: found ? `${found} found in Unreal` : "No problems", delta: "", tone: "muted", ...row, fix: found ? `${unreal.sentence}\n${row.fix}` : row.fix });
+  }
   // v8 step 17: the rig, the animations and the export, when the add-on read them back.
   if (facts.bones !== undefined) rows.push({ name: "Rig", value: `${fmt(facts.bones)} bones`, delta: count(facts.bones, previous?.bones), tone: "muted", failed: false, fix: "", info: true });
   if (facts.animations?.length) {

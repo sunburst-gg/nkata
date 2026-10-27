@@ -77,8 +77,8 @@ export function Facts({ asset, shown, artist, onSetBudget, canAccept }: { asset:
               ? <span aria-label="not checked yet" style={{ width: 8, height: 8, borderRadius: "50%", border: "1.5px solid var(--ink40)", boxSizing: "border-box", justifySelf: "end" }} />
               : <span aria-label={r.failed ? "fails" : r.soft ? (r.accepted ? "accepted" : r.soft === "warn" ? "warns" : "noted") : "passes"} style={{ width: 8, height: 8, borderRadius: "50%", background: r.failed ? "var(--bad)" : r.soft === "warn" && !r.accepted ? "var(--amber)" : r.soft ? "var(--ink40)" : "var(--ok)", justifySelf: "end" }} />}
           </div>
-          {r.failed ? <span style={{ fontSize: 13, color: "var(--bad)" }}>{r.fix}</span> : null}
-          {r.soft && !r.accepted ? <span style={{ fontSize: 13, color: "var(--ink60)" }}>{r.fix}</span> : null}
+          {r.failed ? <span style={{ fontSize: 13, color: "var(--bad)", whiteSpace: "pre-line" }}>{r.fix}</span> : null}
+          {r.soft && !r.accepted ? <span style={{ fontSize: 13, color: "var(--ink60)", whiteSpace: "pre-line" }}>{r.fix}</span> : null}
           {r.accepted ? <span style={{ fontSize: 13, color: "var(--ink60)" }}>Accepted by {r.accepted.by}: {r.accepted.reason}</span> : null}
           {canAccept && idx === 0 && r.check && (r.failed || r.soft) ? <Accept asset={asset} row={{ ...r, check: r.check }} /> : null}
           {r.name === "Triangles" && asset.budget ? <span style={{ font: "400 11px var(--mono)", color: "var(--ink40)" }}>Budget {asset.budget.toLocaleString("en-US")} for this asset.</span> : null}
