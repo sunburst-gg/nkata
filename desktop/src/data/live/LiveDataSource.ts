@@ -77,6 +77,8 @@ export class LiveDataSource implements DataSource {
   }
 
   get blender(): BlenderState { return this.blenderState; }
+  /** Whether Blender connected on this computer before: known at launch, before detection. */
+  blenderConnectedBefore(): boolean { return readFlag("nkata.blender.connected"); }
   get signedIn(): boolean { return this.token.length > 0; }
 
   subscribe(handler: (e: DataEvent) => void): Unsubscribe {
