@@ -130,9 +130,10 @@ export function trisDelta(now: number, prev: number | null | undefined): { text:
 }
 
 /** Where a save is in Unreal, as one row of the facts; none when the mirror did not run. */
-export function unrealRow(status: Version["unreal"]): FactRow | null {
+export function unrealRow(status: Version["unreal"], published: boolean): FactRow | null {
   if (!status) return null;
-  if (status === "synced") return { name: "Unreal", value: "In the editor", delta: "", tone: "muted", failed: false, fix: "" };
+  // A save previews in Unreal; Publish imports it into the game's assets (v8 step 19).
+  if (status === "synced") return { name: "Unreal", value: published ? "In the game" : "Preview in Unreal", delta: "", tone: "muted", failed: false, fix: "" };
   if (status === "pending") return { name: "Unreal", value: "On its way", delta: "", tone: "muted", failed: false, pending: true, fix: "" };
   return { name: "Unreal", value: "Did not arrive", delta: "", tone: "muted", failed: true, fix: "Open Unreal with the project, then save again in Blender." };
 }

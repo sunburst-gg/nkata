@@ -99,6 +99,8 @@ class FakeAgent(BaseHTTPRequestHandler):
             return self._json(201, {"v": 1, "version_id": ID, "mirror": "skipped"})
         if self.path.endswith("/close"):
             return self._json(200, {"v": 1, "released": True})
+        if self.path.endswith("/mirror/on-save"):
+            return self._json(200, {"v": 1, "mirror": {"part_id": ID, "status": "skipped", "message": "", "on_save": body["on_save"], "halted": False, "failures": 0, "version_id": None, "mirror_ms": None, "at": AT}})
         if self.path.endswith("/render"):
             return self._json(200, {"v": 1, "version_id": ID, "stored": True})
         return self._json(404, {"v": 1, "error": {"code": "not_found", "message": self.path}})
@@ -537,6 +539,20 @@ class PanelTest(unittest.TestCase):
         fbx = [c[1] for c in self.bpy._ops.calls if c[0] == "export_scene.fbx"][-1]
         self.assertEqual(fbx["object_types"], {"MESH", "ARMATURE"}, "a rigged prop keeps its rig")
         self.assertTrue(fbx["bake_anim"])
+
+    def test_live_in_unreal_is_one_switch_per_asset_and_only_with_unreal_on(self) -> None:
+        # v8 step 19: off, saves still version and reach the team; Unreal waits.
+        self.save_hook.handle_open(str(self.blend))
+        self.state.unreal = False
+        self.assertFalse([x for x in self.draw() if "live_in_unreal" in x])
+        self.state.unreal = True
+        self.assertIn("op:nkata.live_in_unreal:Live in Unreal:on", self.draw())
+        self.assertEqual(self.panel.NKATA_OT_live_in_unreal().execute(None), {"FINISHED"})
+        sent = [c for c in FakeAgent.calls if c[1].endswith("/mirror/on-save")]
+        self.assertEqual(sent[-1][2]["on_save"], False)
+        self.assertIn("op:nkata.live_in_unreal:Live in Unreal", self.draw())
+        self.assertNotIn("op:nkata.live_in_unreal:Live in Unreal:on", self.draw())
+        self.state.unreal = False
 
     def _pointer(self) -> Path:
         home = Path(self.tmp.name) / "home"

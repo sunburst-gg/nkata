@@ -14,7 +14,7 @@ export function Facts({ asset, shown, artist, onSetBudget }: { asset: Asset; sho
   if (!v) return null;
   const idx = asset.versions.indexOf(v);
   const previous = asset.versions[idx + 1];
-  const unreal = unrealRow(v.unreal);
+  const unreal = unrealRow(v.unreal, !!v.note);
   const rows = [...factsWithDeltas(v.facts, previous?.facts, v.checks), ...(unreal ? [unreal] : [])];
   const against = previous?.facts ? `since v${previous.n}` : "first Version";
   const tone = { muted: "var(--ink40)", neutral: "var(--amber)", good: "var(--ok)" } as const;

@@ -216,10 +216,12 @@ describe("the facts say what the checks found", () => {
 
 describe("the save in Unreal", () => {
   it("a mirrored save says where it is in plain words; with Unreal off there is no row", () => {
-    expect(unrealRow(undefined)).toBeNull();
-    expect(unrealRow("synced")).toMatchObject({ name: "Unreal", value: "In the editor", failed: false });
-    expect(unrealRow("pending")).toMatchObject({ value: "On its way", pending: true });
-    expect(unrealRow("failed")).toMatchObject({ value: "Did not arrive", failed: true, fix: "Open Unreal with the project, then save again in Blender." });
+    expect(unrealRow(undefined, false)).toBeNull();
+    // v8 step 19: a save is a preview; a published save is in the game.
+    expect(unrealRow("synced", false)).toMatchObject({ name: "Unreal", value: "Preview in Unreal", failed: false });
+    expect(unrealRow("synced", true)).toMatchObject({ value: "In the game", failed: false });
+    expect(unrealRow("pending", false)).toMatchObject({ value: "On its way", pending: true });
+    expect(unrealRow("failed", true)).toMatchObject({ value: "Did not arrive", failed: true, fix: "Open Unreal with the project, then save again in Blender." });
   });
 });
 

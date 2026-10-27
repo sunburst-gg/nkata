@@ -16,9 +16,9 @@ Done means each item holds with a real Blender and an open Unreal editor, and `m
 - [x] 2. Publish imports the published save into the game's assets, /Game/Nkata/<asset>/<part>,
       with the same check; a reimport keeps the skeleton, the physics asset, the material slots
       and the collision, as step 17 measured.
-- [ ] 3. The Blender panel has one switch, "Live in Unreal", on by default, per asset. Off: saves
+- [x] 3. The Blender panel has one switch, "Live in Unreal", on by default, per asset. Off: saves
       still version and still reach the team; Unreal waits for the next Publish or the switch.
-- [ ] 4. The app says where a save is: "Preview in Unreal" after a save, "In the game" after a
+- [x] 4. The app says where a save is: "Preview in Unreal" after a save, "In the game" after a
       Publish, "Did not arrive" with what to do, and nothing when Unreal is off.
 
 Gate: with an open editor, three saves of a prop reach the preview folder and change nothing in

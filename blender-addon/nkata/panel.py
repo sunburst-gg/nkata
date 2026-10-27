@@ -221,6 +221,28 @@ class NKATA_OT_add_to_project(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class NKATA_OT_live_in_unreal(bpy.types.Operator):
+    """Live in Unreal, per asset (v8 step 19): on, every save previews in the open editor; off,
+    saves still version and reach the team, and Unreal waits for Publish or the switch."""
+
+    bl_idname = "nkata.live_in_unreal"
+    bl_label = "Live in Unreal"
+    bl_description = "Preview every save in Unreal. Publish imports into the game either way"
+
+    def execute(self, _context: bpy.types.Context) -> set[str]:
+        try:
+            client, part = _client_and_part()
+            view = STATE.mirror_for(part["id"])
+            res = client.mirror_on_save(part["id"], not view.on_save)
+        except AgentError as e:
+            self.report({"ERROR"}, e.message)
+            return {"CANCELLED"}
+        with STATE.lock:
+            view.on_save = bool(res.on_save)
+            STATE.dirty = True
+        return {"FINISHED"}
+
+
 class NKATA_OT_set_kind(bpy.types.Operator):
     bl_idname = "nkata.set_kind"
     bl_label = "Kind"
@@ -471,6 +493,8 @@ def draw_connected(layout: Any, part: dict[str, Any]) -> None:
     for key, word in KIND_WORDS.items():
         op = row.operator(NKATA_OT_set_kind.bl_idname, text=word, depress=(key == current))
         op.kind = key
+    if STATE.unreal:
+        layout.operator(NKATA_OT_live_in_unreal.bl_idname, text="Live in Unreal", depress=STATE.mirror_for(part["id"]).on_save)
 
 
 def draw_team(layout: Any, part: dict[str, Any]) -> None:
@@ -620,6 +644,7 @@ def live_tick() -> float:
 CLASSES = (
     NKATA_OT_add_to_project,
     NKATA_OT_start_part,
+    NKATA_OT_live_in_unreal,
     NKATA_OT_set_kind,
     NKATA_OT_fix_checks,
     NKATA_OT_publish,
