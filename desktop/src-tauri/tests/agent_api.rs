@@ -286,8 +286,10 @@ async fn local_api_serves_me_parts_locks_saves_and_mirrors() {
     // v8 step 17: what the export held, for the script to check after the import.
     assert_eq!(
         args["expect"],
-        json!({"materials": ["M_Skin"], "bones": [], "animations": []})
+        json!({"materials": ["M_Skin"], "bones": [], "animations": [], "meshes": 1})
     );
+    // v8 step 18: a save is staged; only Publish imports an environment.
+    assert_eq!(args["mode"], "stage");
 
     let versions: Value = reqwest::Client::new()
         .get(format!("{server_url}/parts/{face}/versions"))
