@@ -112,12 +112,17 @@ def gather_facts(collection: Any, skeletons: dict[str, tuple[str, ...]] | None =
     return checks.SceneFacts(unit_scale=unit_scale_now(), objects=tuple(objects), textures=texture_facts(), bone_names=bone_names, skeletons=dict(skeletons or {}))
 
 
+# Blender's own images, not textures anyone made: the compositor's Viewer Node and the last
+# render. https://docs.blender.org/api/current/bpy.types.Image.html#bpy.types.Image.type
+NOT_TEXTURES = frozenset({"COMPOSITING", "RENDER_RESULT"})
+
+
 def texture_facts() -> tuple[checks.TextureFacts, ...]:
     """The images in the file with pixels: what the texture checks and the card read."""
     return tuple(
         checks.TextureFacts(str(img.name), int(img.size[0]), int(img.size[1]))
         for img in getattr(bpy.data, "images", []) or []
-        if getattr(img, "size", None) and int(img.size[0]) > 0
+        if getattr(img, "size", None) and int(img.size[0]) > 0 and getattr(img, "type", "IMAGE") not in NOT_TEXTURES
     )
 
 

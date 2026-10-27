@@ -134,11 +134,16 @@ export function factsWithDeltas(facts: Facts | undefined, previous: Facts | unde
   if (!facts) return [];
   const check = (key: Version["checks"][number]["key"]) => checks.find((c) => c.key === key);
   const d = trisDelta(facts.tris, previous?.tris);
+  // A count against the last Version: new on the first, then same or the signed change.
+  const count = (now: number, prev: number | undefined) => (prev === undefined ? "new" : now === prev ? "same" : `${now > prev ? "+" : "−"}${Math.abs(now - prev)}`);
+  // The value says what the check found: never "named to the sheet" on a failed or unchecked row.
+  const tex = check("textures");
+  const texValue = facts.textures === 0 ? "None" : tex?.pending ? String(facts.textures) : tex && !tex.pass ? `${facts.textures} not named to the sheet` : `${facts.textures} named to the sheet`;
   const rows: FactRow[] = [
     { name: "Triangles", value: fmt(facts.tris), delta: d.text, tone: d.tone, failed: !check("tris")?.pass && !check("tris")?.pending, pending: !!check("tris")?.pending, fix: check("tris")?.fix ?? "" },
-    { name: "Textures", value: `${facts.textures} named to the sheet`, delta: previous ? "same" : "new", tone: "muted", failed: !check("textures")?.pass && !check("textures")?.pending, pending: !!check("textures")?.pending, fix: check("textures")?.fix ?? "" },
+    { name: "Textures", value: texValue, delta: count(facts.textures, previous?.textures), tone: "muted", failed: !check("textures")?.pass && !check("textures")?.pending, pending: !!check("textures")?.pending, fix: check("textures")?.fix ?? "" },
     { name: "Scale", value: facts.scale, delta: "metres", tone: "muted", failed: !check("scale")?.pass && !check("scale")?.pending, pending: !!check("scale")?.pending, fix: check("scale")?.fix ?? "" },
-    { name: "UV sets", value: String(facts.uvSets), delta: "same", tone: "muted", failed: !check("uv")?.pass && !check("uv")?.pending, pending: !!check("uv")?.pending, fix: check("uv")?.fix ?? "" },
+    { name: "UV sets", value: String(facts.uvSets), delta: count(facts.uvSets, previous?.uvSets), tone: "muted", failed: !check("uv")?.pass && !check("uv")?.pending, pending: !!check("uv")?.pending, fix: check("uv")?.fix ?? "" },
   ];
   return rows;
 }

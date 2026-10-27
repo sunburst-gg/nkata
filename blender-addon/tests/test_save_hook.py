@@ -6,6 +6,7 @@ import json
 import os
 import tempfile
 import threading
+import types
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -231,6 +232,15 @@ class SaveHookTest(unittest.TestCase):
         self.assertEqual(facts.textures[0].name, "T_Face_D")
         results, _ = checks.run_checks(["unit_scale", "uv_set_present", "texture_size", "rig_bone_count"], {"rig_bone_count": {"max": 50}}, {}, facts)
         self.assertTrue(all(r["passed"] for r in results), results)
+
+    def test_blenders_own_images_are_not_textures(self) -> None:
+        # Every file can carry the compositor's Viewer Node and a Render Result. They read as one
+        # texture that failed the naming check on a model with no textures at all.
+        import bpy
+
+        bpy.data.images.append(types.SimpleNamespace(name="Viewer Node", type="COMPOSITING", size=(256, 256), filepath="", packed_file=None))
+        bpy.data.images.append(types.SimpleNamespace(name="Render Result", type="RENDER_RESULT", size=(1920, 1080), filepath="", packed_file=None))
+        self.assertEqual([t.name for t in self.save_hook.texture_facts()], ["T_Face_D"])
 
     def test_file_outside_a_project_is_skipped(self) -> None:
         with tempfile.TemporaryDirectory() as d:

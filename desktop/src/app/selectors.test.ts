@@ -47,7 +47,7 @@ describe("stage=studio", () => {
     expect(radio.live).toBeTruthy();
     expect(radio.versions[0]!.n).toBe(1);
     const rows = factsWithDeltas(radio.versions[0]!.facts, radio.versions[1]?.facts, radio.versions[0]!.checks);
-    expect(rows.map((r) => [r.name, r.value, r.delta])).toEqual([["Triangles", "16,200", "first Version"], ["Textures", "2 named to the sheet", "new"], ["Scale", "1.00", "metres"], ["UV sets", "1", "same"]]);
+    expect(rows.map((r) => [r.name, r.value, r.delta])).toEqual([["Triangles", "16,200", "first Version"], ["Textures", "2 named to the sheet", "new"], ["Scale", "1.00", "metres"], ["UV sets", "1", "new"]]);
     expect(publishState(radio, "")).toMatchObject({ can: false, label: "Publish, after the note" });
     expect(publishState(radio, "Dial glass added.")).toMatchObject({ can: true, label: "Publish v2" });
     const chair = assets.find((a) => a.name === "Chair")!;
@@ -193,6 +193,23 @@ describe("the lead's second look", () => {
     expect(waitingOnLead(afterSendBack)).toBe(true);
     expect(needsMe([afterSendBack], ME.lead).map((a) => a.id)).toEqual([afterSendBack.id]);
     expect(needsMe([afterSendBack], ME.artist)).toEqual([]);
+  });
+});
+
+describe("the facts say what the checks found", () => {
+  const facts = { tris: 12, textures: 1, scale: "1.00", uvSets: 1 };
+  const check = (key: "textures" | "uv" | "scale" | "tris", pass: boolean, pending = false) => ({ key, pass, pending, sentence: "", fix: "Fix it." });
+  it("a failed or unchecked texture row never claims the names are right, and no textures reads None", () => {
+    const value = (pass: boolean, pending = false, textures = 1) => factsWithDeltas({ ...facts, textures }, undefined, [check("textures", pass, pending)])[1]!.value;
+    expect(value(true)).toBe("1 named to the sheet");
+    expect(value(false)).toBe("1 not named to the sheet");
+    expect(value(false, true)).toBe("1");
+    expect(value(true, false, 0)).toBe("None");
+  });
+  it("a delta says what changed since the last Version", () => {
+    const rows = factsWithDeltas({ ...facts, textures: 3, uvSets: 2 }, facts, []);
+    expect(rows.map((r) => [r.name, r.delta])).toEqual([["Triangles", "same"], ["Textures", "+2"], ["Scale", "metres"], ["UV sets", "+1"]]);
+    expect(factsWithDeltas(facts, facts, []).map((r) => r.delta)).toEqual(["same", "same", "metres", "same"]);
   });
 });
 
