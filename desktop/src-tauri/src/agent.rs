@@ -71,7 +71,13 @@ pub struct Agent {
     index: Index,
     client: ServerClient,
     rules: IgnoreRules,
+    /// What stops the sync that the person must act on, in their words (a full disk). The
+    /// runtime reads it into Status; the next good pull clears it.
+    problem: Problem,
 }
+
+/// A problem line shared between the watch loop and the window.
+pub type Problem = std::sync::Arc<std::sync::Mutex<Option<String>>>;
 
 impl Agent {
     pub fn open(config: AgentConfig) -> Result<Self> {
@@ -84,7 +90,19 @@ impl Agent {
             index,
             client,
             rules,
+            problem: Problem::default(),
         })
+    }
+
+    /// The handle the window reads the problem line from.
+    pub fn problem(&self) -> Problem {
+        self.problem.clone()
+    }
+
+    fn set_problem(&self, line: Option<String>) {
+        if let Ok(mut slot) = self.problem.lock() {
+            *slot = line;
+        }
     }
 
     pub fn index(&self) -> &Index {
@@ -151,8 +169,15 @@ impl Agent {
             }
             if last_pull.elapsed() >= pull_every {
                 last_pull = std::time::Instant::now();
-                if let Err(e) = self.pull().await {
-                    tracing::warn!(project_id = self.config.project_id, error = %e, "pull failed, will retry");
+                match self.pull().await {
+                    Ok(_) => self.set_problem(None),
+                    Err(e @ crate::error::AgentError::NoSpace { .. }) => {
+                        tracing::warn!(project_id = self.config.project_id, error = %e, "pull: not enough space");
+                        self.set_problem(Some(e.to_string()));
+                    }
+                    Err(e) => {
+                        tracing::warn!(project_id = self.config.project_id, error = %e, "pull failed, will retry");
+                    }
                 }
             }
             tokio::time::sleep(Duration::from_millis(250)).await;

@@ -27,6 +27,9 @@ pub struct Status {
     pub project_id: Option<String>,
     pub folder: Option<String>,
     pub port: Option<u16>,
+    /// What stops the sync that the person must act on (a full disk), or None.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub problem: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -57,6 +60,8 @@ struct Running {
     /// The server as this agent talks to it, for Open previous version. None in stream mode.
     server: Option<ServerClient>,
     folder: Option<PathBuf>,
+    /// The sync's problem line, read fresh on every status.
+    problem: Option<crate::agent::Problem>,
 }
 
 /// Where fetched versions and opened copies live inside the agent's folder, which the sync skips.
@@ -76,13 +81,20 @@ impl Runtime {
 
     pub async fn status(&self) -> Status {
         match self.inner.lock().await.as_ref() {
-            Some(r) => r.status.clone(),
+            Some(r) => Status {
+                problem: r
+                    .problem
+                    .as_ref()
+                    .and_then(|p| p.lock().ok().and_then(|g| g.clone())),
+                ..r.status.clone()
+            },
             None => Status {
                 running: false,
                 mode: None,
                 project_id: None,
                 folder: None,
                 port: None,
+                problem: None,
             },
         }
     }
@@ -105,6 +117,7 @@ impl Runtime {
             project_id: opts.project_id.clone(),
         };
         let agent = Agent::open(config)?;
+        let problem = agent.problem();
         let server = ServerClient::new(&opts.server_url, &opts.token, &opts.project_id)?;
         let (stop, rx) = watch::channel(false);
         let scripts_dir = opts.scripts_dir.clone();
@@ -159,12 +172,14 @@ impl Runtime {
             project_id: Some(opts.project_id),
             folder: Some(opts.folder.display().to_string()),
             port: Some(port),
+            problem: None,
         };
         *self.inner.lock().await = Some(Running {
             stop,
             status: status.clone(),
             server: Some(server_for_open),
             folder: Some(folder_for_open),
+            problem: Some(problem),
         });
         Ok(status)
     }
@@ -214,12 +229,14 @@ impl Runtime {
             project_id: Some(opts.project_id),
             folder: Some(root.display().to_string()),
             port: Some(port),
+            problem: None,
         };
         *self.inner.lock().await = Some(Running {
             stop,
             status: status.clone(),
             server: None,
             folder: None,
+            problem: None,
         });
         Ok(status)
     }

@@ -1,6 +1,7 @@
 // Nkata itself, as slim full-width lines at the top of every screen. Agent not running: one
-// line with Restart. Offline: one line, no button, clears by itself. Paused: on the wall only,
-// with Resume (BlenderCard owns the state; this draws the line).
+// line with Restart. Offline: one line, no button, clears by itself. A full disk: the agent's
+// line, which clears by itself once there is room. Paused: on the wall only, with Resume
+// (BlenderCard owns the state; this draws the line).
 import { useStore } from "@/app/store";
 import { toast } from "@/ui/toast/toast";
 
@@ -11,7 +12,8 @@ export function StatusLine() {
   const agentRunning = useStore((s) => s.agentRunning);
   const online = useStore((s) => s.online);
   const source = useStore((s) => s.source);
-  if (agentRunning && online) return null;
+  const problem = useStore((s) => s.localProjects.find((p) => p.problem)?.problem);
+  if (agentRunning && online && !problem) return null;
   return (
     <div role="status" style={{ display: "flex", flexDirection: "column" }}>
       {!agentRunning ? (
@@ -19,6 +21,12 @@ export function StatusLine() {
           <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--bad)" }} />
           <span style={{ flex: 1 }}>Nkata is not running in the background. Restart it.</span>
           <button type="button" onClick={() => void source?.restartAgent()} style={button}>Restart</button>
+        </div>
+      ) : null}
+      {problem ? (
+        <div style={bar}>
+          <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--bad)" }} />
+          <span style={{ flex: 1 }}>{problem}</span>
         </div>
       ) : null}
       {!online ? (

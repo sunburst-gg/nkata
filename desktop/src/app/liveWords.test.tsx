@@ -36,6 +36,15 @@ function live(role: "lead" | "viewer") {
   useStore.setState({ source, me, studio: { id: "st1", name: "Activision", training: false }, projects: [PROJECT], projectId: PROJECT.id, members: [], setupDone: [] } as never);
 }
 
+describe("the status line", () => {
+  it("says a full disk in the agent's words", async () => {
+    const { StatusLine } = await import("@/ui/connections/StatusLine");
+    live("artist" as never);
+    useStore.setState({ agentRunning: true, online: true, localProjects: [{ projectId: PROJECT.id, name: "Call of Duty", path: "/x", bytes: 0, syncing: true, problem: "Not enough space on this computer: the project needs 2.3 GB more. Free some space; it catches up by itself." }] } as never);
+    expect(renderToStaticMarkup(<StatusLine />)).toMatch(/Not enough space on this computer/);
+  });
+});
+
 describe("Arrival on live data", () => {
   it("says the person is set once Blender is connected and the project has its place", () => {
     live("lead");

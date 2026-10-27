@@ -34,6 +34,9 @@ pub enum AgentError {
     Watch(#[from] notify::Error),
     #[error("{0}")]
     Config(String),
+    /// A pull that would not fit on the disk. The message is what the person reads.
+    #[error("Not enough space on this computer: the project needs {} more. Free some space; it catches up by itself.", crate::sync::size_words(needed.saturating_sub(*available)))]
+    NoSpace { needed: u64, available: u64 },
     #[error("hash mismatch for {path}: expected {expected}, got {actual}")]
     HashMismatch {
         path: String,

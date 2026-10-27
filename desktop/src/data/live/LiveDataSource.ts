@@ -655,7 +655,7 @@ export class LiveDataSource implements DataSource {
     const project = (await this.listProjects()).find((p) => p.id === this.loaded?.projectId);
     if (!project) return [];
     const bytes = await this.agent.folderBytes(this.folder);
-    return [{ projectId: project.id, name: project.name, path: this.folder, bytes, syncing: status.running && status.mode === "sync" }];
+    return [{ projectId: project.id, name: project.name, path: this.folder, bytes, syncing: status.running && status.mode === "sync", ...(status.problem ? { problem: status.problem } : {}) }];
   }
   async showInFinder(): Promise<void> { /* the desktop build opens the folder; the window has no command for it yet */ }
   async moveProject(): Promise<string> { throw new Error("Move comes with the next desktop build. The files stay where they are."); }

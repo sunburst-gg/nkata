@@ -242,6 +242,15 @@ describe("LiveDataSource", () => {
     expect(await source.listLocalProjects()).toEqual([{ projectId: PROJECT, name: "Rising Sun", path: "/Users/emeka/Nkata/Rising Sun", bytes: 96_040, syncing: true }]);
   });
 
+  it("a full disk reaches the window as the project's problem line, in the agent's words", async () => {
+    const line = "Not enough space on this computer: the project needs 2.3 GB more. Free some space; it catches up by itself.";
+    const server = fakeServer();
+    const source = new LiveDataSource({ serverUrl: "http://server", token: "tok", folder: "/Users/emeka/Nkata/Rising Sun", fetch: server.fetchImpl, now: () => NOW, agent: { ...agent, status: async () => ({ ...(await agent.status()), problem: line }) }, pollMs: 0 });
+    await source.loadAccount();
+    await source.listAssets(PROJECT);
+    expect((await source.listLocalProjects())[0]).toMatchObject({ problem: line });
+  });
+
   it("disconnect removes the add-on from Blender, as the dialog says, then reads disconnected", async () => {
     // The dialog said "The add-on is removed." and nothing removed it: saves kept syncing.
     const server = fakeServer();

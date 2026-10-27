@@ -41,7 +41,7 @@ export interface Person {
 export interface BlenderInstall { path: string; version: string }
 
 /** A project's files on this computer (artists). */
-export interface LocalProject { projectId: string; name: string; path: string; bytes: number; syncing: boolean }
+export interface LocalProject { projectId: string; name: string; path: string; bytes: number; syncing: boolean; /** What stops the sync, in the agent's words (a full disk). */ problem?: string }
 
 export type Journey = "invited" | "joined" | "blender" | "inBlender";
 

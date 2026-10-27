@@ -226,6 +226,32 @@ async fn fetch_remote(
 }
 
 /// Downloads what is new on the server. Reuses chunks that already exist in any local file.
+/// Room kept free on the disk after a pull, so the system and Blender still have space to work.
+pub const DISK_RESERVE: u64 = 1024 * 1024 * 1024;
+
+/// A pull fits when what it writes plus the reserve is within what the disk has free.
+pub fn room_for(needed: u64, available: u64) -> Result<()> {
+    if needed.saturating_add(DISK_RESERVE) > available {
+        return Err(AgentError::NoSpace {
+            needed: needed.saturating_add(DISK_RESERVE),
+            available,
+        });
+    }
+    Ok(())
+}
+
+/// A byte count as a person reads it: 900 MB, 3.2 GB.
+pub fn size_words(bytes: u64) -> String {
+    const GB: f64 = 1_000_000_000.0;
+    const MB: f64 = 1_000_000.0;
+    let b = bytes as f64;
+    if b >= GB {
+        format!("{:.1} GB", b / GB)
+    } else {
+        format!("{} MB", (b / MB).ceil() as u64)
+    }
+}
+
 pub async fn pull(root: &Path, index: &Index, client: &ServerClient) -> Result<PullReport> {
     let started = Instant::now();
     let mut report = PullReport::default();
@@ -255,6 +281,11 @@ pub async fn pull(root: &Path, index: &Index, client: &ServerClient) -> Result<P
         report.elapsed_ms = started.elapsed().as_millis();
         return Ok(report);
     }
+    // Each file is written whole to tmp, then moved in place: the sizes are what the disk needs.
+    // https://docs.rs/fs4/latest/fs4/fn.available_space.html
+    let needed: u64 = todo.iter().map(|fv| fv.size).sum();
+    let available = fs4::available_space(root).map_err(|e| AgentError::io(root, e))?;
+    room_for(needed, available)?;
 
     // Local chunk sources, so an edit downloads only what changed.
     let mut local: HashMap<String, (PathBuf, ChunkRef)> = HashMap::new();
@@ -389,4 +420,22 @@ pub async fn pull(root: &Path, index: &Index, client: &ServerClient) -> Result<P
         "pull: done"
     );
     Ok(report)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_pull_needs_its_bytes_and_the_reserve_free() {
+        assert!(room_for(500_000_000, DISK_RESERVE + 500_000_000).is_ok());
+        let err = room_for(3_200_000_000, 2_000_000_000).unwrap_err();
+        assert!(matches!(err, AgentError::NoSpace { .. }));
+        assert_eq!(
+            err.to_string(),
+            "Not enough space on this computer: the project needs 2.3 GB more. Free some space; it catches up by itself."
+        );
+        assert_eq!(size_words(900_000_000), "900 MB");
+        assert_eq!(size_words(1_000_001), "2 MB");
+    }
 }

@@ -7,6 +7,8 @@ export interface AgentStatus {
   project_id: string | null;
   folder: string | null;
   port: number | null;
+  /** What stops the sync that the person must act on (a full disk), in the agent's words. */
+  problem?: string;
 }
 
 /** What the agent found on this computer: Blender, and the Unreal projects inside the folder. */
