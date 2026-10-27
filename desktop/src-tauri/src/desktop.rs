@@ -251,16 +251,6 @@ async fn agent_stop(rt: State<'_, Runtime>) -> Result<Status, String> {
     Ok(rt.status().await)
 }
 
-/// Writes an export manifest next to the project folder, where the artist can find it.
-#[tauri::command]
-async fn write_export(folder: String, name: String, json: String) -> Result<String, String> {
-    let dir = PathBuf::from(folder).join("exports");
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let path = dir.join(format!("{name}.json"));
-    std::fs::write(&path, json).map_err(|e| e.to_string())?;
-    Ok(path.display().to_string())
-}
-
 fn main() {
     tracing_subscriber::fmt()
         .json()
@@ -280,7 +270,6 @@ fn main() {
             agent_start_sync,
             agent_start_stream,
             agent_stop,
-            write_export,
             tools_detect,
             list_blend_files,
             place_for,
