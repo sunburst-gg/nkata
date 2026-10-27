@@ -1,0 +1,43 @@
+name: desktop-build
+# The desktop app for Windows and macOS on every push to main, so the team can test on their own
+# machines (meeting of 2026-10-27: a Windows build for the team's Windows users). Unsigned for now:
+# Windows SmartScreen warns once and macOS needs right click, Open. Signing comes with the
+# certificates (docs/tasks/v8-15-pilot.md, item 2).
+# Tauri's build: https://v2.tauri.app/distribute/
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            bundles: nsis,msi
+            out: |
+              target/release/bundle/nsis/*.exe
+              target/release/bundle/msi/*.msi
+          - os: macos-latest
+            bundles: dmg
+            out: target/release/bundle/dmg/*.dmg
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: pnpm install --frozen-lockfile
+      - name: Build the app
+        working-directory: desktop
+        run: pnpm tauri build --bundles ${{ matrix.bundles }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nkata-${{ matrix.os }}
+          path: ${{ matrix.out }}
+          if-no-files-found: error
