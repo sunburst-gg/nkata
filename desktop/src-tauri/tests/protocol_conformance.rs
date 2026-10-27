@@ -77,11 +77,17 @@ fn samples() -> Vec<(&'static str, Value)> {
         kind: TemplateKind::Character,
         checks: vec![CheckSpec {
             id: "triangle_budget".into(),
-            severity: CheckSeverity::Block,
+            severity: CheckSeverity::Note,
             params: serde_json::from_str(r#"{"max": 60000}"#).unwrap(),
         }],
         reference_files: vec!["Ojukwu/ref/concept.png".into()],
         waiting_on: vec![],
+        exceptions: vec![CheckException {
+            check_id: "pivot_at_base".into(),
+            reason: "Hinge pivot, on purpose.".into(),
+            by: user.clone(),
+            at: at.clone(),
+        }],
     };
     let state = MirrorState {
         part_id: id.into(),

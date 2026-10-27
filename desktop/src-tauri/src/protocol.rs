@@ -49,6 +49,8 @@ pub enum TemplateKind {
 pub enum CheckSeverity {
     Block,
     Warn,
+    /// Shown quietly, never holds Publish (v8 step 21).
+    Note,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -102,6 +104,18 @@ pub struct PartSummary {
     pub checks: Vec<CheckSpec>,
     pub reference_files: Vec<String>,
     pub waiting_on: Vec<String>,
+    /// Failing checks a lead accepted, with the reason (v8 step 21). Empty on an older server.
+    #[serde(default)]
+    pub exceptions: Vec<CheckException>,
+}
+
+/// A lead accepted a failing check on one part, with a reason. Shared common CheckException.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CheckException {
+    pub check_id: String,
+    pub reason: String,
+    pub by: UserRef,
+    pub at: String,
 }
 
 /// One check a template runs on a part: the contract id, its severity, and the params.
