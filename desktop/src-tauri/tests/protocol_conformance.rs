@@ -42,6 +42,23 @@ fn samples() -> Vec<(&'static str, Value)> {
         mirror_target: Some("/Game/X".into()),
         textures: vec![],
         unit_scale: Some(1.0),
+        asset_kind: Some(AssetKind::Object),
+        checks: Some(vec![ManifestCheck {
+            key: CheckKey::Tris,
+            pass: true,
+            sentence: "12 triangles, within budget.".into(),
+            fix: "Decimate.".into(),
+        }]),
+        bones: Some(vec!["root".into()]),
+        animations: Some(vec![ManifestAnimation {
+            name: "Walk".into(),
+            seconds: 1.25,
+        }]),
+        export: Some(ExportCheck {
+            intact: true,
+            losses: vec![],
+            bones_changed: None,
+        }),
     };
     let summary = PartSummary {
         id: id.into(),
@@ -275,4 +292,25 @@ fn fixture_manifests_parse() {
         seen += 1;
     }
     assert_eq!(seen, 4);
+}
+
+/// A manifest crosses the agent on every save. A field the agent's types lack is dropped there
+/// without a word: the v8 checks and the asset's kind never reached the server, and the export
+/// the add-on read back would not have either (v8 step 17). Every field must survive the trip.
+#[test]
+fn a_full_manifest_crosses_the_agent_unchanged() {
+    let full = json!({
+        "v": 1, "kind": "character",
+        "objects": [{"name": "Body", "triangles": 12, "materials": ["M_Skin"], "bounds_min": [0.0, 0.0, 0.0], "bounds_max": [1.0, 1.0, 1.0], "hash": "h", "origin": [0.0, 0.0, 0.0], "scale": [1.0, 1.0, 1.0], "uv_sets": ["UVMap"]}],
+        "bone_count": 2, "armature": "Armature", "mirror_target": null,
+        "textures": [{"name": "T_Face_D", "width": 2048, "height": 2048}],
+        "unit_scale": 1.0,
+        "asset_kind": "object",
+        "checks": [{"key": "tris", "pass": true, "sentence": "12 triangles, within budget.", "fix": "Decimate."}],
+        "bones": ["root", "hand_L"],
+        "animations": [{"name": "Walk", "seconds": 1.25}],
+        "export": {"intact": false, "losses": [{"kind": "animation", "names": ["Idle"], "sentence": "Animations not in the export: Idle."}], "bones_changed": ["hand_R"]}
+    });
+    let m: ObjectManifest = serde_json::from_value(full.clone()).expect("manifest parses");
+    assert_eq!(serde_json::to_value(&m).unwrap(), full);
 }

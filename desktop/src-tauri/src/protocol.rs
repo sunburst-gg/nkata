@@ -227,6 +227,76 @@ pub struct ObjectManifest {
     /// The scene's unit scale at export. Absent on older manifests.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unit_scale: Option<f64>,
+    /// v8: object or environment, as the add-on decided or the artist picked.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asset_kind: Option<AssetKind>,
+    /// v8: the four checks as the add-on ran them, with the sentence and the fix.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checks: Option<Vec<ManifestCheck>>,
+    /// v8 step 17: the rig's bone names in order.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bones: Option<Vec<String>>,
+    /// v8 step 17: the animations in the export, with their length.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub animations: Option<Vec<ManifestAnimation>>,
+    /// v8 step 17: the export read back and set beside the scene.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub export: Option<ExportCheck>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AssetKind {
+    Object,
+    Environment,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CheckKey {
+    Textures,
+    Scale,
+    Uv,
+    Tris,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ManifestCheck {
+    pub key: CheckKey,
+    pub pass: bool,
+    pub sentence: String,
+    pub fix: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ManifestAnimation {
+    pub name: String,
+    pub seconds: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExportLossKind {
+    Texture,
+    TextureFile,
+    Material,
+    Bone,
+    Animation,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ExportLoss {
+    pub kind: ExportLossKind,
+    pub names: Vec<String>,
+    pub sentence: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ExportCheck {
+    pub intact: bool,
+    pub losses: Vec<ExportLoss>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bones_changed: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
