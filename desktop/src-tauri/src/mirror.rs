@@ -158,6 +158,8 @@ pub struct EnvironmentImport<'a> {
     pub destination: &'a str,
     pub asset_name: &'a str,
     pub meshes: usize,
+    /// The project's Nanite threshold, or None for the script's default (500,000).
+    pub nanite: Option<u64>,
 }
 
 /// Where the add-on writes an environment's USD: beside its .blend in .nkata-exports/, named
@@ -336,6 +338,7 @@ impl MirrorRunner {
             destination,
             asset_name,
             meshes,
+            nanite,
         } = *job;
         let script = self.scripts_dir.join("import_environment.py");
         let dir = spool_dir.join(part_id);
@@ -344,7 +347,7 @@ impl MirrorRunner {
             return None;
         }
         let args_path = dir.join(format!("{version_id}.environment.args.json"));
-        let args = serde_json::json!({ "v": 1, "mode": "import", "part_id": part_id, "version_id": version_id, "spool_path": usd, "destination_path": destination, "asset_name": asset_name, "expect": { "meshes": meshes } });
+        let args = serde_json::json!({ "v": 1, "mode": "import", "part_id": part_id, "version_id": version_id, "spool_path": usd, "destination_path": destination, "asset_name": asset_name, "expect": { "meshes": meshes }, "nanite_triangle_threshold": nanite });
         if let Err(e) = std::fs::write(&args_path, serde_json::to_vec_pretty(&args).ok()?) {
             tracing::warn!(part_id, error = %e, "import environment: args not written");
             return None;

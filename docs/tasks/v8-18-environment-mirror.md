@@ -31,7 +31,7 @@ Done means each item holds with a real Blender and a real Unreal Engine, and `ma
 
 ## In the app
 
-- [ ] 6. A lead sets the Nanite threshold for the project, next to the budgets.
+- [x] 6. A lead sets the Nanite threshold for the project, next to the budgets.
 
 Gate: an environment of at least ten placed meshes, three of them instances of one mesh, and two
 lights, saved in Blender, reaches Unreal as a stage within ten seconds of the save, and on Publish

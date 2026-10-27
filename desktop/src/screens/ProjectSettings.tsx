@@ -12,14 +12,17 @@ import { Avatar } from "@/ui/people/Avatar";
 import { button, field, primary, row, SectionTitle } from "@/ui/settings/SectionTitle";
 import { Swatches } from "@/ui/stage/Swatches";
 import { toast } from "@/ui/toast/toast";
+import { LiveDataSource } from "@/data/live/LiveDataSource";
 
-const KINDS: { key: keyof Omit<Budgets, "maxTexture">; label: string; step: number }[] = [
+const KINDS: { key: keyof Omit<Budgets, "maxTexture" | "nanite">; label: string; step: number }[] = [
   { key: "prop", label: "Props", step: 5_000 },
   { key: "vehicle", label: "Vehicles", step: 5_000 },
   { key: "character", label: "Characters", step: 5_000 },
   { key: "environment", label: "Environments", step: 100_000 },
 ];
 const TEXTURES: (number | null)[] = [null, 1024, 2048, 4096, 8192];
+// v8 step 18: Nanite above this many triangles when an environment imports into Unreal.
+const NANITE: number[] = [100_000, 250_000, 500_000, 1_000_000];
 const fmt = (n: number) => n.toLocaleString("en-US");
 const label: React.CSSProperties = { width: 120, fontSize: 13, color: "var(--ink60)" };
 
@@ -69,7 +72,7 @@ function BudgetsSection() {
   const [saved, setSaved] = useState<Budgets>(DEFAULT_BUDGETS);
   useEffect(() => { if (source) void source.getBudgets(project.id).then((b) => { setDraft(b); setSaved(b); }); }, [source, project.id]);
   const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
-  const bump = (key: keyof Omit<Budgets, "maxTexture">, by: number) => setDraft((d) => ({ ...d, [key]: Math.max(1_000, d[key] + by) }));
+  const bump = (key: keyof Omit<Budgets, "maxTexture" | "nanite">, by: number) => setDraft((d) => ({ ...d, [key]: Math.max(1_000, d[key] + by) }));
   const save = async () => {
     if (!source) return;
     const over = await source.setBudgets(project.id, draft);
@@ -96,6 +99,14 @@ function BudgetsSection() {
           {TEXTURES.map((t) => <option key={t ?? "none"} value={t ?? ""}>{t ? `${t} px` : "No limit"}</option>)}
         </select>
       </div>
+      {source instanceof LiveDataSource && source.unrealEnabled() ? (
+        <div style={row}>
+          <span style={label}>Nanite above</span>
+          <select aria-label="Nanite triangle threshold" value={draft.nanite ?? 500_000} onChange={(e) => setDraft((d) => ({ ...d, nanite: Number(e.target.value) }))} style={{ ...field, height: 32, padding: "0 8px", fontSize: 13 }}>
+            {NANITE.map((n) => <option key={n} value={n}>{fmt(n)} triangles</option>)}
+          </select>
+        </div>
+      ) : null}
       {dirty ? <button type="button" onClick={() => void save()} style={{ ...primary, alignSelf: "flex-start", height: 36, padding: "0 16px" }}>Save budgets</button> : null}
     </div>
   );

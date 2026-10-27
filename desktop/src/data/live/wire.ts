@@ -9,7 +9,7 @@ import { pinsOn } from "../rules";
 
 export type ServerRole = "artist" | "art_director" | "producer" | "viewer";
 
-export interface AccountWire { token?: string; user: UserRef; email: string; studio_id: string | null; roles: ServerRole[]; studios: { id: string; name: string; roles: ServerRole[] }[] }
+export interface AccountWire { token?: string; user: UserRef; email: string; studio_id: string | null; roles: ServerRole[]; studios: { id: string; name: string; roles: ServerRole[] }[]; features?: { unreal?: boolean } }
 export interface MemberWire { user: UserRef; email: string; roles: ServerRole[] }
 export interface ProjectWire { id: string; name: string; folder_name: string; created_at: string; budgets?: BudgetsWire; deleted_at?: string | null }
 export interface AssetWire { id: string; name: string; template_id: string; state: string; updated_at: string; kind?: AssetKind; group?: string | null; budget?: number | null; folder?: string }
@@ -61,10 +61,10 @@ export function ago(iso: string, now: Date): string {
 
 export function budgetsOf(b: BudgetsWire | undefined): Budgets {
   if (!b) return DEFAULT_BUDGETS;
-  return { prop: b.prop, vehicle: b.vehicle, character: b.character, environment: b.environment, maxTexture: b.max_texture };
+  return { prop: b.prop, vehicle: b.vehicle, character: b.character, environment: b.environment, maxTexture: b.max_texture, ...(b.nanite_triangle_threshold ? { nanite: b.nanite_triangle_threshold } : {}) };
 }
 export function budgetsWire(b: Budgets): BudgetsWire {
-  return { prop: b.prop, vehicle: b.vehicle, character: b.character, environment: b.environment, max_texture: b.maxTexture };
+  return { prop: b.prop, vehicle: b.vehicle, character: b.character, environment: b.environment, max_texture: b.maxTexture, ...(b.nanite ? { nanite_triangle_threshold: b.nanite } : {}) };
 }
 
 /** The budget an asset draws on: its override, else the project number for its kind and group. */

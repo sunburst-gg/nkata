@@ -105,6 +105,11 @@
               "type": "null"
             }
           ]
+        },
+        "nanite_triangle_threshold": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "v8 step 18: meshes above this many triangles import into Unreal as Nanite. Absent means 500,000."
         }
       },
       "required": [

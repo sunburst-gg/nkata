@@ -120,6 +120,9 @@ pub struct Budgets {
     pub character: u64,
     pub environment: u64,
     pub max_texture: Option<u64>,
+    /// v8 step 18: meshes above this many triangles import as Nanite. None means 500,000.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nanite_triangle_threshold: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

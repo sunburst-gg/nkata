@@ -116,7 +116,8 @@ fn samples() -> Vec<(&'static str, Value)> {
                     vehicle: 60_000,
                     character: 80_000,
                     environment: 2_000_000,
-                    max_texture: None
+                    max_texture: None,
+                    nanite_triangle_threshold: Some(500_000),
                 })
             }),
         ),

@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_BUDGETS } from "../types";
 import type { Comment } from "../types";
-import { ago, assetOf, budgetFor, budgetsOf, checksOf, colorOf, commentOf, factsOf, journeyOf, mentionsOf, namesMe, personOf, roleOf, versionOf, type AssetWire, type MemberWire, type PartWire, type VersionWire } from "./wire";
+import { ago, assetOf, budgetFor, budgetsOf, budgetsWire, checksOf, colorOf, commentOf, factsOf, journeyOf, mentionsOf, namesMe, personOf, roleOf, versionOf, type AssetWire, type MemberWire, type PartWire, type VersionWire } from "./wire";
 
 const NOW = new Date("2026-10-18T12:00:00Z");
 const ada = { id: "01ADA000000000000000000000", name: "Ada Okafor", avatar_url: null };
@@ -69,6 +69,10 @@ describe("facts, checks and budgets", () => {
   it("budgets map both ways and the override wins", () => {
     expect(budgetsOf(undefined)).toEqual(DEFAULT_BUDGETS);
     expect(budgetsOf({ prop: 1, vehicle: 2, character: 3, environment: 4, max_texture: 2048 })).toEqual({ prop: 1, vehicle: 2, character: 3, environment: 4, maxTexture: 2048 });
+    // v8 step 18: the Nanite threshold rides with the budgets, both ways, absent when unset.
+    expect(budgetsOf({ prop: 1, vehicle: 2, character: 3, environment: 4, max_texture: null, nanite_triangle_threshold: 250_000 })).toMatchObject({ nanite: 250_000 });
+    expect(budgetsWire({ prop: 1, vehicle: 2, character: 3, environment: 4, maxTexture: null, nanite: 250_000 })).toMatchObject({ nanite_triangle_threshold: 250_000 });
+    expect(budgetsWire({ prop: 1, vehicle: 2, character: 3, environment: 4, maxTexture: null })).not.toHaveProperty("nanite_triangle_threshold");
     expect(budgetFor(DEFAULT_BUDGETS, "object", "Vehicles")).toBe(60_000);
     expect(budgetFor(DEFAULT_BUDGETS, "object", "Characters")).toBe(80_000);
     expect(budgetFor(DEFAULT_BUDGETS, "environment", null)).toBe(2_000_000);

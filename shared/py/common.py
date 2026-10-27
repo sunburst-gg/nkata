@@ -15,6 +15,7 @@ class Budgets:
     character: int
     environment: int
     max_texture: int | None
+    nanite_triangle_threshold: int | None = field(default=None, metadata={"optional": True})
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -256,14 +257,18 @@ def _v_Budgets_max_texture(value: object, path: str) -> Any:
         return None
     return _v_Budgets_max_texture_inner(value, path)
 
+def _v_Budgets_nanite_triangle_threshold(value: object, path: str) -> int:
+    return _rt.check_int(value, path, minimum=1, maximum=None)
+
 def validate_Budgets(value: object, path: str = "$") -> Budgets:
-    obj = _rt.check_object(value, path, required=("prop", "vehicle", "character", "environment", "max_texture",), allowed=("prop", "vehicle", "character", "environment", "max_texture",))
+    obj = _rt.check_object(value, path, required=("prop", "vehicle", "character", "environment", "max_texture",), allowed=("prop", "vehicle", "character", "environment", "max_texture", "nanite_triangle_threshold",))
     return Budgets(
         prop=_v_Budgets_prop(obj["prop"], path + ".prop"),
         vehicle=_v_Budgets_vehicle(obj["vehicle"], path + ".vehicle"),
         character=_v_Budgets_character(obj["character"], path + ".character"),
         environment=_v_Budgets_environment(obj["environment"], path + ".environment"),
         max_texture=_v_Budgets_max_texture(obj["max_texture"], path + ".max_texture"),
+        nanite_triangle_threshold=_v_Budgets_nanite_triangle_threshold(obj["nanite_triangle_threshold"], path + ".nanite_triangle_threshold") if "nanite_triangle_threshold" in obj else None,
     )
 
 def _v_CommentKind(value: object, path: str) -> Any:

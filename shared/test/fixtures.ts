@@ -62,7 +62,7 @@ export const fixtures: Fixtures = {
     Training: { valid: ["on", "off"], invalid: ["yes", true] },
     CommentKind: { valid: ["pin", "take_a_look"], invalid: ["note"] },
     AssetKind: { valid: ["object", "environment"], invalid: ["prop", "Object"] },
-    Budgets: { valid: [budgets, { ...budgets, max_texture: null }], invalid: [{ ...budgets, prop: -1 }, { prop: 1, vehicle: 1, character: 1 }] },
+    Budgets: { valid: [budgets, { ...budgets, max_texture: null }, { ...budgets, nanite_triangle_threshold: 500000 }], invalid: [{ ...budgets, prop: -1 }, { prop: 1, vehicle: 1, character: 1 }, { ...budgets, nanite_triangle_threshold: 0 }] },
     AssetRights: { valid: [rights], invalid: [{ ...rights, statement: "" }, { statement: "x" }] },
     Vec3: { valid: [[0, 1, 2.5]], invalid: [[0, 1], ["a", "b", "c"]] },
     UserRef: { valid: [user, user2], invalid: [{ id, name: "" , avatar_url: null }, { id, name: "x" }] },

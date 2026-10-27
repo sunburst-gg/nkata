@@ -646,6 +646,10 @@ async fn publish(
                                 destination: &destination,
                                 asset_name: &part.asset_name,
                                 meshes,
+                                nanite: s
+                                    .budgets
+                                    .as_ref()
+                                    .and_then(|b| b.nanite_triangle_threshold),
                             },
                             &s.spool_dir,
                         )

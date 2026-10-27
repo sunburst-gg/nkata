@@ -9,7 +9,7 @@ export interface Studio { id: string; name: string; training: boolean }
 export interface StudioRef { id: string; name: string; role: Role; projects: number; current: boolean }
 
 /** Triangle budgets per kind, and an optional texture size limit, per project (Decisions 12). */
-export interface Budgets { prop: number; vehicle: number; character: number; environment: number; maxTexture: number | null }
+export interface Budgets { prop: number; vehicle: number; character: number; environment: number; maxTexture: number | null; /** v8 step 18: Nanite above this many triangles in Unreal. Absent means 500,000. */ nanite?: number }
 export const DEFAULT_BUDGETS: Budgets = { prop: 30_000, vehicle: 60_000, character: 80_000, environment: 2_000_000, maxTexture: null };
 
 export interface DeletedProject { id: string; name: string; deletedAt: string }

@@ -44,6 +44,7 @@ export const Budgets = z.strictObject({
   "character": z.number().int().min(1),
   "environment": z.number().int().min(1),
   "max_texture": z.number().int().min(1).nullable(),
+  "nanite_triangle_threshold": z.number().int().min(1).optional(),
 });
 export type Budgets = z.infer<typeof Budgets>;
 
