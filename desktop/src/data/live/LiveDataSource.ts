@@ -134,11 +134,15 @@ export class LiveDataSource implements DataSource {
   }
   async signOut(): Promise<void> {
     this.stop();
+    // The place and the background process belong to this person. Kept, the next account synced
+    // its own project into the last person's folder (docs/decisions.md, 2026-10-27).
+    await this.agent.stop();
     this.token = "";
     this.account = null;
     this.me = null;
     this.loaded = null;
-    this.remember();
+    this.folder = null;
+    writeSession({ ...this.session(), projectId: "" });
   }
   async setMe(name: string): Promise<Person> {
     await this.call("PUT", "/me", { name: name.trim() });

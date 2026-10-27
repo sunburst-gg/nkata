@@ -85,6 +85,21 @@ async function booted() {
 }
 
 describe("LiveDataSource", () => {
+  it("log out stops the background process and forgets the place, so the next person never syncs into it", async () => {
+    // The place had outlived Log out: the next account's project read as "on this computer" at the
+    // last person's folder, and the agent pulled the new studio's files into it.
+    const server = fakeServer();
+    const stop = vi.fn(agent.stop);
+    const source = new LiveDataSource({ serverUrl: "http://server", token: "tok", folder: "/Users/emeka/Documents", fetch: server.fetchImpl, now: () => NOW, agent: { ...agent, stop }, pollMs: 0 });
+    await source.loadAccount();
+    await source.listAssets(PROJECT);
+    expect(source.projectFolder(PROJECT)).toBe("/Users/emeka/Documents");
+    await source.signOut();
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(source.projectFolder(PROJECT)).toBeNull();
+    expect(source.projectFolder("01OTHERPROJECT0000000000000")).toBeNull();
+  });
+
   it("shows the part Blender saves into when an asset has a concept part first", async () => {
     // A template asset (the seed, older projects) lists concept before model; the saves land on
     // model, so parts[0] read as "No save yet" for an asset with Versions.
