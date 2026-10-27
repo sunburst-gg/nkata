@@ -2,6 +2,7 @@
 // of the ten states in app/connection.ts. The same card sits in the Arrival setup list
 // (compact). Paths never appear in the line; the file name is a mono detail.
 import * as Menu from "@radix-ui/react-dropdown-menu";
+import { MenuRoot, MenuTrigger } from "@/ui/menu/Menu";
 import { useStore } from "@/app/store";
 import { line, primary, type BlenderState } from "@/app/connection";
 import type { BlenderInstall } from "@/data/types";
@@ -74,19 +75,19 @@ export function BlenderCard({ compact = false }: { compact?: boolean }) {
       {b.kind === "unsupported" ? <button type="button" onClick={() => void source.pickBlender()} style={link}>Find another Blender</button> : null}
       {b.kind === "connected" && !compact ? <button type="button" onClick={() => void source.openBlender().then(refresh)} style={quiet}>Open Blender</button> : null}
       {(b.kind === "connected" || b.kind === "open" || b.kind === "lost") && !compact ? (
-        <Menu.Root>
-          <Menu.Trigger asChild>
+        <MenuRoot>
+          <MenuTrigger>
             <button type="button" className="nk-nav" aria-label="Blender menu" style={{ width: 32, height: 32, borderRadius: "var(--r-6)", border: 0, background: "transparent", color: "var(--ink60)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3" cy="8" r="1.4" /><circle cx="8" cy="8" r="1.4" /><circle cx="13" cy="8" r="1.4" /></svg>
             </button>
-          </Menu.Trigger>
+          </MenuTrigger>
           <Menu.Portal>
             <Menu.Content align="end" sideOffset={4} style={{ width: 180, background: "var(--raised)", borderRadius: "var(--r-12)", boxShadow: "var(--shadow-lift)", padding: 6, zIndex: 30, animation: "nk-rise var(--t-fast) var(--ease)" }}>
               <Menu.Item className="nk-menu-item" style={item} onSelect={() => { void source.pause().then(refresh); toast("Paused. Saves stay on this computer.", me.color); }}>Pause</Menu.Item>
               <Menu.Item className="nk-menu-item" style={item} onSelect={() => useStore.setState({ disconnectOpen: true })}>Disconnect</Menu.Item>
             </Menu.Content>
           </Menu.Portal>
-        </Menu.Root>
+        </MenuRoot>
       ) : null}
     </div>
   );

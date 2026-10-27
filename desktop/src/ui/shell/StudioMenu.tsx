@@ -1,6 +1,7 @@
 // The studio menu: Settings, Invite people, the Training line with its switch (leads only),
 // Log out. A Radix DropdownMenu restyled to the tokens.
 import * as Menu from "@radix-ui/react-dropdown-menu";
+import { MenuRoot, MenuTrigger } from "@/ui/menu/Menu";
 import { useStore } from "@/app/store";
 import { useCan } from "@/auth/useCan";
 import { toast } from "@/ui/toast/toast";
@@ -18,14 +19,14 @@ export function StudioMenu() {
   const training = studio?.training ?? true;
   const toggleTraining = async () => { await source?.setTraining(!training); await refresh(); };
   return (
-    <Menu.Root>
-      <Menu.Trigger asChild>
+    <MenuRoot>
+      <MenuTrigger>
         <button type="button" className="nk-nav" aria-label="Studio menu" style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: "var(--r-6)", border: 0, background: "transparent", width: "100%", textAlign: "left", font: "inherit" }}>
           <span aria-hidden="true" style={{ width: 24, height: 24, borderRadius: "var(--r-6)", background: "var(--swatch-2)", color: "var(--on-color)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600 }}>{(studio?.name ?? "N").charAt(0)}</span>
           <span style={{ fontWeight: 500, color: "var(--ink)" }}>{studio?.name ?? "Nkata"}</span>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: "var(--ink40)" }} aria-hidden="true"><path d="M3 4.5l3 3 3-3" /></svg>
         </button>
-      </Menu.Trigger>
+      </MenuTrigger>
       <Menu.Portal>
         <Menu.Content align="start" sideOffset={6} style={{ width: 272, background: "var(--raised)", borderRadius: "var(--r-12)", boxShadow: "var(--shadow-lift)", padding: 6, display: "flex", flexDirection: "column", zIndex: 30, animation: "nk-rise var(--t-fast) var(--ease)" }}>
           <Menu.Item className="nk-menu-item" style={item} onSelect={() => go("settings")}>Settings</Menu.Item>
@@ -49,6 +50,6 @@ export function StudioMenu() {
           <Menu.Item className="nk-menu-item" style={item} onSelect={() => { void source?.signOut(); useStore.setState({ screen: "signIn" }); toast(`Logged out. See you, ${me?.first ?? "friend"}.`, me?.color ?? "var(--ok)"); }}>Log out</Menu.Item>
         </Menu.Content>
       </Menu.Portal>
-    </Menu.Root>
+    </MenuRoot>
   );
 }

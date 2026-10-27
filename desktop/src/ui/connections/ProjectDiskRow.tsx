@@ -2,6 +2,7 @@
 // Move and Stop syncing here. A project that stopped syncing keeps its row with Sync again.
 import * as Dialog from "@radix-ui/react-dialog";
 import * as Menu from "@radix-ui/react-dropdown-menu";
+import { MenuRoot, MenuTrigger } from "@/ui/menu/Menu";
 import { useState } from "react";
 import { useStore } from "@/app/store";
 import type { LocalProject } from "@/data/types";
@@ -32,19 +33,19 @@ export function ProjectDiskRow({ local }: { local: LocalProject }) {
       <span style={{ font: "400 var(--t-11) var(--mono)", color: "var(--ink40)" }}>{sizeOnDisk(local.bytes)}</span>
       {local.syncing ? <button type="button" onClick={() => void source.showInFinder(local.projectId)} style={quiet}>Show in Finder</button> : <button type="button" onClick={() => void again()} style={quiet}>Sync again</button>}
       {local.syncing ? (
-        <Menu.Root>
-          <Menu.Trigger asChild>
+        <MenuRoot>
+          <MenuTrigger>
             <button type="button" className="nk-nav" aria-label={`${local.name} menu`} style={{ width: 32, height: 32, borderRadius: "var(--r-6)", border: 0, background: "transparent", color: "var(--ink60)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3" cy="8" r="1.4" /><circle cx="8" cy="8" r="1.4" /><circle cx="13" cy="8" r="1.4" /></svg>
             </button>
-          </Menu.Trigger>
+          </MenuTrigger>
           <Menu.Portal>
             <Menu.Content align="end" sideOffset={4} style={{ width: 200, background: "var(--raised)", borderRadius: "var(--r-12)", boxShadow: "var(--shadow-lift)", padding: 6, zIndex: 30, animation: "nk-rise var(--t-fast) var(--ease)" }}>
               <Menu.Item className="nk-menu-item" style={item} onSelect={() => void move()}>Move</Menu.Item>
               <Menu.Item className="nk-menu-item" style={item} onSelect={() => setStopOpen(true)}>Stop syncing here</Menu.Item>
             </Menu.Content>
           </Menu.Portal>
-        </Menu.Root>
+        </MenuRoot>
       ) : null}
       <Dialog.Root open={stopOpen} onOpenChange={setStopOpen}>
         <Dialog.Portal>
