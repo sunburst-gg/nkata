@@ -149,6 +149,18 @@ pub struct MirrorRunner {
 
 /// Destination path in the engine for a part. ue_asset carries it; blend_collection and file
 /// parts land under /Game/Nkata/<asset>/<part> until the template export rules apply (step 3).
+/// One Publish import of an object's or a character's GLB into the game's assets.
+#[derive(Debug, Clone, Copy)]
+pub struct PublishedImport<'a> {
+    pub part_id: &'a str,
+    pub version_id: &'a str,
+    pub kind: TemplateKind,
+    pub glb: &'a Path,
+    pub destination: &'a str,
+    pub part_name: &'a str,
+    pub manifest: &'a ObjectManifest,
+}
+
 /// One Publish import of an environment's USD (import_environment.py, mode "import").
 #[derive(Debug, Clone, Copy)]
 pub struct EnvironmentImport<'a> {
@@ -174,6 +186,31 @@ pub fn usd_for(folder: &Path, blend: &str) -> PathBuf {
         .unwrap_or(folder)
         .join(".nkata-exports")
         .join(format!("{stem}.usdc"))
+}
+
+/// Where a save of a Blender part lands in Unreal: a preview folder, never the game's assets
+/// (v8 step 19). Publish imports into destination_for. A part mapped to Unreal itself (an asset,
+/// an actor, an area) has no preview: its path is the game's.
+pub fn preview_for(mapping: &PartMapping, asset_name: &str, part_name: &str) -> String {
+    match mapping {
+        PartMapping::BlendCollection { .. } | PartMapping::File { .. } => {
+            format!("/Game/Nkata/_Preview/{asset_name}/{part_name}")
+        }
+        _ => destination_for(mapping, asset_name, part_name),
+    }
+}
+
+/// Where the add-on writes a part's GLB: beside its .blend in .nkata-exports/.
+pub fn glb_for(folder: &Path, blend: &str) -> PathBuf {
+    let file = folder.join(blend);
+    let stem = file
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    file.parent()
+        .unwrap_or(folder)
+        .join(".nkata-exports")
+        .join(format!("{stem}.glb"))
 }
 
 pub fn destination_for(mapping: &PartMapping, asset_name: &str, part_name: &str) -> String {
@@ -323,6 +360,62 @@ impl MirrorRunner {
 
     /// Mark Ready on a level area: the editor exports the tagged actors as one GLB and the
     /// caller stores it as the version's model. None when the editor is closed or refuses.
+    /// Publish on an object or a character saved in Blender: the published GLB imported into the
+    /// game's assets, checked as a save is (v8 step 19). Returns the script's result, or None
+    /// when UE5 is not reachable or the script could not run.
+    pub async fn import_published(
+        &self,
+        job: &PublishedImport<'_>,
+        spool_dir: &Path,
+    ) -> Option<crate::ue5::ScriptResult> {
+        let script_name = script_for(job.kind, false)?;
+        let dir = spool_dir.join(job.part_id);
+        if let Err(e) = std::fs::create_dir_all(&dir) {
+            tracing::warn!(part_id = job.part_id, error = %e, "import published: spool dir");
+            return None;
+        }
+        let args = ImportArgs {
+            v: 1,
+            kind: job.kind,
+            part_id: job.part_id,
+            version_id: job.version_id,
+            spool_path: job.glb,
+            destination_path: job.destination,
+            asset_name: job.part_name,
+            armature: job.manifest.armature.as_deref(),
+            bone_count: job.manifest.bone_count,
+            expect: Expect::of(job.manifest),
+            mode: "import",
+            nanite: false,
+            lod_group: None,
+            generate_collision: true,
+        };
+        let args_path = dir.join(format!("{}.publish.args.json", job.version_id));
+        if let Err(e) = std::fs::write(&args_path, serde_json::to_vec_pretty(&args).ok()?) {
+            tracing::warn!(part_id = job.part_id, error = %e, "import published: args not written");
+            return None;
+        }
+        match self
+            .ue5
+            .run_script(&self.scripts_dir.join(script_name), &args_path)
+            .await
+        {
+            Ok(CallOutcome::Done(r)) => Some(r),
+            Ok(CallOutcome::Unreachable(why)) => {
+                tracing::info!(
+                    part_id = job.part_id,
+                    why,
+                    "import published: UE5 not reachable"
+                );
+                None
+            }
+            Err(e) => {
+                tracing::warn!(part_id = job.part_id, error = %e, "import published: error");
+                None
+            }
+        }
+    }
+
     /// Publish on an environment saved in Blender: its USD imported with the actors placed
     /// (import_environment.py, mode "import"). Returns the script's result, or None when UE5 is
     /// not reachable or the script could not run.
@@ -640,7 +733,12 @@ impl MirrorRunner {
                 path: None,
             }));
         };
-        let destination = destination_for(&job.mapping, &job.asset_name, &job.part_name);
+        // A save previews (v8 step 19); an environment stages its USD and imports nothing.
+        let destination = if job.usd_path.is_some() {
+            destination_for(&job.mapping, &job.asset_name, &job.part_name)
+        } else {
+            preview_for(&job.mapping, &job.asset_name, &job.part_name)
+        };
         let args = ImportArgs {
             v: 1,
             kind: job.kind,
@@ -721,6 +819,34 @@ mod tests {
         assert_eq!(
             script_for(TemplateKind::LevelArea, true),
             Some("import_environment.py")
+        );
+    }
+
+    #[test]
+    fn a_blender_save_previews_and_publish_imports_into_the_game() {
+        let blend = PartMapping::BlendCollection {
+            file: "Objects/Kettle/Kettle.blend".into(),
+            collection: "model".into(),
+        };
+        assert_eq!(
+            preview_for(&blend, "Kettle", "model"),
+            "/Game/Nkata/_Preview/Kettle/model"
+        );
+        assert_eq!(
+            destination_for(&blend, "Kettle", "model"),
+            "/Game/Nkata/Kettle/model"
+        );
+        let ue = PartMapping::UeAsset {
+            path: "/Game/Props/Kettle".into(),
+        };
+        assert_eq!(
+            preview_for(&ue, "Kettle", "lods"),
+            "/Game/Props/Kettle",
+            "a part made in Unreal has no preview"
+        );
+        assert_eq!(
+            glb_for(Path::new("/p"), "Objects/Kettle/Kettle.blend"),
+            PathBuf::from("/p/Objects/Kettle/.nkata-exports/Kettle.glb")
         );
     }
 

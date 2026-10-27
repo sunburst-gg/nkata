@@ -615,6 +615,70 @@ async fn publish(
             }
         }
     }
+    // v8 step 19: Publish on an object or a character saved in Blender imports the published GLB
+    // into the game's assets; saves only ever previewed. A failure marks the version.
+    if out.published && s.unreal {
+        if let Ok(part) = s.server.part(&id).await {
+            if let (
+                crate::protocol::TemplateKind::Character | crate::protocol::TemplateKind::Prop,
+                crate::protocol::PartMapping::BlendCollection { file, .. },
+            ) = (part.kind, &part.mapping)
+            {
+                let glb = crate::mirror::glb_for(&s.folder, file);
+                let manifest = s
+                    .server
+                    .versions(&id)
+                    .await
+                    .ok()
+                    .and_then(|rows| rows.into_iter().find(|v| v.id == version_id))
+                    .and_then(|v| v.manifest);
+                if let (true, Some(manifest)) = (glb.is_file(), manifest) {
+                    let destination =
+                        crate::mirror::destination_for(&part.mapping, &part.asset_name, &part.name);
+                    let result = s
+                        .mirror
+                        .import_published(
+                            &crate::mirror::PublishedImport {
+                                part_id: &id,
+                                version_id: &version_id,
+                                kind: part.kind,
+                                glb: &glb,
+                                destination: &destination,
+                                part_name: &part.name,
+                                manifest: &manifest,
+                            },
+                            &s.spool_dir,
+                        )
+                        .await;
+                    let ok = result.as_ref().is_some_and(|r| r.ok);
+                    tracing::info!(
+                        project_id = s.project.id,
+                        part_id = id,
+                        ok,
+                        message = result
+                            .as_ref()
+                            .map(|r| r.message.as_str())
+                            .unwrap_or("UE5 not reachable"),
+                        "published imported"
+                    );
+                    if !ok {
+                        let update = crate::client::MirrorUpdate {
+                            mirror_status: crate::protocol::MirrorStatus::Failed,
+                            mirror_ms: None,
+                            message: result
+                                .as_ref()
+                                .map(|r| r.message.as_str())
+                                .unwrap_or("Unreal was not open"),
+                            refs: None,
+                        };
+                        if let Err(e) = s.server.put_mirror(&id, &version_id, &update).await {
+                            tracing::warn!(project_id = s.project.id, part_id = id, error = %e, "published import: status not stored");
+                        }
+                    }
+                }
+            }
+        }
+    }
     // v8 step 18: Publish on an environment saved in Blender imports its USD with the actors.
     if out.published && s.unreal {
         if let Ok(part) = s.server.part(&id).await {

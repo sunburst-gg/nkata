@@ -10,10 +10,10 @@ Decisions in docs/decisions.md.
 
 Done means each item holds with a real Blender and an open Unreal editor, and `make test` is green.
 
-- [ ] 1. A save of an object or a character imports into a preview folder,
+- [x] 1. A save of an object or a character imports into a preview folder,
       /Game/Nkata/_Preview/<asset>/<part>, never into the game's assets. The step 17 check runs
       on the preview as it does now.
-- [ ] 2. Publish imports the published save into the game's assets, /Game/Nkata/<asset>/<part>,
+- [x] 2. Publish imports the published save into the game's assets, /Game/Nkata/<asset>/<part>,
       with the same check; a reimport keeps the skeleton, the physics asset, the material slots
       and the collision, as step 17 measured.
 - [ ] 3. The Blender panel has one switch, "Live in Unreal", on by default, per asset. Off: saves
