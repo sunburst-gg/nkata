@@ -175,6 +175,8 @@ describe("open pins on a sent back Version", () => {
     expect(needsMe([sentBack], ME.artist).map((a) => a.id)).toEqual([sentBack.id]);
     expect(needsMe([{ ...sentBack, pins: { open: 0, total: 3 } }], ME.artist)).toEqual([]);
     expect(needsMe([{ ...sentBack, owner: ME.lead }], ME.artist)).toEqual([]);
+    // A director who owns the asset hears their own send back like an artist does.
+    expect(needsMe([{ ...sentBack, owner: ME.artDirector }], ME.artDirector).map((a) => a.id)).toEqual([sentBack.id]);
   });
 });
 
@@ -206,6 +208,13 @@ describe("publish on the asset page", () => {
     expect(canPublishHere({ ...mine, versions: [] }, ME.artist)).toBe(false);
     expect(canPublishHere(mine, ME.lead)).toBe(false);
     expect(canPublishHere(mine, ME.viewer)).toBe(false);
+  });
+  it("a director is an artist on the assets they own", async () => {
+    const { assets } = await load("studio", "artist");
+    const own = assets.find((a) => a.owner.id === ME.artist.id)!;
+    const mine = { ...own, versions: [{ ...own.versions[0]!, note: "" }, ...own.versions.slice(1)] };
+    expect(canPublishHere({ ...mine, owner: ME.lead }, ME.lead)).toBe(true);
+    expect(canPublishHere({ ...mine, owner: ME.artDirector }, ME.artDirector)).toBe(true);
   });
 });
 

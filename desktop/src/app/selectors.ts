@@ -33,13 +33,13 @@ export function carried(comment: Comment, shownN: number): boolean {
 }
 
 /**
- * Publish on the asset page: the asset's own artist, when the newest save is not a Version yet
- * (v8 step 16). After a Publish, or a send back, the next one waits for a new save. Leads publish
- * from Blender.
+ * Publish on the asset page: the asset's owner, when the newest save is not a Version yet
+ * (v8 step 16). After a Publish, or a send back, the next one waits for a new save. A lead who
+ * owns the asset is its artist and publishes here too (docs/decisions.md, 2026-10-27).
  */
 export function canPublishHere(asset: Asset, me: Person): boolean {
   const newest = asset.versions[0];
-  return can("publish", me.role) && !isLead(me.role) && asset.owner.id === me.id && !!newest && !newest.note;
+  return can("publish", me.role) && asset.owner.id === me.id && !!newest && !newest.note;
 }
 
 /** Who may mark a pin done or reopen it: its author, the asset's owner, or a lead (v8 step 14). */

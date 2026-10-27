@@ -285,10 +285,12 @@ export class MockDataSource implements DataSource {
   async listMentions(projectId: string): Promise<Mention[]> {
     const assets = await this.listAssets(projectId);
     const lead = isLead(this.me.role);
-    const mine = assets.filter((a) => (lead ? (this.waiting(a) || !!a.mentionsMe) : !!a.mentionsMe)).slice(0, 6);
+    // As on live data, a lead's own Publish is not a mention for them to approve.
+    const waitsOnMe = (a: Asset) => lead && this.waiting(a) && a.owner.id !== this.me.id;
+    const mine = assets.filter((a) => waitsOnMe(a) || !!a.mentionsMe).slice(0, 6);
     const whens = ["12 min ago", "1 h ago", "3 h ago", "Yesterday", "Yesterday", "2 days ago"];
     return mine.map((a, i) => {
-      const waits = lead && this.waiting(a);
+      const waits = waitsOnMe(a);
       return {
         id: `m-${a.id}`, asset: a, who: waits ? a.owner : PEOPLE.E, verb: waits ? "published, for you to approve" : "pinned on",
         text: waits ? (a.versions[0]?.note ?? "") : "Roof reads too stiff. Loosen the ridge.", when: whens[i] ?? "2 days ago",

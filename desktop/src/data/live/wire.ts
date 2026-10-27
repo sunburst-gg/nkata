@@ -208,7 +208,8 @@ export function mentionsOf(assets: readonly Asset[], comments: readonly Comment[
   if (isLead(me.role)) {
     for (const a of assets) {
       const v = a.versions[0];
-      if (!v || !v.note || v.approved || v.changesRequested || a.live) continue;
+      // A lead's own Publish is theirs, not a mention for them to approve.
+      if (!v || !v.note || v.approved || v.changesRequested || a.live || a.owner.id === me.id) continue;
       const [px, py] = spots[out.length % 3]!;
       out.push({ id: `m-${a.id}-v${v.n}`, asset: a, who: a.owner, verb: "published, for you to approve", text: v.note, when: v.publishedAt, px, py });
     }

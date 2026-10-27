@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { openPinsLine, openPinsUpTo } from "@/app/selectors";
 import { useStore } from "@/app/store";
-import { isArtist } from "@/auth/permissions";
+import { can } from "@/auth/permissions";
 import { useCan } from "@/auth/useCan";
 import { ActionBar } from "@/ui/asset/ActionBar";
 import { BudgetDialog } from "@/ui/asset/BudgetDialog";
@@ -33,15 +33,17 @@ export function AssetScreen() {
   const [publishOpen, setPublishOpen] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
   const canBudget = useCan("setBudget");
-  const artist = !!me && isArtist(me.role);
+  // Above the early return: a hook after it ran on some renders only, which React forbids.
+  const [approveOpen, setApproveOpen] = useState(false);
   useEffect(() => { if (asset) void loadComments(asset.id); }, [asset?.id, loadComments]);
   if (!asset || !project || !me) return <span style={{ color: "var(--ink60)" }}>That asset is not in this project.</span>;
   const shown: number | "live" = stop ?? (asset.live ? "live" : (asset.versions[0]?.n ?? 1));
   const file = asset.file?.split("/").pop() ?? `${asset.name.toLowerCase().replace(/ /g, "_")}.blend`;
   const shownN = shown === "live" ? (asset.versions[0]?.n ?? 1) : shown;
   const pinsLine = openPinsLine(asset);
+  // The owner is the asset's artist, a lead included (docs/decisions.md, 2026-10-27).
+  const mine = asset.owner.id === me.id && can("publish", me.role);
   // Approve with pins still open asks once; yes marks them done with the approval (v8 step 14).
-  const [approveOpen, setApproveOpen] = useState(false);
   const stillOpen = openPinsUpTo(comments, shownN);
   const approve = async () => {
     if (!source) return;
@@ -89,11 +91,11 @@ export function AssetScreen() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
           <NoteBlock asset={asset} shown={shown} />
-          <Facts asset={asset} shown={shown} artist={artist} onSetBudget={canBudget && !project.sample ? () => setBudgetOpen(true) : undefined} />
+          <Facts asset={asset} shown={shown} artist={mine} onSetBudget={canBudget && !project.sample ? () => setBudgetOpen(true) : undefined} />
           <CommentList asset={asset} comments={comments} shown={shown} />
         </div>
       </div>
-      {artist ? <PublishDialog asset={asset} open={publishOpen} onOpenChange={setPublishOpen} /> : null}
+      {mine ? <PublishDialog asset={asset} open={publishOpen} onOpenChange={setPublishOpen} /> : null}
       {canBudget ? <BudgetDialog asset={asset} open={budgetOpen} onOpenChange={setBudgetOpen} /> : null}
       <ApproveOpenPinsDialog open={approveOpen} count={stillOpen.length} version={shownN} onOpenChange={setApproveOpen} onApprove={() => void approveNow()} />
     </div>

@@ -9,7 +9,8 @@ export type Action =
 
 export const ACTIONS: readonly Action[] = ["invite", "manageMembers", "approve", "requestChanges", "publish", "openInBlender", "download", "downloadImage", "comment", "createProject", "renameProject", "deleteProject", "setTraining", "billing", "seeSetup", "seeConnections", "seeMine", "setBudget", "seeJourney", "seeDisk"];
 
-const ART_DIRECTOR: ReadonlySet<Action> = new Set<Action>(["approve", "requestChanges", "invite", "comment", "download", "downloadImage", "openInBlender", "seeSetup", "seeConnections", "seeMine", "setBudget", "seeJourney", "seeDisk"]);
+// An art director is an artist on the assets they own, so they publish too (2026-10-27).
+const ART_DIRECTOR: ReadonlySet<Action> = new Set<Action>(["publish", "approve", "requestChanges", "invite", "comment", "download", "downloadImage", "openInBlender", "seeSetup", "seeConnections", "seeMine", "setBudget", "seeJourney", "seeDisk"]);
 const ARTIST: ReadonlySet<Action> = new Set<Action>(["publish", "openInBlender", "download", "downloadImage", "comment", "seeSetup", "seeConnections", "seeMine", "seeJourney", "seeDisk"]);
 const VIEWER: ReadonlySet<Action> = new Set<Action>(["comment", "downloadImage"]);
 
@@ -39,7 +40,7 @@ export const ROLE_WORD: Record<Role, string> = { producer: "Producer", artDirect
 /** One sentence per role, from the prototype's Invite and the Members screen. */
 export const ROLE_LINE: Record<Role, string> = {
   artist: "Artists save in Blender, publish, and answer comments.",
-  artDirector: "Art directors look, comment, approve, and invite artists and viewers.",
+  artDirector: "Art directors review, approve, publish their own work, and invite artists and viewers.",
   producer: "Producers do everything, and own members, billing and training.",
   viewer: "Viewers look and comment. They need no Blender.",
 };

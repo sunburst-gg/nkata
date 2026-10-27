@@ -34,9 +34,10 @@ export const sentBackWithOpenPins = (a: Asset): boolean => !!current(a)?.changes
 
 /**
  * What needs my eyes: for a lead, what waits on them or mentions them; for an artist, what
- * mentions them and their own assets sent back with open pins; for a viewer, mentions.
+ * mentions them; for anyone, their own assets sent back with open pins (a lead can own assets);
+ * for a viewer, mentions.
  */
 export function needsMe(assets: readonly Asset[], me: Person): Asset[] {
   const lead = isLead(me.role);
-  return assets.filter((a) => (lead ? waitingOnLead(a) || !!a.mentionsMe : !!a.mentionsMe || (a.owner.id === me.id && sentBackWithOpenPins(a))));
+  return assets.filter((a) => (lead && waitingOnLead(a)) || !!a.mentionsMe || (a.owner.id === me.id && sentBackWithOpenPins(a)));
 }
