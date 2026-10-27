@@ -460,7 +460,10 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let root = tmp.path();
         // Missing, or only hidden files: the folder itself.
-        assert_eq!(place_in(&root.join("new"), "Rising Sun", "p1"), root.join("new"));
+        assert_eq!(
+            place_in(&root.join("new"), "Rising Sun", "p1"),
+            root.join("new")
+        );
         std::fs::write(root.join(".DS_Store"), b"").unwrap();
         assert_eq!(place_in(root, "Rising Sun", "p1"), root);
         // Other work in it: a folder named after the project inside it.
@@ -468,14 +471,22 @@ mod tests {
         assert_eq!(place_in(root, "Rising Sun", "p1"), root.join("Rising Sun"));
         // Already this project's place: the folder itself, its assets and all.
         let placed = root.join("placed");
-        let idx = crate::index::Index::open(&placed.join(crate::ignore::AGENT_DIR).join("index.db")).unwrap();
+        let idx =
+            crate::index::Index::open(&placed.join(crate::ignore::AGENT_DIR).join("index.db"))
+                .unwrap();
         idx.set_meta("project_id", "p1").unwrap();
         std::fs::create_dir_all(placed.join("Kettle")).unwrap();
         assert_eq!(place_in(&placed, "Rising Sun", "p1"), placed);
         // Another project's place, even an empty one: never shared.
-        assert_eq!(place_in(&placed, "Call of Duty", "p2"), placed.join("Call of Duty"));
+        assert_eq!(
+            place_in(&placed, "Call of Duty", "p2"),
+            placed.join("Call of Duty")
+        );
         std::fs::remove_dir_all(placed.join("Kettle")).unwrap();
-        assert_eq!(place_in(&placed, "Call of Duty", "p2"), placed.join("Call of Duty"));
+        assert_eq!(
+            place_in(&placed, "Call of Duty", "p2"),
+            placed.join("Call of Duty")
+        );
     }
 
     #[test]

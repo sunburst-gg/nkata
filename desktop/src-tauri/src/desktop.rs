@@ -170,7 +170,9 @@ async fn list_blend_files(folder: String) -> Result<Vec<String>, String> {
 async fn place_for(folder: String, name: String, project_id: String) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let at = nkata_agent::runtime::expand_home(Path::new(&folder));
-        nkata_agent::tools::place_in(&at, &name, &project_id).display().to_string()
+        nkata_agent::tools::place_in(&at, &name, &project_id)
+            .display()
+            .to_string()
     })
     .await
     .map_err(|e| e.to_string())
