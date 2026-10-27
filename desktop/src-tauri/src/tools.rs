@@ -258,6 +258,34 @@ pub fn find_blend_files(folder: &Path) -> Vec<String> {
     out
 }
 
+/// Where a project lives when the person picks `folder` for it. The folder itself when it holds
+/// nothing visible yet, or when it is already this project's place; else a folder named after
+/// the project inside it. Every file in a place goes to the team, so a picked folder that holds
+/// other work (Documents, Desktop) must not become one (docs/decisions.md, 2026-10-27).
+pub fn place_in(folder: &Path, name: &str, project_id: &str) -> PathBuf {
+    let index = folder.join(crate::ignore::AGENT_DIR).join("index.db");
+    if index.is_file() {
+        let ours = crate::index::Index::open(&index)
+            .and_then(|i| i.get_meta("project_id"))
+            .ok()
+            .flatten()
+            .is_some_and(|id| id == project_id);
+        if ours {
+            return folder.to_path_buf();
+        }
+    }
+    let holds_work = std::fs::read_dir(folder).is_ok_and(|entries| {
+        entries
+            .flatten()
+            .any(|e| !e.file_name().to_str().is_some_and(|n| n.starts_with('.')))
+    });
+    if holds_work || index.is_file() {
+        folder.join(name)
+    } else {
+        folder.to_path_buf()
+    }
+}
+
 /// Unreal projects inside the project folder, three levels deep at most. Engine output folders
 /// are not entered.
 pub fn find_uprojects(folder: &Path) -> Vec<PathBuf> {
@@ -425,6 +453,29 @@ mod tests {
 
     fn repo_root() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+    }
+
+    #[test]
+    fn a_place_is_the_folder_only_when_it_is_empty_or_already_this_project() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        // Missing, or only hidden files: the folder itself.
+        assert_eq!(place_in(&root.join("new"), "Rising Sun", "p1"), root.join("new"));
+        std::fs::write(root.join(".DS_Store"), b"").unwrap();
+        assert_eq!(place_in(root, "Rising Sun", "p1"), root);
+        // Other work in it: a folder named after the project inside it.
+        std::fs::write(root.join("taxes.pdf"), b"").unwrap();
+        assert_eq!(place_in(root, "Rising Sun", "p1"), root.join("Rising Sun"));
+        // Already this project's place: the folder itself, its assets and all.
+        let placed = root.join("placed");
+        let idx = crate::index::Index::open(&placed.join(crate::ignore::AGENT_DIR).join("index.db")).unwrap();
+        idx.set_meta("project_id", "p1").unwrap();
+        std::fs::create_dir_all(placed.join("Kettle")).unwrap();
+        assert_eq!(place_in(&placed, "Rising Sun", "p1"), placed);
+        // Another project's place, even an empty one: never shared.
+        assert_eq!(place_in(&placed, "Call of Duty", "p2"), placed.join("Call of Duty"));
+        std::fs::remove_dir_all(placed.join("Kettle")).unwrap();
+        assert_eq!(place_in(&placed, "Call of Duty", "p2"), placed.join("Call of Duty"));
     }
 
     #[test]

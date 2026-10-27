@@ -165,6 +165,17 @@ async fn list_blend_files(folder: String) -> Result<Vec<String>, String> {
     .map_err(|e| e.to_string())
 }
 
+/// Where a project lives when the person picks `folder` for it (tools::place_in).
+#[tauri::command]
+async fn place_for(folder: String, name: String, project_id: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let at = nkata_agent::runtime::expand_home(Path::new(&folder));
+        nkata_agent::tools::place_in(&at, &name, &project_id).display().to_string()
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 /// Installs and enables the add-on through Blender's command line. Returns Blender's last line.
 #[tauri::command]
 async fn tools_install_blender() -> Result<String, String> {
@@ -272,6 +283,7 @@ fn main() {
             write_export,
             tools_detect,
             list_blend_files,
+            place_for,
             download_file,
             open_version,
             open_in_blender,

@@ -598,8 +598,11 @@ export class LiveDataSource implements DataSource {
   }
   /** The project on this computer: remember the place, keep it in step there, tick the setup row. */
   async placeProject(projectId: string, folder: string): Promise<void> {
-    const at = folder.trim();
-    if (!at) throw new Error("Choose where the project lives on this computer.");
+    const picked = folder.trim();
+    if (!picked) throw new Error("Choose where the project lives on this computer.");
+    // A folder that holds other work gets the project in a folder of its own inside it.
+    const name = (await this.getProject(projectId))?.name ?? "Nkata project";
+    const at = await this.agent.placeFor(picked, name, projectId);
     this.folder = at;
     this.remember();
     await this.agent.startSync(this.config.serverUrl, this.token, projectId, at);

@@ -3,7 +3,7 @@
 // the place. Saves into that place reach the team; nothing outside it does.
 import { useState } from "react";
 import { useStore } from "@/app/store";
-import { inTauri } from "@/lib/tauri";
+import { agent, inTauri } from "@/lib/tauri";
 import { toast } from "@/ui/toast/toast";
 
 export function PlaceProjectRow({ projectId, name, done }: { projectId: string; name: string; done: boolean }) {
@@ -27,12 +27,13 @@ export function PlaceProjectRow({ projectId, name, done }: { projectId: string; 
       setBusy(false);
     }
   };
-  // The native picker: what the person picks is where the project lives.
+  // The native picker. An empty folder, or this project's own, is the place; a folder that holds
+  // other work gets the project in a folder of its own inside it, shown here before the button.
   // https://v2.tauri.app/plugin/dialog/
   const choose = async () => {
     const { open } = await import("@tauri-apps/plugin-dialog");
     const chosen = await open({ directory: true, multiple: false });
-    if (typeof chosen === "string") setPicked(chosen);
+    if (typeof chosen === "string") setPicked(await agent.placeFor(chosen, name, projectId));
   };
   const isDone = done || !!placed;
   return (

@@ -56,4 +56,7 @@ export const agent = {
     inTauri() ? invoke<string>("download_file", { url, path }) : Promise.reject(new Error("Downloads save from the desktop app.")),
   listBlendFiles: (folder: string): Promise<string[]> =>
     inTauri() ? invoke<string[]>("list_blend_files", { folder }) : Promise.resolve([]),
+  /** Where the project lives if the person picks `folder`: the folder, or one named after the project inside it. */
+  placeFor: (folder: string, name: string, projectId: string): Promise<string> =>
+    inTauri() ? invoke<string>("place_for", { folder, name, projectId }) : Promise.resolve(folder),
 };

@@ -73,6 +73,7 @@ const agent = {
   openVersion: async () => "opened",
   downloadFile: async () => "/tmp/x",
   listBlendFiles: async () => [],
+  placeFor: async (folder: string) => folder,
 };
 
 async function booted() {
@@ -240,6 +241,18 @@ describe("LiveDataSource", () => {
     expect(startSync).toHaveBeenCalledWith("http://server", "tok", PROJECT, "~/Nkata/Rising Sun");
     expect(source.projectFolder(PROJECT)).toBe("~/Nkata/Rising Sun");
     expect(events.map((e) => e.type)).toEqual(["agent", "setup", "localChanged"]);
+  });
+
+  it("a picked folder that holds other work gets the project in a folder of its own", async () => {
+    const server = fakeServer();
+    const startSync = vi.fn(agent.startSync);
+    const placeFor = vi.fn(async (folder: string, name: string) => `${folder}/${name}`);
+    const source = new LiveDataSource({ serverUrl: "http://server", token: "tok", folder: null, fetch: server.fetchImpl, now: () => NOW, agent: { ...agent, startSync, placeFor }, pollMs: 0 });
+    await source.loadAccount();
+    await source.placeProject(PROJECT, "/Users/emeka/Documents");
+    expect(placeFor).toHaveBeenCalledWith("/Users/emeka/Documents", "Rising Sun", PROJECT);
+    expect(startSync).toHaveBeenCalledWith("http://server", "tok", PROJECT, "/Users/emeka/Documents/Rising Sun");
+    expect(source.projectFolder(PROJECT)).toBe("/Users/emeka/Documents/Rising Sun");
   });
 
   it("budgets: setBudgets counts the assets over now; the invite emits memberChanged", async () => {
