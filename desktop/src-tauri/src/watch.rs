@@ -27,7 +27,9 @@ impl Watcher {
     /// folders ("" for the root) that need a rescan.
     pub fn start(root: &Path, rules: IgnoreRules) -> Result<Self> {
         let (tx, rx) = mpsc::channel::<BTreeSet<String>>();
-        let root_buf: PathBuf = root.to_path_buf();
+        // Events carry the resolved path. On macOS /var and /tmp are links into /private, and a
+        // place can sit under a linked folder, so the root is resolved once or nothing matches.
+        let root_buf: PathBuf = std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
         let mut debouncer =
             new_debouncer(
                 DEBOUNCE,
