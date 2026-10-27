@@ -178,9 +178,11 @@ async fn folder_bytes(folder: String) -> Result<u64, String> {
 /// Whether Blender is running: Connect then says to restart it (tools::blender_running).
 #[tauri::command]
 async fn blender_running() -> Result<bool, String> {
-    tauri::async_runtime::spawn_blocking(nkata_agent::tools::blender_running)
+    let running = tauri::async_runtime::spawn_blocking(nkata_agent::tools::blender_running)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    tracing::info!(running, "blender.running");
+    Ok(running)
 }
 
 /// Where a project lives when the person picks `folder` for it (tools::place_in).
