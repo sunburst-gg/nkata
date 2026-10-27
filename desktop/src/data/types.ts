@@ -52,6 +52,12 @@ export type CheckKey = "textures" | "scale" | "uv" | "tris" | "pivot";
 /** How strict the studio set a check (v8 step 21): only a failing block holds Publish. */
 export type CheckLevel = "block" | "warn" | "note";
 
+/** Where the pivot belongs for a kind of asset: the base, a grid corner, or wherever it was modelled. */
+export type PivotRule = "base" | "grid" | "authored";
+
+/** One of a kind's rules, as Project settings shows it (v8 step 21). Off: the template does not run it. */
+export interface Rule { key: CheckKey; level: CheckLevel | "off"; pivot?: PivotRule; gridM?: number }
+
 export interface Check {
   key: CheckKey;
   pass: boolean;

@@ -2,7 +2,7 @@
 // 10); the live source over the agent and the server replaces it in step 11. Reads are async.
 // Changes arrive as events, so the app reacts to a real save the same way it reacts to a
 // simulated one.
-import type { Asset, BlenderInstall, Budgets, CheckKey, Comment, DeletedProject, Journey, LocalProject, Member, Mention, Person, Project, Role, Studio, StudioRef } from "./types";
+import type { Asset, AssetKind, BlenderInstall, Budgets, CheckKey, Rule, Comment, DeletedProject, Journey, LocalProject, Member, Mention, Person, Project, Role, Studio, StudioRef } from "./types";
 import type { ConnectionEvent } from "@/app/connection";
 
 export type DataEvent =
@@ -76,6 +76,10 @@ export interface DataSource {
   getBudgets(projectId: string): Promise<Budgets>;
   /** Saves and re-runs the checks on every asset; resolves to how many are over now. */
   setBudgets(projectId: string, budgets: Budgets): Promise<number>;
+  /** The rules per kind of asset, from the project's templates (v8 step 21). A kind with no template yet is absent. */
+  getRules(projectId: string): Promise<Partial<Record<AssetKind, Rule[]>>>;
+  /** A lead sets one kind's rules. Saves already made keep their results; the next save runs these. */
+  setRules(projectId: string, kind: AssetKind, rules: readonly Rule[]): Promise<void>;
   setAssetBudget(assetId: string, n: number | null): Promise<void>;
   openInBlender(assetId: string, version?: number): Promise<void>;
   // ---- connections (step 9)

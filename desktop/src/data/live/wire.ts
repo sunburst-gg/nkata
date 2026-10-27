@@ -2,7 +2,8 @@
 // step 11). One asset is one part. Every function here is pure so wire.test.ts covers the
 // mapping without a server. Routes: docs/engineering.md, Protocols.
 import type { AssetKind, Budgets as BudgetsWire, PresenceEntry, UserRef } from "@nkata/shared";
-import { DEFAULT_BUDGETS, type Asset, type Budgets, type Check, type Comment, type Facts, type Journey, type Member, type Mention, type Person, type Project, type Role, type StudioRef, type Version } from "../types";
+import type { Template } from "@nkata/shared";
+import { DEFAULT_BUDGETS, type Rule, type Asset, type Budgets, type Check, type Comment, type Facts, type Journey, type Member, type Mention, type Person, type Project, type Role, type StudioRef, type Version } from "../types";
 import { SWATCHES } from "@/ui/stage/Swatches";
 import { isLead } from "@/auth/permissions";
 import { CHECK_ID, pinsOn } from "../rules";
@@ -251,4 +252,44 @@ export function projectOf(p: ProjectWire): Project {
 
 export function studioRefsOf(acc: AccountWire): StudioRef[] {
   return acc.studios.map((s) => ({ id: s.id, name: s.name, role: roleOf(s.roles), projects: 0, current: s.id === acc.studio_id }));
+}
+
+/** The template behind each kind of asset in v8 (step 11). */
+export const RULE_TEMPLATES = { object: "Object", environment: "Environment" } as const;
+const RULE_KEYS = ["textures", "scale", "uv", "tris", "pivot"] as const;
+// A check the template leaves out runs at its contract's level. The four are block; the pivot is warn.
+const CONTRACT_LEVEL: Record<Rule["key"], Rule["level"]> = { textures: "block", scale: "block", uv: "block", tris: "block", pivot: "warn" };
+
+/** A template's rules for its model part, in Project settings order (v8 step 21). */
+export function rulesOf(t: Template): Rule[] {
+  const part = t.parts.find((p) => p.mapping === "blend_collection") ?? t.parts[0];
+  return RULE_KEYS.map((key) => {
+    const id = CHECK_ID[key];
+    // v8 always runs the four in Blender; only the pivot can be left out.
+    const runs = key !== "pivot" || !!part?.checks.includes(id);
+    const level: Rule["level"] = !runs ? "off" : part?.severity?.[id] ?? CONTRACT_LEVEL[key];
+    if (key !== "pivot") return { key, level };
+    const params = (part?.params?.[id] ?? {}) as { convention?: Rule["pivot"]; grid_m?: number };
+    return { key, level, pivot: params.convention ?? "base", ...(params.grid_m ? { gridM: params.grid_m } : {}) };
+  });
+}
+
+/** The template with these rules written into its model part. Everything else stays as it was. */
+export function withRules(t: Template, rules: readonly Rule[]): Template {
+  const idx = Math.max(0, t.parts.findIndex((p) => p.mapping === "blend_collection"));
+  const parts = t.parts.map((part, i) => {
+    if (i !== idx) return part;
+    let checks = [...part.checks];
+    const severity = { ...part.severity };
+    const params = { ...part.params };
+    for (const r of rules) {
+      const id = CHECK_ID[r.key];
+      if (r.level === "off") { checks = checks.filter((c) => c !== id); delete severity[id]; delete params[id]; continue; }
+      if (!checks.includes(id)) checks.push(id);
+      severity[id] = r.level;
+      if (r.key === "pivot") params[id] = { convention: r.pivot ?? "base", ...(r.pivot === "grid" && r.gridM ? { grid_m: r.gridM } : {}) };
+    }
+    return { ...part, checks, severity, params };
+  });
+  return { ...t, parts };
 }

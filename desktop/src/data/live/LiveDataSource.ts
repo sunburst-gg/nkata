@@ -2,13 +2,13 @@
 // Protocols), GET /events?since= polled every 2 s for everything that changes, and the agent
 // on this computer through the Tauri commands for Blender, the add-on and the folder. The
 // screens never see a wire shape; wire.ts maps every row onto the v8 nouns.
-import type { PresenceEntry } from "@nkata/shared";
+import type { PresenceEntry, Template } from "@nkata/shared";
 import type { DataEvent, DataSource, Unsubscribe } from "../DataSource";
-import { DEFAULT_BUDGETS, type Asset, type BlenderInstall, type Budgets, type CheckKey, type Comment, type DeletedProject, type LocalProject, type Member, type Mention, type Person, type Project, type Role, type Studio, type StudioRef } from "../types";
+import { DEFAULT_BUDGETS, type Asset, type AssetKind, type BlenderInstall, type Budgets, type CheckKey, type Rule, type Comment, type DeletedProject, type LocalProject, type Member, type Mention, type Person, type Project, type Role, type Studio, type StudioRef } from "../types";
 import { agent as tauriAgent, type ToolsReport, inTauri } from "@/lib/tauri";
 import { apply as applyConnection, INITIAL as NO_BLENDER, type BlenderState, type ConnectionEvent } from "@/app/connection";
 import { isViewer } from "@/auth/permissions";
-import { assetOf, budgetsOf, budgetsWire, colorOf, commentOf, memberOf, mentionsOf, namesMe, personOf, projectOf, roleOf, studioRefsOf, SERVER_ROLE, type AccountWire, type AssetWire, type CheckWire, type CommentWire, type EventWire, type MemberWire, type PartWire, type ProjectWire, type ReviewWire, type VersionWire } from "./wire";
+import { RULE_TEMPLATES, rulesOf, withRules, assetOf, budgetsOf, budgetsWire, colorOf, commentOf, memberOf, mentionsOf, namesMe, personOf, projectOf, roleOf, studioRefsOf, SERVER_ROLE, type AccountWire, type AssetWire, type CheckWire, type CommentWire, type EventWire, type MemberWire, type PartWire, type ProjectWire, type ReviewWire, type VersionWire } from "./wire";
 import { readSession, writeSession, type SavedSession } from "./session";
 import { CHECK_ID, holds } from "../rules";
 
@@ -230,6 +230,23 @@ export class LiveDataSource implements DataSource {
     await this.call("PUT", `/projects/${projectId}/budgets`, budgetsWire(budgets));
     const assets = await this.load(projectId, true);
     return assets.filter((a) => a.versions[0]?.checks.some((c) => c.key === "tris" && !c.pass && !c.pending)).length;
+  }
+  private async templates(projectId: string): Promise<{ name: string; file_path: string; schema: Template }[]> {
+    return (await this.call<{ templates: { name: string; file_path: string; schema: Template }[] }>("GET", `/projects/${projectId}/templates`)).templates;
+  }
+  async getRules(projectId: string): Promise<Partial<Record<AssetKind, Rule[]>>> {
+    const rows = await this.templates(projectId);
+    const out: Partial<Record<AssetKind, Rule[]>> = {};
+    for (const kind of ["object", "environment"] as const) {
+      const row = rows.find((t) => t.name === RULE_TEMPLATES[kind]);
+      if (row) out[kind] = rulesOf(row.schema);
+    }
+    return out;
+  }
+  async setRules(projectId: string, kind: AssetKind, rules: readonly Rule[]): Promise<void> {
+    const row = (await this.templates(projectId)).find((t) => t.name === RULE_TEMPLATES[kind]);
+    if (!row) throw new Error("Save one asset of this kind first.");
+    await this.call("PUT", `/projects/${projectId}/templates/${encodeURIComponent(row.name)}`, { file_path: row.file_path, schema: withRules(row.schema, rules) });
   }
   async setAssetBudget(assetId: string, n: number | null): Promise<void> {
     await this.call("PUT", `/assets/${assetId}`, { budget: n });

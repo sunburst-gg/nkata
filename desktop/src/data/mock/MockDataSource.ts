@@ -5,7 +5,7 @@
 // difference. Ported from the Component class at the end of the v8 prototype, removed after step 13.
 import type { DataEvent, DataSource, Unsubscribe } from "../DataSource";
 import { holds, isApproved, pinsOn, slug } from "../rules";
-import { DEFAULT_BUDGETS, type Asset, type BlenderInstall, type Budgets, type Check, type CheckKey, type Comment, type DeletedProject, type Facts, type Journey, type LocalProject, type Member, type Mention, type Person, type Project, type Role, type Studio, type StudioRef, type Version } from "../types";
+import { DEFAULT_BUDGETS, type Asset, type AssetKind, type BlenderInstall, type Budgets, type Check, type CheckKey, type Comment, type DeletedProject, type Facts, type Journey, type LocalProject, type Member, type Mention, type Person, type Project, type Role, type Rule, type Studio, type StudioRef, type Version } from "../types";
 import { apply as applyConnection, INITIAL as NO_BLENDER, type BlenderKind, type BlenderState, type ConnectionEvent } from "@/app/connection";
 import { ENV, GLB, items, OLD_NOTES, OWNERS, PREV_TRIS, RENDER, SAMPLE, TIMES, TRIS } from "./items";
 import { ME, PEOPLE, isLead, type Key } from "./people";
@@ -37,6 +37,8 @@ interface State {
   approved: Record<string, true>;
   changesReq: Record<string, true>;
   fixed: Record<string, true>;
+  /** A lead's rules per project and kind (v8 step 21). Absent: the defaults. */
+  rules: Record<string, Partial<Record<AssetKind, Rule[]>>>;
   /** A lead's accepts per asset name and check line (v8 step 21). */
   accepted: Record<string, Partial<Record<CheckKey, { by: string; reason: string; at: string }>>>;
   saved: Record<string, number>;
@@ -109,7 +111,7 @@ export class MockDataSource implements DataSource {
     this.role = role;
     this.me = ME[role];
     this.s = {
-      published: {}, approved: {}, changesReq: {}, fixed: {}, accepted: {}, saved: {}, invited: [],
+      published: {}, approved: {}, changesReq: {}, fixed: {}, accepted: {}, rules: {}, saved: {}, invited: [],
       joinStep: stage === "studio" ? 4 : stage === "arrival" || stage === "empty" ? 0 : 3,
       filled: stage === "firstsave" || stage === "firstcomment",
       training: true,
@@ -488,6 +490,13 @@ export class MockDataSource implements DataSource {
     this.s.budgets[projectId] = budgets;
     const assets = await this.listAssets(projectId);
     return assets.filter((a) => a.versions[0]?.checks.some((c) => c.key === "tris" && !c.pass)).length;
+  }
+  async getRules(projectId: string): Promise<Partial<Record<AssetKind, Rule[]>>> {
+    const four = (["textures", "scale", "uv", "tris"] as const).map((key): Rule => ({ key, level: "block" }));
+    return { object: [...four, { key: "pivot", level: "note", pivot: "base" }], environment: [...four, { key: "pivot", level: "off", pivot: "base" }], ...this.s.rules[projectId] };
+  }
+  async setRules(projectId: string, kind: AssetKind, rules: readonly Rule[]): Promise<void> {
+    this.s.rules[projectId] = { ...this.s.rules[projectId], [kind]: [...rules] };
   }
   async setAssetBudget(assetId: string, n: number | null): Promise<void> {
     if (n && n > 0) this.s.assetBudgets[assetId] = n; else delete this.s.assetBudgets[assetId];

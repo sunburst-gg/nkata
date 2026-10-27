@@ -2,6 +2,8 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_BUDGETS } from "../types";
 import type { Comment } from "../types";
+import type { Template } from "@nkata/shared";
+import { rulesOf, withRules } from "./wire";
 import { ago, assetOf, budgetFor, budgetsOf, budgetsWire, checksOf, colorOf, commentOf, factsOf, journeyOf, mentionsOf, namesMe, personOf, roleOf, versionOf, type AssetWire, type MemberWire, type PartWire, type VersionWire } from "./wire";
 
 const NOW = new Date("2026-10-18T12:00:00Z");
@@ -162,5 +164,33 @@ describe("members and mentions", () => {
     expect(out[0]).toMatchObject({ who: { first: "Ada" }, text: "Emeka, is the dial right?" });
     expect(out[1]).toMatchObject({ text: "First pass.", who: { first: "Ada" } });
     expect(mentionsOf([waiting], comments, people.get(ada.id)!)).toEqual([]);
+  });
+});
+
+// v8 step 21: the rules per kind live in the project's templates, written and read back whole.
+describe("rules", () => {
+  const OBJECT: Template = {
+    v: 1, name: "Object", kind: "prop", reference_slots: [], blend_layout: "one_file_per_asset", export: { ue_path: "/Game/Objects/{asset}", name: "SM_{asset}" },
+    parts: [{ name: "model", mapping: "blend_collection", gate: [], checks: ["texture_names", "unit_scale", "uv_set_present", "triangle_budget", "pivot_at_base"], params: { texture_names: { pattern: "T_.*" }, pivot_at_base: { convention: "base" } }, severity: { pivot_at_base: "note" } }],
+  };
+
+  it("reads the Object template as it ships: four checks that hold Publish and the pivot at the base as a note", () => {
+    expect(rulesOf(OBJECT)).toEqual([
+      { key: "textures", level: "block" }, { key: "scale", level: "block" }, { key: "uv", level: "block" }, { key: "tris", level: "block" },
+      { key: "pivot", level: "note", pivot: "base" },
+    ]);
+    const older = { ...OBJECT, parts: [{ ...OBJECT.parts[0]!, checks: OBJECT.parts[0]!.checks.slice(0, 4), severity: {} }] };
+    expect(rulesOf(older).at(-1)).toMatchObject({ key: "pivot", level: "off" });
+  });
+
+  it("writes a level, a grid, and a pivot left out, and keeps every other param", () => {
+    const rules = rulesOf(OBJECT).map((r) => (r.key === "pivot" ? { ...r, level: "block" as const, pivot: "grid" as const, gridM: 2 } : r.key === "uv" ? { ...r, level: "warn" as const } : r));
+    const next = withRules(OBJECT, rules).parts[0]!;
+    expect(next.severity).toMatchObject({ pivot_at_base: "block", uv_set_present: "warn", texture_names: "block" });
+    expect(next.params).toEqual({ texture_names: { pattern: "T_.*" }, pivot_at_base: { convention: "grid", grid_m: 2 } });
+    expect(rulesOf(withRules(OBJECT, rules))).toEqual(rules);
+    const off = withRules(OBJECT, rulesOf(OBJECT).map((r) => (r.key === "pivot" ? { ...r, level: "off" as const } : r))).parts[0]!;
+    expect(off.checks).not.toContain("pivot_at_base");
+    expect(off.params).toEqual({ texture_names: { pattern: "T_.*" } });
   });
 });
