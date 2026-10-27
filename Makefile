@@ -1,4 +1,4 @@
-.PHONY: hooks dev dev-down test addon-vendor addon ue e2e quality fixtures fixtures-v8 export-intact environment-usd preview-then-import
+.PHONY: hooks dev dev-down test addon-vendor addon ue e2e quality fixtures fixtures-v8 export-intact environment-usd preview-then-import studio-rules
 
 # One-time: route git hooks to the repo's .githooks folder.
 hooks:
@@ -67,3 +67,8 @@ environment-usd:
 # Nkata plugin: NKATA_BLENDER=/path/to/Blender make preview-then-import
 preview-then-import:
 	e2e/preview_then_import.sh
+
+# The step 21 gate: a real Blender, no Unreal. A door on its hinge is held at block level until a
+# lead accepts it; the barrel stays held. Set NKATA_BLENDER to the Blender executable.
+studio-rules:
+	e2e/studio_rules.sh
