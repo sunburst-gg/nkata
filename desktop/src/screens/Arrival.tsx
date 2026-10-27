@@ -2,7 +2,8 @@
 // viewer gets the self-ticking setup list: the Blender card (the same card as Connections, so
 // first run and Connections never disagree) and the project row, each moved by DataSource events.
 // Viewers land straight on the asset they were sent. The mock keeps the prototype's words; on
-// live data the studio, the project and the people are the real ones.
+// live data the studio, the project and the people are the real ones, and a viewer goes to the
+// wall: the sample asset exists only in the mock.
 import { useEffect } from "react";
 import { useStore } from "@/app/store";
 import { isViewer } from "@/auth/permissions";
@@ -38,11 +39,11 @@ export function Arrival() {
   const others = members.map((m) => m.person).filter((p) => p.id !== me.id);
   const people = live ? others.slice(0, 4) : (["E", "C", "N", "T"] as const).map((k) => PEOPLE[k]);
   const names = (list: readonly { first: string }[]) => list.map((p) => p.first).reduce((acc, n, i, all) => (i === 0 ? n : i === all.length - 1 ? `${acc} and ${n}` : `${acc}, ${n}`), "");
-  const title = viewer ? "Njoku wants you to look at Market stall." : done ? `You are set, ${me.first}.` : live ? `Welcome to ${projectName}, ${me.first}.` : "Emeka invited you to Rising Sun.";
+  const title = viewer && !live ? "Njoku wants you to look at Market stall." : done && !viewer ? `You are set, ${me.first}.` : live ? `Welcome to ${projectName}, ${me.first}.` : "Emeka invited you to Rising Sun.";
   const line = viewer ? "Nothing to install. The model turns, you click it, you say what you see."
     : live ? `${studio?.name ?? "Your studio"}. Connect Blender and every save shows up here for the team.`
       : `A 1960s Nigeria story by ${studio?.name ?? "Sunburst"}. Four people are in it already.`;
-  const teamLine = viewer ? "Njoku, Chidi, Ngozi and Tobe are in it" : live ? (others.length ? `${names(others)} ${others.length === 1 ? "is" : "are"} in it` : "You are the first one in it") : "Emeka, Chidi, Ngozi and Tobe";
+  const teamLine = viewer && !live ? "Njoku, Chidi, Ngozi and Tobe are in it" : live ? (others.length ? `${names(others)} ${others.length === 1 ? "is" : "are"} in it` : "You are the first one in it") : "Emeka, Chidi, Ngozi and Tobe";
   return (
     <div style={{ minHeight: "100vh", minWidth: 1280, display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", alignItems: "stretch", background: "var(--canvas)" }}>
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "64px 72px", gap: 32 }}>
@@ -69,7 +70,7 @@ export function Arrival() {
             )}
           </div>
         ) : null}
-        <button type="button" onClick={() => (viewer ? go("asset", { projectId: "try-nkata", assetId: "try-nkata/market-stall" }) : go("project"))} style={{ alignSelf: "flex-start", height: 44, padding: "0 22px", borderRadius: "var(--r-6)", border: 0, background: "var(--amber)", color: "var(--amber-fg)", font: "500 15px var(--sans)", cursor: "pointer", boxShadow: "var(--shadow)" }}>{viewer ? "Look at it" : "Join Rising Sun"}</button>
+        <button type="button" onClick={() => (viewer && !live ? go("asset", { projectId: "try-nkata", assetId: "try-nkata/market-stall" }) : go("project"))} style={{ alignSelf: "flex-start", height: 44, padding: "0 22px", borderRadius: "var(--r-6)", border: 0, background: "var(--amber)", color: "var(--amber-fg)", font: "500 15px var(--sans)", cursor: "pointer", boxShadow: "var(--shadow)" }}>{viewer ? "Look at it" : `Join ${projectName}`}</button>
       </div>
       <div style={{ position: "relative", background: "linear-gradient(180deg, var(--stage-top), var(--stage-bot))", overflow: "hidden" }}>
         <NkViewer src={GHOST_MODEL} ghost={live} autorotate={0.5} style={{ position: "absolute", inset: 0 }} />

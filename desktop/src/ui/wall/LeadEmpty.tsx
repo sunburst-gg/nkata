@@ -1,9 +1,11 @@
 // Lead, empty: "Bring your artists.", the inline invite, the one role line, the Stage with the
-// ghost and "Your team's first save lands here.", and the quiet link to the sample.
+// ghost and "Your team's first save lands here.", and, on the mock, the quiet link to the sample.
+// The sample project lives in the mock alone, so live data has no link to it.
 import { useState } from "react";
 import { useStore } from "@/app/store";
 import { invitableRoles, ROLE_LINE, ROLE_WORD } from "@/auth/permissions";
 import type { Role } from "@/data/types";
+import { LiveDataSource } from "@/data/live/LiveDataSource";
 import { GhostStage } from "@/ui/stage/GhostStage";
 import { toast } from "@/ui/toast/toast";
 
@@ -36,7 +38,7 @@ export function LeadEmpty() {
           <button type="submit" style={{ height: 44, padding: "0 18px", borderRadius: "var(--r-6)", border: 0, background: "var(--amber)", color: "var(--amber-fg)", font: "500 15px var(--sans)", cursor: "pointer" }}>Invite</button>
         </form>
         <span style={{ fontSize: 13, color: "var(--ink60)" }}>{ROLE_LINE[role]}</span>
-        <span style={{ fontSize: 13, color: "var(--ink60)", paddingTop: 8 }}>While you wait, <button type="button" onClick={() => go("asset", { projectId: "try-nkata", assetId: "try-nkata/market-stall" })} style={{ border: 0, background: "transparent", padding: 0, font: "inherit", color: "var(--ink)", textDecoration: "underline", textUnderlineOffset: 3, cursor: "pointer" }}>leave a comment on a sample</button>.</span>
+        {source instanceof LiveDataSource ? null : <span style={{ fontSize: 13, color: "var(--ink60)", paddingTop: 8 }}>While you wait, <button type="button" onClick={() => go("asset", { projectId: "try-nkata", assetId: "try-nkata/market-stall" })} style={{ border: 0, background: "transparent", padding: 0, font: "inherit", color: "var(--ink)", textDecoration: "underline", textUnderlineOffset: 3, cursor: "pointer" }}>leave a comment on a sample</button>.</span>}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <GhostStage radius={16} aspect="4/3" shadow grid={40} style={{ maxHeight: "calc(100vh - 360px)" }} />

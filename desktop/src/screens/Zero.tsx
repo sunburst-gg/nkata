@@ -23,6 +23,7 @@ export function Zero({ which }: { which: "studio" | "project" }) {
   const [name, setName] = useState("");
   const [color, setColor] = useState<string>(SWATCHES[0]);
   const project = which === "project";
+  const live = source instanceof LiveDataSource;
   const { top, bot } = stageGradient(color, "zero");
   // One submit at a time: a held Enter key once made the studio and a project of the same name.
   const busy = useRef(false);
@@ -33,6 +34,9 @@ export function Zero({ which }: { which: "studio" | "project" }) {
   };
   const submit = async () => {
     if (!source) return;
+    // The prototype names a blank studio Sunburst and a blank project Rising Sun. On live data that
+    // made a real studio or project under the demo's name, so a blank field does nothing there.
+    if (live && !name.trim()) return;
     if (!project) {
       await source.createStudio(name.trim() || "Sunburst");
       if (source instanceof LiveDataSource) { await landLive(source); return; }
@@ -52,13 +56,13 @@ export function Zero({ which }: { which: "studio" | "project" }) {
       <form onSubmit={(e) => { e.preventDefault(); void next(); }} style={{ position: "relative", width: 420, display: "flex", flexDirection: "column", gap: 24, background: "var(--raised)", borderRadius: "var(--r-16)", boxShadow: "var(--shadow-lift)", padding: 32 }}>
         <Mark size={24} />
         <label htmlFor="zero-name" style={{ font: "400 28px/1.2 var(--serif)", letterSpacing: "-0.02em", color: "var(--ink)" }}>{project ? "Start your first project." : "Name your studio."}</label>
-        <input id="zero-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={project ? "Rising Sun" : "Sunburst"} style={field} />
+        <input id="zero-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={live ? (project ? "Project name" : "Studio name") : project ? "Rising Sun" : "Sunburst"} style={field} />
         {project ? (
           <Swatches value={color} onPick={setColor} gap={10} />
         ) : null}
         <button type="submit" style={cta}>{project ? "Create project" : "Continue"}</button>
         {project
-          ? <span style={{ fontSize: 13, color: "var(--ink60)" }}>Or <button type="button" onClick={() => useStore.getState().go("asset", { projectId: "try-nkata", assetId: "try-nkata/market-stall" })} style={{ border: 0, background: "transparent", padding: 0, font: "inherit", color: "var(--ink)", textDecoration: "underline", textUnderlineOffset: 3, cursor: "pointer" }}>look around the sample</button> first.</span>
+          ? (live ? null : <span style={{ fontSize: 13, color: "var(--ink60)" }}>Or <button type="button" onClick={() => useStore.getState().go("asset", { projectId: "try-nkata", assetId: "try-nkata/market-stall" })} style={{ border: 0, background: "transparent", padding: 0, font: "inherit", color: "var(--ink)", textDecoration: "underline", textUnderlineOffset: 3, cursor: "pointer" }}>look around the sample</button> first.</span>)
           : <span style={{ fontSize: 13, color: "var(--ink60)" }}>Joining a team? Open the invite from your email.</span>}
       </form>
     </div>
