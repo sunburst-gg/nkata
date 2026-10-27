@@ -117,7 +117,7 @@ export function journey(assets: readonly Asset[], members: readonly Member[], me
   return { steps, done, open, nextAction };
 }
 
-export interface FactRow { name: string; value: string; delta: string; tone: "muted" | "neutral" | "good"; failed: boolean; fix: string; pending?: boolean }
+export interface FactRow { name: string; value: string; delta: string; tone: "muted" | "neutral" | "good"; failed: boolean; fix: string; pending?: boolean; /** A fact, not a check: no pass or fail dot. */ info?: boolean }
 
 const fmt = (n: number): string => n.toLocaleString("en-US");
 
@@ -145,6 +145,16 @@ export function factsWithDeltas(facts: Facts | undefined, previous: Facts | unde
     { name: "Scale", value: facts.scale, delta: "metres", tone: "muted", failed: !check("scale")?.pass && !check("scale")?.pending, pending: !!check("scale")?.pending, fix: check("scale")?.fix ?? "" },
     { name: "UV sets", value: String(facts.uvSets), delta: count(facts.uvSets, previous?.uvSets), tone: "muted", failed: !check("uv")?.pass && !check("uv")?.pending, pending: !!check("uv")?.pending, fix: check("uv")?.fix ?? "" },
   ];
+  // v8 step 17: the rig, the animations and the export, when the add-on read them back.
+  if (facts.bones !== undefined) rows.push({ name: "Rig", value: `${fmt(facts.bones)} bones`, delta: count(facts.bones, previous?.bones), tone: "muted", failed: false, fix: "", info: true });
+  if (facts.animations?.length) {
+    const names = facts.animations.map((a) => a.name);
+    rows.push({ name: "Animations", value: names.length <= 3 ? names.join(", ") : `${names.slice(0, 3).join(", ")} and ${names.length - 3} more`, delta: count(names.length, previous?.animations?.length), tone: "muted", failed: false, fix: "", info: true });
+  }
+  if (facts.export) {
+    const ex = facts.export;
+    rows.push({ name: "Export", value: ex.intact && ex.lines[0] === "Export intact." ? "Intact" : ex.lines[0] ?? "", delta: "", tone: "muted", failed: !ex.intact, fix: ex.lines.slice(1).join(" ") });
+  }
   return rows;
 }
 
@@ -161,10 +171,12 @@ export function publishState(asset: Asset, note: string): { can: boolean; label:
   // A check Blender has not reported yet reads "Not checked yet" and never blocks (step 11);
   // only a red one does.
   const allGreen = !v || v.checks.every((c) => c.pass || c.pending);
+  // What the export lost holds Publish as in Blender (v8 step 17); unread is not lost.
+  const exportOk = !v?.facts?.export || v.facts.export.intact;
   const noteOk = note.trim().length > 0;
   // The newest save not yet published becomes the next Version itself.
   const next = v && !v.note ? v.n : (v?.n ?? 0) + 1;
-  return { can: allGreen && noteOk, allGreen, noteOk, label: !allGreen ? "Publish, after the red one" : !noteOk ? "Publish, after the note" : `Publish v${next}` };
+  return { can: allGreen && exportOk && noteOk, allGreen, noteOk, label: !allGreen ? "Publish, after the red one" : !exportOk ? "Publish, after the export" : !noteOk ? "Publish, after the note" : `Publish v${next}` };
 }
 
 export { needsMe, waitingOnLead, isApproved };

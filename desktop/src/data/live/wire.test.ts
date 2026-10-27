@@ -34,6 +34,16 @@ describe("people and time", () => {
   });
 });
 
+describe("the export the add-on read back (v8 step 17)", () => {
+  it("carries the rig, the animations and the export in the add-on's own words", () => {
+    const facts = factsOf({ ...manifest, bones: ["root", "hand_L"], animations: [{ name: "Walk", seconds: 1.25 }], export: { intact: false, losses: [{ kind: "animation", names: ["Idle"], sentence: "Animations not in the export: Idle." }], bones_changed: ["hand_R"] } })!;
+    expect(facts.bones).toBe(2);
+    expect(facts.animations).toEqual([{ name: "Walk", seconds: 1.25 }]);
+    expect(facts.export).toEqual({ intact: false, lines: ["Animations not in the export: Idle.", "Bones gone since the last save: hand_R."] });
+    expect(factsOf({ ...manifest, export: { intact: true, losses: [] } })!.export).toEqual({ intact: true, lines: ["Export intact."] });
+  });
+});
+
 describe("facts, checks and budgets", () => {
   it("sums triangles from the manifest; the other checks are pending until the add-on reports", () => {
     const facts = factsOf(manifest)!;

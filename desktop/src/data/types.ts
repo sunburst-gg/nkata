@@ -66,6 +66,12 @@ export interface Facts {
   textures: number;
   scale: string;
   uvSets: number;
+  /** v8 step 17: the rig's bone count, when the asset has one. */
+  bones?: number;
+  /** v8 step 17: the animations in the export, when there are any. */
+  animations?: { name: string; seconds: number }[];
+  /** v8 step 17: the export read back in Blender: intact, or one line per loss in the add-on's words. */
+  export?: { intact: boolean; lines: string[] };
 }
 
 export interface Version {

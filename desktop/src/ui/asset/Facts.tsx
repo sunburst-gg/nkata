@@ -1,5 +1,6 @@
-// "What you are getting" (artists on Live: "Before you publish"). Four rows: label, mono value,
-// delta or "same", a pass or fail dot, and the fix under a failed row. Every fact appears once.
+// "What you are getting" (artists on Live: "Before you publish"). The four facts, then the rig,
+// the animations and the export when the add-on read them back (v8 step 17): label, mono value,
+// delta or "same", a pass or fail dot on a check, and the fix under a failed row.
 import * as Menu from "@radix-ui/react-dropdown-menu";
 import { MenuRoot, MenuTrigger } from "@/ui/menu/Menu";
 import { factsWithDeltas } from "@/app/selectors";
@@ -42,7 +43,7 @@ export function Facts({ asset, shown, artist, onSetBudget }: { asset: Asset; sho
             <span style={{ fontSize: 13, color: "var(--ink60)" }}>{r.name}</span>
             <span style={{ font: "400 13px var(--mono)", color: "var(--ink)" }}>{r.value}</span>
             <span style={{ font: "400 11px var(--mono)", color: tone[r.tone], whiteSpace: "nowrap" }}>{r.delta}</span>
-            {r.pending
+            {r.info ? <span /> : r.pending
               ? <span aria-label="not checked yet" style={{ width: 8, height: 8, borderRadius: "50%", border: "1.5px solid var(--ink40)", boxSizing: "border-box", justifySelf: "end" }} />
               : <span aria-label={r.failed ? "fails" : "passes"} style={{ width: 8, height: 8, borderRadius: "50%", background: r.failed ? "var(--bad)" : "var(--ok)", justifySelf: "end" }} />}
           </div>

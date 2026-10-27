@@ -25,7 +25,7 @@ and `make test` is green.
 
 ## In the app
 
-- [ ] 6. The manifest carries the export's facts and losses (shared schema). The asset page shows
+- [x] 6. The manifest carries the export's facts and losses (shared schema). The asset page shows
       an Export row with the Facts: intact, or what was lost; and the rig and the animations when
       the asset has them.
 

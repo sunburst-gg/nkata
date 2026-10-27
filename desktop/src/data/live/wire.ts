@@ -15,7 +15,8 @@ export interface ProjectWire { id: string; name: string; folder_name: string; cr
 export interface AssetWire { id: string; name: string; template_id: string; state: string; updated_at: string; kind?: AssetKind; group?: string | null; budget?: number | null; folder?: string }
 export interface PartWire { id: string; asset_id: string; name: string; owner: UserRef | null; owner_id: string | null; state: "locked" | "draft" | "ready" | "approved"; mapping: { kind: string; file?: string }; updated_at: string; lock: { holder: UserRef; granted_at: string } | null }
 export interface ManifestCheckWire { key: "textures" | "scale" | "uv" | "tris"; pass: boolean; sentence: string; fix: string }
-export interface ManifestWire { objects: { name: string; triangles: number; materials: string[]; hash: string; uv_sets?: string[] }[]; textures?: { name: string; width: number; height: number }[]; unit_scale?: number | null; asset_kind?: "object" | "environment"; checks?: ManifestCheckWire[] }
+export interface ExportLossWire { kind: string; names: string[]; sentence: string }
+export interface ManifestWire { objects: { name: string; triangles: number; materials: string[]; hash: string; uv_sets?: string[] }[]; textures?: { name: string; width: number; height: number }[]; unit_scale?: number | null; asset_kind?: "object" | "environment"; checks?: ManifestCheckWire[]; bones?: string[]; animations?: { name: string; seconds: number }[]; export?: { intact: boolean; losses: ExportLossWire[]; bones_changed?: string[] } }
 export interface VersionWire { id: string; part_id: string; author_id: string; published: boolean; note: string; note_engineering?: string; created_at: string; render_url?: string | null; model_url?: string | null; manifest?: ManifestWire | null }
 export interface CheckWire { check_id: string; severity: "block" | "warn"; passed: boolean; auto_fixed: boolean; message: string }
 export interface ReviewWire { id: string; part_id: string; version_id: string; reviewer_id: string; decision: "approve" | "send_back"; note: string; created_at: string }
@@ -83,7 +84,23 @@ export function factsOf(m: ManifestWire | null | undefined): Facts | null {
   if (!m) return null;
   const tris = m.objects.reduce((n, o) => n + o.triangles, 0);
   const uv = new Set(m.objects.flatMap((o) => o.uv_sets ?? [])).size;
-  return { tris, textures: (m.textures ?? []).length, scale: (m.unit_scale ?? 1).toFixed(2), uvSets: uv };
+  const facts: Facts = { tris, textures: (m.textures ?? []).length, scale: (m.unit_scale ?? 1).toFixed(2), uvSets: uv };
+  // v8 step 17: what the add-on read back from the export, in its own words (intact.py lines()).
+  if (m.bones?.length) facts.bones = m.bones.length;
+  if (m.animations?.length) facts.animations = m.animations.map((a) => ({ name: a.name, seconds: a.seconds }));
+  if (m.export) {
+    const lines = m.export.losses.map((l) => l.sentence);
+    const gone = m.export.bones_changed ?? [];
+    if (gone.length) lines.push(`Bones gone since the last save: ${namesOf(gone)}.`);
+    facts.export = { intact: m.export.intact, lines: lines.length ? lines : ["Export intact."] };
+  }
+  return facts;
+}
+
+/** Names cut to three, as the add-on says them. */
+function namesOf(names: readonly string[]): string {
+  const shown = names.slice(0, 3).join(", ");
+  return names.length <= 3 ? shown : `${shown} and ${names.length - 3} more`;
 }
 
 /**

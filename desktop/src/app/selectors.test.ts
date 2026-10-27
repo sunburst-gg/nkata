@@ -213,6 +213,27 @@ describe("the facts say what the checks found", () => {
   });
 });
 
+describe("the export, read back in Blender (v8 step 17)", () => {
+  const base = { tris: 12, textures: 1, scale: "1.00", uvSets: 1 };
+  it("shows the rig, the animations and the export beside the four facts", () => {
+    const facts = { ...base, bones: 42, animations: [{ name: "Walk", seconds: 1.25 }, { name: "Idle", seconds: 2 }], export: { intact: true, lines: ["Export intact."] } };
+    const rows = factsWithDeltas(facts, { ...base, bones: 40, animations: [{ name: "Walk", seconds: 1.25 }] }, []);
+    expect(rows.slice(4).map((r) => [r.name, r.value, r.delta, r.failed])).toEqual([["Rig", "42 bones", "+2", false], ["Animations", "Walk, Idle", "+1", false], ["Export", "Intact", "", false]]);
+  });
+  it("a loss reads as a failed row with every line it lost, and holds Publish like a red check", async () => {
+    const facts = { ...base, export: { intact: false, lines: ["Animations not in the export: Walk.", "Bones gone since the last save: hand_R."] } };
+    const row = factsWithDeltas(facts, undefined, []).find((r) => r.name === "Export")!;
+    expect(row).toMatchObject({ value: "Animations not in the export: Walk.", failed: true, fix: "Bones gone since the last save: hand_R." });
+    const { assets } = await load("studio", "artist");
+    const own = assets.find((a) => a.owner.id === ME.artist.id)!;
+    const live = { ...own, versions: [{ ...own.versions[0]!, note: "", checks: own.versions[0]!.checks.map((c) => ({ ...c, pass: true })), facts }, ...own.versions.slice(1)] };
+    expect(publishState(live, "Walk cycle in.")).toMatchObject({ can: false, label: "Publish, after the export" });
+  });
+  it("a manifest from an older add-on shows none of the three", () => {
+    expect(factsWithDeltas(base, undefined, []).map((r) => r.name)).toEqual(["Triangles", "Textures", "Scale", "UV sets"]);
+  });
+});
+
 describe("publish on the asset page", () => {
   it("only the asset's own artist, and only when the newest save is not a Version yet", async () => {
     const { assets } = await load("studio", "artist");
