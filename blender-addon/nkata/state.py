@@ -45,6 +45,8 @@ class AddonState:
     last_hashes: dict[str, dict[str, str]] = field(default_factory=dict)
     mirror: dict[str, MirrorView] = field(default_factory=dict)
     checks: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    # v8 step 17: the last save's export read back (intact.check), or None when it was unread.
+    export: dict[str, dict[str, Any] | None] = field(default_factory=dict)
     # The numbers behind the checks, per part: triangles, textures, UV sets, unit scale (checks.summary).
     card: dict[str, dict[str, Any]] = field(default_factory=dict)
     comments: dict[str, list[dict[str, Any]]] = field(default_factory=dict)

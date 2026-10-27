@@ -36,6 +36,9 @@ def build_manifest(
     unit_scale: float | None = None,
     asset_kind: str | None = None,
     checks: list[dict[str, Any]] | None = None,
+    bones: list[str] | None = None,
+    animations: dict[str, float] | None = None,
+    export: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Validated against the shared schema before it leaves the add-on. Textures and the unit
     scale feed the publish card (docs/tasks/07-blender-first.md, slice 4)."""
@@ -68,6 +71,13 @@ def build_manifest(
         data["asset_kind"] = asset_kind
     if checks is not None:
         data["checks"] = [dict(c) for c in checks]
+    # v8 step 17: the rig by name, the animations the export holds, and the export read back.
+    if bones:
+        data["bones"] = list(bones)
+    if animations:
+        data["animations"] = [{"name": n, "seconds": float(s)} for n, s in sorted(animations.items())]
+    if export is not None:
+        data["export"] = export
     return shared.validate_ObjectManifest(data).to_dict()
 
 

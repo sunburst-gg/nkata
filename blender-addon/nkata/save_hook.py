@@ -5,6 +5,7 @@ bpy.app.handlers: https://docs.blender.org/api/current/bpy.app.handlers.html"""
 from __future__ import annotations
 
 import array
+import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,7 +14,7 @@ from typing import Any
 import bpy
 from bpy.app.handlers import persistent
 
-from . import checks, export, hashing, live, manifest, mapping
+from . import checks, export, hashing, intact, live, manifest, mapping
 from . import kind as kind_rules
 from .agent_client import AgentClient, AgentError, EventListener
 from .log import log
@@ -74,6 +75,62 @@ def collect(collection: Any) -> Collected:
         uv_sets = tuple(str(u.name) for u in getattr(obj.data, "uv_layers", []) or [])
         infos.append(manifest.ObjectInfo(obj.name, triangles, [m for m in materials if m], lo, hi, h, origin, (scale[0], scale[1], scale[2]), uv_sets))
     return Collected(hashes, infos, armature, bone_count)
+
+
+def _actions(obj: Any) -> list[Any]:
+    """The actions an object plays: its active one and those on its NLA strips."""
+    data = getattr(obj, "animation_data", None)
+    if data is None:
+        return []
+    found = [data.action] if getattr(data, "action", None) is not None else []
+    for track in getattr(data, "nla_tracks", []) or []:
+        for strip in getattr(track, "strips", []) or []:
+            if getattr(strip, "action", None) is not None and strip.action not in found:
+                found.append(strip.action)
+    return found
+
+
+def scene_side(collection: Any) -> tuple[intact.Side, list[intact.MissingFile]]:
+    """What the part's collection holds, for the export check (v8 step 17): its materials, the
+    images those materials use, the rig's bones, the animations on its objects. An image that is
+    a file but neither on disk nor packed is lost before the export runs."""
+    materials: set[str] = set()
+    textures: set[str] = set()
+    missing: list[intact.MissingFile] = []
+    bones: list[str] = []
+    animations: dict[str, float] = {}
+    render = getattr(bpy.context.scene, "render", None)
+    fps = float(getattr(render, "fps", 24) or 24) / float(getattr(render, "fps_base", 1.0) or 1.0)
+    for obj in collection.all_objects:
+        for slot in getattr(obj, "material_slots", []) or []:
+            mat = getattr(slot, "material", None)
+            if mat is None:
+                continue
+            materials.add(str(mat.name))
+            tree = getattr(mat, "node_tree", None)
+            for node in getattr(tree, "nodes", []) or []:
+                img = getattr(node, "image", None) if getattr(node, "type", "") == "TEX_IMAGE" else None
+                if img is None or getattr(img, "type", "IMAGE") in NOT_TEXTURES:
+                    continue
+                textures.add(intact.stem(str(img.name)))
+                path = str(getattr(img, "filepath", "") or "")
+                if getattr(img, "source", "FILE") == "FILE" and path and not getattr(img, "packed_file", None) and not Path(bpy.path.abspath(path)).is_file():
+                    missing.append(intact.MissingFile(str(img.name), path))
+        if obj.type == "ARMATURE" and not bones:
+            bones = [str(b.name) for b in getattr(obj.data, "bones", []) or []]
+        for action in _actions(obj):
+            start, end = (float(x) for x in action.frame_range)
+            animations[str(action.name)] = round((end - start) / fps, 4)
+    return intact.Side(frozenset(materials), frozenset(textures), tuple(bones), animations), missing
+
+
+def previous_bones(manifest_path: Path) -> list[str] | None:
+    """The bones the last save of this file had, from the manifest it left beside the export."""
+    try:
+        bones = json.loads(manifest_path.read_text(encoding="utf-8")).get("bones")
+    except (OSError, ValueError):
+        return None
+    return [str(b) for b in bones] if isinstance(bones, list) else None
 
 
 def scene_bounds(collection: Any | None = None) -> list[kind_rules.Bounds]:
@@ -204,15 +261,30 @@ def handle_save(filepath: str) -> dict[str, Any]:
         # ignores (step 16), textures embedded, Y up, modifiers and scale applied, no Draco. The
         # agent uploads from there as the save's model.
         glb = kind_rules.export_path(path, ".glb")
+        manifest_path = kind_rules.export_path(path, ".manifest.json")
+        scene, missing = scene_side(collection)
+        before = previous_bones(manifest_path)
         t = time.monotonic()
-        how = export.export_collection(collection, glb, kind, skins=got.armature is not None)
+        how = export.export_collection(collection, glb, kind, skins=got.armature is not None, animations=bool(scene.animations))
         export_ms = int((time.monotonic() - t) * 1000)
+        # v8 step 17: read the export back and set it beside the scene. An export this reader
+        # cannot open (an attached exporter writing .gltf) is unknown, never a loss.
+        written: intact.Side | None
+        try:
+            written = intact.read_glb(glb)
+        except (intact.GlbError, OSError, ValueError) as e:
+            log("export.unread", part_id=part["id"], error=str(e))
+            written = None
+        export_check = intact.check(scene, missing, written, before) if written is not None else None
+        with STATE.lock:
+            STATE.export[part["id"]] = export_check
         manifest_data = manifest.build_manifest(
             infos, got.armature, part.get("mapping", {}).get("path"), kind, got.bone_count,
             textures=[(t.name, t.width, t.height) for t in texture_facts()], unit_scale=unit_scale_now(),
             asset_kind=asset_kind, checks=live.manifest_checks(rows),
+            bones=list(scene.bones), animations=written.animations if written is not None else None, export=export_check,
         )
-        manifest.write_manifest(kind_rules.export_path(path, ".manifest.json"), manifest_data)
+        manifest.write_manifest(manifest_path, manifest_data)
         spool_path = str(glb)
         log("export.done", part_id=part["id"], kind=kind, asset_kind=asset_kind, how=how, export_ms=export_ms, objects=len(infos))
         if asset_kind == "environment":

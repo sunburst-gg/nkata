@@ -25,10 +25,12 @@ def find_gltf_exporter(collection: Any) -> tuple[int, Any] | None:
     return None
 
 
-def export_collection(collection: Any, filepath: Path, kind: str = "character", skins: bool | None = None) -> str:
+def export_collection(collection: Any, filepath: Path, kind: str = "character", skins: bool | None = None, animations: bool = False) -> str:
     """Exports the collection to filepath. Returns which path ran: 'exporter' or 'fallback'.
     A character exports with its armature and skin weights; a prop exports meshes only. v8
-    passes `skins` from the scene (an armature present) so a rigged object keeps its rig."""
+    passes `skins` from the scene (an armature present) so a rigged object keeps its rig, and
+    `animations` when the collection has any, which the export had always left out (step 17).
+    An exporter the artist attached keeps the artist's settings."""
     filepath.parent.mkdir(parents=True, exist_ok=True)
     found = find_gltf_exporter(collection)
     if found is not None:
@@ -50,7 +52,7 @@ def export_collection(collection: Any, filepath: Path, kind: str = "character", 
         # Blender's exporter offers no meshopt; environments ship uncompressed (docs/decisions.md).
         result = bpy.ops.export_scene.gltf(
             filepath=str(filepath), export_format="GLB", use_active_collection=True, export_apply=True,
-            export_skins=skins, export_animations=False, export_morph=skins, export_draco_mesh_compression_enable=False,
+            export_skins=skins, export_animations=animations, export_morph=skins, export_draco_mesh_compression_enable=False,
         )
     finally:
         if layer is not None:
@@ -60,10 +62,12 @@ def export_collection(collection: Any, filepath: Path, kind: str = "character", 
     return "fallback"
 
 
-def export_fbx(collection: Any, filepath: Path, kind: str = "character") -> None:
-    """The FBX an engineer takes into the engine by hand, exported on Publish only. Meshes and
-    the armature of the part collection, metres, no embedded textures.
+def export_fbx(collection: Any, filepath: Path, kind: str = "character", rigged: bool | None = None, animations: bool = False) -> None:
+    """The FBX an engineer takes into the engine by hand, exported on Publish only. Meshes and,
+    when the collection has one, the armature, metres, no embedded textures; the animations
+    baked when there are any. It had kept the armature for the Character template only.
     https://docs.blender.org/api/current/bpy.ops.export_scene.html#bpy.ops.export_scene.fbx"""
+    rigged = kind == "character" if rigged is None else rigged
     filepath.parent.mkdir(parents=True, exist_ok=True)
     layer = _layer_collection(bpy.context.view_layer.layer_collection, collection.name)
     previous = bpy.context.view_layer.active_layer_collection
@@ -71,9 +75,9 @@ def export_fbx(collection: Any, filepath: Path, kind: str = "character") -> None
         bpy.context.view_layer.active_layer_collection = layer
     try:
         result = bpy.ops.export_scene.fbx(
-            filepath=str(filepath), use_active_collection=True, object_types={"MESH", "ARMATURE"} if kind == "character" else {"MESH"},
+            filepath=str(filepath), use_active_collection=True, object_types={"MESH", "ARMATURE"} if rigged else {"MESH"},
             apply_unit_scale=True, apply_scale_options="FBX_SCALE_NONE", mesh_smooth_type="FACE", path_mode="STRIP", embed_textures=False,
-            bake_anim=False, add_leaf_bones=False,
+            bake_anim=animations, add_leaf_bones=False,
         )
     finally:
         if layer is not None:

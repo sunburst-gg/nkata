@@ -20,7 +20,7 @@ from typing import Any
 
 import bpy
 
-from . import checks, live, mapping, pins, save_hook
+from . import checks, intact, live, mapping, pins, save_hook
 from . import kind as kind_rules
 from .agent_client import AgentClient, AgentError
 from .log import log
@@ -77,6 +77,20 @@ def run_checks(part: dict[str, Any], fix: bool) -> list[dict[str, Any]]:
 
 def check_lines(part: dict[str, Any]) -> list[live.CheckLine]:
     return live.lines(STATE.checks.get(part["id"]) or [], STATE.card.get(part["id"], {}), asset_budget(part))
+
+
+def export_lost(part: dict[str, Any]) -> bool:
+    """The last save's export lost something (v8 step 17). Unread is unknown, not lost."""
+    result = STATE.export.get(part["id"])
+    return bool(result) and not result["intact"]
+
+
+def publish_text(part: dict[str, Any], note: str) -> str:
+    """The Publish label: a red check first, then what the export lost, then the note."""
+    label = live.publish_label(check_lines(part), note)
+    if label != "Publish, after the red one" and export_lost(part):
+        return "Publish, after the export"
+    return label
 
 
 def apply_fixes(collection: Any, before: checks.SceneFacts, after: checks.SceneFacts) -> None:
@@ -257,11 +271,10 @@ class NKATA_OT_publish(bpy.types.Operator):
         except AgentError as e:
             self.report({"ERROR"}, e.message)
             return {"CANCELLED"}
-        rows = check_lines(part)
-        label = live.publish_label(rows, note)
+        label = publish_text(part, note)
         if label != "Publish":
             with STATE.lock:
-                STATE.publish_line = "Fix the red check first." if "red" in label else "Write one line on what changed first."
+                STATE.publish_line = "Fix the red check first." if "red" in label else "Bring back what the export lost first." if "export" in label else "Write one line on what changed first."
                 STATE.dirty = True
             self.report({"WARNING"}, STATE.publish_line)
             return {"CANCELLED"}
@@ -484,6 +497,10 @@ def draw_checks(layout: Any, part: dict[str, Any]) -> None:
             fixable |= r.key in ("textures", "scale")
     if fixable:
         box.operator(NKATA_OT_fix_checks.bl_idname, text="Fix")
+    # The fifth line: the export read back beside the scene (v8 step 17).
+    for text in intact.lines(STATE.export.get(part["id"])):
+        icon = "CHECKMARK" if text == "Export intact." else "INFO" if text.startswith("Bones gone") else "ERROR"
+        box.label(text=text, icon=icon)
 
 
 def draw_comments(layout: Any, part: dict[str, Any]) -> None:
@@ -527,7 +544,7 @@ def draw_publish(layout: Any, part: dict[str, Any]) -> None:
         layout.prop(wm, "nkata_note_engineering", text="", placeholder="Names, pivots, anything they need")
     row = layout.row()
     row.scale_y = 1.4
-    row.operator(NKATA_OT_publish.bl_idname, text=live.publish_label(check_lines(part), note))
+    row.operator(NKATA_OT_publish.bl_idname, text=publish_text(part, note))
     if STATE.publish_line:
         layout.label(text=STATE.publish_line)
 

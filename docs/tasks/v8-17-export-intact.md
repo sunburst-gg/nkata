@@ -10,17 +10,17 @@ and `make test` is green.
 
 ## In Blender
 
-- [ ] 1. Export what the scene has. The GLB carries the animations when the file has any, and the
+- [x] 1. Export what the scene has. The GLB carries the animations when the file has any, and the
       rig whenever an armature is there. The FBX carries the armature whenever there is one, not
       only for the Character template, and bakes the animations when there are any.
-- [ ] 2. Read the export back. A plain reader of the GLB the save wrote: meshes, materials,
+- [x] 2. Read the export back. A plain reader of the GLB the save wrote: meshes, materials,
       images, the rig's bones, the animations and their length. No Blender needed to read it.
-- [ ] 3. Say what was lost. The scene and the export side by side: a texture a material uses
+- [x] 3. Say what was lost. The scene and the export side by side: a texture a material uses
       that is not in the export, a material, a bone, an animation. A texture whose file is not
       on disk and not packed is lost before the export even runs: say that too, with its path.
-- [ ] 4. Export is a fifth line in the panel, under the four checks: "Export intact" or what was
+- [x] 4. Export is a fifth line in the panel, under the four checks: "Export intact" or what was
       lost, one line each. A loss blocks Publish, like a red check.
-- [ ] 5. The rig keeps its shape. Bones removed or renamed since the last save say so, by name,
+- [x] 5. The rig keeps its shape. Bones removed or renamed since the last save say so, by name,
       because the skeleton in the engine is built from them.
 
 ## In the app

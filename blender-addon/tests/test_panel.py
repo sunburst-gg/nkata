@@ -448,6 +448,66 @@ class PanelTest(unittest.TestCase):
         self.panel.live_tick()
         self.assertTrue(self.state.checks.get(PART["id"]), "the open file's checks ran without a scene change")
 
+    def test_a_lost_animation_shows_under_the_checks_and_holds_publish(self) -> None:
+        # v8 step 17: the export read back beside the scene. The scene has Walk; the GLB does not.
+        from nkata import intact
+
+        scene = intact.Side(materials=frozenset({"M_Radio"}), animations={"Walk": 1.25})
+        written = intact.Side(materials=frozenset({"M_Radio"}))
+        self.save_hook.handle_open(str(self.blend))
+        with mock.patch.object(self.save_hook, "scene_side", return_value=(scene, [])), mock.patch.object(intact, "read_glb", return_value=written):
+            self.save_hook.handle_save(str(self.blend))
+        self.assertEqual(self.state.export[ID]["intact"], False)
+        saved = [c for c in FakeAgent.calls if c[1].endswith("/saved")][-1][2]
+        self.assertEqual(saved["manifest"]["export"]["losses"][0]["kind"], "animation", "the manifest carries the loss to the app")
+        self.bpy.context.window_manager.nkata_note = "Walk cycle in."
+        lines = self.draw()
+        self.assertIn("label:Animations not in the export: Walk.", lines)
+        self.assertIn("op:nkata.publish:Publish, after the export", lines)
+        self.assertEqual(self.panel.NKATA_OT_publish().execute(None), {"CANCELLED"})
+        self.assertFalse([c for c in FakeAgent.calls if c[1].endswith("/publish")], "nothing lost reaches the team")
+
+    def test_an_intact_export_says_so_and_publishes(self) -> None:
+        from nkata import intact
+
+        scene = intact.Side(materials=frozenset({"M_Radio"}))
+        self.save_hook.handle_open(str(self.blend))
+        with mock.patch.object(self.save_hook, "scene_side", return_value=(scene, [])), mock.patch.object(intact, "read_glb", return_value=scene):
+            self.save_hook.handle_save(str(self.blend))
+        self.assertIn("label:Export intact.", self.draw())
+
+    def test_the_scene_side_finds_textures_their_missing_files_and_the_animations(self) -> None:
+        from nkata import intact
+
+        here = Path(self.tmp.name) / "T_Radio_D.png"
+        here.write_bytes(b"png")
+        def image(name: str, path: str, packed: bool = False) -> types.SimpleNamespace:
+            return types.SimpleNamespace(name=name, filepath=path, packed_file=object() if packed else None, source="FILE", type="IMAGE")
+        nodes = [types.SimpleNamespace(type="TEX_IMAGE", image=image("T_Radio_D.png", str(here))),
+                 types.SimpleNamespace(type="TEX_IMAGE", image=image("T_Radio_N.png", "//gone/T_Radio_N.png")),
+                 types.SimpleNamespace(type="TEX_IMAGE", image=image("T_Radio_R.png", "//gone/T_Radio_R.png", packed=True)),
+                 types.SimpleNamespace(type="BSDF_PRINCIPLED")]
+        self.radio.material_slots = [types.SimpleNamespace(material=types.SimpleNamespace(name="M_Radio", node_tree=types.SimpleNamespace(nodes=nodes)))]
+        walk = types.SimpleNamespace(name="Walk", frame_range=(1.0, 31.0))
+        self.radio.animation_data = types.SimpleNamespace(action=walk, nla_tracks=[types.SimpleNamespace(strips=[types.SimpleNamespace(action=walk)])])
+        self.bpy.context.scene.render = types.SimpleNamespace(fps=24, fps_base=1.0)
+        scene, missing = self.save_hook.scene_side(self.collection)
+        self.assertEqual(scene.materials, frozenset({"M_Radio"}))
+        self.assertEqual(scene.textures, frozenset({"t_radio_d", "t_radio_n", "t_radio_r"}))
+        self.assertEqual(missing, [intact.MissingFile("T_Radio_N.png", "//gone/T_Radio_N.png")], "a packed image is never missing")
+        self.assertEqual(scene.animations, {"Walk": 1.25})
+
+    def test_the_export_carries_the_animations_the_scene_has(self) -> None:
+        bare = bpy_stub.FakeCollection("model", [self.radio])
+        out = Path(self.tmp.name) / "x.glb"
+        self.save_hook.export.export_collection(bare, out, "prop", skins=False, animations=True)
+        kwargs = [c[1] for c in self.bpy._ops.calls if c[0] == "export_scene.gltf"][-1]
+        self.assertTrue(kwargs["export_animations"])
+        self.save_hook.export.export_fbx(bare, Path(self.tmp.name) / "x.fbx", "prop", rigged=True, animations=True)
+        fbx = [c[1] for c in self.bpy._ops.calls if c[0] == "export_scene.fbx"][-1]
+        self.assertEqual(fbx["object_types"], {"MESH", "ARMATURE"}, "a rigged prop keeps its rig")
+        self.assertTrue(fbx["bake_anim"])
+
     def _pointer(self) -> Path:
         home = Path(self.tmp.name) / "home"
         (home / ".nkata").mkdir(parents=True)
