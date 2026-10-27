@@ -31,6 +31,9 @@ pub struct ScriptResult {
     /// From capture_viewport.py: where the screenshot lands.
     #[serde(default)]
     pub path: Option<String>,
+    /// From the import scripts (v8 step 22): what Unreal's validators said. None when they did not run.
+    #[serde(default)]
+    pub validation: Option<Vec<crate::protocol::ValidationFinding>>,
 }
 
 /// One level that places a mesh. Stored on the version as `refs`.
@@ -138,6 +141,7 @@ impl Ue5Client {
                 first_import: false,
                 levels: None,
                 path: None,
+                validation: None,
             }));
         }
         let parsed: CallResponse = serde_json::from_str(&text).map_err(|e| {
@@ -184,6 +188,7 @@ pub fn parse_log(return_value: bool, lines: &[(&str, &str)]) -> ScriptResult {
         first_import: false,
         levels: None,
         path: None,
+        validation: None,
     }
 }
 
@@ -206,7 +211,8 @@ mod tests {
                 asset_path: Some("/Game/X".into()),
                 first_import: true,
                 levels: None,
-                path: None
+                path: None,
+                validation: None
             }
         );
     }

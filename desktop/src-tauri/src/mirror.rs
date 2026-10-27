@@ -17,12 +17,37 @@ use tokio::sync::{broadcast, Mutex, Notify};
 use crate::client::{MirrorUpdate, ServerClient};
 use crate::error::{AgentError, Result};
 use crate::protocol::{
-    iso_now, AgentEvent, ManifestAnimation, MirrorState, MirrorStatus, ObjectManifest, PartMapping,
-    TemplateKind,
+    iso_now, AgentEvent, CheckResult, CheckSeverity, FindingLevel, ManifestAnimation, MirrorState,
+    MirrorStatus, ObjectManifest, PartMapping, TemplateKind, ValidationFinding,
 };
 use crate::ue5::{CallOutcome, LevelRef, ScriptResult, Ue5Client};
 
 pub const MAX_FAILURES: u32 = 3;
+/// The check Unreal's validators report as (v8 step 22). A lead accepts it by this id.
+pub const VALIDATORS_CHECK: &str = "unreal_validators";
+
+/// What the validators said, as one check result: an error holds Publish (block), warnings alone
+/// are shown (warn), nothing said passes. One line per finding, errors first, in their words.
+pub fn validator_check(found: &[ValidationFinding]) -> CheckResult {
+    let errors = found.iter().any(|f| f.level == FindingLevel::Error);
+    let mut lines: Vec<&ValidationFinding> = found.iter().collect();
+    lines.sort_by_key(|f| f.level != FindingLevel::Error);
+    CheckResult {
+        check_id: VALIDATORS_CHECK.to_string(),
+        severity: if errors || found.is_empty() {
+            CheckSeverity::Block
+        } else {
+            CheckSeverity::Warn
+        },
+        passed: found.is_empty(),
+        auto_fixed: false,
+        message: lines
+            .iter()
+            .map(|f| format!("{}: {}", f.asset, f.message))
+            .collect::<Vec<_>>()
+            .join("\n"),
+    }
+}
 /// How long the agent waits for the editor to write a Mark Ready screenshot.
 pub const CAPTURE_WAIT: Duration = Duration::from_secs(10);
 pub const PAUSED_MESSAGE: &str = "Mirror paused";
@@ -131,6 +156,7 @@ impl PartEntry {
                 failures: 0,
                 halted: false,
                 on_save: true,
+                validation: None,
             },
         }
     }
@@ -601,6 +627,20 @@ impl MirrorRunner {
                 } else {
                     (MirrorStatus::Failed, result.message)
                 };
+                // v8 step 22: Unreal's validators on what the preview import made. Recorded on
+                // the save's version as one check, so it holds Publish and takes an accept as
+                // any other check does.
+                if let Some(found) = &result.validation {
+                    let check = validator_check(found);
+                    if let Err(e) = self
+                        .server
+                        .record_checks(&job.part_id, &job.version_id, std::slice::from_ref(&check))
+                        .await
+                    {
+                        tracing::warn!(part_id = job.part_id, version_id = job.version_id, error = %e, "validators: not recorded on the server");
+                    }
+                }
+                entry.state.validation = result.validation;
                 self.finish(entry, &job, status, mirror_ms, message, refs)
                     .await;
             }
@@ -709,6 +749,7 @@ impl MirrorRunner {
             status,
             mirror_ms: Some(mirror_ms),
             message,
+            validation: entry.state.validation.clone(),
         }));
     }
 
@@ -721,6 +762,7 @@ impl MirrorRunner {
                 first_import: false,
                 levels: None,
                 path: None,
+                validation: None,
             }));
         }
         let Some(script_name) = script_for(job.kind, job.usd_path.is_some()) else {
@@ -731,6 +773,7 @@ impl MirrorRunner {
                 first_import: false,
                 levels: None,
                 path: None,
+                validation: None,
             }));
         };
         // A save previews (v8 step 19); an environment stages its USD and imports nothing.
@@ -804,6 +847,30 @@ mod tests {
     }
 
     use super::*;
+
+    #[test]
+    fn a_validator_error_holds_publish_and_warnings_alone_are_shown() {
+        let f = |level, message: &str| ValidationFinding {
+            asset: "Door".into(),
+            level,
+            message: message.into(),
+        };
+        let clean = validator_check(&[]);
+        assert!(clean.passed);
+        assert_eq!(clean.check_id, "unreal_validators");
+        let warned = validator_check(&[f(FindingLevel::Warning, "Door has no LODs.")]);
+        assert!(!warned.passed);
+        assert_eq!(warned.severity, CheckSeverity::Warn);
+        let held = validator_check(&[
+            f(FindingLevel::Warning, "Door has no LODs."),
+            f(FindingLevel::Error, "Static mesh Door must start with SM_."),
+        ]);
+        assert_eq!(held.severity, CheckSeverity::Block);
+        assert_eq!(
+            held.message,
+            "Door: Static mesh Door must start with SM_.\nDoor: Door has no LODs."
+        );
+    }
 
     #[test]
     fn script_follows_the_kind() {

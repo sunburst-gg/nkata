@@ -109,6 +109,7 @@ fn samples() -> Vec<(&'static str, Value)> {
         failures: 0,
         halted: false,
         on_save: true,
+        validation: Some(vec![]),
     };
     vec![
         (
@@ -215,7 +216,12 @@ fn samples() -> Vec<(&'static str, Value)> {
                 version_id: id.into(),
                 status: MirrorStatus::Failed,
                 mirror_ms: Some(5),
-                message: "x".into()
+                message: "x".into(),
+                validation: Some(vec![ValidationFinding {
+                    asset: "Door".into(),
+                    level: FindingLevel::Error,
+                    message: "Static mesh Door must start with SM_.".into(),
+                }]),
             }),
         ),
         (

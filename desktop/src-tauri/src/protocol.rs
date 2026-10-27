@@ -358,6 +358,24 @@ pub struct MirrorState {
     pub halted: bool,
     /// False: this part's saves version but do not mirror until turned on again.
     pub on_save: bool,
+    /// What Unreal's validators said about the last preview import (v8 step 22).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub validation: Option<Vec<ValidationFinding>>,
+}
+
+/// One thing Unreal's validators said about an asset an import made, in the validator's words.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ValidationFinding {
+    pub asset: String,
+    pub level: FindingLevel,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FindingLevel {
+    Error,
+    Warning,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -411,6 +429,9 @@ pub enum AgentEvent {
         status: MirrorStatus,
         mirror_ms: Option<u64>,
         message: String,
+        /// What Unreal's validators said about the preview import (v8 step 22).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        validation: Option<Vec<ValidationFinding>>,
     },
     #[serde(rename = "lock.granted")]
     LockGranted {
