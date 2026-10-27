@@ -6,11 +6,11 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from . import _runtime as _rt
-from .common import AssetKind, Budgets, CheckException, CheckResult, CheckSeverity, CommentKind, CommentPin, Gate, LockInfo, MirrorStatus, PartMapping, PartState, ReviewDecision, Timestamp, Ulid, UserRef, Vec3, validate_AssetKind, validate_Budgets, validate_CheckException, validate_CheckResult, validate_CheckSeverity, validate_CommentKind, validate_CommentPin, validate_Gate, validate_LockInfo, validate_MirrorStatus, validate_PartMapping, validate_PartState, validate_ReviewDecision, validate_Timestamp, validate_Ulid, validate_UserRef, validate_Vec3
+from .common import AssetKind, Budgets, CheckException, CheckResult, CheckSeverity, CommentKind, CommentPin, Gate, LockInfo, MirrorStatus, PartMapping, PartState, ReviewDecision, Timestamp, Ulid, UserRef, ValidationFinding, Vec3, validate_AssetKind, validate_Budgets, validate_CheckException, validate_CheckResult, validate_CheckSeverity, validate_CommentKind, validate_CommentPin, validate_Gate, validate_LockInfo, validate_MirrorStatus, validate_PartMapping, validate_PartState, validate_ReviewDecision, validate_Timestamp, validate_Ulid, validate_UserRef, validate_ValidationFinding, validate_Vec3
 from .events import CommentCreated, LockGranted, LockReleased, LockRequested, MirrorResult, PartStateChanged, PresenceChanged, PresenceEntry, validate_CommentCreated, validate_LockGranted, validate_LockReleased, validate_LockRequested, validate_MirrorResult, validate_PartStateChanged, validate_PresenceChanged, validate_PresenceEntry
 from .template import TemplateKind, validate_TemplateKind
 
-__imported__ = (AssetKind, Budgets, CheckException, CheckResult, CheckSeverity, CommentCreated, CommentKind, CommentPin, Gate, LockGranted, LockInfo, LockReleased, LockRequested, MirrorResult, MirrorStatus, PartMapping, PartState, PartStateChanged, PresenceChanged, PresenceEntry, ReviewDecision, TemplateKind, Timestamp, Ulid, UserRef, Vec3, validate_AssetKind, validate_Budgets, validate_CheckException, validate_CheckResult, validate_CheckSeverity, validate_CommentCreated, validate_CommentKind, validate_CommentPin, validate_Gate, validate_LockGranted, validate_LockInfo, validate_LockReleased, validate_LockRequested, validate_MirrorResult, validate_MirrorStatus, validate_PartMapping, validate_PartState, validate_PartStateChanged, validate_PresenceChanged, validate_PresenceEntry, validate_ReviewDecision, validate_TemplateKind, validate_Timestamp, validate_Ulid, validate_UserRef, validate_Vec3,)
+__imported__ = (AssetKind, Budgets, CheckException, CheckResult, CheckSeverity, CommentCreated, CommentKind, CommentPin, Gate, LockGranted, LockInfo, LockReleased, LockRequested, MirrorResult, MirrorStatus, PartMapping, PartState, PartStateChanged, PresenceChanged, PresenceEntry, ReviewDecision, TemplateKind, Timestamp, Ulid, UserRef, ValidationFinding, Vec3, validate_AssetKind, validate_Budgets, validate_CheckException, validate_CheckResult, validate_CheckSeverity, validate_CommentCreated, validate_CommentKind, validate_CommentPin, validate_Gate, validate_LockGranted, validate_LockInfo, validate_LockReleased, validate_LockRequested, validate_MirrorResult, validate_MirrorStatus, validate_PartMapping, validate_PartState, validate_PartStateChanged, validate_PresenceChanged, validate_PresenceEntry, validate_ReviewDecision, validate_TemplateKind, validate_Timestamp, validate_Ulid, validate_UserRef, validate_ValidationFinding, validate_Vec3,)
 
 @dataclass(frozen=True)
 class ProjectRef:
@@ -295,6 +295,7 @@ class MirrorState:
     failures: int
     halted: bool
     on_save: bool
+    validation: list[ValidationFinding] | None = field(default=None, metadata={"optional": True})
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -1007,8 +1008,11 @@ def _v_MirrorState_halted(value: object, path: str) -> bool:
 def _v_MirrorState_on_save(value: object, path: str) -> bool:
     return _rt.check_bool(value, path)
 
+def _v_MirrorState_validation(value: object, path: str) -> list[Any]:
+    return _rt.check_list(value, path, validate_ValidationFinding, min_items=None, max_items=None)
+
 def validate_MirrorState(value: object, path: str = "$") -> MirrorState:
-    obj = _rt.check_object(value, path, required=("part_id", "status", "version_id", "at", "mirror_ms", "message", "failures", "halted", "on_save",), allowed=("part_id", "status", "version_id", "at", "mirror_ms", "message", "failures", "halted", "on_save",))
+    obj = _rt.check_object(value, path, required=("part_id", "status", "version_id", "at", "mirror_ms", "message", "failures", "halted", "on_save",), allowed=("part_id", "status", "version_id", "at", "mirror_ms", "message", "failures", "halted", "on_save", "validation",))
     return MirrorState(
         part_id=validate_Ulid(obj["part_id"], path + ".part_id"),
         status=validate_MirrorStatus(obj["status"], path + ".status"),
@@ -1019,6 +1023,7 @@ def validate_MirrorState(value: object, path: str = "$") -> MirrorState:
         failures=_v_MirrorState_failures(obj["failures"], path + ".failures"),
         halted=_v_MirrorState_halted(obj["halted"], path + ".halted"),
         on_save=_v_MirrorState_on_save(obj["on_save"], path + ".on_save"),
+        validation=_v_MirrorState_validation(obj["validation"], path + ".validation") if "validation" in obj else None,
     )
 
 def _v_MirrorStateResponse_v(value: object, path: str) -> Any:

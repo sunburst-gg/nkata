@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @nkata/shared generate
 
 import { z } from "zod";
-import { CommentPin, LockInfo, MirrorStatus, PartState, ReviewDecision, Timestamp, Training, Ulid, UserRef } from "./common.js";
+import { CommentPin, LockInfo, MirrorStatus, PartState, ReviewDecision, Timestamp, Training, Ulid, UserRef, ValidationFinding } from "./common.js";
 
 export const ServerEventKind = z.enum(["presence.changed", "lock.granted", "lock.released", "lock.requested", "version.created", "mirror.result", "part.state", "comment.created", "comment.resolved", "review.decided", "gate.opened", "studio.training"]);
 export type ServerEventKind = z.infer<typeof ServerEventKind>;
@@ -83,6 +83,7 @@ export const MirrorResult = z.strictObject({
   "status": MirrorStatus,
   "mirror_ms": z.number().int().min(0).nullable(),
   "message": z.string(),
+  "validation": z.array(ValidationFinding).optional(),
 });
 export type MirrorResult = z.infer<typeof MirrorResult>;
 

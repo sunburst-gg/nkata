@@ -289,6 +289,13 @@
         "message": {
           "type": "string",
           "description": "One line. Empty when synced."
+        },
+        "validation": {
+          "type": "array",
+          "description": "What Unreal's validators said about the preview import (v8 step 22). Absent when they did not run.",
+          "items": {
+            "$ref": "common.schema.json#/$defs/ValidationFinding"
+          }
         }
       },
       "required": [

@@ -8,6 +8,16 @@ from typing import Any, Literal
 from . import _runtime as _rt
 
 @dataclass(frozen=True)
+class ValidationFinding:
+    """One thing Unreal's validators said about an asset a preview import made, in the validator's words (v8 step 22)."""
+    asset: str
+    level: Literal["error", "warning"]
+    message: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
+@dataclass(frozen=True)
 class CheckException:
     """A lead accepted a failing check on one part, with a reason. It holds until someone takes it back."""
     check_id: str
@@ -230,6 +240,23 @@ def _v_CheckSeverity(value: object, path: str) -> Any:
 
 def validate_CheckSeverity(value: object, path: str = "$") -> Any:
     return _v_CheckSeverity(value, path)
+
+def _v_ValidationFinding_asset(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
+
+def _v_ValidationFinding_level(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, ("error", "warning",))
+
+def _v_ValidationFinding_message(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
+
+def validate_ValidationFinding(value: object, path: str = "$") -> ValidationFinding:
+    obj = _rt.check_object(value, path, required=("asset", "level", "message",), allowed=("asset", "level", "message",))
+    return ValidationFinding(
+        asset=_v_ValidationFinding_asset(obj["asset"], path + ".asset"),
+        level=_v_ValidationFinding_level(obj["level"], path + ".level"),
+        message=_v_ValidationFinding_message(obj["message"], path + ".message"),
+    )
 
 def _v_CheckException_check_id(value: object, path: str) -> str:
     return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)

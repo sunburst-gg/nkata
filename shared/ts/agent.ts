@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @nkata/shared generate
 
 import { z } from "zod";
-import { AssetKind, Budgets, CheckException, CheckResult, CheckSeverity, CommentKind, CommentPin, Gate, LockInfo, MirrorStatus, PartMapping, PartState, ReviewDecision, Timestamp, Ulid, UserRef, Vec3 } from "./common.js";
+import { AssetKind, Budgets, CheckException, CheckResult, CheckSeverity, CommentKind, CommentPin, Gate, LockInfo, MirrorStatus, PartMapping, PartState, ReviewDecision, Timestamp, Ulid, UserRef, ValidationFinding, Vec3 } from "./common.js";
 import { CommentCreated, LockGranted, LockReleased, LockRequested, MirrorResult, PartStateChanged, PresenceChanged, PresenceEntry } from "./events.js";
 import { TemplateKind } from "./template.js";
 
@@ -278,6 +278,7 @@ export const MirrorState = z.strictObject({
   "failures": z.number().int().min(0),
   "halted": z.boolean(),
   "on_save": z.boolean(),
+  "validation": z.array(ValidationFinding).optional(),
 });
 export type MirrorState = z.infer<typeof MirrorState>;
 

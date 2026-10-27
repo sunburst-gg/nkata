@@ -6,9 +6,9 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from . import _runtime as _rt
-from .common import CommentPin, LockInfo, MirrorStatus, PartState, ReviewDecision, Timestamp, Training, Ulid, UserRef, validate_CommentPin, validate_LockInfo, validate_MirrorStatus, validate_PartState, validate_ReviewDecision, validate_Timestamp, validate_Training, validate_Ulid, validate_UserRef
+from .common import CommentPin, LockInfo, MirrorStatus, PartState, ReviewDecision, Timestamp, Training, Ulid, UserRef, ValidationFinding, validate_CommentPin, validate_LockInfo, validate_MirrorStatus, validate_PartState, validate_ReviewDecision, validate_Timestamp, validate_Training, validate_Ulid, validate_UserRef, validate_ValidationFinding
 
-__imported__ = (CommentPin, LockInfo, MirrorStatus, PartState, ReviewDecision, Timestamp, Training, Ulid, UserRef, validate_CommentPin, validate_LockInfo, validate_MirrorStatus, validate_PartState, validate_ReviewDecision, validate_Timestamp, validate_Training, validate_Ulid, validate_UserRef,)
+__imported__ = (CommentPin, LockInfo, MirrorStatus, PartState, ReviewDecision, Timestamp, Training, Ulid, UserRef, ValidationFinding, validate_CommentPin, validate_LockInfo, validate_MirrorStatus, validate_PartState, validate_ReviewDecision, validate_Timestamp, validate_Training, validate_Ulid, validate_UserRef, validate_ValidationFinding,)
 
 @dataclass(frozen=True)
 class PresenceEntry:
@@ -99,6 +99,7 @@ class MirrorResult:
     status: MirrorStatus
     mirror_ms: int | None
     message: str
+    validation: list[ValidationFinding] | None = field(default=None, metadata={"optional": True})
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -357,8 +358,11 @@ def _v_MirrorResult_mirror_ms(value: object, path: str) -> Any:
 def _v_MirrorResult_message(value: object, path: str) -> str:
     return _rt.check_str(value, path, min_length=0, pattern=None, fmt=None)
 
+def _v_MirrorResult_validation(value: object, path: str) -> list[Any]:
+    return _rt.check_list(value, path, validate_ValidationFinding, min_items=None, max_items=None)
+
 def validate_MirrorResult(value: object, path: str = "$") -> MirrorResult:
-    obj = _rt.check_object(value, path, required=("v", "kind", "project_id", "actor_id", "at", "part_id", "version_id", "status", "mirror_ms", "message",), allowed=("v", "kind", "project_id", "actor_id", "at", "part_id", "version_id", "status", "mirror_ms", "message",))
+    obj = _rt.check_object(value, path, required=("v", "kind", "project_id", "actor_id", "at", "part_id", "version_id", "status", "mirror_ms", "message",), allowed=("v", "kind", "project_id", "actor_id", "at", "part_id", "version_id", "status", "mirror_ms", "message", "validation",))
     return MirrorResult(
         v=_v_MirrorResult_v(obj["v"], path + ".v"),
         kind=_v_MirrorResult_kind(obj["kind"], path + ".kind"),
@@ -370,6 +374,7 @@ def validate_MirrorResult(value: object, path: str = "$") -> MirrorResult:
         status=validate_MirrorStatus(obj["status"], path + ".status"),
         mirror_ms=_v_MirrorResult_mirror_ms(obj["mirror_ms"], path + ".mirror_ms"),
         message=_v_MirrorResult_message(obj["message"], path + ".message"),
+        validation=_v_MirrorResult_validation(obj["validation"], path + ".validation") if "validation" in obj else None,
     )
 
 def _v_PartStateChanged_v(value: object, path: str) -> Any:

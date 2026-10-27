@@ -54,6 +54,33 @@
         "note"
       ]
     },
+    "ValidationFinding": {
+      "type": "object",
+      "description": "One thing Unreal's validators said about an asset a preview import made, in the validator's words (v8 step 22).",
+      "properties": {
+        "asset": {
+          "type": "string",
+          "minLength": 1
+        },
+        "level": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "asset",
+        "level",
+        "message"
+      ],
+      "additionalProperties": false
+    },
     "CheckException": {
       "type": "object",
       "description": "A lead accepted a failing check on one part, with a reason. It holds until someone takes it back.",

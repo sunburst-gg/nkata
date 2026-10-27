@@ -27,6 +27,14 @@ export type MirrorStatus = z.infer<typeof MirrorStatus>;
 export const CheckSeverity = z.enum(["block", "warn", "note"]);
 export type CheckSeverity = z.infer<typeof CheckSeverity>;
 
+/** One thing Unreal's validators said about an asset a preview import made, in the validator's words (v8 step 22). */
+export const ValidationFinding = z.strictObject({
+  "asset": z.string().min(1),
+  "level": z.enum(["error", "warning"]),
+  "message": z.string().min(1),
+});
+export type ValidationFinding = z.infer<typeof ValidationFinding>;
+
 /** Enough of a user to show a name and a face. */
 export const UserRef = z.strictObject({
   "id": Ulid,

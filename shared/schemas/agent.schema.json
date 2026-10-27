@@ -911,6 +911,13 @@
         "on_save": {
           "type": "boolean",
           "description": "False: this part's saves version but do not mirror until turned on again."
+        },
+        "validation": {
+          "type": "array",
+          "description": "What Unreal's validators said about the last preview import (v8 step 22). Absent when they did not run.",
+          "items": {
+            "$ref": "common.schema.json#/$defs/ValidationFinding"
+          }
         }
       },
       "required": [
