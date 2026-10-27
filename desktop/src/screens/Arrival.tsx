@@ -32,8 +32,10 @@ export function Arrival() {
   useEffect(() => { if (setup && source && "startArrivalSetup" in source) (source as MockDataSource).startArrivalSetup(); }, [setup, source]);
   if (!me) return null;
   const live = source instanceof LiveDataSource;
-  const done = (blender.kind === "connected" || blender.kind === "open") && setupDone.includes("project");
   const projectReady = setupDone.includes("project") || (live && !!projectId && !!source?.projectFolder(projectId));
+  // The title and the project row read the same tick: on live data a place kept from the last
+  // launch ticks the row without a setup event, and the title had stayed on Welcome.
+  const done = (blender.kind === "connected" || blender.kind === "open") && projectReady;
   const project = projects.find((p) => p.id === projectId);
   const projectName = live ? (project?.name ?? studio?.name ?? "your project") : "Rising Sun";
   const others = members.map((m) => m.person).filter((p) => p.id !== me.id);

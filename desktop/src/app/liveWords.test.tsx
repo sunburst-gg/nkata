@@ -36,6 +36,16 @@ function live(role: "lead" | "viewer") {
   useStore.setState({ source, me, studio: { id: "st1", name: "Activision", training: false }, projects: [PROJECT], projectId: PROJECT.id, members: [], setupDone: [] } as never);
 }
 
+describe("Arrival on live data", () => {
+  it("says the person is set once Blender is connected and the project has its place", () => {
+    live("lead");
+    const source = useStore.getState().source as InstanceType<typeof LiveDataSource>;
+    source.setFolder("/Users/njoku/Nkata/Call of Duty");
+    useStore.setState({ blender: { kind: "connected", version: "5.2.2", addon: "1.4.0" } } as never);
+    expect(renderToStaticMarkup(<Arrival />)).toMatch(/You are set/);
+  });
+});
+
 describe("live data shows no prototype sample", () => {
   it("the lead's empty wall", () => {
     live("lead");
