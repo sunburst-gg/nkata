@@ -410,6 +410,25 @@
           "items": {
             "$ref": "#/$defs/ManifestCheck"
           }
+        },
+        "bones": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "v8 step 17: the armature's bone names in order. The next save compares them: a bone removed or renamed changes the skeleton in the engine."
+        },
+        "animations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ManifestAnimation"
+          },
+          "description": "v8 step 17: the animations in the export, by name, with their length."
+        },
+        "export": {
+          "$ref": "#/$defs/ExportCheck",
+          "description": "v8 step 17: the export read back and set beside the scene. Absent on an older add-on."
         }
       },
       "required": [
@@ -1115,6 +1134,82 @@
       "required": [
         "v",
         "part"
+      ],
+      "additionalProperties": false
+    },
+    "ManifestAnimation": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "seconds": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "name",
+        "seconds"
+      ],
+      "additionalProperties": false
+    },
+    "ExportLoss": {
+      "type": "object",
+      "description": "One kind of thing the scene has that the export does not, or a texture file that is not on disk.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "texture",
+            "texture_file",
+            "material",
+            "bone",
+            "animation"
+          ]
+        },
+        "names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "sentence": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "kind",
+        "names",
+        "sentence"
+      ],
+      "additionalProperties": false
+    },
+    "ExportCheck": {
+      "type": "object",
+      "properties": {
+        "intact": {
+          "type": "boolean"
+        },
+        "losses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ExportLoss"
+          }
+        },
+        "bones_changed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Bones the last save had that this one does not."
+        }
+      },
+      "required": [
+        "intact",
+        "losses"
       ],
       "additionalProperties": false
     }

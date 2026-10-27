@@ -100,6 +100,27 @@ export const ManifestObject = z.strictObject({
 });
 export type ManifestObject = z.infer<typeof ManifestObject>;
 
+/** One kind of thing the scene has that the export does not, or a texture file that is not on disk. */
+export const ExportLoss = z.strictObject({
+  "kind": z.enum(["texture", "texture_file", "material", "bone", "animation"]),
+  "names": z.array(z.string()).min(1),
+  "sentence": z.string().min(1),
+});
+export type ExportLoss = z.infer<typeof ExportLoss>;
+
+export const ExportCheck = z.strictObject({
+  "intact": z.boolean(),
+  "losses": z.array(ExportLoss),
+  "bones_changed": z.array(z.string()).optional(),
+});
+export type ExportCheck = z.infer<typeof ExportCheck>;
+
+export const ManifestAnimation = z.strictObject({
+  "name": z.string().min(1),
+  "seconds": z.number().min(0),
+});
+export type ManifestAnimation = z.infer<typeof ManifestAnimation>;
+
 export const ManifestCheck = z.strictObject({
   "key": z.enum(["textures", "scale", "uv", "tris"]),
   "pass": z.boolean(),
@@ -120,6 +141,9 @@ export const ObjectManifest = z.strictObject({
   "unit_scale": z.number().optional(),
   "asset_kind": AssetKind.optional(),
   "checks": z.array(ManifestCheck).optional(),
+  "bones": z.array(z.string().min(1)).optional(),
+  "animations": z.array(ManifestAnimation).optional(),
+  "export": ExportCheck.optional(),
 });
 export type ObjectManifest = z.infer<typeof ObjectManifest>;
 

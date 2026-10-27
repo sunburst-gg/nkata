@@ -133,6 +133,9 @@ class ObjectManifest:
     unit_scale: float | None = field(default=None, metadata={"optional": True})
     asset_kind: AssetKind | None = field(default=None, metadata={"optional": True})
     checks: list[ManifestCheck] | None = field(default=None, metadata={"optional": True})
+    bones: list[str] | None = field(default=None, metadata={"optional": True})
+    animations: list[ManifestAnimation] | None = field(default=None, metadata={"optional": True})
+    export: ExportCheck | None = field(default=None, metadata={"optional": True})
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -395,6 +398,33 @@ class AssetCreateResponse:
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
 
+@dataclass(frozen=True)
+class ManifestAnimation:
+    name: str
+    seconds: float
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
+@dataclass(frozen=True)
+class ExportLoss:
+    """One kind of thing the scene has that the export does not, or a texture file that is not on disk."""
+    kind: Literal["texture", "texture_file", "material", "bone", "animation"]
+    names: list[str]
+    sentence: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
+@dataclass(frozen=True)
+class ExportCheck:
+    intact: bool
+    losses: list[ExportLoss]
+    bones_changed: list[str] | None = field(default=None, metadata={"optional": True})
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
 # sync: a project folder with index, watcher, and upload. stream: a viewer, files fetched on demand into a capped cache. See docs/engineering.md, Stream mode.
 AgentMode = Literal["sync", "stream"]
 
@@ -652,8 +682,17 @@ def _v_ObjectManifest_unit_scale(value: object, path: str) -> float:
 def _v_ObjectManifest_checks(value: object, path: str) -> list[Any]:
     return _rt.check_list(value, path, validate_ManifestCheck, min_items=None, max_items=None)
 
+def _v_ObjectManifest_bones_item(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
+
+def _v_ObjectManifest_bones(value: object, path: str) -> list[Any]:
+    return _rt.check_list(value, path, _v_ObjectManifest_bones_item, min_items=None, max_items=None)
+
+def _v_ObjectManifest_animations(value: object, path: str) -> list[Any]:
+    return _rt.check_list(value, path, validate_ManifestAnimation, min_items=None, max_items=None)
+
 def validate_ObjectManifest(value: object, path: str = "$") -> ObjectManifest:
-    obj = _rt.check_object(value, path, required=("v", "kind", "objects", "bone_count", "armature", "mirror_target",), allowed=("v", "kind", "objects", "bone_count", "armature", "mirror_target", "textures", "unit_scale", "asset_kind", "checks",))
+    obj = _rt.check_object(value, path, required=("v", "kind", "objects", "bone_count", "armature", "mirror_target",), allowed=("v", "kind", "objects", "bone_count", "armature", "mirror_target", "textures", "unit_scale", "asset_kind", "checks", "bones", "animations", "export",))
     return ObjectManifest(
         v=_v_ObjectManifest_v(obj["v"], path + ".v"),
         kind=validate_TemplateKind(obj["kind"], path + ".kind"),
@@ -665,6 +704,9 @@ def validate_ObjectManifest(value: object, path: str = "$") -> ObjectManifest:
         unit_scale=_v_ObjectManifest_unit_scale(obj["unit_scale"], path + ".unit_scale") if "unit_scale" in obj else None,
         asset_kind=validate_AssetKind(obj["asset_kind"], path + ".asset_kind") if "asset_kind" in obj else None,
         checks=_v_ObjectManifest_checks(obj["checks"], path + ".checks") if "checks" in obj else None,
+        bones=_v_ObjectManifest_bones(obj["bones"], path + ".bones") if "bones" in obj else None,
+        animations=_v_ObjectManifest_animations(obj["animations"], path + ".animations") if "animations" in obj else None,
+        export=validate_ExportCheck(obj["export"], path + ".export") if "export" in obj else None,
     )
 
 def _v_PartSavedRequest_v(value: object, path: str) -> Any:
@@ -1122,4 +1164,57 @@ def validate_AssetCreateResponse(value: object, path: str = "$") -> AssetCreateR
     return AssetCreateResponse(
         v=_v_AssetCreateResponse_v(obj["v"], path + ".v"),
         part=validate_PartSummary(obj["part"], path + ".part"),
+    )
+
+def _v_ManifestAnimation_name(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
+
+def _v_ManifestAnimation_seconds(value: object, path: str) -> float:
+    return _rt.check_float(value, path, minimum=0, maximum=None)
+
+def validate_ManifestAnimation(value: object, path: str = "$") -> ManifestAnimation:
+    obj = _rt.check_object(value, path, required=("name", "seconds",), allowed=("name", "seconds",))
+    return ManifestAnimation(
+        name=_v_ManifestAnimation_name(obj["name"], path + ".name"),
+        seconds=_v_ManifestAnimation_seconds(obj["seconds"], path + ".seconds"),
+    )
+
+def _v_ExportLoss_kind(value: object, path: str) -> Any:
+    return _rt.check_literal(value, path, ("texture", "texture_file", "material", "bone", "animation",))
+
+def _v_ExportLoss_names_item(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=0, pattern=None, fmt=None)
+
+def _v_ExportLoss_names(value: object, path: str) -> list[Any]:
+    return _rt.check_list(value, path, _v_ExportLoss_names_item, min_items=1, max_items=None)
+
+def _v_ExportLoss_sentence(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
+
+def validate_ExportLoss(value: object, path: str = "$") -> ExportLoss:
+    obj = _rt.check_object(value, path, required=("kind", "names", "sentence",), allowed=("kind", "names", "sentence",))
+    return ExportLoss(
+        kind=_v_ExportLoss_kind(obj["kind"], path + ".kind"),
+        names=_v_ExportLoss_names(obj["names"], path + ".names"),
+        sentence=_v_ExportLoss_sentence(obj["sentence"], path + ".sentence"),
+    )
+
+def _v_ExportCheck_intact(value: object, path: str) -> bool:
+    return _rt.check_bool(value, path)
+
+def _v_ExportCheck_losses(value: object, path: str) -> list[Any]:
+    return _rt.check_list(value, path, validate_ExportLoss, min_items=None, max_items=None)
+
+def _v_ExportCheck_bones_changed_item(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=0, pattern=None, fmt=None)
+
+def _v_ExportCheck_bones_changed(value: object, path: str) -> list[Any]:
+    return _rt.check_list(value, path, _v_ExportCheck_bones_changed_item, min_items=None, max_items=None)
+
+def validate_ExportCheck(value: object, path: str = "$") -> ExportCheck:
+    obj = _rt.check_object(value, path, required=("intact", "losses",), allowed=("intact", "losses", "bones_changed",))
+    return ExportCheck(
+        intact=_v_ExportCheck_intact(obj["intact"], path + ".intact"),
+        losses=_v_ExportCheck_losses(obj["losses"], path + ".losses"),
+        bones_changed=_v_ExportCheck_bones_changed(obj["bones_changed"], path + ".bones_changed") if "bones_changed" in obj else None,
     )

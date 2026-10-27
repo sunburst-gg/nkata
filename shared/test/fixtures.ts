@@ -116,7 +116,10 @@ export const fixtures: Fixtures = {
     ManifestObject: { valid: [manifestObject], invalid: [{ ...manifestObject, triangles: -1 }] },
     ManifestTexture: { valid: [{ name: "T_Face_D", width: 2048, height: 2048 }], invalid: [{ name: "", width: 1, height: 1 }, { name: "T", width: -1, height: 1 }] },
     ManifestCheck: { valid: [manifestCheck, { ...manifestCheck, key: "tris", pass: false, sentence: "40,100 triangles, over the 20,000 budget.", fix: "Decimate or remove hidden faces." }], invalid: [{ ...manifestCheck, key: "bones" }, { key: "uv", pass: true }] },
-    ObjectManifest: { valid: [manifest, { ...manifest, armature: "Armature" }, { ...manifest, asset_kind: "environment", checks: [manifestCheck] }], invalid: [{ ...manifest, objects: {} }, { ...manifest, asset_kind: "prop" }] },
+    ManifestAnimation: { valid: [{ name: "Walk", seconds: 1.25 }], invalid: [{ name: "", seconds: 1 }, { name: "Walk", seconds: -1 }] },
+    ExportLoss: { valid: [{ kind: "texture_file", names: ["T_Face_D"], sentence: "T_Face_D is not on disk: //textures/T_Face_D.png." }], invalid: [{ kind: "mesh", names: ["A"], sentence: "x" }, { kind: "bone", names: [], sentence: "x" }] },
+    ExportCheck: { valid: [{ intact: true, losses: [] }, { intact: false, losses: [{ kind: "animation", names: ["Walk"], sentence: "Walk is not in the export." }], bones_changed: ["hand_L"] }], invalid: [{ losses: [] }, { intact: true, losses: [], extra: 1 }] },
+    ObjectManifest: { valid: [manifest, { ...manifest, armature: "Armature" }, { ...manifest, asset_kind: "environment", checks: [manifestCheck] }, { ...manifest, bones: ["root", "hand_L"], animations: [{ name: "Walk", seconds: 1.25 }], export: { intact: true, losses: [] } }], invalid: [{ ...manifest, objects: {} }, { ...manifest, asset_kind: "prop" }, { ...manifest, export: { losses: [] } }] },
     AssetCreateRequest: { valid: [{ v: 1, name: "Kettle", file: "Objects/Kettle/Kettle.blend", kind: "object", group: "Objects" }, { v: 1, name: "Market", file: "Market.blend", kind: "environment", group: null }], invalid: [{ v: 1, name: "", file: "x.blend", kind: "object", group: null }, { v: 1, name: "Kettle", file: "k.blend", kind: "prop", group: null }] },
     AssetCreateResponse: { valid: [{ v: 1, part: partSummary }], invalid: [{ v: 1 }] },
     PartSavedRequest: {
