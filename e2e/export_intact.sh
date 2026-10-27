@@ -39,7 +39,7 @@ for _ in $(seq 1 50); do curl -sf -H "Authorization: Bearer $(cat "$E/proj/.nkat
 # The add-on exactly as the app installs it.
 cp -r blender-addon/. "$E/stage/" && rm -rf "$E/stage/tests" "$E/stage/nkata/nkata_shared" && cp -r shared/py "$E/stage/nkata/nkata_shared"
 (cd "$E/stage" && zip -qr "$E/zip/nkata-addon.zip" . -x '*/__pycache__/*' '*.pyc')
-HOME="$E/home" "$B" --command extension install-file -r user_default -e "$E/zip/nkata-addon.zip" 2>&1 | tail -1
+HOME="$E/home" BLENDER_USER_RESOURCES="$E/blender" "$B" --command extension install-file -r user_default -e "$E/zip/nkata-addon.zip" 2>&1 | tail -1
 
 cat > "$E/save1.py" <<'PY'
 # A two bone rig skinning a cube, a 30 frame Walk, a material with three image textures: one
@@ -125,7 +125,7 @@ wait_new() {  # waits for a version newer than $1, prints its manifest
     sleep 0.5
   done
 }
-run() { HOME="$E/home" NKATA_AGENT_URL=http://127.0.0.1:$APORT "$B" -b ${2:+"$2"} --python "$E/$1" > "$E/$1.log" 2>&1; grep -E "^SAVE_RESULT|Traceback|Error" "$E/$1.log" | head -5; }
+run() { HOME="$E/home" BLENDER_USER_RESOURCES="$E/blender" NKATA_AGENT_URL=http://127.0.0.1:$APORT "$B" -b ${2:+"$2"} --python "$E/$1" > "$E/$1.log" 2>&1; grep -E "^SAVE_RESULT|Traceback|Error" "$E/$1.log" | head -5; }
 
 run save1.py
 PART=$(api "/parts?project_id=$PROJECT" | jq -r '.parts[] | select(.asset_name=="Hero") | .id')

@@ -43,7 +43,7 @@ echo "pointer: $(cat $E/home/.nkata/agent.json)"
 # The add-on zip exactly as the app builds it: the add-on plus shared/py as nkata/nkata_shared.
 cp -r blender-addon/. $E/stage/ && rm -rf $E/stage/tests $E/stage/nkata/nkata_shared && cp -r shared/py $E/stage/nkata/nkata_shared
 (cd $E/stage && zip -qr $E/zip/nkata-addon.zip . -x '*/__pycache__/*' '*.pyc')
-HOME=$E/home $B --command extension install-file -r user_default -e $E/zip/nkata-addon.zip 2>&1 | tail -1
+HOME=$E/home BLENDER_USER_RESOURCES=$E/blender $B --command extension install-file -r user_default -e $E/zip/nkata-addon.zip 2>&1 | tail -1
 
 cat > $E/save.py <<'PY'
 import bpy
@@ -62,7 +62,7 @@ target.parent.mkdir(parents=True, exist_ok=True)
 print("SAVE_AS", target)
 print("SAVE_RESULT", bpy.ops.wm.save_as_mainfile(filepath=str(target)))
 PY
-HOME=$E/home NKATA_AGENT_URL=http://127.0.0.1:7420 $B -b --python $E/save.py > $E/blender.log 2>&1
+HOME=$E/home BLENDER_USER_RESOURCES=$E/blender NKATA_AGENT_URL=http://127.0.0.1:7420 $B -b --python $E/save.py > $E/blender.log 2>&1
 grep -E "^SAVE_|export\.|save\.posted|Traceback|Error" $E/blender.log | cut -c1-300
 
 PART=$(curl -s -H "Authorization: Bearer $TOKEN" "$SERVER/parts?project_id=$PROJECT" | jq -r '.parts[] | select(.asset_name=="Kettle" and .name=="model") | .id')
@@ -119,7 +119,7 @@ cube = bpy.data.objects["SM_Cube"]
 cube.scale.x = 1.1
 print("SAVE_RESULT", bpy.ops.wm.save_mainfile())
 PY
-HOME=$E/home NKATA_AGENT_URL=$AGENT $B -b $E/proj/Kettle/model.blend --python $E/save2.py > $E/blender2.log 2>&1
+HOME=$E/home BLENDER_USER_RESOURCES=$E/blender NKATA_AGENT_URL=$AGENT $B -b $E/proj/Kettle/model.blend --python $E/save2.py > $E/blender2.log 2>&1
 grep -E "^SAVE_|Traceback|Error" $E/blender2.log | cut -c1-200
 V2=$V1
 for _ in $(seq 1 60); do V2=$(api $TOKEN $SERVER/parts/$PART/versions | jq -r '.versions[0].id'); [ "$V2" != "$V1" ] && break; sleep 0.5; done
