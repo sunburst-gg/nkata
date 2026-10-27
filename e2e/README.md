@@ -26,3 +26,12 @@ A real Blender builds a two bone rig skinning a cube, a 30 frame Walk, and a mat
 textures: one wired in, one wired to nothing, one whose file is gone. Three saves reach the
 server: the first names the two lost textures, the second is intact, the third names a renamed
 bone. `NKATA_BLENDER=/Applications/Blender.app/Contents/MacOS/Blender make export-intact`.
+
+## environment_usd.sh (v8 step 18)
+
+Needs an Unreal editor open with the Nkata plugin installed by Connect (Remote Control on port
+30010). A real Blender saves twelve placed meshes, three of them copies of one pillar, and two
+lights into Environments/Station. Each save must reach the editor as a USD stage in ten seconds;
+a light removed in Blender must leave the stage on the next save; Publish imports the environment
+with its actors and one mesh asset per identical mesh.
+`NKATA_BLENDER=/Applications/Blender.app/Contents/MacOS/Blender make environment-usd`.

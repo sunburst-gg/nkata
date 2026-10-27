@@ -37,3 +37,5 @@ Gate: an environment of at least ten placed meshes, three of them instances of o
 lights, saved in Blender, reaches Unreal as a stage within ten seconds of the save, and on Publish
 as placed actors with one mesh asset for the three instances; a light removed in Blender is gone
 from the stage after the next save.
+
+Gate passed 2026-10-27 on this Mac: see docs/decisions.md.

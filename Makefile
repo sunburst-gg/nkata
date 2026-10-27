@@ -1,4 +1,4 @@
-.PHONY: hooks dev dev-down test addon-vendor addon ue e2e quality fixtures fixtures-v8 export-intact
+.PHONY: hooks dev dev-down test addon-vendor addon ue e2e quality fixtures fixtures-v8 export-intact environment-usd
 
 # One-time: route git hooks to the repo's .githooks folder.
 hooks:
@@ -55,3 +55,9 @@ quality:
 # and each loss is named. Needs Blender: NKATA_BLENDER=/path/to/Blender make export-intact
 export-intact:
 	e2e/export_intact.sh
+
+# The step 18 gate: an environment saved in Blender reaches an open Unreal editor as a USD stage,
+# a removed light leaves it, and Publish imports it. Needs Blender, and an Unreal editor open with
+# the Nkata plugin and Remote Control: NKATA_BLENDER=/path/to/Blender make environment-usd
+environment-usd:
+	e2e/environment_usd.sh
