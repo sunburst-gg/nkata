@@ -29,38 +29,13 @@ from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import verify  # noqa: E402
+from _assets import find_existing, imported_mesh  # noqa: E402
 from _result import emit, read_args  # noqa: E402
 
 try:
     import unreal
 except ImportError:  # pragma: no cover - only inside the editor
     unreal = None
-
-
-def find_existing(destination_path: str, asset_name: str) -> Any | None:
-    """The part's skeletal mesh from an earlier import, or None on the first. Interchange files a
-    glTF import under <destination>/<file>/SkeletalMeshes/ and names the mesh after the file's
-    mesh, not destination_name (measured on UE 5.8), so the mesh is looked for under the
-    destination: the one named asset_name, else the only one there."""
-    meshes = []
-    for path in unreal.EditorAssetLibrary.list_assets(destination_path, recursive=True):
-        asset = unreal.EditorAssetLibrary.load_asset(path)
-        if isinstance(asset, unreal.SkeletalMesh):
-            meshes.append(asset)
-    named = [m for m in meshes if m.get_name() == asset_name]
-    if named:
-        return named[0]
-    return meshes[0] if len(meshes) == 1 else None
-
-
-def imported_mesh(paths: list[str]) -> Any | None:
-    """The skeletal mesh among what the import made. The first path is often a texture or the
-    skeleton (measured on UE 5.8), which had made the link check compare nothing with nothing."""
-    for path in paths:
-        asset = unreal.EditorAssetLibrary.load_asset(path)
-        if isinstance(asset, unreal.SkeletalMesh):
-            return asset
-    return None
 
 
 def what_arrived(mesh: Any, destination_path: str) -> dict[str, Any]:
@@ -172,12 +147,12 @@ def main(argv: list[str]) -> None:
         emit(False, "unreal module not available: run inside the editor")
         return
     destination = str(args["destination_path"])
-    existing = find_existing(destination, str(args["asset_name"]))
+    existing = find_existing(destination, str(args["asset_name"]), unreal.SkeletalMesh)
     before = links_of(existing) if existing is not None else None
     task = build_task(args, existing)
     unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
     imported = list(task.imported_object_paths or [])
-    mesh = imported_mesh(imported) if imported else None
+    mesh = imported_mesh(imported, unreal.SkeletalMesh) if imported else None
     if mesh is None:
         emit(False, "import produced no skeletal mesh. See the Output Log for the importer error.", asset_path=destination, first_import=existing is None)
         return

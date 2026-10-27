@@ -29,18 +29,14 @@ import time
 from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import verify  # noqa: E402
+from _assets import find_existing, imported_mesh  # noqa: E402
 from _result import emit, read_args  # noqa: E402
 
 try:
     import unreal
 except ImportError:  # pragma: no cover - only inside the editor
     unreal = None
-
-
-def find_existing(asset_path: str) -> Any | None:
-    if not unreal.EditorAssetLibrary.does_asset_exist(asset_path):
-        return None
-    return unreal.EditorAssetLibrary.load_asset(asset_path)
 
 
 def referencers(asset_path: str) -> list[str]:
@@ -75,7 +71,12 @@ def gltf_options(args: dict[str, Any], existing: Any | None) -> Any | None:
     pipeline = pipeline_cls()
     mesh = getattr(pipeline, "mesh_pipeline", None)
     if mesh is not None:
-        if hasattr(mesh, "combine_static_meshes"):
+        # UE 5.8 deprecates the bool and raises on reading it; its enum says the same thing.
+        # Measured: InterchangeCombineStaticMeshesBehavior has ALL, DO_NOT_COMBINE, VISIBLE_ONLY.
+        behavior = getattr(unreal, "InterchangeCombineStaticMeshesBehavior", None)
+        if behavior is not None:
+            mesh.set_editor_property("combine_static_meshes_behavior", behavior.ALL)
+        elif hasattr(mesh, "combine_static_meshes"):
             mesh.combine_static_meshes = True
         if hasattr(mesh, "build_nanite") and existing is None:
             mesh.build_nanite = bool(args.get("nanite", False))
@@ -134,7 +135,9 @@ def refresh(asset_path: str) -> None:
     asset = unreal.EditorAssetLibrary.load_asset(asset_path)
     if asset is not None:
         asset.modify()
-        unreal.EditorAssetLibrary.sync_browser_to_objects([asset_path])
+        # A commandlet has no Slate application, and the Content Browser sync asserts there.
+        if "-run=" not in unreal.SystemLibrary.get_command_line().lower():
+            unreal.EditorAssetLibrary.sync_browser_to_objects([asset_path])
 
 
 def main(argv: list[str]) -> None:
@@ -143,33 +146,40 @@ def main(argv: list[str]) -> None:
     if unreal is None:
         emit(False, "unreal module not available: run inside the editor")
         return
-    asset_path = f"{args['destination_path']}/{args['asset_name']}"
-    existing = find_existing(asset_path)
-    refs_before = referencers(asset_path)
+    destination = str(args["destination_path"])
+    existing = find_existing(destination, str(args["asset_name"]), unreal.StaticMesh)
+    refs_before = referencers(existing.get_path_name()) if existing is not None else []
     links_before = links_of(existing) if existing is not None else None
     task = build_task(args, existing)
     unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
     imported = list(task.imported_object_paths or [])
-    if not imported:
-        emit(False, "import produced no asset. See the Output Log for the importer error.", asset_path=asset_path, first_import=existing is None)
+    asset = imported_mesh(imported, unreal.StaticMesh) if imported else None
+    if asset is None:
+        emit(False, "import produced no static mesh. See the Output Log for the importer error.", asset_path=destination, first_import=existing is None)
         return
-    asset = unreal.EditorAssetLibrary.load_asset(imported[0])
+    asset_path = asset.get_path_name()
     if existing is None:
         apply_first_import_settings(asset, args)
-        unreal.EditorAssetLibrary.save_asset(imported[0])
+        unreal.EditorAssetLibrary.save_asset(asset_path)
     refresh(asset_path)
-    refs_after = referencers(imported[0])
+    refs_after = referencers(asset_path)
     if len(refs_after) < len(refs_before):
-        emit(False, f"reimport lost referencers: {len(refs_before)} before, {len(refs_after)} after", asset_path=imported[0], first_import=False, referencers_before=refs_before, referencers_after=refs_after)
+        emit(False, f"reimport lost referencers: {len(refs_before)} before, {len(refs_after)} after", asset_path=asset_path, first_import=False, referencers_before=refs_before, referencers_after=refs_after)
         return
     links_after = links_of(asset)
     if links_before is not None and links_before["materials"] != links_after["materials"]:
-        emit(False, f"reimport changed the material slots: {links_before['materials']} to {links_after['materials']}", asset_path=imported[0], first_import=False)
+        emit(False, f"reimport changed the material slots: {links_before['materials']} to {links_after['materials']}", asset_path=asset_path, first_import=False)
+        return
+    # v8 step 17: the material slots Unreal made, set beside what the export held.
+    checked = verify.differences({"materials": (args.get("expect") or {}).get("materials") or []}, {"materials": list(links_after["materials"])})
+    if not checked["intact"]:
+        emit(False, " ".join(checked["lines"]), asset_path=asset_path, first_import=existing is None, verify=checked, **links_after)
         return
     emit(
         True,
         "",
-        asset_path=imported[0],
+        asset_path=asset_path,
+        verify=checked,
         first_import=existing is None,
         ms=int((time.monotonic() - started) * 1000),
         part_id=args.get("part_id"),

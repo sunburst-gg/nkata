@@ -17,7 +17,8 @@ use tokio::sync::{broadcast, Mutex, Notify};
 use crate::client::{MirrorUpdate, ServerClient};
 use crate::error::{AgentError, Result};
 use crate::protocol::{
-    iso_now, AgentEvent, MirrorState, MirrorStatus, ObjectManifest, PartMapping, TemplateKind,
+    iso_now, AgentEvent, ManifestAnimation, MirrorState, MirrorStatus, ObjectManifest, PartMapping,
+    TemplateKind,
 };
 use crate::ue5::{CallOutcome, LevelRef, ScriptResult, Ue5Client};
 
@@ -56,10 +57,37 @@ pub struct ImportArgs<'a> {
     pub asset_name: &'a str,
     pub armature: Option<&'a str>,
     pub bone_count: Option<u64>,
+    /// v8 step 17: what the export held, for the script to set beside what Unreal made.
+    pub expect: Expect,
     /// Static mesh settings, applied on first import only. See docs/engineering.md, Static.
     pub nanite: bool,
     pub lod_group: Option<&'a str>,
     pub generate_collision: bool,
+}
+
+/// What the manifest says the export held: the material names, the rig's bones, the animations.
+#[derive(Debug, Serialize, PartialEq)]
+pub struct Expect {
+    pub materials: Vec<String>,
+    pub bones: Vec<String>,
+    pub animations: Vec<ManifestAnimation>,
+}
+
+impl Expect {
+    pub fn of(manifest: &ObjectManifest) -> Self {
+        let mut materials: Vec<String> = manifest
+            .objects
+            .iter()
+            .flat_map(|o| o.materials.iter().cloned())
+            .collect();
+        materials.sort();
+        materials.dedup();
+        Self {
+            materials,
+            bones: manifest.bones.clone().unwrap_or_default(),
+            animations: manifest.animations.clone().unwrap_or_default(),
+        }
+    }
 }
 
 /// The UE5 script for a kind, or None when the kind is not mirrored from Blender.
@@ -545,6 +573,7 @@ impl MirrorRunner {
             asset_name: &job.part_name,
             armature: job.manifest.armature.as_deref(),
             bone_count: job.manifest.bone_count,
+            expect: Expect::of(&job.manifest),
             nanite: false,
             lod_group: None,
             generate_collision: true,
@@ -565,6 +594,30 @@ impl MirrorRunner {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_import_is_told_what_the_export_held() {
+        let manifest: ObjectManifest = serde_json::from_value(serde_json::json!({
+            "v": 1, "kind": "character",
+            "objects": [
+                {"name": "Body", "triangles": 1, "materials": ["M_Skin", "M_Cloth"], "bounds_min": [0.0, 0.0, 0.0], "bounds_max": [1.0, 1.0, 1.0], "hash": "a", "origin": [0.0, 0.0, 0.0], "scale": [1.0, 1.0, 1.0]},
+                {"name": "Eyes", "triangles": 1, "materials": ["M_Skin"], "bounds_min": [0.0, 0.0, 0.0], "bounds_max": [1.0, 1.0, 1.0], "hash": "b", "origin": [0.0, 0.0, 0.0], "scale": [1.0, 1.0, 1.0]}
+            ],
+            "bone_count": 2, "armature": "Rig", "mirror_target": null,
+            "bones": ["root", "spine"], "animations": [{"name": "Walk", "seconds": 1.25}]
+        }))
+        .unwrap();
+        let expect = Expect::of(&manifest);
+        assert_eq!(expect.materials, vec!["M_Cloth", "M_Skin"]);
+        assert_eq!(expect.bones, vec!["root", "spine"]);
+        assert_eq!(
+            expect.animations,
+            vec![ManifestAnimation {
+                name: "Walk".into(),
+                seconds: 1.25
+            }]
+        );
+    }
+
     use super::*;
 
     #[test]

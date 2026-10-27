@@ -31,7 +31,7 @@ and `make test` is green.
 
 ## In Unreal
 
-- [ ] 7. The mirror proves the import. After each import the plugin reads the asset back in the
+- [x] 7. The mirror proves the import. After each import the plugin reads the asset back in the
       engine: material slots, the skeleton's bones, the animation sequences, and compares them
       with the manifest. A difference is a mirror result with the same plain words.
 - [ ] 8. The open questions from step 1 and step 3 (docs/decisions.md, 2026-10-01 and

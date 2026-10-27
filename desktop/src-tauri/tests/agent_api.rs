@@ -283,6 +283,11 @@ async fn local_api_serves_me_parts_locks_saves_and_mirrors() {
     assert_eq!(args["asset_name"], "face");
     assert_eq!(args["kind"], "character");
     assert_eq!(args["bone_count"], 42);
+    // v8 step 17: what the export held, for the script to check after the import.
+    assert_eq!(
+        args["expect"],
+        json!({"materials": ["M_Skin"], "bones": [], "animations": []})
+    );
 
     let versions: Value = reqwest::Client::new()
         .get(format!("{server_url}/parts/{face}/versions"))
