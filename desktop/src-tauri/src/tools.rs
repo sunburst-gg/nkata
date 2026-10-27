@@ -313,6 +313,19 @@ pub fn place_in(folder: &Path, name: &str, project_id: &str) -> PathBuf {
     }
 }
 
+/// The bytes of the files in a place, leaving out the agent's own folder: what Connections says
+/// the project takes on this computer.
+pub fn folder_bytes(folder: &Path) -> u64 {
+    WalkDir::new(folder)
+        .into_iter()
+        .filter_entry(|e| e.depth() == 0 || e.file_name() != crate::ignore::AGENT_DIR)
+        .flatten()
+        .filter(|e| e.file_type().is_file())
+        .filter_map(|e| e.metadata().ok())
+        .map(|m| m.len())
+        .sum()
+}
+
 /// Unreal projects inside the project folder, three levels deep at most. Engine output folders
 /// are not entered.
 pub fn find_uprojects(folder: &Path) -> Vec<PathBuf> {
@@ -480,6 +493,21 @@ mod tests {
 
     fn repo_root() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+    }
+
+    #[test]
+    fn a_place_counts_its_files_but_not_the_agents_own() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(tmp.path().join("Kettle")).unwrap();
+        std::fs::write(tmp.path().join("Kettle/model.blend"), vec![0u8; 96_040]).unwrap();
+        std::fs::create_dir_all(tmp.path().join(crate::ignore::AGENT_DIR)).unwrap();
+        std::fs::write(
+            tmp.path().join(crate::ignore::AGENT_DIR).join("index.db"),
+            vec![0u8; 500],
+        )
+        .unwrap();
+        assert_eq!(folder_bytes(tmp.path()), 96_040);
+        assert_eq!(folder_bytes(&tmp.path().join("missing")), 0);
     }
 
     #[test]

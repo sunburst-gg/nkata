@@ -165,6 +165,16 @@ async fn list_blend_files(folder: String) -> Result<Vec<String>, String> {
     .map_err(|e| e.to_string())
 }
 
+/// What a place takes on this computer, for Connections (tools::folder_bytes).
+#[tauri::command]
+async fn folder_bytes(folder: String) -> Result<u64, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        nkata_agent::tools::folder_bytes(&nkata_agent::runtime::expand_home(Path::new(&folder)))
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 /// Whether Blender is running: Connect then says to restart it (tools::blender_running).
 #[tauri::command]
 async fn blender_running() -> Result<bool, String> {
@@ -284,6 +294,7 @@ fn main() {
             list_blend_files,
             place_for,
             blender_running,
+            folder_bytes,
             download_file,
             open_version,
             open_in_blender,

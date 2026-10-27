@@ -23,6 +23,7 @@ const agent = {
   listBlendFiles: async () => [],
   placeFor: async (folder: string) => folder,
   blenderRunning: async () => false,
+  folderBytes: async () => 96_040,
 };
 
 async function signIn(email: string): Promise<{ source: LiveDataSource; token: string }> {

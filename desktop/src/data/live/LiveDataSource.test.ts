@@ -75,6 +75,7 @@ const agent = {
   listBlendFiles: async () => [],
   placeFor: async (folder: string) => folder,
   blenderRunning: async () => false,
+  folderBytes: async () => 96_040,
 };
 
 async function booted() {
@@ -237,7 +238,7 @@ describe("LiveDataSource", () => {
     expect(source.blender.kind).toBe("connected");
     // Connecting Blender says nothing about the project: only a place on this computer does.
     expect(events.map((e) => e.type)).toEqual(["toolDetected", "addonInstalled", "paused", "agent", "resumed"]);
-    expect(await source.listLocalProjects()).toEqual([{ projectId: PROJECT, name: "Rising Sun", path: "/Users/emeka/Nkata/Rising Sun", bytes: 0, syncing: true }]);
+    expect(await source.listLocalProjects()).toEqual([{ projectId: PROJECT, name: "Rising Sun", path: "/Users/emeka/Nkata/Rising Sun", bytes: 96_040, syncing: true }]);
   });
 
   it("connecting while Blender is open says to restart it, since the add-on loads at start", async () => {
