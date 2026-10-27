@@ -120,12 +120,14 @@ def apply_first_import_settings(asset: Any, args: dict[str, Any]) -> None:
 def links_of(asset: Any) -> dict[str, Any]:
     """What a reimport must keep on a static mesh."""
     materials = [str(m.material_slot_name) for m in getattr(asset, "static_materials", []) or []]
-    body = getattr(asset, "body_setup", None)
+    # Through get_editor_property: plain attribute access on agg_geom reads every element list
+    # as empty on UE 5.8, so a prop with a convex shape counted 0 and a lost one went unseen.
+    body = asset.get_editor_property("body_setup")
     collision = 0
     if body is not None:
-        geom = getattr(body, "agg_geom", None)
+        geom = body.get_editor_property("agg_geom")
         for key in ("box_elems", "sphere_elems", "sphyl_elems", "convex_elems"):
-            collision += len(getattr(geom, key, []) or []) if geom is not None else 0
+            collision += len(geom.get_editor_property(key) or [])
     return {"materials": materials, "collision_primitives": collision}
 
 
