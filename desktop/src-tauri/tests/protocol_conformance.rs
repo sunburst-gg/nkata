@@ -150,7 +150,8 @@ fn samples() -> Vec<(&'static str, Value)> {
                 spool_path: Some("/s.glb".into()),
                 manifest: Some(manifest),
                 source_file: "f.blend".into(),
-                opened_at: None
+                opened_at: None,
+                usd_path: Some("/s.usdc".into()),
             }),
         ),
         (

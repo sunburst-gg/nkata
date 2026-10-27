@@ -282,6 +282,8 @@ pub enum ExportLossKind {
     Material,
     Bone,
     Animation,
+    Mesh,
+    Light,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -306,6 +308,9 @@ pub struct PartSavedRequest {
     pub spool_path: Option<String>,
     pub manifest: Option<ObjectManifest>,
     pub source_file: String,
+    /// v8 step 18: an environment's USD export, for the Unreal mirror.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub usd_path: Option<String>,
     /// When the editor opened the file, for the version's opened_at. Optional on the wire:
     /// absent when unknown, so the Python side round-trips it unchanged.
     #[serde(default, skip_serializing_if = "Option::is_none")]

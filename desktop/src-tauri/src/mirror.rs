@@ -43,6 +43,8 @@ pub struct MirrorJob {
     pub mapping: PartMapping,
     pub asset_name: String,
     pub part_name: String,
+    /// v8 step 18: an environment's USD export. When present the import reads it, not the GLB.
+    pub usd_path: Option<PathBuf>,
 }
 
 /// Arguments written to <spool>/<part>/<version>.args.json for the import script.
@@ -90,12 +92,14 @@ impl Expect {
     }
 }
 
-/// The UE5 script for a kind, or None when the kind is not mirrored from Blender.
-/// A level area is edited in UE5; its actor files sync like any other file.
-pub fn script_for(kind: TemplateKind) -> Option<&'static str> {
+/// The UE5 script for a kind, or None when the kind is not mirrored from Blender. A level area
+/// edited in UE5 syncs its actor files like any other file; one saved in Blender with a USD
+/// export (the v8 Environment template) is imported whole with its actors (v8 step 18).
+pub fn script_for(kind: TemplateKind, usd: bool) -> Option<&'static str> {
     match kind {
         TemplateKind::Character => Some("import_character.py"),
         TemplateKind::Prop => Some("import_static.py"),
+        TemplateKind::LevelArea if usd => Some("import_environment.py"),
         TemplateKind::LevelArea => None,
     }
 }
@@ -552,7 +556,7 @@ impl MirrorRunner {
                 path: None,
             }));
         }
-        let Some(script_name) = script_for(job.kind) else {
+        let Some(script_name) = script_for(job.kind, job.usd_path.is_some()) else {
             return Ok(CallOutcome::Done(crate::ue5::ScriptResult {
                 ok: false,
                 message: "a level area is edited in UE5, nothing to mirror".to_string(),
@@ -568,7 +572,7 @@ impl MirrorRunner {
             kind: job.kind,
             part_id: &job.part_id,
             version_id: &job.version_id,
-            spool_path: &job.spool_path,
+            spool_path: job.usd_path.as_deref().unwrap_or(&job.spool_path),
             destination_path: &destination,
             asset_name: &job.part_name,
             armature: job.manifest.armature.as_deref(),
@@ -623,11 +627,18 @@ mod tests {
     #[test]
     fn script_follows_the_kind() {
         assert_eq!(
-            script_for(TemplateKind::Character),
+            script_for(TemplateKind::Character, false),
             Some("import_character.py")
         );
-        assert_eq!(script_for(TemplateKind::Prop), Some("import_static.py"));
-        assert_eq!(script_for(TemplateKind::LevelArea), None);
+        assert_eq!(
+            script_for(TemplateKind::Prop, false),
+            Some("import_static.py")
+        );
+        assert_eq!(script_for(TemplateKind::LevelArea, false), None);
+        assert_eq!(
+            script_for(TemplateKind::LevelArea, true),
+            Some("import_environment.py")
+        );
     }
 
     #[test]

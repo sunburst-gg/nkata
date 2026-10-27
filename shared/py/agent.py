@@ -149,6 +149,7 @@ class PartSavedRequest:
     manifest: ObjectManifest | None
     source_file: str
     opened_at: Timestamp | None | None = field(default=None, metadata={"optional": True})
+    usd_path: str | None | None = field(default=None, metadata={"optional": True})
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -409,7 +410,7 @@ class ManifestAnimation:
 @dataclass(frozen=True)
 class ExportLoss:
     """One kind of thing the scene has that the export does not, or a texture file that is not on disk."""
-    kind: Literal["texture", "texture_file", "material", "bone", "animation"]
+    kind: Literal["texture", "texture_file", "material", "bone", "animation", "mesh", "light"]
     names: list[str]
     sentence: str
 
@@ -736,8 +737,16 @@ def _v_PartSavedRequest_opened_at(value: object, path: str) -> Any:
         return None
     return validate_Timestamp(value, path)
 
+def _v_PartSavedRequest_usd_path_inner(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
+
+def _v_PartSavedRequest_usd_path(value: object, path: str) -> Any:
+    if value is None:
+        return None
+    return _v_PartSavedRequest_usd_path_inner(value, path)
+
 def validate_PartSavedRequest(value: object, path: str = "$") -> PartSavedRequest:
-    obj = _rt.check_object(value, path, required=("v", "changed", "spool_path", "manifest", "source_file",), allowed=("v", "changed", "spool_path", "manifest", "source_file", "opened_at",))
+    obj = _rt.check_object(value, path, required=("v", "changed", "spool_path", "manifest", "source_file",), allowed=("v", "changed", "spool_path", "manifest", "source_file", "opened_at", "usd_path",))
     return PartSavedRequest(
         v=_v_PartSavedRequest_v(obj["v"], path + ".v"),
         changed=_v_PartSavedRequest_changed(obj["changed"], path + ".changed"),
@@ -745,6 +754,7 @@ def validate_PartSavedRequest(value: object, path: str = "$") -> PartSavedReques
         manifest=_v_PartSavedRequest_manifest(obj["manifest"], path + ".manifest"),
         source_file=_v_PartSavedRequest_source_file(obj["source_file"], path + ".source_file"),
         opened_at=_v_PartSavedRequest_opened_at(obj["opened_at"], path + ".opened_at") if "opened_at" in obj else None,
+        usd_path=_v_PartSavedRequest_usd_path(obj["usd_path"], path + ".usd_path") if "usd_path" in obj else None,
     )
 
 def _v_PartSavedResponse_v(value: object, path: str) -> Any:
@@ -1180,7 +1190,7 @@ def validate_ManifestAnimation(value: object, path: str = "$") -> ManifestAnimat
     )
 
 def _v_ExportLoss_kind(value: object, path: str) -> Any:
-    return _rt.check_literal(value, path, ("texture", "texture_file", "material", "bone", "animation",))
+    return _rt.check_literal(value, path, ("texture", "texture_file", "material", "bone", "animation", "mesh", "light",))
 
 def _v_ExportLoss_names_item(value: object, path: str) -> str:
     return _rt.check_str(value, path, min_length=0, pattern=None, fmt=None)

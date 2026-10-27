@@ -486,6 +486,18 @@
             }
           ],
           "description": "When the editor opened the file, for the version's opened_at."
+        },
+        "usd_path": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "v8 step 18: an environment's USD export beside its GLB, for the Unreal mirror. Absent for objects and from older add-ons."
         }
       },
       "required": [
@@ -1165,7 +1177,9 @@
             "texture_file",
             "material",
             "bone",
-            "animation"
+            "animation",
+            "mesh",
+            "light"
           ]
         },
         "names": {

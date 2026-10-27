@@ -102,7 +102,7 @@ export type ManifestObject = z.infer<typeof ManifestObject>;
 
 /** One kind of thing the scene has that the export does not, or a texture file that is not on disk. */
 export const ExportLoss = z.strictObject({
-  "kind": z.enum(["texture", "texture_file", "material", "bone", "animation"]),
+  "kind": z.enum(["texture", "texture_file", "material", "bone", "animation", "mesh", "light"]),
   "names": z.array(z.string()).min(1),
   "sentence": z.string().min(1),
 });
@@ -155,6 +155,7 @@ export const PartSavedRequest = z.strictObject({
   "manifest": ObjectManifest.nullable(),
   "source_file": z.string().min(1),
   "opened_at": Timestamp.nullable().optional(),
+  "usd_path": z.string().min(1).nullable().optional(),
 });
 export type PartSavedRequest = z.infer<typeof PartSavedRequest>;
 

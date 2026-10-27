@@ -357,7 +357,9 @@ async fn saved(
     let version_id = new_id();
     // A level area has no export: its actor files sync like any other file. With Unreal off
     // nothing mirrors: the save still versions and the GLB still reaches the app.
-    let mirrors = body.changed && s.unreal && crate::mirror::script_for(part.kind).is_some();
+    let mirrors = body.changed
+        && s.unreal
+        && crate::mirror::script_for(part.kind, body.usd_path.is_some()).is_some();
     let mirror = if mirrors {
         MirrorStatus::Pending
     } else {
@@ -418,6 +420,7 @@ async fn saved(
                 mapping: part.mapping,
                 asset_name: part.asset_name,
                 part_name: part.name,
+                usd_path: body.usd_path.map(PathBuf::from),
             })
             .await;
     }
