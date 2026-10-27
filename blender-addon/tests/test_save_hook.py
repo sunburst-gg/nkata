@@ -188,7 +188,7 @@ class SaveHookTest(unittest.TestCase):
         self._as_prop(kettle)
         out = self.save_hook.handle_save(str(self.blend))
         self.assertTrue(out["changed"])
-        self.assertEqual(out["refused"], [])
+        self.assertEqual(out["notes"], [])
         self.assertFalse(self.bpy._ops.calls[0][1]["export_skins"])
         req = FakeAgent.saved[0]
         self.assertEqual(req["manifest"]["kind"], "prop")
@@ -203,22 +203,26 @@ class SaveHookTest(unittest.TestCase):
         self.face.matrix_world[2][3] = 0.5
         out = self.save_hook.handle_save(str(self.blend))
         self.assertTrue(out["changed"])
-        self.assertEqual(out["refused"], [])
+        self.assertEqual(out["notes"], [])
         self.assertIsNotNone(FakeAgent.saved[0]["spool_path"])
         self.assertEqual(self.state.error, "")
 
-    def test_a_prop_off_its_base_or_scaled_is_refused_and_still_versions(self) -> None:
+    def test_a_prop_off_its_base_or_scaled_still_reaches_the_team_and_names_the_origin(self) -> None:
+        # Saves are never refused: the team sees the work and the preview gets it. An origin off
+        # the base is a note with Fix; scale is not a problem at all (UE 5.8 bakes object scale on
+        # import, measured: a 2 m cube at scale 2 arrives 400 cm). docs/decisions.md, 2026-10-27.
         floating = bpy_stub.FakeObject("Kettle", coords=[-0.5, -0.5, 0.2, 0.5, -0.5, 0.2, 0.0, 0.5, 0.5], scale=(2.0, 2.0, 2.0))
         self._as_prop(floating)
+        self.state.unreal = True
         out = self.save_hook.handle_save(str(self.blend))
-        self.assertFalse(out["changed"])
-        self.assertEqual(len(out["refused"]), 2)
-        self.assertEqual(self.bpy._ops.calls, [])
-        self.assertEqual(FakeAgent.saved[0]["changed"], False)
-        self.assertIn("Export refused", self.state.error)
-        self.assertIn("apply scale", self.state.error)
-        self.assertIn("set origin to the bottom", self.state.error)
-        self.assertEqual(self.state.last_hashes, {}, "a refused export is tried again on the next save")
+        self.state.unreal = False
+        self.assertTrue(out["changed"])
+        self.assertIsNotNone(FakeAgent.saved[0]["spool_path"], "the export ran")
+        self.assertEqual(self.state.error, "")
+        notes = self.state.origin_notes[FakeAgent.parts[0]["id"]]
+        self.assertEqual(len(notes), 1)
+        self.assertIn("origin is", notes[0])
+        self.assertNotIn("scale", notes[0])
 
     def test_gather_facts_reads_the_scene_for_the_checks(self) -> None:
         from nkata import checks

@@ -248,14 +248,11 @@ def handle_save(filepath: str) -> dict[str, Any]:
     usd_path: str | None = None
     manifest_data: dict[str, Any] | None = None
     export_ms = 0
-    refused: list[str] = []
-    if changed and kind == "prop" and STATE.unreal:
-        # A prop must sit on its origin at scale 1 or every placed copy lands wrong in Unreal.
-        # While Unreal is Coming soon the pivot informs and the GLB still reaches the app.
-        refused = manifest.static_problems(infos)
-    if changed and refused:
-        log("export.refused", part_id=part["id"], problems=refused)
-        changed = False
+    # A prop placed in a level sits on its origin, so an origin off the base is worth saying; but a
+    # save is never refused for it: the team and the preview still get the work (2026-10-27).
+    notes = manifest.static_problems(infos) if kind == "prop" else []
+    with STATE.lock:
+        STATE.origin_notes[part["id"]] = notes
     results = run_part_checks(part, collection)
     rows = live.lines(results, STATE.card.get(part["id"], {}), live.budget_for(STATE.budgets, asset_kind, kind_rules.group_of(rel), part.get("budget")))
     still_path: Path | None = None
@@ -324,18 +321,16 @@ def handle_save(filepath: str) -> dict[str, Any]:
         except AgentError as e:
             log("checks.record_failed", part_id=part["id"], error=str(e))
     with STATE.lock:
-        if not refused:
-            STATE.last_hashes[part["id"]] = hashes
+        STATE.last_hashes[part["id"]] = hashes
         view = STATE.mirror_for(part["id"])
         view.status = res.mirror
         view.version_id = res.version_id
         view.message = ""
         view.at = time.time()
-        STATE.error = "Export refused. " + " ".join(refused) if refused else ""
         STATE.dirty = True
     total_ms = int((time.monotonic() - started) * 1000)
     log("save.posted", part_id=part["id"], version_id=res.version_id, changed=changed, export_ms=export_ms, total_ms=total_ms)
-    return {"part_id": part["id"], "version_id": res.version_id, "changed": changed, "export_ms": export_ms, "total_ms": total_ms, "refused": refused}
+    return {"part_id": part["id"], "version_id": res.version_id, "changed": changed, "export_ms": export_ms, "total_ms": total_ms, "notes": notes}
 
 
 def ensure_collection(name: str) -> Any:

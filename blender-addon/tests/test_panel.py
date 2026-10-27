@@ -554,6 +554,23 @@ class PanelTest(unittest.TestCase):
         self.assertNotIn("op:nkata.live_in_unreal:Live in Unreal:on", self.draw())
         self.state.unreal = False
 
+    def test_an_origin_off_the_base_is_a_note_with_fix_and_fix_sets_it_at_the_base(self) -> None:
+        floating = bpy_stub.FakeObject("Radio", coords=[-0.5, -0.5, 0.2, 0.5, -0.5, 0.2, 0.0, 0.5, 0.5])
+        self.collection.objects = [floating]
+        self.collection.all_objects = [floating]
+        FakeAgent.parts = [{**PART, "kind": "prop"}]
+        self.save_hook.handle_open(str(self.blend))
+        self.save_hook.handle_save(str(self.blend))
+        lines = self.draw()
+        self.assertTrue([x for x in lines if x.startswith("label:Radio: origin is")], lines)
+        self.assertIn("op:nkata.fix_origin:Fix origin", lines)
+        self.assertTrue([x for x in lines if x.startswith("op:nkata.publish")], "the note never holds Publish")
+        self.assertEqual(self.panel.NKATA_OT_fix_origin().execute(None), {"FINISHED"})
+        # The origin moved up to the base, 0.2 m; the stub's bound_box does not follow vertex
+        # edits as Blender's does, so the origin is read from the world matrix.
+        self.assertAlmostEqual(float(floating.matrix_world[2][3]), 0.2, places=5)
+        self.assertNotIn("op:nkata.fix_origin:Fix origin", self.draw())
+
     def _pointer(self) -> Path:
         home = Path(self.tmp.name) / "home"
         (home / ".nkata").mkdir(parents=True)

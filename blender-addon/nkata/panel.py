@@ -221,6 +221,34 @@ class NKATA_OT_add_to_project(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class NKATA_OT_fix_origin(bpy.types.Operator):
+    """Fix origin: each mesh's origin moves down to the base of its bounds, the geometry stays put.
+    Offered, never done for the artist: a pivot off the base can be on purpose (a hinge)."""
+
+    bl_idname = "nkata.fix_origin"
+    bl_label = "Fix origin"
+    bl_description = "Move the origin to the base, so copies placed in a level sit on the floor"
+
+    def execute(self, _context: bpy.types.Context) -> set[str]:
+        try:
+            _client, part = _client_and_part()
+            collection = _collection(part)
+        except AgentError as e:
+            self.report({"ERROR"}, e.message)
+            return {"CANCELLED"}
+        infos = {i.name: i for i in save_hook.collect(collection).infos}
+        for obj in collection.all_objects:
+            info = infos.get(obj.name)
+            if info is not None:
+                delta = float(info.origin[2]) - float(info.bounds_min[2])
+                if abs(delta) > 1e-6:
+                    move_origin_down(obj, delta)
+        with STATE.lock:
+            STATE.origin_notes[part["id"]] = []
+            STATE.dirty = True
+        return {"FINISHED"}
+
+
 class NKATA_OT_live_in_unreal(bpy.types.Operator):
     """Live in Unreal, per asset (v8 step 19): on, every save previews in the open editor; off,
     saves still version and reach the team, and Unreal waits for Publish or the switch."""
@@ -521,6 +549,12 @@ def draw_checks(layout: Any, part: dict[str, Any]) -> None:
             fixable |= r.key in ("textures", "scale")
     if fixable:
         box.operator(NKATA_OT_fix_checks.bl_idname, text="Fix")
+    # A prop's origin off its base: a note and Fix origin, never a refusal (2026-10-27).
+    notes = STATE.origin_notes.get(part["id"]) or []
+    for note in notes:
+        box.label(text=note, icon="INFO")
+    if notes:
+        box.operator(NKATA_OT_fix_origin.bl_idname, text="Fix origin")
     # The fifth line: the export read back beside the scene (v8 step 17).
     for text in intact.lines(STATE.export.get(part["id"])):
         icon = "CHECKMARK" if text == "Export intact." else "INFO" if text.startswith("Bones gone") else "ERROR"
@@ -645,6 +679,7 @@ CLASSES = (
     NKATA_OT_add_to_project,
     NKATA_OT_start_part,
     NKATA_OT_live_in_unreal,
+    NKATA_OT_fix_origin,
     NKATA_OT_set_kind,
     NKATA_OT_fix_checks,
     NKATA_OT_publish,

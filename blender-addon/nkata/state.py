@@ -47,6 +47,8 @@ class AddonState:
     checks: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     # v8 step 17: the last save's export read back (intact.check), or None when it was unread.
     export: dict[str, dict[str, Any] | None] = field(default_factory=dict)
+    # A prop's origin off its base, per part: a note with Fix origin, never a refusal.
+    origin_notes: dict[str, list[str]] = field(default_factory=dict)
     # The numbers behind the checks, per part: triangles, textures, UV sets, unit scale (checks.summary).
     card: dict[str, dict[str, Any]] = field(default_factory=dict)
     comments: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
