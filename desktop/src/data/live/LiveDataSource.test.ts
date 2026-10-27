@@ -12,7 +12,7 @@ const manifest = { objects: [{ name: "Body", triangles: 12_000, materials: [], h
 
 type Route = (body: unknown, url: URL) => unknown;
 
-function fakeServer() {
+function fakeServer(opts: { conceptFirst?: boolean } = {}) {
   const calls: { method: string; path: string; body: unknown }[] = [];
   const events: { id: string; event: Record<string, unknown> }[] = [];
   let online: unknown[] = [];
@@ -28,7 +28,7 @@ function fakeServer() {
     "GET /projects": () => ({ projects: [{ id: PROJECT, name: "Rising Sun", folder_name: "rising-sun", created_at: "2026-10-01T00:00:00Z", color: "var(--p-teal)" }] }),
     [`GET /projects/${PROJECT}/budgets`]: () => ({ budgets: { prop: 30000, vehicle: 60000, character: 80000, environment: 2000000, max_texture: null } }),
     "GET /assets": () => ({ assets: [{ id: "a1", name: "Radio", template_id: "t", state: "draft", updated_at: "2026-10-18T11:00:00Z", kind: "object", group: "Props", budget: null }] }),
-    "GET /assets/a1": () => ({ parts: [{ id: "p1", asset_id: "a1", name: "model", owner: ada, owner_id: ada.id, state: "draft", mapping: { kind: "blend_collection", file: "Radio/Radio.blend" }, updated_at: "2026-10-18T11:00:00Z", lock: null }] }),
+    "GET /assets/a1": () => ({ parts: [...(opts.conceptFirst ? [{ id: "p0", asset_id: "a1", name: "concept", owner: ada, owner_id: ada.id, state: "draft", mapping: { kind: "file" }, updated_at: "2026-10-18T09:00:00Z", lock: null }] : []), { id: "p1", asset_id: "a1", name: "model", owner: ada, owner_id: ada.id, state: "draft", mapping: { kind: "blend_collection", file: "Radio/Radio.blend" }, updated_at: "2026-10-18T11:00:00Z", lock: null }] }),
     "GET /studio/members": () => ({ members: [{ user: emeka, email: "emeka@sunburst.studio", roles: ["producer"] }, { user: ada, email: "ada@sunburst.studio", roles: ["artist"] }, { user: { id: "01NEW", name: "", avatar_url: null }, email: "new@studio.com", roles: ["artist"] }] }),
     "GET /presence": () => ({ online }),
     "GET /parts/p1/versions": () => ({ versions }),
@@ -85,6 +85,17 @@ async function booted() {
 }
 
 describe("LiveDataSource", () => {
+  it("shows the part Blender saves into when an asset has a concept part first", async () => {
+    // A template asset (the seed, older projects) lists concept before model; the saves land on
+    // model, so parts[0] read as "No save yet" for an asset with Versions.
+    const server = fakeServer({ conceptFirst: true });
+    const source = new LiveDataSource({ serverUrl: "http://server", token: "tok", folder: "/Users/emeka/Nkata/Rising Sun", fetch: server.fetchImpl, now: () => NOW, agent, pollMs: 0 });
+    await source.loadAccount();
+    const assets = await source.listAssets(PROJECT);
+    expect(assets[0]!.versions.map((v) => v.n)).toEqual([2, 1]);
+    expect(server.calls.some((c) => c.path.startsWith("/parts/p0/"))).toBe(false);
+  });
+
   it("loads the account, the studio, the projects and the wall", async () => {
     const { source } = await booted();
     expect(source.me).toMatchObject({ first: "Emeka", role: "producer", email: "emeka@sunburst.studio" });

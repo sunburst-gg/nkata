@@ -231,7 +231,9 @@ export class LiveDataSource implements DataSource {
   /** One asset's part, versions, reviews, comments and the newest version's checks. */
   private async fetchRaw(a: AssetWire): Promise<Raw | null> {
     const detail = await this.call<{ parts: PartWire[] }>("GET", `/assets/${a.id}`);
-    const part = detail.parts[0];
+    // The part Blender saves into. A v8 asset has one part; a template asset (the seed, older
+    // projects) lists concept first, which never holds a save (docs/decisions.md, 2026-10-27).
+    const part = detail.parts.find((p) => p.mapping.kind === "blend_collection") ?? detail.parts[0];
     if (!part) return null;
     const [versionsRes, reviewsRes, commentsRes] = await Promise.all([
       this.call<{ versions: VersionWire[] }>("GET", `/parts/${part.id}/versions`),
