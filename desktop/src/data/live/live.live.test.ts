@@ -60,8 +60,9 @@ describe.skipIf(!SERVER)("two machines, one project", () => {
     events.length = 0;
 
     // Machine A: the artist's agent posts the save the add-on made.
-    const detail = await api<{ parts: { id: string }[] }>(a.token, "GET", `/assets/${kettle.id}`);
-    const partId = detail.parts[0]!.id;
+    // The add-on saves into the part with the .blend, as the wall shows it (not concept, first).
+    const detail = await api<{ parts: { id: string; mapping: { kind: string } }[] }>(a.token, "GET", `/assets/${kettle.id}`);
+    const partId = detail.parts.find((p) => p.mapping.kind === "blend_collection")!.id;
     const t0 = Date.now();
     await api(a.token, "POST", `/parts/${partId}/versions`, { manifest, mirror_status: "skipped", note: "" });
     await b.source.poll(project.id);
