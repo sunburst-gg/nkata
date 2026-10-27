@@ -5,12 +5,14 @@ import type { Role } from "@/data/types";
 export type Action =
   | "invite" | "manageMembers" | "approve" | "requestChanges" | "publish" | "openInBlender" | "download"
   | "downloadImage" | "comment" | "createProject" | "renameProject" | "deleteProject" | "setTraining"
-  | "billing" | "seeSetup" | "seeConnections" | "seeMine" | "setBudget" | "seeJourney" | "seeDisk";
+  | "billing" | "seeSetup" | "seeConnections" | "seeMine" | "setBudget" | "seeJourney" | "seeDisk"
+  // v8 step 21: a lead accepts a failing check with a reason, and sets the project's rules.
+  | "acceptCheck" | "setRules";
 
-export const ACTIONS: readonly Action[] = ["invite", "manageMembers", "approve", "requestChanges", "publish", "openInBlender", "download", "downloadImage", "comment", "createProject", "renameProject", "deleteProject", "setTraining", "billing", "seeSetup", "seeConnections", "seeMine", "setBudget", "seeJourney", "seeDisk"];
+export const ACTIONS: readonly Action[] = ["invite", "manageMembers", "approve", "requestChanges", "publish", "openInBlender", "download", "downloadImage", "comment", "createProject", "renameProject", "deleteProject", "setTraining", "billing", "seeSetup", "seeConnections", "seeMine", "setBudget", "seeJourney", "seeDisk", "acceptCheck", "setRules"];
 
 // An art director is an artist on the assets they own, so they publish too (2026-10-27).
-const ART_DIRECTOR: ReadonlySet<Action> = new Set<Action>(["publish", "approve", "requestChanges", "invite", "comment", "download", "downloadImage", "openInBlender", "seeSetup", "seeConnections", "seeMine", "setBudget", "seeJourney", "seeDisk"]);
+const ART_DIRECTOR: ReadonlySet<Action> = new Set<Action>(["publish", "approve", "requestChanges", "invite", "comment", "download", "downloadImage", "openInBlender", "seeSetup", "seeConnections", "seeMine", "setBudget", "seeJourney", "seeDisk", "acceptCheck", "setRules"]);
 const ARTIST: ReadonlySet<Action> = new Set<Action>(["publish", "openInBlender", "download", "downloadImage", "comment", "seeSetup", "seeConnections", "seeMine", "seeJourney", "seeDisk"]);
 const VIEWER: ReadonlySet<Action> = new Set<Action>(["comment", "downloadImage"]);
 

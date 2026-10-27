@@ -12,7 +12,11 @@ const manifest = { objects: [{ name: "Body", triangles: 12_000, materials: [], h
 
 type Route = (body: unknown, url: URL) => unknown;
 
-function fakeServer(opts: { conceptFirst?: boolean } = {}) {
+// v8 step 21: a door whose pivot sits on its hinge, in a project whose pivot rule is at block level.
+const GREEN = (key: string) => ({ key, pass: true, sentence: "ok.", fix: "" });
+const doorManifest = { ...manifest, checks: [GREEN("textures"), GREEN("scale"), GREEN("uv"), GREEN("tris"), { key: "pivot", pass: false, level: "block", sentence: "Origin is not at the base of SM_Door.", fix: "Fix origin moves it to the base." }] };
+
+function fakeServer(opts: { conceptFirst?: boolean; pivotHeld?: boolean } = {}) {
   const calls: { method: string; path: string; body: unknown }[] = [];
   const events: { id: string; event: Record<string, unknown> }[] = [];
   let online: unknown[] = [];
@@ -20,15 +24,18 @@ function fakeServer(opts: { conceptFirst?: boolean } = {}) {
   let comments: unknown[] = [];
   let versions = [
     { id: "v1", part_id: "p1", author_id: ada.id, published: true, note: "First pass.", created_at: "2026-10-10T10:00:00Z", manifest, render_url: "https://x/v1.png", model_url: "https://x/v1.glb" },
-    { id: "v2", part_id: "p1", author_id: ada.id, published: false, note: "", created_at: "2026-10-18T11:30:00Z", manifest, render_url: null, model_url: "https://x/v2.glb" },
+    { id: "v2", part_id: "p1", author_id: ada.id, published: false, note: "", created_at: "2026-10-18T11:30:00Z", manifest: opts.pivotHeld ? doorManifest : manifest, render_url: null, model_url: "https://x/v2.glb" },
   ];
+  let exceptions: unknown[] = [];
   const routes: Record<string, Route> = {
     "GET /auth/me": () => ({ user: emeka, email: "emeka@sunburst.studio", studio_id: "st1", roles: ["producer"], studios: [{ id: "st1", name: "Sunburst", roles: ["producer"] }] }),
     "GET /studio": () => ({ studio: { id: "st1", name: "Sunburst", training: "on" } }),
     "GET /projects": () => ({ projects: [{ id: PROJECT, name: "Rising Sun", folder_name: "rising-sun", created_at: "2026-10-01T00:00:00Z", color: "var(--p-teal)" }] }),
     [`GET /projects/${PROJECT}/budgets`]: () => ({ budgets: { prop: 30000, vehicle: 60000, character: 80000, environment: 2000000, max_texture: null } }),
     "GET /assets": () => ({ assets: [{ id: "a1", name: "Radio", template_id: "t", state: "draft", updated_at: "2026-10-18T11:00:00Z", kind: "object", group: "Props", budget: null }] }),
-    "GET /assets/a1": () => ({ parts: [...(opts.conceptFirst ? [{ id: "p0", asset_id: "a1", name: "concept", owner: ada, owner_id: ada.id, state: "draft", mapping: { kind: "file" }, updated_at: "2026-10-18T09:00:00Z", lock: null }] : []), { id: "p1", asset_id: "a1", name: "model", owner: ada, owner_id: ada.id, state: "draft", mapping: { kind: "blend_collection", file: "Radio/Radio.blend" }, updated_at: "2026-10-18T11:00:00Z", lock: null }] }),
+    "GET /assets/a1": () => ({ parts: [...(opts.conceptFirst ? [{ id: "p0", asset_id: "a1", name: "concept", owner: ada, owner_id: ada.id, state: "draft", mapping: { kind: "file" }, updated_at: "2026-10-18T09:00:00Z", lock: null }] : []), { id: "p1", asset_id: "a1", name: "model", owner: ada, owner_id: ada.id, state: "draft", mapping: { kind: "blend_collection", file: "Radio/Radio.blend" }, updated_at: "2026-10-18T11:00:00Z", lock: null, exceptions }] }),
+    "POST /parts/p1/exceptions": (b) => { exceptions = [{ ...(b as object), by: emeka, at: "2026-10-18T12:00:00Z" }]; return { part_id: "p1", exceptions }; },
+    "DELETE /parts/p1/exceptions/pivot_at_base": () => { exceptions = []; return { part_id: "p1", exceptions }; },
     "GET /studio/members": () => ({ members: [{ user: emeka, email: "emeka@sunburst.studio", roles: ["producer"] }, { user: ada, email: "ada@sunburst.studio", roles: ["artist"] }, { user: { id: "01NEW", name: "", avatar_url: null }, email: "new@studio.com", roles: ["artist"] }] }),
     "GET /presence": () => ({ online }),
     "GET /parts/p1/versions": () => ({ versions }),
@@ -37,7 +44,9 @@ function fakeServer(opts: { conceptFirst?: boolean } = {}) {
     "GET /parts/p1/versions/v2/checks": () => ({ results: [] }),
     "GET /parts/p1/versions/v1/checks": () => ({ results: [] }),
     "GET /events": (_b, url) => { const since = url.searchParams.get("since"); const out = since ? events.filter((e) => e.id > since) : events; return { events: out, next: out.at(-1)?.id ?? since ?? null }; },
-    "POST /parts/p1/publish": (b) => { versions = versions.map((v) => (v.id === (b as { version_id: string }).version_id ? { ...v, published: true, note: (b as { note: string }).note } : v)); return { ok: true }; },
+    "POST /parts/p1/publish": (b) => {
+      if (opts.pivotHeld && exceptions.length === 0 && !(b as { override_reason?: string }).override_reason) return { published: false, blocked_by: [{ check_id: "pivot_at_base", severity: "block", passed: false, auto_fixed: false, message: "origin is not at the base of SM_Door" }] };
+      versions = versions.map((v) => (v.id === (b as { version_id: string }).version_id ? { ...v, published: true, note: (b as { note: string }).note } : v)); return { v: 1, published: true, blocked_by: [] }; },
     "POST /reviews": (b) => { const r = { id: "r1", ...(b as object), reviewer_id: emeka.id, created_at: "2026-10-18T12:00:00Z" }; reviews = [...reviews, r]; return { review: r }; },
     "POST /comments/c1/resolve": () => { comments = comments.map((c) => ((c as { id: string }).id === "c1" ? { ...(c as object), resolved_at: "2026-10-18T12:01:00Z" } : c)); return { comment: comments[0] }; },
     "POST /comments/c1/reopen": () => { comments = comments.map((c) => ((c as { id: string }).id === "c1" ? { ...(c as object), resolved_at: null } : c)); return { comment: comments[0] }; },
@@ -80,8 +89,8 @@ const agent = {
   toolsInstallUe: async () => "installed",
 };
 
-async function booted() {
-  const server = fakeServer();
+async function booted(opts: { pivotHeld?: boolean } = {}) {
+  const server = fakeServer(opts);
   const source = new LiveDataSource({ serverUrl: "http://server", token: "tok", folder: "/Users/emeka/Nkata/Rising Sun", fetch: server.fetchImpl, now: () => NOW, agent, pollMs: 0 });
   const events: DataEvent[] = [];
   source.subscribe((e) => events.push(e));
@@ -128,6 +137,30 @@ describe("LiveDataSource", () => {
     expect(assets[0]!.versions[0]!.checks.find((c) => c.key === "tris")).toMatchObject({ pass: true });
     const members = await source.listMembers(PROJECT);
     expect(members.map((m) => [m.person.first, m.journey])).toEqual([["Emeka", "joined"], ["Ada", "joined"], ["new", "invited"]]);
+  });
+
+  it("a door on its hinge holds Publish until a lead accepts it, and the accept shows who and why", async () => {
+    const { source, server } = await booted({ pivotHeld: true });
+    await source.listAssets(PROJECT);
+    const pivot = () => source.getAsset("a1").then((a) => a!.versions[0]!.checks.find((c) => c.key === "pivot"));
+    expect(await pivot()).toMatchObject({ pass: false, sentence: "Origin is not at the base of SM_Door." });
+    expect((await pivot())!.level).toBeUndefined();
+    await expect(source.publish("a1", "Door hung.")).rejects.toThrow("Fix the red check first.");
+    await source.acceptCheck("a1", "pivot", "Hinge pivot, on purpose.");
+    expect(server.calls.find((c) => c.path === "/parts/p1/exceptions")?.body).toEqual({ check_id: "pivot_at_base", reason: "Hinge pivot, on purpose." });
+    expect((await pivot())!.accepted).toMatchObject({ by: "Emeka", reason: "Hinge pivot, on purpose." });
+    await source.publish("a1", "Door hung.");
+    expect((await source.getAsset("a1"))!.versions[0]).toMatchObject({ note: "Door hung." });
+  });
+
+  it("a lead takes an accept back, and can publish anyway with a reason the server keeps", async () => {
+    const { source, server } = await booted({ pivotHeld: true });
+    await source.listAssets(PROJECT);
+    await source.acceptCheck("a1", "pivot", "Hinge.");
+    await source.takeBackCheck("a1", "pivot");
+    expect((await source.getAsset("a1"))!.versions[0]!.checks.find((c) => c.key === "pivot")!.accepted).toBeUndefined();
+    await source.publish("a1", "Door hung.", undefined, "Needed for the demo.");
+    expect(server.calls.filter((c) => c.path === "/parts/p1/publish").at(-1)?.body).toMatchObject({ override_reason: "Needed for the demo." });
   });
 
   it("publishes, approves, requests changes with a line, comments; each emits its event", async () => {

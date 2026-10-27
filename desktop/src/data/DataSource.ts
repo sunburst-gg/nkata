@@ -2,7 +2,7 @@
 // 10); the live source over the agent and the server replaces it in step 11. Reads are async.
 // Changes arrive as events, so the app reacts to a real save the same way it reacts to a
 // simulated one.
-import type { Asset, BlenderInstall, Budgets, Comment, DeletedProject, Journey, LocalProject, Member, Mention, Person, Project, Role, Studio, StudioRef } from "./types";
+import type { Asset, BlenderInstall, Budgets, CheckKey, Comment, DeletedProject, Journey, LocalProject, Member, Mention, Person, Project, Role, Studio, StudioRef } from "./types";
 import type { ConnectionEvent } from "@/app/connection";
 
 export type DataEvent =
@@ -38,7 +38,8 @@ export interface DataSource {
   listMembers(projectId: string): Promise<Member[]>;
   invite(projectId: string, email: string, role: Role): Promise<Member>;
   /** Publish the latest save as a Version with its note. The checks must all pass. */
-  publish(assetId: string, note: string, noteEngineering?: string): Promise<void>;
+  /** overrideReason: a lead publishes past a failing block level check with one line of why (v8 step 21). */
+  publish(assetId: string, note: string, noteEngineering?: string, overrideReason?: string): Promise<void>;
   approve(assetId: string, version: number): Promise<void>;
   requestChanges(assetId: string, version: number): Promise<void>;
   comment(assetId: string, text: string, pin?: [number, number, number]): Promise<Comment>;
@@ -49,7 +50,10 @@ export interface DataSource {
   /** Mark a pin done, or reopen it (done false). The author, the asset's owner or a lead may. */
   resolveComment(assetId: string, commentId: string, done: boolean): Promise<void>;
   /** Applies the one-line fix of a failed check on the latest save. */
-  fixCheck(assetId: string, key: "textures" | "scale" | "uv" | "tris"): Promise<void>;
+  fixCheck(assetId: string, key: CheckKey): Promise<void>;
+  /** A lead accepts a failing check on one asset with one line of why; it holds until taken back (v8 step 21). */
+  acceptCheck(assetId: string, key: CheckKey, reason: string): Promise<void>;
+  takeBackCheck(assetId: string, key: CheckKey): Promise<void>;
   createStudio(name: string): Promise<Studio>;
   createProject(name: string, color: string): Promise<Project>;
   setTraining(on: boolean): Promise<void>;

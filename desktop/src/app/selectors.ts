@@ -3,8 +3,8 @@
 // Component class of the v8 prototype (removed after step 13; its words per combo are in
 // docs/v8-shots/proto-words.json) so the tests can hold them to it.
 import { can, isArtist, isLead, isViewer } from "@/auth/permissions";
-import { isApproved, needsMe, sentBackWithOpenPins, waitingOnLead } from "@/data/rules";
-import type { Asset, Comment, Facts, Member, Person, Version } from "@/data/types";
+import { holds, isApproved, needsMe, sentBackWithOpenPins, waitingOnLead } from "@/data/rules";
+import type { Asset, CheckKey, Comment, Facts, Member, Person, Version } from "@/data/types";
 import type { Stage } from "@/data/mock";
 
 export type Filter = "Everything" | "Mine" | "Needs my eyes" | "Approved";
@@ -117,7 +117,14 @@ export function journey(assets: readonly Asset[], members: readonly Member[], me
   return { steps, done, open, nextAction };
 }
 
-export interface FactRow { name: string; value: string; delta: string; tone: "muted" | "neutral" | "good"; failed: boolean; fix: string; pending?: boolean; /** A fact, not a check: no pass or fail dot. */ info?: boolean }
+export interface FactRow {
+  name: string; value: string; delta: string; tone: "muted" | "neutral" | "good"; failed: boolean; fix: string; pending?: boolean; /** A fact, not a check: no pass or fail dot. */ info?: boolean;
+  /** The check behind the row, so a lead can accept it (v8 step 21). */
+  check?: CheckKey;
+  /** Fails, but does not hold Publish: a warn or a note, or accepted by a lead. */
+  soft?: "warn" | "note";
+  accepted?: { by: string; reason: string };
+}
 
 const fmt = (n: number): string => n.toLocaleString("en-US");
 
@@ -142,6 +149,13 @@ export function unrealRow(status: Version["unreal"], published: boolean): FactRo
 export function factsWithDeltas(facts: Facts | undefined, previous: Facts | undefined, checks: Version["checks"]): FactRow[] {
   if (!facts) return [];
   const check = (key: Version["checks"][number]["key"]) => checks.find((c) => c.key === key);
+  // Red only for what holds Publish; a warn, a note, or an accepted check is said quietly (v8 step 21).
+  const judged = (key: CheckKey): Pick<FactRow, "failed" | "pending" | "fix" | "check" | "soft" | "accepted"> => {
+    const c = check(key);
+    if (!c) return { failed: false, pending: false, fix: "", check: key };
+    const soft = !c.pass && !c.pending && !holds(c) ? (c.accepted ? "note" : c.level === "warn" ? "warn" : "note") : undefined;
+    return { failed: holds(c), pending: !!c.pending, fix: c.fix, check: key, ...(soft ? { soft } : {}), ...(c.accepted ? { accepted: { by: c.accepted.by, reason: c.accepted.reason } } : {}) };
+  };
   const d = trisDelta(facts.tris, previous?.tris);
   // A count against the last Version: new on the first, then same or the signed change.
   const count = (now: number, prev: number | undefined) => (prev === undefined ? "new" : now === prev ? "same" : `${now > prev ? "+" : "−"}${Math.abs(now - prev)}`);
@@ -149,11 +163,14 @@ export function factsWithDeltas(facts: Facts | undefined, previous: Facts | unde
   const tex = check("textures");
   const texValue = facts.textures === 0 ? "None" : tex?.pending ? String(facts.textures) : tex && !tex.pass ? `${facts.textures} not named to the sheet` : `${facts.textures} named to the sheet`;
   const rows: FactRow[] = [
-    { name: "Triangles", value: fmt(facts.tris), delta: d.text, tone: d.tone, failed: !check("tris")?.pass && !check("tris")?.pending, pending: !!check("tris")?.pending, fix: check("tris")?.fix ?? "" },
-    { name: "Textures", value: texValue, delta: count(facts.textures, previous?.textures), tone: "muted", failed: !check("textures")?.pass && !check("textures")?.pending, pending: !!check("textures")?.pending, fix: check("textures")?.fix ?? "" },
-    { name: "Scale", value: facts.scale, delta: "metres", tone: "muted", failed: !check("scale")?.pass && !check("scale")?.pending, pending: !!check("scale")?.pending, fix: check("scale")?.fix ?? "" },
-    { name: "UV sets", value: String(facts.uvSets), delta: count(facts.uvSets, previous?.uvSets), tone: "muted", failed: !check("uv")?.pass && !check("uv")?.pending, pending: !!check("uv")?.pending, fix: check("uv")?.fix ?? "" },
+    { name: "Triangles", value: fmt(facts.tris), delta: d.text, tone: d.tone, ...judged("tris") },
+    { name: "Textures", value: texValue, delta: count(facts.textures, previous?.textures), tone: "muted", ...judged("textures") },
+    { name: "Scale", value: facts.scale, delta: "metres", tone: "muted", ...judged("scale") },
+    { name: "UV sets", value: String(facts.uvSets), delta: count(facts.uvSets, previous?.uvSets), tone: "muted", ...judged("uv") },
   ];
+  // The pivot rule, when the template runs it (v8 step 21).
+  const pivot = check("pivot");
+  if (pivot) rows.push({ name: "Pivot", value: pivot.pass ? "Follows the rule" : pivot.pending ? "Not checked yet" : pivot.sentence, delta: "", tone: "muted", ...judged("pivot") });
   // v8 step 17: the rig, the animations and the export, when the add-on read them back.
   if (facts.bones !== undefined) rows.push({ name: "Rig", value: `${fmt(facts.bones)} bones`, delta: count(facts.bones, previous?.bones), tone: "muted", failed: false, fix: "", info: true });
   if (facts.animations?.length) {
@@ -175,17 +192,18 @@ export function canReview(asset: Asset, version: number | "live"): boolean {
 }
 
 /** Publish needs four green checks and a note. The label says which is missing. */
-export function publishState(asset: Asset, note: string): { can: boolean; label: string; allGreen: boolean; noteOk: boolean } {
+export function publishState(asset: Asset, note: string): { can: boolean; label: string; allGreen: boolean; noteOk: boolean; exportOk: boolean } {
   const v = asset.versions[0];
   // A check Blender has not reported yet reads "Not checked yet" and never blocks (step 11);
   // only a red one does.
-  const allGreen = !v || v.checks.every((c) => c.pass || c.pending);
+  // Only a failing block level check nobody accepted holds Publish (v8 step 21).
+  const allGreen = !v || !v.checks.some(holds);
   // What the export lost holds Publish as in Blender (v8 step 17); unread is not lost.
   const exportOk = !v?.facts?.export || v.facts.export.intact;
   const noteOk = note.trim().length > 0;
   // The newest save not yet published becomes the next Version itself.
   const next = v && !v.note ? v.n : (v?.n ?? 0) + 1;
-  return { can: allGreen && exportOk && noteOk, allGreen, noteOk, label: !allGreen ? "Publish, after the red one" : !exportOk ? "Publish, after the export" : !noteOk ? "Publish, after the note" : `Publish v${next}` };
+  return { can: allGreen && exportOk && noteOk, allGreen, noteOk, exportOk, label: !allGreen ? "Publish, after the red one" : !exportOk ? "Publish, after the export" : !noteOk ? "Publish, after the note" : `Publish v${next}` };
 }
 
 export { needsMe, waitingOnLead, isApproved };

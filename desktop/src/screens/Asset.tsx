@@ -33,6 +33,7 @@ export function AssetScreen() {
   const [publishOpen, setPublishOpen] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
   const canBudget = useCan("setBudget");
+  const canAccept = useCan("acceptCheck");
   // Above the early return: a hook after it ran on some renders only, which React forbids.
   const [approveOpen, setApproveOpen] = useState(false);
   useEffect(() => { if (asset) void loadComments(asset.id); }, [asset?.id, loadComments]);
@@ -91,7 +92,7 @@ export function AssetScreen() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
           <NoteBlock asset={asset} shown={shown} />
-          <Facts asset={asset} shown={shown} artist={mine} onSetBudget={canBudget && !project.sample ? () => setBudgetOpen(true) : undefined} />
+          <Facts asset={asset} shown={shown} artist={mine} onSetBudget={canBudget && !project.sample ? () => setBudgetOpen(true) : undefined} canAccept={canAccept && !project.sample} />
           <CommentList asset={asset} comments={comments} shown={shown} />
         </div>
       </div>

@@ -5,7 +5,7 @@ import type { AssetKind, Budgets as BudgetsWire, PresenceEntry, UserRef } from "
 import { DEFAULT_BUDGETS, type Asset, type Budgets, type Check, type Comment, type Facts, type Journey, type Member, type Mention, type Person, type Project, type Role, type StudioRef, type Version } from "../types";
 import { SWATCHES } from "@/ui/stage/Swatches";
 import { isLead } from "@/auth/permissions";
-import { pinsOn } from "../rules";
+import { CHECK_ID, pinsOn } from "../rules";
 
 export type ServerRole = "artist" | "art_director" | "producer" | "viewer";
 
@@ -13,12 +13,13 @@ export interface AccountWire { token?: string; user: UserRef; email: string; stu
 export interface MemberWire { user: UserRef; email: string; roles: ServerRole[] }
 export interface ProjectWire { id: string; name: string; folder_name: string; created_at: string; budgets?: BudgetsWire; deleted_at?: string | null }
 export interface AssetWire { id: string; name: string; template_id: string; state: string; updated_at: string; kind?: AssetKind; group?: string | null; budget?: number | null; folder?: string }
-export interface PartWire { id: string; asset_id: string; name: string; owner: UserRef | null; owner_id: string | null; state: "locked" | "draft" | "ready" | "approved"; mapping: { kind: string; file?: string }; updated_at: string; lock: { holder: UserRef; granted_at: string } | null }
-export interface ManifestCheckWire { key: "textures" | "scale" | "uv" | "tris"; pass: boolean; sentence: string; fix: string }
+export interface ExceptionWire { check_id: string; reason: string; by: UserRef; at: string }
+export interface PartWire { id: string; asset_id: string; name: string; owner: UserRef | null; owner_id: string | null; state: "locked" | "draft" | "ready" | "approved"; mapping: { kind: string; file?: string }; updated_at: string; lock: { holder: UserRef; granted_at: string } | null; exceptions?: ExceptionWire[] }
+export interface ManifestCheckWire { key: "textures" | "scale" | "uv" | "tris" | "pivot"; pass: boolean; level?: "block" | "warn" | "note"; sentence: string; fix: string }
 export interface ExportLossWire { kind: string; names: string[]; sentence: string }
 export interface ManifestWire { objects: { name: string; triangles: number; materials: string[]; hash: string; uv_sets?: string[] }[]; textures?: { name: string; width: number; height: number }[]; unit_scale?: number | null; asset_kind?: "object" | "environment"; checks?: ManifestCheckWire[]; bones?: string[]; animations?: { name: string; seconds: number }[]; export?: { intact: boolean; losses: ExportLossWire[]; bones_changed?: string[] } }
 export interface VersionWire { mirror_status?: string; id: string; part_id: string; author_id: string; published: boolean; note: string; note_engineering?: string; created_at: string; render_url?: string | null; model_url?: string | null; manifest?: ManifestWire | null }
-export interface CheckWire { check_id: string; severity: "block" | "warn"; passed: boolean; auto_fixed: boolean; message: string }
+export interface CheckWire { check_id: string; severity: "block" | "warn" | "note"; passed: boolean; auto_fixed: boolean; message: string }
 export interface ReviewWire { id: string; part_id: string; version_id: string; reviewer_id: string; decision: "approve" | "send_back"; note: string; created_at: string }
 export interface CommentWire { id: string; part_id: string; version_id: string; author: UserRef; body: string; kind: "pin" | "take_a_look"; point: number[]; created_at: string; resolved_at?: string | null }
 export interface EventWire { id: string; event: Record<string, unknown> & { kind: string; actor_id: string; at: string } }
@@ -108,38 +109,46 @@ function namesOf(names: readonly string[]): string {
  * from the add-on's check results when it posted them; until then they read "Not checked yet",
  * pending, never a pass.
  */
-export function checksOf(facts: Facts | null, results: readonly CheckWire[], budget: number, fromManifest?: readonly ManifestCheckWire[]): Check[] {
-  // The add-on's own four lines (step 13) win: they carry the sentence and the fix the artist saw.
-  if (fromManifest && fromManifest.length === 4) {
-    return fromManifest.map((c) => (c.key === "tris" && facts
-      ? { key: c.key, pass: facts.tris <= budget, sentence: facts.tris <= budget ? `${fmt(facts.tris)} triangles, within budget.` : `${fmt(facts.tris)} triangles. Budget is ${fmt(budget)}.`, fix: c.fix }
-      : { key: c.key, pass: c.pass, sentence: c.sentence, fix: c.fix }));
+export function checksOf(facts: Facts | null, results: readonly CheckWire[], budget: number, fromManifest?: readonly ManifestCheckWire[], exceptions: readonly ExceptionWire[] = []): Check[] {
+  // A lead's accept (v8 step 21) sits on a failing line: who, why, when.
+  const accept = (c: Check): Check => {
+    const e = c.pass || c.pending ? undefined : exceptions.find((x) => x.check_id === CHECK_ID[c.key]);
+    return e ? { ...c, accepted: { by: e.by.name.split(/\s+/)[0] || e.by.name, reason: e.reason, at: e.at } } : c;
+  };
+  const level = (l: CheckWire["severity"] | undefined) => (l && l !== "block" ? { level: l } : {});
+  // The add-on's own lines (step 13, the pivot since step 21) win: they carry the sentence and the fix the artist saw.
+  if (fromManifest && fromManifest.length >= 4) {
+    return fromManifest.map((c) => accept(c.key === "tris" && facts
+      ? { key: c.key, pass: facts.tris <= budget, ...level(c.level), sentence: facts.tris <= budget ? `${fmt(facts.tris)} triangles, within budget.` : `${fmt(facts.tris)} triangles. Budget is ${fmt(budget)}.`, fix: c.fix }
+      : { key: c.key, pass: c.pass, ...level(c.level), sentence: c.sentence, fix: c.fix }));
   }
   const byId = new Map(results.map((r) => [r.check_id, r]));
   const from = (key: Check["key"], ids: string[], okSentence: string, fix: string): Check => {
     const r = ids.map((id) => byId.get(id)).find(Boolean);
     if (!r) return { key, pass: false, pending: true, sentence: "Not checked yet.", fix };
-    return { key, pass: r.passed, sentence: r.passed ? okSentence : r.message, fix };
+    return { key, pass: r.passed, ...level(r.severity), sentence: r.passed ? okSentence : r.message, fix };
   };
   const tris: Check = facts
     ? { key: "tris", pass: facts.tris <= budget, sentence: facts.tris <= budget ? `${fmt(facts.tris)} triangles, within budget.` : `${fmt(facts.tris)} triangles. Budget is ${fmt(budget)}.`, fix: "Over budget. Decimate or split the mesh." }
     : { key: "tris", pass: false, pending: true, sentence: "Not checked yet.", fix: "Over budget. Decimate or split the mesh." };
+  const pivot = byId.get("pivot_at_base");
   return [
     from("textures", ["texture_names"], "Textures named.", "Rename the images T_<asset>_<map>."),
     from("scale", ["unit_scale"], "Scale 1.", "Apply scale in Blender."),
     from("uv", ["uv_set_present"], "UVs present.", "Unwrap the mesh."),
     tris,
-  ];
+    ...(pivot ? [from("pivot", ["pivot_at_base"], "Pivot follows the project's rule.", "Fix origin in Blender moves it to the base.")] : []),
+  ].map(accept);
 }
 
-export interface VersionInput { v: VersionWire; checks: readonly CheckWire[]; reviews: readonly ReviewWire[]; partApproved: boolean }
+export interface VersionInput { v: VersionWire; checks: readonly CheckWire[]; reviews: readonly ReviewWire[]; partApproved: boolean; exceptions?: readonly ExceptionWire[] }
 
-export function versionOf({ v, checks, reviews, partApproved }: VersionInput, n: number, budget: number, now: Date): Version {
+export function versionOf({ v, checks, reviews, partApproved, exceptions }: VersionInput, n: number, budget: number, now: Date): Version {
   const facts = factsOf(v.manifest);
   const decided = reviews.filter((r) => r.version_id === v.id).sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
   return {
     n, note: v.note, noteEngineering: v.note_engineering ?? "", publishedAt: ago(v.created_at, now), ...(facts ? { facts } : {}),
-    checks: checksOf(facts, checks, budget, v.manifest?.checks),
+    checks: checksOf(facts, checks, budget, v.manifest?.checks, exceptions),
     approved: decided?.decision === "approve" || (partApproved && !decided),
     changesRequested: decided?.decision === "send_back",
     ...(v.model_url ? { glb: v.model_url } : {}), ...(v.render_url ? { render: v.render_url } : {}),

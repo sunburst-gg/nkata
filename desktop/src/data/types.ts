@@ -47,11 +47,18 @@ export type Journey = "invited" | "joined" | "blender" | "inBlender";
 
 export interface Member { person: Person; journey: Journey }
 
-export type CheckKey = "textures" | "scale" | "uv" | "tris";
+export type CheckKey = "textures" | "scale" | "uv" | "tris" | "pivot";
+
+/** How strict the studio set a check (v8 step 21): only a failing block holds Publish. */
+export type CheckLevel = "block" | "warn" | "note";
 
 export interface Check {
   key: CheckKey;
   pass: boolean;
+  /** The template's level. Absent means block. */
+  level?: CheckLevel;
+  /** A lead accepted this failing check: who, why, when. It no longer holds Publish. */
+  accepted?: { by: string; reason: string; at: string };
   /** The plain sentence the person reads. */
   sentence: string;
   /** The one-line fix, shown under a failed check. */

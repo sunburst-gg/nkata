@@ -4,12 +4,13 @@
 // screens never see a wire shape; wire.ts maps every row onto the v8 nouns.
 import type { PresenceEntry } from "@nkata/shared";
 import type { DataEvent, DataSource, Unsubscribe } from "../DataSource";
-import { DEFAULT_BUDGETS, type Asset, type BlenderInstall, type Budgets, type Comment, type DeletedProject, type LocalProject, type Member, type Mention, type Person, type Project, type Role, type Studio, type StudioRef } from "../types";
+import { DEFAULT_BUDGETS, type Asset, type BlenderInstall, type Budgets, type CheckKey, type Comment, type DeletedProject, type LocalProject, type Member, type Mention, type Person, type Project, type Role, type Studio, type StudioRef } from "../types";
 import { agent as tauriAgent, type ToolsReport, inTauri } from "@/lib/tauri";
 import { apply as applyConnection, INITIAL as NO_BLENDER, type BlenderState, type ConnectionEvent } from "@/app/connection";
 import { isViewer } from "@/auth/permissions";
 import { assetOf, budgetsOf, budgetsWire, colorOf, commentOf, memberOf, mentionsOf, namesMe, personOf, projectOf, roleOf, studioRefsOf, SERVER_ROLE, type AccountWire, type AssetWire, type CheckWire, type CommentWire, type EventWire, type MemberWire, type PartWire, type ProjectWire, type ReviewWire, type VersionWire } from "./wire";
 import { readSession, writeSession, type SavedSession } from "./session";
+import { CHECK_ID, holds } from "../rules";
 
 /** Events per /events page. */
 const EVENT_PAGE = 200;
@@ -291,7 +292,7 @@ export class LiveDataSource implements DataSource {
       const mentionsMe = comments.some((c) => c.author.id !== me.id && namesMe(c.text, me));
       return assetOf({
         a, part, people: l.people, online: l.online, budgets: l.budgets, now, mentionsMe, comments,
-        versions: versions.map((v) => ({ v, checks: v.id === latest?.id ? checks : [], reviews, partApproved: part.state === "approved" })),
+        versions: versions.map((v) => ({ v, checks: v.id === latest?.id ? checks : [], reviews, partApproved: part.state === "approved", exceptions: part.exceptions ?? [] })),
       });
     });
   }
@@ -377,13 +378,15 @@ export class LiveDataSource implements DataSource {
     if (!hit) throw new Error("Save once in Blender first.");
     return hit.id;
   }
-  async publish(assetId: string, note: string, noteEngineering?: string): Promise<void> {
+  async publish(assetId: string, note: string, noteEngineering?: string, overrideReason?: string): Promise<void> {
     if (!note.trim()) throw new Error("Write one line first.");
     const asset = await this.getAsset(assetId);
-    if (asset?.versions[0]?.checks.some((c) => !c.pass && !c.pending)) throw new Error("Fix the red check first.");
+    if (!overrideReason && asset?.versions[0]?.checks.some(holds)) throw new Error("Fix the red check first.");
     const part = this.partFor(assetId);
     const vid = this.versionId(assetId, "latest");
-    await this.call("POST", `/parts/${part.id}/publish`, { version_id: vid, note: note.trim(), note_engineering: noteEngineering?.trim() ?? "", ready: true });
+    // The server holds Publish on a failing block level check too (v8 step 21), so its answer counts.
+    const res = await this.call<{ published: boolean }>("POST", `/parts/${part.id}/publish`, { version_id: vid, note: note.trim(), note_engineering: noteEngineering?.trim() ?? "", ready: true, ...(overrideReason ? { override_reason: overrideReason.trim() } : {}) });
+    if (!res.published) { await this.reloadAssets([assetId]); throw new Error("Fix the red check first."); }
     await this.reloadAssets([assetId]);
     this.emit({ type: "published", assetId, version: (await this.getAsset(assetId))?.versions[0]?.n ?? 1 });
   }
@@ -418,6 +421,17 @@ export class LiveDataSource implements DataSource {
     this.emit({ type: "commented", assetId, commentId });
   }
   async fixCheck(): Promise<void> { throw new Error("Fix runs in Blender. Open the model there and press Fix."); }
+  async acceptCheck(assetId: string, key: CheckKey, reason: string): Promise<void> {
+    if (!reason.trim()) throw new Error("Write one line on why first.");
+    const part = this.partFor(assetId);
+    await this.call("POST", `/parts/${part.id}/exceptions`, { check_id: CHECK_ID[key], reason: reason.trim() });
+    await this.reloadAssets([assetId]);
+  }
+  async takeBackCheck(assetId: string, key: CheckKey): Promise<void> {
+    const part = this.partFor(assetId);
+    await this.call("DELETE", `/parts/${part.id}/exceptions/${CHECK_ID[key]}`);
+    await this.reloadAssets([assetId]);
+  }
   async openInBlender(assetId: string, version?: number): Promise<void> {
     const part = this.partFor(assetId);
     if (version !== undefined) {

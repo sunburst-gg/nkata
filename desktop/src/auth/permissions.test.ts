@@ -6,7 +6,7 @@ const ROLES: Role[] = ["producer", "artDirector", "artist", "viewer"];
 // The matrix from PROMPTS.md step 2, item 5, written out so a change here is a decision.
 const MATRIX: Record<Role, Action[]> = {
   producer: [...ACTIONS],
-  artDirector: ["publish", "approve", "requestChanges", "invite", "comment", "download", "downloadImage", "openInBlender", "seeSetup", "seeConnections", "seeMine", "setBudget", "seeJourney", "seeDisk"],
+  artDirector: ["publish", "approve", "requestChanges", "invite", "comment", "download", "downloadImage", "openInBlender", "seeSetup", "seeConnections", "seeMine", "setBudget", "seeJourney", "seeDisk", "acceptCheck", "setRules"],
   artist: ["publish", "openInBlender", "download", "downloadImage", "comment", "seeSetup", "seeConnections", "seeMine", "seeJourney", "seeDisk"],
   viewer: ["comment", "downloadImage"],
 };

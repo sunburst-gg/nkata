@@ -4,7 +4,7 @@
 // simulateJoin emit the same events a real save or sign in will, so screens never know the
 // difference. Ported from the Component class at the end of the v8 prototype, removed after step 13.
 import type { DataEvent, DataSource, Unsubscribe } from "../DataSource";
-import { isApproved, pinsOn, slug } from "../rules";
+import { holds, isApproved, pinsOn, slug } from "../rules";
 import { DEFAULT_BUDGETS, type Asset, type BlenderInstall, type Budgets, type Check, type CheckKey, type Comment, type DeletedProject, type Facts, type Journey, type LocalProject, type Member, type Mention, type Person, type Project, type Role, type Studio, type StudioRef, type Version } from "../types";
 import { apply as applyConnection, INITIAL as NO_BLENDER, type BlenderKind, type BlenderState, type ConnectionEvent } from "@/app/connection";
 import { ENV, GLB, items, OLD_NOTES, OWNERS, PREV_TRIS, RENDER, SAMPLE, TIMES, TRIS } from "./items";
@@ -37,6 +37,8 @@ interface State {
   approved: Record<string, true>;
   changesReq: Record<string, true>;
   fixed: Record<string, true>;
+  /** A lead's accepts per asset name and check line (v8 step 21). */
+  accepted: Record<string, Partial<Record<CheckKey, { by: string; reason: string; at: string }>>>;
   saved: Record<string, number>;
   /** step: 0 invited, 1 joined, 2 blender, 3 inBlender. A new invite starts at 0; simulateJoin moves it. */
   invited: { email: string; role: Role; step: number }[];
@@ -107,7 +109,7 @@ export class MockDataSource implements DataSource {
     this.role = role;
     this.me = ME[role];
     this.s = {
-      published: {}, approved: {}, changesReq: {}, fixed: {}, saved: {}, invited: [],
+      published: {}, approved: {}, changesReq: {}, fixed: {}, accepted: {}, saved: {}, invited: [],
       joinStep: stage === "studio" ? 4 : stage === "arrival" || stage === "empty" ? 0 : 3,
       filled: stage === "firstsave" || stage === "firstcomment",
       training: true,
@@ -194,7 +196,9 @@ export class MockDataSource implements DataSource {
       const note = isCurrent ? r.note : OLD_NOTES[Math.min(3, n - 1)]!;
       const v: Version = {
         n, note, publishedAt: isCurrent ? r.time : `${V - n} wk ago`,
-        checks: isCurrent ? checksFor(facts, r.fails, budget) : checksFor({ ...facts, tris: r.prevTris ?? r.tris }, [], budget),
+        checks: isCurrent
+          ? checksFor(facts, r.fails, budget).map((c) => { const a = this.s.accepted[r.name]?.[c.key]; return a && !c.pass ? { ...c, accepted: a } : c; })
+          : checksFor({ ...facts, tris: r.prevTris ?? r.tris }, [], budget),
         // A published Version with no decision waits on a lead. The prototype marks a third of the
         // wall as waiting; the rest were sent back once, which is what changesRequested records.
         approved: isCurrent && r.approved, changesRequested: isCurrent && (!!this.s.changesReq[r.name] || (!r.approved && !r.live && !r.waitingOnLead && !!r.note)),
@@ -332,13 +336,13 @@ export class MockDataSource implements DataSource {
     return member;
   }
 
-  async publish(assetId: string, note: string, noteEngineering?: string): Promise<void> {
+  async publish(assetId: string, note: string, noteEngineering?: string, overrideReason?: string): Promise<void> {
     const name = this.nameOf(assetId);
     const asset = await this.getAsset(assetId);
     if (!name || !asset) throw new Error("no asset");
     const v = asset.versions[0];
     if (!note.trim()) throw new Error("Write one line first.");
-    if (v && v.checks.some((c) => !c.pass && !c.pending)) throw new Error("Fix the red check first.");
+    if (!overrideReason && v && v.checks.some(holds)) throw new Error("Fix the red check first.");
     void noteEngineering;
     this.s.published[name] = note.trim();
     delete this.s.approved[name];
@@ -369,6 +373,22 @@ export class MockDataSource implements DataSource {
     this.s.comments.push(c);
     this.emit({ type: "commented", assetId, commentId: c.id });
     return c;
+  }
+
+  async acceptCheck(assetId: string, key: CheckKey, reason: string): Promise<void> {
+    const name = this.nameOf(assetId);
+    if (!name) throw new Error("no asset");
+    if (!reason.trim()) throw new Error("Write one line on why first.");
+    this.s.accepted[name] = { ...this.s.accepted[name], [key]: { by: this.me.first, reason: reason.trim(), at: new Date().toISOString() } };
+    this.emit({ type: "saved", assetId, by: this.me.id });
+  }
+
+  async takeBackCheck(assetId: string, key: CheckKey): Promise<void> {
+    const name = this.nameOf(assetId);
+    if (!name) throw new Error("no asset");
+    const { [key]: _gone, ...rest } = this.s.accepted[name] ?? {};
+    this.s.accepted[name] = rest;
+    this.emit({ type: "saved", assetId, by: this.me.id });
   }
 
   async fixCheck(assetId: string, _key: CheckKey): Promise<void> {

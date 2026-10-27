@@ -64,6 +64,24 @@ describe("stage=studio", () => {
     const fixed = (await mock.getAsset(bad.id))!;
     expect(publishState(fixed, "x").label).toBe(`Publish v${fixed.versions[0]!.n + 1}`);
   });
+  it("only a failing block check nobody accepted is red; a note, a warn, and an accepted one are said quietly", async () => {
+    const { mock, assets } = await load("studio", "lead");
+    const bad = assets[12]!;
+    const v = bad.versions[0]!;
+    const pivot = { key: "pivot" as const, pass: false, sentence: "Origin is not at the base of SM_Door.", fix: "Fix origin moves it to the base." };
+    const withPivot = (c: typeof pivot & { level?: "block" | "warn" | "note" }) => ({ ...bad, versions: [{ ...v, checks: [...v.checks.filter((x) => x.key !== "tris"), c] }, ...bad.versions.slice(1)] });
+    const row = (a: typeof bad) => factsWithDeltas(a.versions[0]!.facts, undefined, a.versions[0]!.checks).find((r) => r.name === "Pivot")!;
+    expect(row(withPivot({ ...pivot, level: "note" }))).toMatchObject({ failed: false, soft: "note", value: pivot.sentence, check: "pivot" });
+    expect(publishState(withPivot({ ...pivot, level: "note" }), "x").can).toBe(true);
+    expect(row(withPivot({ ...pivot, level: "warn" }))).toMatchObject({ failed: false, soft: "warn" });
+    expect(row(withPivot(pivot))).toMatchObject({ failed: true });
+    expect(publishState(withPivot(pivot), "x")).toMatchObject({ can: false, label: "Publish, after the red one" });
+    await mock.acceptCheck(bad.id, "tris", "Hero prop, signed off.");
+    const accepted = (await mock.getAsset(bad.id))!;
+    const tris = factsWithDeltas(accepted.versions[0]!.facts, undefined, accepted.versions[0]!.checks)[0]!;
+    expect(tris).toMatchObject({ failed: false, accepted: { reason: "Hero prop, signed off." } });
+    expect(publishState(accepted, "x").can).toBe(true);
+  });
   it("a lead reviews a published Version, not Live and not an approved one", async () => {
     const { assets } = await load("studio", "lead");
     const waiting = assets.find((a) => a.name === "Market lantern")!;

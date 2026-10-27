@@ -1,15 +1,44 @@
 // "What you are getting" (artists on Live: "Before you publish"). The four facts, then the rig,
 // the animations and the export when the add-on read them back (v8 step 17): label, mono value,
-// delta or "same", a pass or fail dot on a check, and the fix under a failed row.
+// delta or "same", a pass or fail dot on a check, and the fix under a failed row. v8 step 21: red
+// only for what holds Publish; a lead accepts a failing check with one line of why, or takes it back.
 import * as Menu from "@radix-ui/react-dropdown-menu";
+import { useState } from "react";
 import { MenuRoot, MenuTrigger } from "@/ui/menu/Menu";
-import { factsWithDeltas, unrealRow } from "@/app/selectors";
-import type { Asset } from "@/data/types";
+import { factsWithDeltas, unrealRow, type FactRow } from "@/app/selectors";
+import { useStore } from "@/app/store";
+import type { Asset, CheckKey } from "@/data/types";
+import { toast } from "@/ui/toast/toast";
 
 const item: React.CSSProperties = { height: 36, display: "flex", alignItems: "center", padding: "0 10px", borderRadius: "var(--r-6)", cursor: "pointer", outline: "none", fontSize: 15, color: "var(--ink)" };
 
-/** onSetBudget: leads get "Set a budget for this asset" in the block's menu. An override shows under Triangles. */
-export function Facts({ asset, shown, artist, onSetBudget }: { asset: Asset; shown: number | "live"; artist: boolean; onSetBudget?: () => void }) {
+const quiet: React.CSSProperties = { alignSelf: "flex-start", border: 0, background: "transparent", padding: 0, font: "500 13px var(--sans)", color: "var(--ink60)", cursor: "pointer" };
+
+/** A lead's accept on one failing row, or the accepted line with Take back. */
+function Accept({ asset, row }: { asset: Asset; row: FactRow & { check: CheckKey } }) {
+  const source = useStore((s) => s.source);
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const run = async (what: () => Promise<void> | undefined) => {
+    setBusy(true);
+    try { await what(); setOpen(false); setReason(""); }
+    catch (err) { toast(err instanceof Error ? err.message : "That did not go through.", "var(--bad)"); }
+    finally { setBusy(false); }
+  };
+  if (row.accepted) return <button type="button" disabled={busy} onClick={() => void run(() => source?.takeBackCheck(asset.id, row.check))} style={quiet}>Take back</button>;
+  if (!open) return <button type="button" onClick={() => setOpen(true)} style={quiet}>Accept</button>;
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); if (reason.trim()) void run(() => source?.acceptCheck(asset.id, row.check, reason)); }} style={{ display: "flex", gap: 8 }}>
+      <input autoFocus value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} placeholder="Why, in one line" aria-label="Why this is accepted" style={{ flex: 1, minWidth: 0, height: 32, borderRadius: "var(--r-6)", border: 0, background: "var(--canvas)", padding: "0 10px", font: "400 13px var(--sans)", color: "var(--ink)", outline: "none" }} />
+      <button type="submit" disabled={busy || !reason.trim()} style={{ height: 32, padding: "0 10px", borderRadius: "var(--r-6)", border: 0, background: reason.trim() ? "var(--amber)" : "var(--hover)", color: reason.trim() ? "var(--amber-fg)" : "var(--ink40)", font: "500 13px var(--sans)", cursor: reason.trim() ? "pointer" : "not-allowed" }}>Accept</button>
+    </form>
+  );
+}
+
+/** onSetBudget: leads get "Set a budget for this asset" in the block's menu. An override shows under Triangles.
+ * canAccept: a lead accepts a failing check on the newest save, or takes an accept back. */
+export function Facts({ asset, shown, artist, onSetBudget, canAccept }: { asset: Asset; shown: number | "live"; artist: boolean; onSetBudget?: () => void; canAccept?: boolean }) {
   const v = shown === "live" ? asset.versions[0] : asset.versions.find((x) => x.n === shown);
   if (!v) return null;
   const idx = asset.versions.indexOf(v);
@@ -46,9 +75,12 @@ export function Facts({ asset, shown, artist, onSetBudget }: { asset: Asset; sho
             <span style={{ font: "400 11px var(--mono)", color: tone[r.tone], whiteSpace: "nowrap" }}>{r.delta}</span>
             {r.info ? <span /> : r.pending
               ? <span aria-label="not checked yet" style={{ width: 8, height: 8, borderRadius: "50%", border: "1.5px solid var(--ink40)", boxSizing: "border-box", justifySelf: "end" }} />
-              : <span aria-label={r.failed ? "fails" : "passes"} style={{ width: 8, height: 8, borderRadius: "50%", background: r.failed ? "var(--bad)" : "var(--ok)", justifySelf: "end" }} />}
+              : <span aria-label={r.failed ? "fails" : r.soft ? (r.accepted ? "accepted" : r.soft === "warn" ? "warns" : "noted") : "passes"} style={{ width: 8, height: 8, borderRadius: "50%", background: r.failed ? "var(--bad)" : r.soft === "warn" && !r.accepted ? "var(--amber)" : r.soft ? "var(--ink40)" : "var(--ok)", justifySelf: "end" }} />}
           </div>
           {r.failed ? <span style={{ fontSize: 13, color: "var(--bad)" }}>{r.fix}</span> : null}
+          {r.soft && !r.accepted ? <span style={{ fontSize: 13, color: "var(--ink60)" }}>{r.fix}</span> : null}
+          {r.accepted ? <span style={{ fontSize: 13, color: "var(--ink60)" }}>Accepted by {r.accepted.by}: {r.accepted.reason}</span> : null}
+          {canAccept && idx === 0 && r.check && (r.failed || r.soft) ? <Accept asset={asset} row={{ ...r, check: r.check }} /> : null}
           {r.name === "Triangles" && asset.budget ? <span style={{ font: "400 11px var(--mono)", color: "var(--ink40)" }}>Budget {asset.budget.toLocaleString("en-US")} for this asset.</span> : null}
         </div>
       ))}
