@@ -47,10 +47,41 @@
     },
     "CheckSeverity": {
       "type": "string",
+      "description": "How strict a check is. block holds Publish into the game, warn shows and never holds, note shows quietly. See docs/tasks/v8-21-studio-rules.md.",
       "enum": [
         "block",
-        "warn"
+        "warn",
+        "note"
       ]
+    },
+    "CheckException": {
+      "type": "object",
+      "description": "A lead accepted a failing check on one part, with a reason. It holds until someone takes it back.",
+      "properties": {
+        "check_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "by": {
+          "$ref": "#/$defs/UserRef"
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "check_id",
+        "reason",
+        "by",
+        "at"
+      ],
+      "additionalProperties": false
     },
     "ReviewDecision": {
       "type": "string",

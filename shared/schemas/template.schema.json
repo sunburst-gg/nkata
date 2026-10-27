@@ -28,6 +28,11 @@
           "type": "object",
           "description": "Per check parameters keyed by check id.",
           "additionalProperties": true
+        },
+        "severity": {
+          "type": "object",
+          "description": "Per check level keyed by check id: block, warn, or note. A check left out keeps its contract's level.",
+          "additionalProperties": { "$ref": "common.schema.json#/$defs/CheckSeverity" }
         }
       },
       "required": ["name", "mapping", "checks"],

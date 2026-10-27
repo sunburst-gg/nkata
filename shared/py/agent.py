@@ -6,11 +6,11 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from . import _runtime as _rt
-from .common import AssetKind, Budgets, CheckResult, CheckSeverity, CommentKind, CommentPin, Gate, LockInfo, MirrorStatus, PartMapping, PartState, ReviewDecision, Timestamp, Ulid, UserRef, Vec3, validate_AssetKind, validate_Budgets, validate_CheckResult, validate_CheckSeverity, validate_CommentKind, validate_CommentPin, validate_Gate, validate_LockInfo, validate_MirrorStatus, validate_PartMapping, validate_PartState, validate_ReviewDecision, validate_Timestamp, validate_Ulid, validate_UserRef, validate_Vec3
+from .common import AssetKind, Budgets, CheckException, CheckResult, CheckSeverity, CommentKind, CommentPin, Gate, LockInfo, MirrorStatus, PartMapping, PartState, ReviewDecision, Timestamp, Ulid, UserRef, Vec3, validate_AssetKind, validate_Budgets, validate_CheckException, validate_CheckResult, validate_CheckSeverity, validate_CommentKind, validate_CommentPin, validate_Gate, validate_LockInfo, validate_MirrorStatus, validate_PartMapping, validate_PartState, validate_ReviewDecision, validate_Timestamp, validate_Ulid, validate_UserRef, validate_Vec3
 from .events import CommentCreated, LockGranted, LockReleased, LockRequested, MirrorResult, PartStateChanged, PresenceChanged, PresenceEntry, validate_CommentCreated, validate_LockGranted, validate_LockReleased, validate_LockRequested, validate_MirrorResult, validate_PartStateChanged, validate_PresenceChanged, validate_PresenceEntry
 from .template import TemplateKind, validate_TemplateKind
 
-__imported__ = (AssetKind, Budgets, CheckResult, CheckSeverity, CommentCreated, CommentKind, CommentPin, Gate, LockGranted, LockInfo, LockReleased, LockRequested, MirrorResult, MirrorStatus, PartMapping, PartState, PartStateChanged, PresenceChanged, PresenceEntry, ReviewDecision, TemplateKind, Timestamp, Ulid, UserRef, Vec3, validate_AssetKind, validate_Budgets, validate_CheckResult, validate_CheckSeverity, validate_CommentCreated, validate_CommentKind, validate_CommentPin, validate_Gate, validate_LockGranted, validate_LockInfo, validate_LockReleased, validate_LockRequested, validate_MirrorResult, validate_MirrorStatus, validate_PartMapping, validate_PartState, validate_PartStateChanged, validate_PresenceChanged, validate_PresenceEntry, validate_ReviewDecision, validate_TemplateKind, validate_Timestamp, validate_Ulid, validate_UserRef, validate_Vec3,)
+__imported__ = (AssetKind, Budgets, CheckException, CheckResult, CheckSeverity, CommentCreated, CommentKind, CommentPin, Gate, LockGranted, LockInfo, LockReleased, LockRequested, MirrorResult, MirrorStatus, PartMapping, PartState, PartStateChanged, PresenceChanged, PresenceEntry, ReviewDecision, TemplateKind, Timestamp, Ulid, UserRef, Vec3, validate_AssetKind, validate_Budgets, validate_CheckException, validate_CheckResult, validate_CheckSeverity, validate_CommentCreated, validate_CommentKind, validate_CommentPin, validate_Gate, validate_LockGranted, validate_LockInfo, validate_LockReleased, validate_LockRequested, validate_MirrorResult, validate_MirrorStatus, validate_PartMapping, validate_PartState, validate_PartStateChanged, validate_PresenceChanged, validate_PresenceEntry, validate_ReviewDecision, validate_TemplateKind, validate_Timestamp, validate_Ulid, validate_UserRef, validate_Vec3,)
 
 @dataclass(frozen=True)
 class ProjectRef:
@@ -64,6 +64,7 @@ class PartSummary:
     reference_files: list[str]
     waiting_on: list[str]
     export_name: str | None = field(default=None, metadata={"optional": True})
+    exceptions: list[CheckException] | None = field(default=None, metadata={"optional": True})
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -533,8 +534,11 @@ def _v_PartSummary_waiting_on_item(value: object, path: str) -> str:
 def _v_PartSummary_waiting_on(value: object, path: str) -> list[Any]:
     return _rt.check_list(value, path, _v_PartSummary_waiting_on_item, min_items=None, max_items=None)
 
+def _v_PartSummary_exceptions(value: object, path: str) -> list[Any]:
+    return _rt.check_list(value, path, validate_CheckException, min_items=None, max_items=None)
+
 def validate_PartSummary(value: object, path: str = "$") -> PartSummary:
-    obj = _rt.check_object(value, path, required=("id", "asset_id", "asset_name", "name", "state", "owner", "lock", "gate", "mapping", "kind", "checks", "reference_files", "waiting_on",), allowed=("id", "asset_id", "export_name", "asset_name", "name", "state", "owner", "lock", "gate", "mapping", "kind", "checks", "reference_files", "waiting_on",))
+    obj = _rt.check_object(value, path, required=("id", "asset_id", "asset_name", "name", "state", "owner", "lock", "gate", "mapping", "kind", "checks", "reference_files", "waiting_on",), allowed=("id", "asset_id", "export_name", "asset_name", "name", "state", "owner", "lock", "gate", "mapping", "kind", "checks", "reference_files", "waiting_on", "exceptions",))
     return PartSummary(
         id=validate_Ulid(obj["id"], path + ".id"),
         asset_id=validate_Ulid(obj["asset_id"], path + ".asset_id"),
@@ -550,6 +554,7 @@ def validate_PartSummary(value: object, path: str = "$") -> PartSummary:
         checks=_v_PartSummary_checks(obj["checks"], path + ".checks"),
         reference_files=_v_PartSummary_reference_files(obj["reference_files"], path + ".reference_files"),
         waiting_on=_v_PartSummary_waiting_on(obj["waiting_on"], path + ".waiting_on"),
+        exceptions=_v_PartSummary_exceptions(obj["exceptions"], path + ".exceptions") if "exceptions" in obj else None,
     )
 
 def _v_PartsResponse_v(value: object, path: str) -> Any:

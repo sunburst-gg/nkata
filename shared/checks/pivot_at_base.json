@@ -1,9 +1,16 @@
 {
   "v": 1,
   "id": "pivot_at_base",
-  "title": "Object origin sits at the base of the mesh",
+  "title": "Object origin follows the project's pivot rule",
   "severity": "warn",
   "auto_fix": true,
-  "params": {"type": "object", "properties": {}, "additionalProperties": false},
+  "params": {
+    "type": "object",
+    "properties": {
+      "convention": {"enum": ["base", "grid", "authored"], "description": "base: the bottom of the bounds, for a prop on the floor. grid: a corner on the grid, for a modular piece. authored: not checked, for a door on its hinge."},
+      "grid_m": {"type": "number", "exclusiveMinimum": 0, "description": "The grid size in metres when the convention is grid."}
+    },
+    "additionalProperties": false
+  },
   "applies_to": ["blender"]
 }

@@ -2,6 +2,7 @@
 // Regenerate with: pnpm --filter @nkata/shared generate
 
 import { z } from "zod";
+import { CheckSeverity } from "./common.js";
 
 /** Picks the import script and the panel layout. See docs/engineering.md, Templates. */
 export const TemplateKind = z.enum(["character", "prop", "level_area"]);
@@ -16,6 +17,7 @@ export const TemplatePart = z.strictObject({
   "gate": z.array(z.string().min(1)).optional(),
   "checks": z.array(z.string().min(1)),
   "params": z.record(z.string(), z.unknown()).optional(),
+  "severity": z.record(z.string(), CheckSeverity).optional(),
 });
 export type TemplatePart = z.infer<typeof TemplatePart>;
 

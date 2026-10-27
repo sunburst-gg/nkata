@@ -23,8 +23,26 @@ export type Role = z.infer<typeof Role>;
 export const MirrorStatus = z.enum(["pending", "syncing", "synced", "failed", "skipped"]);
 export type MirrorStatus = z.infer<typeof MirrorStatus>;
 
-export const CheckSeverity = z.enum(["block", "warn"]);
+/** How strict a check is. block holds Publish into the game, warn shows and never holds, note shows quietly. See docs/tasks/v8-21-studio-rules.md. */
+export const CheckSeverity = z.enum(["block", "warn", "note"]);
 export type CheckSeverity = z.infer<typeof CheckSeverity>;
+
+/** Enough of a user to show a name and a face. */
+export const UserRef = z.strictObject({
+  "id": Ulid,
+  "name": z.string().min(1),
+  "avatar_url": z.url().nullable(),
+});
+export type UserRef = z.infer<typeof UserRef>;
+
+/** A lead accepted a failing check on one part, with a reason. It holds until someone takes it back. */
+export const CheckException = z.strictObject({
+  "check_id": z.string().min(1),
+  "reason": z.string().min(1),
+  "by": UserRef,
+  "at": z.iso.datetime({ offset: true }),
+});
+export type CheckException = z.infer<typeof CheckException>;
 
 export const ReviewDecision = z.enum(["approve", "send_back"]);
 export type ReviewDecision = z.infer<typeof ReviewDecision>;
@@ -63,14 +81,6 @@ export type AssetRights = z.infer<typeof AssetRights>;
 /** Three floats in the part's local space. */
 export const Vec3 = z.array(z.number()).min(3).max(3);
 export type Vec3 = z.infer<typeof Vec3>;
-
-/** Enough of a user to show a name and a face. */
-export const UserRef = z.strictObject({
-  "id": Ulid,
-  "name": z.string().min(1),
-  "avatar_url": z.url().nullable(),
-});
-export type UserRef = z.infer<typeof UserRef>;
 
 /** A part is Locked until every part named in after is Approved. */
 export const Gate = z.strictObject({

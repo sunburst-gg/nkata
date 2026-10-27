@@ -8,6 +8,17 @@ from typing import Any, Literal
 from . import _runtime as _rt
 
 @dataclass(frozen=True)
+class CheckException:
+    """A lead accepted a failing check on one part, with a reason. It holds until someone takes it back."""
+    check_id: str
+    reason: str
+    by: UserRef
+    at: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return _rt.to_dict(self)
+
+@dataclass(frozen=True)
 class Budgets:
     """Triangle budgets per kind for one project, and an optional texture size limit. Decisions 12 in docs/tasks/v8-prompts.md."""
     prop: int
@@ -164,7 +175,8 @@ Role = Literal["artist", "art_director", "producer", "viewer"]
 # Result of the Blender to UE5 mirror for one version.
 MirrorStatus = Literal["pending", "syncing", "synced", "failed", "skipped"]
 
-CheckSeverity = Literal["block", "warn"]
+# How strict a check is. block holds Publish into the game, warn shows and never holds, note shows quietly. See docs/tasks/v8-21-studio-rules.md.
+CheckSeverity = Literal["block", "warn", "note"]
 
 ReviewDecision = Literal["approve", "send_back"]
 
@@ -214,10 +226,28 @@ def validate_MirrorStatus(value: object, path: str = "$") -> Any:
     return _v_MirrorStatus(value, path)
 
 def _v_CheckSeverity(value: object, path: str) -> Any:
-    return _rt.check_literal(value, path, ("block", "warn",))
+    return _rt.check_literal(value, path, ("block", "warn", "note",))
 
 def validate_CheckSeverity(value: object, path: str = "$") -> Any:
     return _v_CheckSeverity(value, path)
+
+def _v_CheckException_check_id(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
+
+def _v_CheckException_reason(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=1, pattern=None, fmt=None)
+
+def _v_CheckException_at(value: object, path: str) -> str:
+    return _rt.check_str(value, path, min_length=0, pattern=None, fmt="date-time")
+
+def validate_CheckException(value: object, path: str = "$") -> CheckException:
+    obj = _rt.check_object(value, path, required=("check_id", "reason", "by", "at",), allowed=("check_id", "reason", "by", "at",))
+    return CheckException(
+        check_id=_v_CheckException_check_id(obj["check_id"], path + ".check_id"),
+        reason=_v_CheckException_reason(obj["reason"], path + ".reason"),
+        by=validate_UserRef(obj["by"], path + ".by"),
+        at=_v_CheckException_at(obj["at"], path + ".at"),
+    )
 
 def _v_ReviewDecision(value: object, path: str) -> Any:
     return _rt.check_literal(value, path, ("approve", "send_back",))

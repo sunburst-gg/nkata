@@ -6,6 +6,9 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from . import _runtime as _rt
+from .common import CheckSeverity, validate_CheckSeverity
+
+__imported__ = (CheckSeverity, validate_CheckSeverity,)
 
 @dataclass(frozen=True)
 class TemplatePart:
@@ -14,6 +17,7 @@ class TemplatePart:
     checks: list[str]
     gate: list[str] | None = field(default=None, metadata={"optional": True})
     params: dict[str, Any] | None = field(default=None, metadata={"optional": True})
+    severity: dict[str, Any] | None = field(default=None, metadata={"optional": True})
 
     def to_dict(self) -> dict[str, Any]:
         return _rt.to_dict(self)
@@ -76,14 +80,18 @@ def _v_TemplatePart_checks(value: object, path: str) -> list[Any]:
 def _v_TemplatePart_params(value: object, path: str) -> dict[str, Any]:
     return _rt.check_dict(value, path, _rt.check_any)
 
+def _v_TemplatePart_severity(value: object, path: str) -> dict[str, Any]:
+    return _rt.check_dict(value, path, validate_CheckSeverity)
+
 def validate_TemplatePart(value: object, path: str = "$") -> TemplatePart:
-    obj = _rt.check_object(value, path, required=("name", "mapping", "checks",), allowed=("name", "mapping", "gate", "checks", "params",))
+    obj = _rt.check_object(value, path, required=("name", "mapping", "checks",), allowed=("name", "mapping", "gate", "checks", "params", "severity",))
     return TemplatePart(
         name=_v_TemplatePart_name(obj["name"], path + ".name"),
         mapping=validate_TemplateMappingKind(obj["mapping"], path + ".mapping"),
         gate=_v_TemplatePart_gate(obj["gate"], path + ".gate") if "gate" in obj else None,
         checks=_v_TemplatePart_checks(obj["checks"], path + ".checks"),
         params=_v_TemplatePart_params(obj["params"], path + ".params") if "params" in obj else None,
+        severity=_v_TemplatePart_severity(obj["severity"], path + ".severity") if "severity" in obj else None,
     )
 
 def _v_TemplateExport_ue_path(value: object, path: str) -> str:

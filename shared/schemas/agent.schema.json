@@ -185,6 +185,13 @@
           "items": {
             "type": "string"
           }
+        },
+        "exceptions": {
+          "type": "array",
+          "description": "Failing checks a lead accepted on this part, with the reason. Absent on an older server.",
+          "items": {
+            "$ref": "common.schema.json#/$defs/CheckException"
+          }
         }
       },
       "required": [
