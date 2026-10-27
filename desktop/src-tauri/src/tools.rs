@@ -38,6 +38,18 @@ pub const UE_PLUGINS: [&str; 4] = [
 ];
 const UE_INI_SECTION: &str = "SystemSettings";
 const UE_INI_LINE: &str = "WebControl.EnableServerOnStartup=1";
+
+/// Remote Control refuses calls into the Python library until the project allows them: Python
+/// execution only counts with server access restricted, and the call must be on an allow list
+/// (UE 5.8 RemoteControlSettings.h; measured: "Default__PythonScriptLibrary cannot be accessed
+/// remotely"). Only the one function the agent calls is allowed.
+/// https://dev.epicgames.com/documentation/unreal-engine/API/Plugins/RemoteControlCommon/URemoteControlSettings
+const UE_RC_SECTION: &str = "/Script/RemoteControlCommon.RemoteControlSettings";
+const UE_RC_LINES: [&str; 3] = [
+    "bRestrictServerAccess=True",
+    "bEnableRemotePythonExecution=True",
+    "+CustomAllowedRemoteFunctionCalls=(ClassPath=\"/Script/PythonScriptPlugin.PythonScriptLibrary\",FunctionName=\"ExecutePythonCommandEx\",bAllowChildClasses=False)",
+];
 /// Folders never copied into an editor: tests, caches, and the vendored copy's own caches.
 const SKIP_DIRS: [&str; 4] = ["tests", "__pycache__", ".pytest_cache", ".ruff_cache"];
 
@@ -402,6 +414,12 @@ pub fn install_ue_plugin(uproject: &Path, plugin_dir: &Path) -> Result<PathBuf> 
         std::fs::create_dir_all(parent).map_err(|e| AgentError::io(parent, e))?;
     }
     std::fs::write(&ini_path, ini).map_err(|e| AgentError::io(&ini_path, e))?;
+    let rc_path = project_dir.join("Config").join("DefaultRemoteControl.ini");
+    let mut rc = std::fs::read_to_string(&rc_path).unwrap_or_default();
+    for line in UE_RC_LINES {
+        rc = add_ini_line(&rc, UE_RC_SECTION, line);
+    }
+    std::fs::write(&rc_path, rc).map_err(|e| AgentError::io(&rc_path, e))?;
     Ok(target)
 }
 
@@ -883,8 +901,19 @@ mod tests {
         assert_eq!(doc["Plugins"].as_array().unwrap().len(), 4);
         let ini = std::fs::read_to_string(project.join("Config/DefaultEngine.ini")).unwrap();
         assert!(ini.contains("[SystemSettings]\nWebControl.EnableServerOnStartup=1"));
+        // Remote Control lets the agent call the one Python function it needs, and nothing else.
+        let rc = std::fs::read_to_string(project.join("Config/DefaultRemoteControl.ini")).unwrap();
+        assert!(rc.contains("[/Script/RemoteControlCommon.RemoteControlSettings]\nbRestrictServerAccess=True\nbEnableRemotePythonExecution=True\n"), "{rc}");
+        assert!(
+            rc.contains("FunctionName=\"ExecutePythonCommandEx\""),
+            "{rc}"
+        );
         // A second install replaces the folder and changes nothing else.
         install_ue_plugin(&uproject, &repo_root().join("ue5-plugin")).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(project.join("Config/DefaultRemoteControl.ini")).unwrap(),
+            rc
+        );
         let doc2: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(&uproject).unwrap()).unwrap();
         assert_eq!(doc, doc2);
