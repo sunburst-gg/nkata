@@ -96,5 +96,22 @@ class LossTest(unittest.TestCase):
         self.assertEqual(loss["sentence"], "Materials not in the export: A, B, C and 2 more.")
 
 
+class UsdTest(unittest.TestCase):
+    """An environment's USD export set beside its collection (v8 step 18)."""
+
+    def test_prim_names_follow_blenders_usd_naming(self) -> None:
+        # Measured on Blender 5.2.2: SM_Pillar.001 is the prim /root/SM_Pillar_001.
+        self.assertEqual(intact.usd_name("SM_Pillar.001"), "SM_Pillar_001")
+        self.assertEqual(intact.usd_name("Lamp post"), "Lamp_post")
+        self.assertEqual(intact.usd_name("1st Floor"), "_1st_Floor")
+
+    def test_a_mesh_or_light_missing_from_the_usd_is_named(self) -> None:
+        usd = intact.UsdSide(prims=frozenset({"SM_Block_0", "SM_Pillar_001", "L_Sun"}))
+        lost = intact.usd_losses(["SM_Block_0", "SM_Pillar.001", "SM_Arch"], ["L_Sun", "L_Lamp"], usd)
+        self.assertEqual([(x["kind"], x["names"]) for x in lost], [("mesh", ["SM_Arch"]), ("light", ["L_Lamp"])])
+        self.assertEqual(lost[1]["sentence"], "Lights not in the USD: L_Lamp.")
+        self.assertEqual(intact.usd_losses(["SM_Block_0"], ["L_Sun"], usd), [])
+
+
 if __name__ == "__main__":
     unittest.main()

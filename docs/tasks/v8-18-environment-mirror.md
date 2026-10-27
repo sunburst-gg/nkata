@@ -13,10 +13,10 @@ Done means each item holds with a real Blender and a real Unreal Engine, and `ma
 
 ## In Blender
 
-- [ ] 1. An environment asset writes USD on save, beside its GLB in .nkata-exports/: the
+- [x] 1. An environment asset writes USD on save, beside its GLB in .nkata-exports/: the
       collection's meshes, lights and materials, UVs and normals, instanced copies kept as
       instances, no animation. The settings are the ones that video uses.
-- [ ] 2. The export check reads the USD back too: every mesh, light and material of the
+- [x] 2. The export check reads the USD back too: every mesh, light and material of the
       collection is in it, and instanced copies stay instances. A loss holds Publish, as in step 17.
 
 ## In Unreal

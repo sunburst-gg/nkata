@@ -73,8 +73,11 @@ class AgentClient:
     def close_part(self, part_id: str) -> Any:
         return shared.validate_PartCloseResponse(self._call("POST", f"/parts/{part_id}/close"))
 
-    def saved(self, part_id: str, changed: bool, spool_path: str | None, manifest: dict[str, Any] | None, source_file: str, opened_at: str | None = None) -> Any:
-        body = shared.validate_PartSavedRequest({"v": 1, "changed": changed, "spool_path": spool_path, "manifest": manifest, "source_file": source_file, "opened_at": opened_at}).to_dict()
+    def saved(self, part_id: str, changed: bool, spool_path: str | None, manifest: dict[str, Any] | None, source_file: str, opened_at: str | None = None, usd_path: str | None = None) -> Any:
+        payload: dict[str, Any] = {"v": 1, "changed": changed, "spool_path": spool_path, "manifest": manifest, "source_file": source_file, "opened_at": opened_at}
+        if usd_path is not None:
+            payload["usd_path"] = usd_path
+        body = shared.validate_PartSavedRequest(payload).to_dict()
         return shared.validate_PartSavedResponse(self._call("POST", f"/parts/{part_id}/saved", body))
 
     def publish(self, part_id: str, check_results: list[dict[str, Any]], ready: bool, note: str, note_engineering: str = "") -> Any:

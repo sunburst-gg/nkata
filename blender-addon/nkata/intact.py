@@ -14,6 +14,7 @@ What can be lost on the way out, and why it matters in the engine:
 from __future__ import annotations
 
 import json
+import re
 import struct
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -151,3 +152,31 @@ def lines(result: dict[str, Any] | None) -> list[str]:
     if gone:
         out.append(f"Bones gone since the last save: {_names(list(gone))}.")
     return out or ["Export intact."]
+
+
+# ---- v8 step 18: an environment's USD export
+
+
+@dataclass(frozen=True)
+class UsdSide:
+    """The names of the prims directly under the USD's root: one per object Blender exported."""
+
+    prims: frozenset[str] = frozenset()
+
+
+def usd_name(name: str) -> str:
+    """The prim name Blender's USD exporter gives an object: characters USD does not take become
+    underscores, and a leading digit gets one in front (SM_Pillar.001 is SM_Pillar_001, measured
+    on Blender 5.2.2). https://openusd.org/release/api/class_sdf_path.html"""
+    out = re.sub(r"[^A-Za-z0-9_]", "_", name)
+    return "_" + out if out[:1].isdigit() else out
+
+
+def usd_losses(meshes: list[str], lights: list[str], usd: UsdSide) -> list[dict[str, Any]]:
+    """The collection's meshes and lights the USD does not hold, by the names the artist gave."""
+    out: list[dict[str, Any]] = []
+    for kind, word, names in (("mesh", "Meshes", meshes), ("light", "Lights", lights)):
+        lost = sorted(n for n in names if usd_name(n) not in usd.prims)
+        if lost:
+            out.append({"kind": kind, "names": lost, "sentence": f"{word} not in the USD: {_names(lost)}."})
+    return out

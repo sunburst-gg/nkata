@@ -182,6 +182,12 @@ def install(collections: dict[str, FakeCollection], filepath: str) -> types.Modu
 
     class WmOps:
         @staticmethod
+        def usd_export(**kwargs: Any) -> set[str]:
+            ops.calls.append(("wm.usd_export", kwargs))
+            ops._write(kwargs["filepath"])
+            return {"FINISHED"}
+
+        @staticmethod
         def save_as_mainfile(filepath: str) -> set[str]:
             ops.calls.append(("wm.save_as_mainfile", {"filepath": filepath}))
             with open(filepath, "wb") as f:

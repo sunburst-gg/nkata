@@ -62,6 +62,32 @@ def export_collection(collection: Any, filepath: Path, kind: str = "character", 
     return "fallback"
 
 
+def export_usd(collection: Any, filepath: Path) -> None:
+    """An environment's USD, beside its GLB (v8 step 18): the collection's meshes, lights and
+    materials with UVs and normals, no animation, hair, cameras, or the world's light. The
+    settings a studio's Blender to Unreal workflow uses, checked on Blender 5.2.2.
+    https://docs.blender.org/api/current/bpy.ops.wm.html#bpy.ops.wm.usd_export"""
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+    result = bpy.ops.wm.usd_export(
+        filepath=str(filepath), collection=collection.name, export_animation=False, export_hair=False,
+        export_uvmaps=True, export_normals=True, export_materials=True, export_lights=True,
+        export_cameras=False, use_instancing=True, convert_world_material=False,
+    )
+    if "FINISHED" not in result or not filepath.is_file():
+        raise RuntimeError(f"USD export returned {result}")
+
+
+def read_usd(filepath: Path) -> Any:
+    """The prims under the USD's root, read with the USD library Blender ships (pxr)."""
+    from pxr import Usd
+
+    from . import intact
+
+    stage = Usd.Stage.Open(str(filepath))
+    root = stage.GetDefaultPrim() or stage.GetPseudoRoot()
+    return intact.UsdSide(prims=frozenset(str(p.GetName()) for p in root.GetChildren()))
+
+
 def export_fbx(collection: Any, filepath: Path, kind: str = "character", rigged: bool | None = None, animations: bool = False) -> None:
     """The FBX an engineer takes into the engine by hand, exported on Publish only. Meshes and,
     when the collection has one, the armature, metres, no embedded textures; the animations

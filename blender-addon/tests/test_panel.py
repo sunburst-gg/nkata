@@ -498,6 +498,35 @@ class PanelTest(unittest.TestCase):
         self.assertEqual(missing, [intact.MissingFile("T_Radio_N.png", "//gone/T_Radio_N.png")], "a packed image is never missing")
         self.assertEqual(scene.animations, {"Walk": 1.25})
 
+    def test_an_environment_writes_usd_posts_it_and_names_a_light_the_usd_lost(self) -> None:
+        # v8 step 18: the Unreal mirror reads an environment's USD; the export check reads it too.
+        from nkata import intact
+
+        lamp = bpy_stub.FakeObject("L_Lamp", kind="LIGHT")
+        self.collection.all_objects.append(lamp)
+        scene = intact.Side(materials=frozenset({"M_Radio"}))
+        def write_usd(_col: object, path: Path) -> None:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"PXR-USDC")
+        self.save_hook.handle_open(str(self.blend))
+        with mock.patch.object(self.save_hook.kind_rules, "decide", return_value="environment"), \
+                mock.patch.object(self.save_hook, "scene_side", return_value=(scene, [])), \
+                mock.patch.object(intact, "read_glb", return_value=scene), \
+                mock.patch.object(self.save_hook.export, "export_usd", side_effect=write_usd), \
+                mock.patch.object(self.save_hook.export, "read_usd", return_value=intact.UsdSide(prims=frozenset({"Radio"}))), \
+                mock.patch.object(self.save_hook.export, "render_still", side_effect=RuntimeError("no render here")):
+            self.save_hook.handle_save(str(self.blend))
+        saved = [c for c in FakeAgent.calls if c[1].endswith("/saved")][-1][2]
+        self.assertTrue(saved["usd_path"].endswith(".usdc"), saved.get("usd_path"))
+        self.assertEqual([x["kind"] for x in saved["manifest"]["export"]["losses"]], ["light"])
+        self.assertIn("label:Lights not in the USD: L_Lamp.", self.draw())
+
+    def test_an_object_posts_no_usd(self) -> None:
+        self.save_hook.handle_open(str(self.blend))
+        self.save_hook.handle_save(str(self.blend))
+        saved = [c for c in FakeAgent.calls if c[1].endswith("/saved")][-1][2]
+        self.assertNotIn("usd_path", saved)
+
     def test_the_export_carries_the_animations_the_scene_has(self) -> None:
         bare = bpy_stub.FakeCollection("model", [self.radio])
         out = Path(self.tmp.name) / "x.glb"

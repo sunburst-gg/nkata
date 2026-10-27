@@ -245,6 +245,7 @@ def handle_save(filepath: str) -> dict[str, Any]:
     hashes, infos = got.hashes, got.infos
     changed = hashing.hash_table_changed(STATE.last_hashes.get(part["id"]), hashes)
     spool_path: str | None = None
+    usd_path: str | None = None
     manifest_data: dict[str, Any] | None = None
     export_ms = 0
     refused: list[str] = []
@@ -278,6 +279,19 @@ def handle_save(filepath: str) -> dict[str, Any]:
             log("export.unread", part_id=part["id"], error=str(e))
             written = None
         export_check = intact.check(scene, missing, written, before) if written is not None else None
+        # v8 step 18: an environment also writes USD for the Unreal mirror, read back the same way.
+        if asset_kind == "environment":
+            usd = kind_rules.export_path(path, ".usdc")
+            try:
+                export.export_usd(collection, usd)
+                usd_path = str(usd)
+                meshes = [str(o.name) for o in collection.all_objects if o.type == "MESH"]
+                lights = [str(o.name) for o in collection.all_objects if o.type == "LIGHT"]
+                lost = intact.usd_losses(meshes, lights, export.read_usd(usd))
+                if lost and export_check is not None:
+                    export_check = {**export_check, "intact": False, "losses": [*export_check["losses"], *lost]}
+            except (RuntimeError, OSError, ImportError) as e:
+                log("usd.failed", part_id=part["id"], error=str(e))
         with STATE.lock:
             STATE.export[part["id"]] = export_check
         manifest_data = manifest.build_manifest(
@@ -298,7 +312,7 @@ def handle_save(filepath: str) -> dict[str, Any]:
                 log("still.done", part_id=part["id"], render_ms=int((time.monotonic() - t) * 1000))
             except (RuntimeError, OSError) as e:
                 log("still.failed", part_id=part["id"], error=str(e))
-    res = client.saved(part["id"], changed, spool_path, manifest_data, rel, STATE.opened_at)
+    res = client.saved(part["id"], changed, spool_path, manifest_data, rel, STATE.opened_at, usd_path)
     if still_path is not None:
         try:
             client.render(part["id"], str(still_path))
