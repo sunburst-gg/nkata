@@ -4,6 +4,18 @@ Nkata is a desktop app, a Blender add-on and a UE5 plugin. A game team works on 
 
 The Blender to Unreal mirror is built behind `UNREAL_ENABLED` and shows as Coming soon until it ships.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/asset-dark.jpg">
+  <img alt="An asset in Nkata: the model on a lit stage, the checks before Publish, comments and versions" src="docs/images/asset-light.jpg">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/connections-dark.jpg">
+  <img alt="Connections: Blender found on this computer with the add-on, Unreal coming soon" src="docs/images/connections-light.jpg">
+</picture>
+
+The screenshots run on demo data. The radio is BoomBox (CC0 1.0, Microsoft) from the Khronos glTF Sample Assets.
+
 ## Download
 
 - macOS (Apple silicon and Intel): https://nkata-downloads-445567075963.s3.ap-northeast-1.amazonaws.com/latest/Nkata-mac.dmg
