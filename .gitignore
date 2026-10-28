@@ -22,3 +22,4 @@ desktop/public/fixtures/glb/
 # Screenshot pairs from pnpm shots; REPORT.md is committed, the images are not
 docs/v8-shots/**/*.png
 docs/v8-shots/**/*.txt
+docs/v8-shots/REPORT.md
