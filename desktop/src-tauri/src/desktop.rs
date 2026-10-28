@@ -9,6 +9,8 @@ use std::path::{Path, PathBuf};
 use nkata_agent::runtime::{Runtime, StartStream, StartSync, Status};
 use tauri::State;
 
+mod updates;
+
 /// Package version for the About line in Profile.
 #[tauri::command]
 fn package_version() -> &'static str {
@@ -293,10 +295,20 @@ fn main() {
         )
         .with_writer(std::io::stderr)
         .init();
+    let mut updater = tauri_plugin_updater::Builder::new();
+    if let Some(target) = updates::target() {
+        updater = updater.target(target);
+    }
     // The folder picker on New project. https://v2.tauri.app/plugin/dialog/
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(updater.build())
         .manage(Runtime::new())
+        .manage(updates::Updates::default())
+        .setup(|app| {
+            updates::start(app.handle());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             package_version,
             agent_status,
@@ -313,7 +325,9 @@ fn main() {
             open_in_blender,
             tools_install_blender,
             tools_remove_blender,
-            tools_install_ue
+            tools_install_ue,
+            updates::update_ready,
+            updates::update_restart
         ])
         .run(tauri::generate_context!())
         .expect("the Nkata window failed to start");
