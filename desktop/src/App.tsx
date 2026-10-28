@@ -14,6 +14,7 @@ import { NkViewer } from "@/viewer/NkViewer";
 import { AppShell } from "@/ui/shell/AppShell";
 import { Stage } from "@/ui/stage/Stage";
 import { Toaster } from "@/ui/toast/Toaster";
+import { UpdateBar } from "@/ui/update/UpdateBar";
 import { Wall } from "@/screens/Wall";
 import { AssetScreen } from "@/screens/Asset";
 import { Zero } from "@/screens/Zero";
@@ -70,6 +71,7 @@ export function App() {
   return (
     <>
       {body}
+      <UpdateBar />
       {import.meta.env.DEV && mock ? <DevTweaks mock={mock} tweaks={tweaks} onChange={setTweaks} /> : null}
     </>
   );

@@ -72,3 +72,13 @@ export const agent = {
   /** Whether Blender is running: an add-on installed now loads at its next start. */
   blenderRunning: (): Promise<boolean> => (inTauri() ? invoke<boolean>("blender_running") : Promise.resolve(false)),
 };
+
+/** Updates (src-tauri/src/updates.rs). A release build downloads a newer version in the
+ * background; these say whether one is waiting and install it. Outside the desktop window there
+ * is never one. */
+export const updates = {
+  /** The version waiting for Restart, or null. */
+  ready: (): Promise<string | null> => (inTauri() ? invoke<string | null>("update_ready") : Promise.resolve(null)),
+  /** Installs the waiting version and starts it. The window closes and opens again. */
+  restart: (): Promise<void> => (inTauri() ? invoke<void>("update_restart") : Promise.resolve()),
+};
