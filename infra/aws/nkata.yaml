@@ -1,0 +1,300 @@
+# The Nkata server on AWS (docs/deploy.md). One Fargate task behind a load balancer, RDS Postgres,
+# an S3 bucket. Mail stays on Resend. Deployed by scripts/aws-deploy.sh, never by hand.
+# Reference: https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-template-resource-type-ref.html
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Nkata server
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Public subnets in two or more zones. The task, the database and the load balancer use them.
+  ImageUri:
+    Type: String
+  CertificateArn:
+    Type: String
+    Description: The ACM certificate for PublicUrl's host, issued before the first deploy.
+  AppSecretArn:
+    Type: String
+    Description: Secrets Manager secret with RESEND_API_KEY, LINK_SECRET and DISCORD_SECRET.
+  PublicUrl:
+    Type: String
+    Default: https://api.nkata.app
+  MailFrom:
+    Type: String
+    Default: Nkata <code@nkata.app>
+
+Resources:
+  StoreBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub nkata-store-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+
+  # Long-lived keys, not the task role: a presigned link dies with the credentials that signed it,
+  # and task role credentials rotate, so an hour link could die in minutes (docs/decisions.md).
+  StoreUser:
+    Type: AWS::IAM::User
+    Properties:
+      Policies:
+        - PolicyName: store
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt StoreBucket.Arn
+              - Effect: Allow
+                Action: [s3:GetObject, s3:PutObject]
+                Resource: !Sub ${StoreBucket.Arn}/*
+
+  StoreKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref StoreUser
+
+  StoreSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: nkata/store
+      SecretString: !Sub '{"accessKeyId":"${StoreKey}","secretAccessKey":"${StoreKey.SecretAccessKey}"}'
+
+  DbSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: nkata/db
+      GenerateSecretString:
+        SecretStringTemplate: '{"username":"nkata"}'
+        GenerateStringKey: password
+        PasswordLength: 32
+        ExcludePunctuation: true
+
+  LbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Nkata load balancer
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0 }
+        - { IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0 }
+
+  TaskSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Nkata server task
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 7400, ToPort: 7400, SourceSecurityGroupId: !Ref LbSecurityGroup }
+
+  DbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Nkata database
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 5432, ToPort: 5432, SourceSecurityGroupId: !Ref TaskSecurityGroup }
+
+  DbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Nkata database
+      SubnetIds: !Ref SubnetIds
+
+  Db:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      Engine: postgres
+      EngineVersion: "16.13"
+      DBInstanceClass: db.t4g.micro
+      AllocatedStorage: "20"
+      StorageType: gp3
+      StorageEncrypted: true
+      DBName: nkata
+      MasterUsername: nkata
+      MasterUserPassword: !Sub "{{resolve:secretsmanager:${DbSecret}:SecretString:password}}"
+      DBSubnetGroupName: !Ref DbSubnetGroup
+      VPCSecurityGroups: [!Ref DbSecurityGroup]
+      PubliclyAccessible: false
+      BackupRetentionPeriod: 7
+      AutoMinorVersionUpgrade: true
+      CopyTagsToSnapshot: true
+      DeletionProtection: true
+
+  Lb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Scheme: internet-facing
+      Subnets: !Ref SubnetIds
+      SecurityGroups: [!Ref LbSecurityGroup]
+      LoadBalancerAttributes:
+        # Editors hold a WebSocket open; the default 60 seconds is close to the heartbeat gap.
+        - { Key: idle_timeout.timeout_seconds, Value: "300" }
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Port: 7400
+      TargetType: ip
+      HealthCheckPath: /health
+      Matcher: { HttpCode: "200" }
+      TargetGroupAttributes:
+        - { Key: deregistration_delay.timeout_seconds, Value: "30" }
+
+  HttpsListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref Lb
+      Protocol: HTTPS
+      Port: 443
+      SslPolicy: ELBSecurityPolicy-TLS13-1-2-2021-06
+      Certificates: [{ CertificateArn: !Ref CertificateArn }]
+      DefaultActions: [{ Type: forward, TargetGroupArn: !Ref TargetGroup }]
+
+  HttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref Lb
+      Protocol: HTTP
+      Port: 80
+      DefaultActions:
+        - Type: redirect
+          RedirectConfig: { Protocol: HTTPS, Port: "443", StatusCode: HTTP_301 }
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /nkata/server
+      RetentionInDays: 30
+
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - { Effect: Allow, Principal: { Service: ecs-tasks.amazonaws.com }, Action: sts:AssumeRole }
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: secrets
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: [!Ref DbSecret, !Ref StoreSecret, !Ref AppSecretArn]
+
+  # Only for `aws ecs execute-command`, the shell into the running task.
+  # https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-exec.html
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - { Effect: Allow, Principal: { Service: ecs-tasks.amazonaws.com }, Action: sts:AssumeRole }
+      Policies:
+        - PolicyName: exec
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssmmessages:CreateControlChannel
+                  - ssmmessages:CreateDataChannel
+                  - ssmmessages:OpenControlChannel
+                  - ssmmessages:OpenDataChannel
+                Resource: "*"
+
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: nkata
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: nkata-server
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: "512"
+      Memory: "1024"
+      RuntimePlatform: { CpuArchitecture: ARM64, OperatingSystemFamily: LINUX }
+      ExecutionRoleArn: !GetAtt ExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      ContainerDefinitions:
+        - Name: server
+          Image: !Ref ImageUri
+          Essential: true
+          PortMappings: [{ ContainerPort: 7400 }]
+          Environment:
+            # No password in the URL: node-postgres reads PGPASSWORD. RDS requires TLS, and the image
+            # trusts the RDS roots through NODE_EXTRA_CA_CERTS (server/Dockerfile).
+            - Name: DATABASE_URL
+              Value: !Sub postgres://nkata@${Db.Endpoint.Address}:${Db.Endpoint.Port}/nkata?sslmode=verify-full
+            - { Name: S3_ENDPOINT, Value: !Sub "https://s3.${AWS::Region}.amazonaws.com" }
+            - { Name: S3_REGION, Value: !Ref AWS::Region }
+            - { Name: S3_BUCKET, Value: !Ref StoreBucket }
+            - { Name: PUBLIC_URL, Value: !Ref PublicUrl }
+            - { Name: MAIL_FROM, Value: !Ref MailFrom }
+            - { Name: UNREAL_ENABLED, Value: "1" }
+            - { Name: LOG_LEVEL, Value: info }
+          Secrets:
+            - { Name: PGPASSWORD, ValueFrom: !Sub "${DbSecret}:password::" }
+            - { Name: S3_ACCESS_KEY, ValueFrom: !Sub "${StoreSecret}:accessKeyId::" }
+            - { Name: S3_SECRET_KEY, ValueFrom: !Sub "${StoreSecret}:secretAccessKey::" }
+            - { Name: RESEND_API_KEY, ValueFrom: !Sub "${AppSecretArn}:RESEND_API_KEY::" }
+            - { Name: LINK_SECRET, ValueFrom: !Sub "${AppSecretArn}:LINK_SECRET::" }
+            - { Name: DISCORD_SECRET, ValueFrom: !Sub "${AppSecretArn}:DISCORD_SECRET::" }
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: server
+
+  Service:
+    Type: AWS::ECS::Service
+    DependsOn: HttpsListener
+    Properties:
+      ServiceName: server
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref TaskDefinition
+      LaunchType: FARGATE
+      DesiredCount: 1
+      EnableExecuteCommand: true
+      HealthCheckGracePeriodSeconds: 60
+      # The old task stops before the new one starts. Presence, locks and the event bus live in one
+      # process; two at once would split the editors between them (docs/decisions.md).
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 0
+        MaximumPercent: 100
+        DeploymentCircuitBreaker: { Enable: true, Rollback: true }
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          # A public address lets the task pull its image without a NAT gateway.
+          AssignPublicIp: ENABLED
+          Subnets: !Ref SubnetIds
+          SecurityGroups: [!Ref TaskSecurityGroup]
+      LoadBalancers:
+        - { ContainerName: server, ContainerPort: 7400, TargetGroupArn: !Ref TargetGroup }
+
+Outputs:
+  LoadBalancerDns:
+    Value: !GetAtt Lb.DNSName
+  Bucket:
+    Value: !Ref StoreBucket
