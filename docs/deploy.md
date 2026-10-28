@@ -70,6 +70,21 @@ in before keeps the server it signed in to until Log out.
    - `.../latest/Nkata-windows.msi`
    - `.../latest/version.json`
 
+### Updates
+
+Installed apps update themselves. A tag's release also publishes the update packages
+(`Nkata.app.tar.gz` for macOS, the NSIS installer for Windows), each with a signature, and last
+`latest/latest.json`, which every app checks shortly after launch and every six hours. A newer
+version downloads in the background; the app shows "Nkata <version> is ready." with Restart.
+Dev builds never update.
+
+The update key signs every package. The private half and its password are the repository
+secrets `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, made on the
+producer's Mac in `~/.tauri/nkata-updater.key` and `nkata-updater.password`; keep a copy of both
+in the studio's password manager. The public half is `plugins.updater.pubkey` in
+tauri.conf.json. Lose the private key and installed apps can no longer update: everyone would
+download once more by hand.
+
 ### Signing
 
 Unsigned until the certificates exist: Windows SmartScreen warns once, and macOS asks the person
