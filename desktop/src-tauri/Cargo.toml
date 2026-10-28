@@ -1,5 +1,8 @@
 [package]
-name = "nkata-agent"
+# Named after the window binary: Tauri bundles the binary that shares the package's name as the
+# app's main one. Named nkata-agent, the 0.1.0 bundle shipped the CLI as Nkata.app, which printed
+# its help and exited (docs/decisions.md, 2026-10-28).
+name = "nkata-desktop"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

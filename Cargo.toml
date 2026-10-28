@@ -3,13 +3,15 @@ resolver = "2"
 members = ["desktop/src-tauri"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "UNLICENSED"
 publish = false
 
 [profile.release]
 lto = "thin"
+# Symbols off in the shipped app: the window binary was 98 MB with them.
+strip = true
 
 # Chunking and hashing run optimized even in dev and test builds, so the 2 GB gate test is
 # bounded by disk and network, not by debug code. Only these two: optimizing every dependency
