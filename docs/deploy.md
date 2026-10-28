@@ -44,5 +44,41 @@ protection on. Backups keep seven days.
 
 ## The desktop app
 
-The app signs in against the server the session names. For the pilot, the sign in screen's
-server field is `https://api.nkata.app`; the agent then uses the same address.
+Every build from CI talks to `https://api.nkata.app` (`VITE_NKATA_SERVER_URL` in
+.github/workflows/desktop-build.yml). `pnpm tauri dev` keeps the local server. An app that signed
+in before keeps the server it signed in to until Log out.
+
+### Downloads, once
+
+1. `./scripts/aws-deploy.sh downloads` makes the public bucket and the `nkata-release` role that
+   only this repository's version tags can take. It prints both.
+2. Tell the workflow where they are:
+   ```
+   gh variable set AWS_RELEASE_ROLE --body <ReleaseRoleArn>
+   gh variable set DOWNLOADS_BUCKET --body nkata-downloads-<account id>
+   ```
+
+### A release
+
+1. Set the version in `desktop/src-tauri/tauri.conf.json`, `make test`, push.
+2. `git tag v<version> && git push origin v<version>`. The workflow refuses a tag that differs
+   from the app's version.
+3. The workflow builds a universal dmg and a Windows installer (NSIS and MSI) and puts them under
+   `releases/<version>/` and at fixed names the website links to:
+   - `https://nkata-downloads-<account id>.s3.ap-northeast-1.amazonaws.com/latest/Nkata-mac.dmg`
+   - `.../latest/Nkata-windows-setup.exe`
+   - `.../latest/Nkata-windows.msi`
+   - `.../latest/version.json`
+
+### Signing
+
+Unsigned until the certificates exist: Windows SmartScreen warns once, and macOS asks the person
+to allow the app under System Settings, Privacy and Security.
+
+- macOS: an Apple Developer account. Export the Developer ID Application certificate as a .p12
+  and add these repository secrets: `APPLE_CERTIFICATE` (the .p12 in base64),
+  `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD` (an
+  app-specific password), `APPLE_TEAM_ID`. The next build signs and notarizes.
+  https://v2.tauri.app/distribute/sign/macos/
+- Windows: a code signing certificate, for example through Azure Trusted Signing, wired as
+  Tauri's `signCommand`. https://v2.tauri.app/distribute/sign/windows/
