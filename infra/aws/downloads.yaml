@@ -10,9 +10,13 @@ Parameters:
   GitHubOidcProviderArn:
     Type: String
     Description: The account's token.actions.githubusercontent.com provider.
-  Repository:
+  # GitHub's immutable subject for this repository: owner and repository with their numeric IDs,
+  # so a renamed or recreated repository cannot take the role. Read it with
+  # `gh api repos/sunburst-gg/nkata/actions/oidc/customization/sub` (sub_claim_prefix).
+  # https://docs.github.com/rest/actions/oidc
+  SubjectPrefix:
     Type: String
-    Default: sunburst-gg/nkata
+    Default: repo:sunburst-gg@336546806/nkata@1400056320
 
 Resources:
   DownloadsBucket:
@@ -59,7 +63,7 @@ Resources:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
               StringLike:
-                token.actions.githubusercontent.com:sub: !Sub repo:${Repository}:ref:refs/tags/v*
+                token.actions.githubusercontent.com:sub: !Sub ${SubjectPrefix}:ref:refs/tags/v*
       Policies:
         - PolicyName: publish
           PolicyDocument:
