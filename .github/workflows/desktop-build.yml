@@ -80,16 +80,11 @@ jobs:
       - name: Build the app
         working-directory: desktop
         run: pnpm tauri build ${{ matrix.args }}
-      # The app must open a window: its main binary is not the CLI. 0.1.0 shipped the CLI.
-      - name: The app's main binary is the window
+      # The dmg people download opens a window: its app is not the CLI, and it is universal.
+      # 0.1.0 shipped the CLI. Tauri does not leave Nkata.app beside the dmg, so the check opens it.
+      - name: The downloaded app is the window
         if: runner.os == 'macOS'
-        run: |
-          app=target/universal-apple-darwin/release/bundle/macos/Nkata.app/Contents/MacOS
-          if cmp -s "$app/nkata-desktop" target/universal-apple-darwin/release/nkata-agent; then
-            echo "Nkata.app's main binary is the CLI"; exit 1
-          fi
-          archs=$(lipo -archs "$app/nkata-desktop")
-          [[ "$archs" == *arm64* && "$archs" == *x86_64* ]] || { echo "Nkata.app is $archs, not universal"; exit 1; }
+        run: scripts/check-mac-app.sh "$(ls target/universal-apple-darwin/release/bundle/dmg/*.dmg)" target/universal-apple-darwin/release/nkata-agent
       - uses: actions/upload-artifact@v4
         with:
           name: nkata-${{ matrix.os }}
