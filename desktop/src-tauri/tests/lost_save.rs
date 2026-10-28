@@ -65,14 +65,18 @@ fn temp_root() -> PathBuf {
     dir
 }
 
+/// Bytes that never repeat, from a xorshift stream per seed. A repeated block would chunk into a
+/// few unique chunks, so "512 MB" was a few MB on the wire and the push sometimes finished before
+/// the kill (docs/decisions.md, 2026-10-28).
 fn write_pattern(path: &Path, size: u64, seed: u8) {
     fs::create_dir_all(path.parent().unwrap()).unwrap();
-    let chunk: Vec<u8> = (0..MIB as usize)
-        .map(|i| (i as u8).wrapping_mul(seed).wrapping_add(seed))
-        .collect();
+    let mut x: u64 = 0x9E37_79B9_7F4A_7C15 ^ u64::from(seed);
     let mut out = Vec::with_capacity(size as usize);
     while (out.len() as u64) < size {
-        out.extend_from_slice(&chunk);
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        out.extend_from_slice(&x.to_le_bytes());
     }
     out.truncate(size as usize);
     fs::write(path, out).unwrap();
@@ -134,7 +138,8 @@ async fn a_push_killed_mid_upload_drains_on_the_next_run() {
         ],
     );
 
-    // Sixteen files of 32 MiB: enough that the kill lands mid upload on a fast disk too.
+    // Sixteen files of 32 MiB that share no chunk: 512 MB on the wire, so the kill lands mid
+    // upload on a fast disk too.
     let names: Vec<String> = (0..16).map(|i| format!("Ojukwu/part{i}.blend")).collect();
     for (i, name) in names.iter().enumerate() {
         write_pattern(&folder.join(name), 32 * MIB, i as u8 + 3);
