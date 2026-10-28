@@ -33,4 +33,18 @@ describe("the bundle", () => {
     expect(statSync(file).size).toBeLessThan(1024 * 1024);
     expect(read("../vite.config.ts")).toContain("dropFixtures()");
   });
+
+  // Updates: the app reads the manifest the release writes, under the key the release uses.
+  it("reads the update manifest the release writes", () => {
+    const updater = (JSON.parse(read("../src-tauri/tauri.conf.json")) as { plugins: { updater: { pubkey: string; endpoints: string[] } }; bundle: { createUpdaterArtifacts: boolean } });
+    expect(updater.bundle.createUpdaterArtifacts).toBe(true);
+    expect(updater.plugins.updater.pubkey.length).toBeGreaterThan(40);
+    const workflow = read("../../.github/workflows/desktop-build.yml");
+    const [endpoint] = updater.plugins.updater.endpoints;
+    expect(endpoint).toMatch(/\/latest\/latest\.json$/);
+    expect(workflow).toContain('"s3://$BUCKET/latest/latest.json"');
+    const key = /Some\("([a-z0-9-]+)"\)/.exec(read("../src-tauri/src/updates.rs"))?.[1];
+    expect(key).toBe("darwin-universal");
+    expect(read("../../scripts/updater-manifest.sh")).toContain(`"${key}"`);
+  });
 });

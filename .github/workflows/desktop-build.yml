@@ -6,6 +6,10 @@ name: desktop-build
 # Signing: macOS signs and notarizes when the Apple secrets exist (docs/deploy.md); until then
 # both are unsigned, so Windows SmartScreen warns once and macOS asks to allow the app in
 # Privacy and Security.
+# Updates: every build signs its update packages with the updater key (secrets
+# TAURI_SIGNING_PRIVATE_KEY and _PASSWORD; the public half is in tauri.conf.json), and a tag
+# publishes latest/latest.json, which installed apps read to update themselves
+# (desktop/src-tauri/src/updates.rs, https://v2.tauri.app/plugin/updater/).
 # Tauri's build: https://v2.tauri.app/distribute/
 on:
   push:
@@ -24,16 +28,24 @@ jobs:
             args: --bundles nsis,msi
             out: |
               target/release/bundle/nsis/*.exe
+              target/release/bundle/nsis/*.exe.sig
               target/release/bundle/msi/*.msi
-          # One dmg for Apple silicon and Intel Macs.
+              target/release/bundle/msi/*.msi.sig
+          # One dmg for Apple silicon and Intel Macs. The app bundle is built too: its
+          # Nkata.app.tar.gz is the update package.
           - os: macos-latest
-            args: --target universal-apple-darwin --bundles dmg
+            args: --target universal-apple-darwin --bundles app,dmg
             targets: aarch64-apple-darwin,x86_64-apple-darwin
-            out: target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            out: |
+              target/universal-apple-darwin/release/bundle/dmg/*.dmg
+              target/universal-apple-darwin/release/bundle/macos/Nkata.app.tar.gz
+              target/universal-apple-darwin/release/bundle/macos/Nkata.app.tar.gz.sig
     runs-on: ${{ matrix.os }}
     env:
       # Secrets cannot appear in an `if`; this flag can.
       HAS_APPLE_CERT: ${{ secrets.APPLE_CERTIFICATE != '' }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -101,6 +113,7 @@ jobs:
     env:
       BUCKET: ${{ vars.DOWNLOADS_BUCKET }}
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: out
@@ -113,10 +126,11 @@ jobs:
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
-          dmg=$(ls out/nkata-macos-latest/*.dmg)
+          dmg=$(ls out/nkata-macos-latest/dmg/*.dmg)
+          app=out/nkata-macos-latest/macos/Nkata.app.tar.gz
           exe=$(ls out/nkata-windows-latest/nsis/*.exe)
           msi=$(ls out/nkata-windows-latest/msi/*.msi)
-          for f in "$dmg" "$exe" "$msi"; do
+          for f in "$dmg" "$app" "$app.sig" "$exe" "$exe.sig" "$msi" "$msi.sig"; do
             aws s3 cp "$f" "s3://$BUCKET/releases/$version/$(basename "$f")"
           done
           # Fixed names for the website's buttons. Never cached, so a release shows at once.
@@ -126,4 +140,7 @@ jobs:
           aws s3 cp "$msi" "s3://$BUCKET/latest/Nkata-windows.msi" "${nocache[@]}"
           jq -n --arg v "$version" --arg at "$(date -u +%FT%TZ)" '{version: $v, published_at: $at}' > version.json
           aws s3 cp version.json "s3://$BUCKET/latest/version.json" "${nocache[@]}" --content-type application/json
+          # Last, once every package it names is in place: installed apps act on it.
+          scripts/updater-manifest.sh "$version" "https://$BUCKET.s3.ap-northeast-1.amazonaws.com/releases/$version" "$app" "$exe" > latest.json
+          aws s3 cp latest.json "s3://$BUCKET/latest/latest.json" "${nocache[@]}" --content-type application/json
           echo "https://$BUCKET.s3.ap-northeast-1.amazonaws.com/latest/" >> "$GITHUB_STEP_SUMMARY"
