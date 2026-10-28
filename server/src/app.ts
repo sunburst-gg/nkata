@@ -4,7 +4,9 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
-import { hasZodFastifySchemaValidationErrors, serializerCompiler, validatorCompiler, type ZodTypeProvider } from "fastify-type-provider-zod";
+import swagger from "@fastify/swagger";
+import swaggerUi from "@fastify/swagger-ui";
+import { hasZodFastifySchemaValidationErrors, jsonSchemaTransform, serializerCompiler, validatorCompiler, type ZodTypeProvider } from "fastify-type-provider-zod";
 import type { Config } from "./config.js";
 import { createLinks, type Links } from "./domain/links.js";
 import type { Db } from "./db/client.js";
@@ -111,6 +113,22 @@ export async function buildApp(deps: AppDeps): Promise<App> {
   });
   await app.register(websocket);
 
+  // API docs in dev only, at /docs: an OpenAPI description built from the routes' own Zod
+  // schemas, so it cannot drift from what the server validates. Registered before the routes,
+  // since the plugin collects them as they register.
+  // https://github.com/fastify/fastify-swagger, https://github.com/fastify/fastify-swagger-ui
+  if (deps.config.NKATA_DEV) {
+    await app.register(swagger, {
+      openapi: {
+        info: { title: "Nkata server", version: "1" },
+        components: { securitySchemes: { session: { type: "http", scheme: "bearer" } } },
+        security: [{ session: [] }],
+      },
+      transform: jsonSchemaTransform,
+    });
+    await app.register(swaggerUi, { routePrefix: "/docs" });
+  }
+
   app.setErrorHandler((err: unknown, req, reply) => {
     if (err instanceof AppError) {
       req.log.info({ code: err.code, details: err.details }, err.message);
@@ -132,6 +150,7 @@ export async function buildApp(deps: AppDeps): Promise<App> {
     const path = req.url.split("?")[0] ?? req.url;
     // /models/<id>.glb carries its own signature (domain/links.ts): the app loads it with no header.
     if (PUBLIC.has(path) || path === "/ws" || path.startsWith("/models/") || req.method === "OPTIONS") return;
+    if (app.config.NKATA_DEV && (path === "/docs" || path.startsWith("/docs/"))) return;
     const header = req.headers.authorization ?? "";
     if (!header.startsWith("Bearer ")) throw new AppError("unauthorized", "missing bearer token");
     const session = await resolveSession(app.db, header.slice("Bearer ".length), app.now());
