@@ -28,7 +28,7 @@ One monorepo, `nkata/`. One version number across all packages. A project pins t
 | --- | --- | --- | --- |
 | `shared/` | TypeScript, JSON Schema | Published to the other packages | Types, the agent protocol, the template schema, check definitions, event names, copy strings |
 | `server/` | TypeScript (Node 22), Fastify, Drizzle | One VPS, Docker | REST, WebSocket, auth, lock grants, signed store URLs, one Discord hook |
-| `store/` | S3-compatible (Cloudflare R2 in prod, RustFS in dev) | Managed | Content-addressed chunks, previews, renders |
+| `store/` | S3-compatible (AWS S3 in prod, RustFS in dev) | Managed | Content-addressed chunks, previews, renders |
 | `db/` | Postgres 16 | Managed or on the VPS | All metadata |
 | `desktop/` | Tauri 2: Rust core, TypeScript UI (React, Tailwind, the brand tokens) | macOS, Windows | The app and the local agent in one process |
 | `blender-addon/` | Python 3.11, bpy | Blender 4.2+ | N-panel, save hook, collection export, checks, pins, presence |

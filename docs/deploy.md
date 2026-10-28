@@ -1,45 +1,46 @@
 # Deploying the server
 
-One Fly machine runs the server. Postgres is Fly Postgres. The store is Cloudflare R2. Mail is
-Resend. Why these: docs/decisions.md, 2026-10-19. Every secret lives in Fly, none in the repo.
+One Fargate task runs the server behind a load balancer in ap-northeast-1. Postgres is RDS. The
+store is S3. Mail is Resend. Why these: docs/decisions.md, 2026-10-28. `infra/aws/nkata.yaml`
+describes all of it; `scripts/aws-deploy.sh` is the only way it changes. Every secret lives in
+Secrets Manager, none in the repo.
 
 ## Once
 
-1. The bucket. With `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in the environment:
-   `./scripts/r2-bucket.sh`. It prints the three S3 settings. Make an R2 API token in the
-   Cloudflare dashboard (R2, Manage API tokens, Object Read and Write on the bucket) for the keys.
-2. The app and the database:
-   ```
-   fly apps create nkata-api
-   fly postgres create --name nkata-db --region nrt --vm-size shared-cpu-1x --initial-cluster-size 1
-   fly postgres attach nkata-db --app nkata-api
-   ```
-   The attach step sets `DATABASE_URL` on the app.
-3. The secrets, in one call so the machine restarts once:
-   ```
-   fly secrets set --app nkata-api \
-     S3_ENDPOINT=https://<account id>.r2.cloudflarestorage.com \
-     S3_ACCESS_KEY=... S3_SECRET_KEY=... \
-     RESEND_API_KEY=re_... "MAIL_FROM=Nkata <code@nkata.app>" \
-     LINK_SECRET=$(openssl rand -hex 24) DISCORD_SECRET=$(openssl rand -hex 24)
-   ```
-4. The name. `fly certs add api.nkata.app --app nkata-api`, then at the DNS host a CNAME from
-   `api` to `nkata-api.fly.dev`. `fly certs check api.nkata.app` says when it is live.
-5. Deploy from the repo root: `fly deploy`. The server migrates and ensures the bucket on start.
+1. The tools: the AWS CLI v2, Docker, jq. Sign in with `aws login` (or `aws configure sso`) as an
+   account that may create IAM roles. `aws sts get-caller-identity` names the account.
+2. The certificate: `./scripts/aws-deploy.sh cert`. It prints one CNAME. Add it in Cloudflare for
+   nkata.app with the proxy off (DNS only). Run the command again until it says `ISSUED`.
+3. The secrets: `./scripts/aws-deploy.sh secrets`. It asks for the Resend API key without echoing
+   it and makes `LINK_SECRET` and `DISCORD_SECRET`. The database password and the store keys are
+   made by the stack.
+4. The first deploy: `./scripts/aws-deploy.sh deploy`. The first run takes about 15 minutes, most
+   of it the database. It ends with the load balancer's name.
+5. The name: in Cloudflare, a CNAME from `api` to that load balancer name, DNS only. Then
    `curl https://api.nkata.app/health` answers `{"v":1,"ok":true}`.
 
 ## Every release
 
-`make test` green, pushed to main, then `fly deploy`. Migrations are forward only and run on
-start, so a deploy that adds one is safe to repeat. Roll back with `fly releases` and
-`fly deploy --image <the previous image>`; the schema stays, since nothing drops a column.
+`make test` green, pushed to main, then `./scripts/aws-deploy.sh deploy`. It refuses a working
+tree with changes or a HEAD that is not origin/main, so the image tag names a revision anyone can
+check out. The old task stops before the new one starts: about a minute without the server.
+Migrations are forward only and run on start, so a deploy that adds one is safe to repeat. A task
+that fails its health check rolls back by itself. To roll back by hand, check out the previous
+revision and deploy it; the schema stays, since nothing drops a column.
 
 ## Looking
 
-- `fly logs --app nkata-api`: one JSON line per event, with studio_id, project_id and part_id.
-- `fly status --app nkata-api`: the machine and its last health check.
-- `fly ssh console --app nkata-api` then `pnpm --filter @nkata/server exec tsx src/db/migrate.ts`
-  to run migrations by hand if a deploy stopped before listening.
+- `aws logs tail /nkata/server --follow`: one JSON line per event, with studio_id, project_id and
+  part_id.
+- `aws ecs describe-services --cluster nkata --services server`: the task and its last events.
+- `aws ecs execute-command --cluster nkata --task <task id> --container server --interactive
+  --command sh` opens a shell in the task (it needs the Session Manager plugin). From there
+  `pnpm --filter @nkata/server exec tsx src/db/migrate.ts` runs migrations by hand.
+
+## What is kept
+
+The bucket stays if the stack is deleted. The database takes a final snapshot and has deletion
+protection on. Backups keep seven days.
 
 ## The desktop app
 
