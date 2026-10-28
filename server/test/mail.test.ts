@@ -45,6 +45,8 @@ describe("mailer", () => {
   it("is off without a key and a sender, and says so", async () => {
     const m = createMailer(loadConfig(base));
     expect(m.configured).toBe(false);
+    // The test servers clear both (scripts/testenv.sh), and empty must read as unset.
+    expect(createMailer(loadConfig({ ...base, RESEND_API_KEY: "", MAIL_FROM: "" })).configured).toBe(false);
     await expect(m.send(signInCodeEmail({ to: "a@b.c", code: "123456" }))).rejects.toThrow("RESEND_API_KEY");
   });
 

@@ -22,6 +22,9 @@ compose_test() {
 }
 
 testenv_up() {
+  # Test servers never send mail. They load the repo's .env, which may hold the real Resend key,
+  # and every sign in and invite in a run would reach Resend (docs/decisions.md, 2026-10-28).
+  export RESEND_API_KEY="" MAIL_FROM=""
   if [[ -n "${DATABASE_URL:-}" && -n "${S3_ENDPOINT:-}" ]]; then
     echo "testenv: using DATABASE_URL and S3_ENDPOINT from the environment" >&2
     echo "external" > "$STATE_FILE"

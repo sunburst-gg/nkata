@@ -1,6 +1,8 @@
 // Every setting comes from the environment. Never from code or the repo.
 import { z } from "zod";
 
+const unsetWhenEmpty = (v: unknown) => (v === "" ? undefined : v);
+
 const Env = z.object({
   DATABASE_URL: z.string().min(1),
   S3_ENDPOINT: z.url(),
@@ -29,9 +31,10 @@ const Env = z.object({
   // Encrypts the Discord webhook URL at rest. Without it no webhook can be stored.
   DISCORD_SECRET: z.string().min(16).optional(),
   // Sends the sign-in code. Resend's HTTPS API (https://resend.com/docs/api-reference/emails/send-email).
-  // Without both, only dev mode can sign anyone in.
-  RESEND_API_KEY: z.string().min(1).optional(),
-  MAIL_FROM: z.string().min(3).optional(),
+  // Without both, only dev mode can sign anyone in. Empty counts as unset: the test servers clear
+  // both, since Node's --env-file never overrides a variable that is already set.
+  RESEND_API_KEY: z.preprocess(unsetWhenEmpty, z.string().min(1).optional()),
+  MAIL_FROM: z.preprocess(unsetWhenEmpty, z.string().min(3).optional()),
   // Where the installers are, as the latest/ folder of the downloads bucket (infra/aws/downloads.yaml).
   // The invite page links to the files inside it.
   DOWNLOADS_URL: z.url().default("https://nkata-downloads-445567075963.s3.ap-northeast-1.amazonaws.com/latest"),
