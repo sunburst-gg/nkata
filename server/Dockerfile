@@ -1,4 +1,4 @@
-# The Nkata server for Fly (docs/deploy.md). One image, one process: migrate, ensure the bucket,
+# The Nkata server for AWS Fargate (docs/deploy.md). One image, one process: migrate, ensure the bucket,
 # listen. Built from the repo root so the shared package is in the workspace.
 # pnpm in Docker: https://pnpm.io/docker
 FROM node:22-slim AS base
@@ -18,6 +18,9 @@ COPY shared/ shared/
 COPY server/ server/
 # tsx runs the TypeScript as is, as make dev and make test do; no separate build to drift.
 ENV NODE_ENV=production
+# RDS requires TLS and signs with its own roots, which Node does not ship. The bundle is AWS's
+# global one: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html
+ENV NODE_EXTRA_CA_CERTS=/app/server/certs/rds-global-bundle.pem
 ENV HOST=0.0.0.0
 ENV PORT=7400
 EXPOSE 7400
