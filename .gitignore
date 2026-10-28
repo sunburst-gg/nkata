@@ -23,3 +23,10 @@ desktop/public/fixtures/glb/
 docs/v8-shots/**/*.png
 docs/v8-shots/**/*.txt
 docs/v8-shots/REPORT.md
+
+# Planning docs kept on the producer's machine, out of the repo (2026-10-28).
+docs/one-pager.md
+docs/app_experience.md
+docs/tasks/refocus.md
+docs/tasks/v8-prompts.md
+desktop/DECISIONS.md
