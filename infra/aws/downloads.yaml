@@ -1,0 +1,78 @@
+# Where the desktop installers are downloaded from (docs/deploy.md). A bucket anyone can read
+# under releases/ and latest/, and a role only this repository's release tags can take to write
+# there. Separate from the server's stack and its private store. Deployed by
+# scripts/aws-deploy.sh downloads.
+# GitHub to AWS without stored keys: https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Nkata downloads
+
+Parameters:
+  GitHubOidcProviderArn:
+    Type: String
+    Description: The account's token.actions.githubusercontent.com provider.
+  Repository:
+    Type: String
+    Default: sunburst-gg/nkata
+
+Resources:
+  DownloadsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub nkata-downloads-${AWS::AccountId}
+      # Public through the bucket policy below only: no object can be made public on its own.
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: false
+        RestrictPublicBuckets: false
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+
+  DownloadsPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref DownloadsBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action: s3:GetObject
+            Resource:
+              - !Sub ${DownloadsBucket.Arn}/releases/*
+              - !Sub ${DownloadsBucket.Arn}/latest/*
+
+  ReleaseRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: nkata-release
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Federated: !Ref GitHubOidcProviderArn }
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub repo:${Repository}:ref:refs/tags/v*
+      Policies:
+        - PolicyName: publish
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:PutObject
+                Resource:
+                  - !Sub ${DownloadsBucket.Arn}/releases/*
+                  - !Sub ${DownloadsBucket.Arn}/latest/*
+
+Outputs:
+  ReleaseRoleArn:
+    Value: !GetAtt ReleaseRole.Arn
+  DownloadsUrl:
+    Value: !Sub https://${DownloadsBucket}.s3.${AWS::Region}.amazonaws.com/latest/

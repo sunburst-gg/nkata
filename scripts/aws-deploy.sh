@@ -3,6 +3,7 @@
 #   ./scripts/aws-deploy.sh cert      requests the certificate and prints the DNS record it needs
 #   ./scripts/aws-deploy.sh secrets   stores the Resend key and makes the link and Discord secrets
 #   ./scripts/aws-deploy.sh deploy    builds the image of HEAD, pushes it, updates the stack
+#   ./scripts/aws-deploy.sh downloads the public bucket for the installers and the release role
 # Credentials come from the AWS CLI's own sign in (aws login), never from the repo.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -93,9 +94,21 @@ deploy() {
   curl -sf "https://$DOMAIN/health" && echo || echo "https://$DOMAIN/health does not answer yet"
 }
 
+downloads() {
+  local provider
+  provider=$(aws iam list-open-id-connect-providers --query \
+    "OpenIDConnectProviderList[?ends_with(Arn, 'token.actions.githubusercontent.com')].Arn | [0]" --output text)
+  [ "$provider" != None ] || { echo "no GitHub OIDC provider in this account; see docs/deploy.md"; exit 1; }
+  aws cloudformation deploy --stack-name nkata-downloads --template-file "$ROOT/infra/aws/downloads.yaml" \
+    --capabilities CAPABILITY_NAMED_IAM --no-fail-on-empty-changeset \
+    --parameter-overrides "GitHubOidcProviderArn=$provider"
+  aws cloudformation describe-stacks --stack-name nkata-downloads --query 'Stacks[0].Outputs' --output text
+}
+
 case "${1:-}" in
   cert) cert ;;
   secrets) secrets ;;
   deploy) deploy ;;
-  *) echo "usage: $0 cert|secrets|deploy"; exit 1 ;;
+  downloads) downloads ;;
+  *) echo "usage: $0 cert|secrets|deploy|downloads"; exit 1 ;;
 esac
