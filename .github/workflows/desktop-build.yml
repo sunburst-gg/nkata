@@ -67,9 +67,29 @@ jobs:
             echo "APPLE_PASSWORD=${{ secrets.APPLE_PASSWORD }}"
             echo "APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}"
           } >> "$GITHUB_ENV"
+      # A universal build merges only the main binary (the window) for both chips. Tauri still
+      # bundles the package's other binary, the CLI, from the universal folder, so it is built
+      # for both and merged here first. Without it the 0.1.1 macOS build failed to copy it.
+      - name: The CLI for both chips
+        if: runner.os == 'macOS'
+        run: |
+          for t in aarch64-apple-darwin x86_64-apple-darwin; do cargo build --release --target "$t" --bin nkata-agent; done
+          mkdir -p target/universal-apple-darwin/release
+          lipo -create -output target/universal-apple-darwin/release/nkata-agent \
+            target/aarch64-apple-darwin/release/nkata-agent target/x86_64-apple-darwin/release/nkata-agent
       - name: Build the app
         working-directory: desktop
         run: pnpm tauri build ${{ matrix.args }}
+      # The app must open a window: its main binary is not the CLI. 0.1.0 shipped the CLI.
+      - name: The app's main binary is the window
+        if: runner.os == 'macOS'
+        run: |
+          app=target/universal-apple-darwin/release/bundle/macos/Nkata.app/Contents/MacOS
+          if cmp -s "$app/nkata-desktop" target/universal-apple-darwin/release/nkata-agent; then
+            echo "Nkata.app's main binary is the CLI"; exit 1
+          fi
+          archs=$(lipo -archs "$app/nkata-desktop")
+          [[ "$archs" == *arm64* && "$archs" == *x86_64* ]] || { echo "Nkata.app is $archs, not universal"; exit 1; }
       - uses: actions/upload-artifact@v4
         with:
           name: nkata-${{ matrix.os }}
