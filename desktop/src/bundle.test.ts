@@ -1,7 +1,7 @@
 // What the installer ships. Tauri bundles the binary named after the Rust package as the app's
 // main one, so the package must carry the window binary's name. Named nkata-agent, the 0.1.0
 // installers shipped the CLI as Nkata.app and no window opened (docs/decisions.md, 2026-10-28).
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8");
@@ -20,5 +20,17 @@ describe("the bundle", () => {
   it("carries the workspace's version", () => {
     const workspace = readFileSync(new URL("../../Cargo.toml", import.meta.url), "utf8");
     expect(/\[workspace\.package\]\nversion = "([^"]+)"/.exec(workspace)?.[1]).toBe(conf.version);
+  });
+
+  // The fixtures are dev only and stay out of the build (vite.config.ts). Whatever a live screen
+  // loads must ship: the 0.1.3 Sign in had no ghost, since its model was a fixture.
+  it("ships the ghost model, small, outside the fixtures", () => {
+    // Read from the source: importing GhostStage loads the viewer, which needs a browser.
+    const GHOST_MODEL = /export const GHOST_MODEL = "([^"]+)"/.exec(read("./ui/stage/GhostStage.tsx"))?.[1] ?? "";
+    expect(GHOST_MODEL.startsWith("/fixtures/")).toBe(false);
+    const file = new URL(`../public${GHOST_MODEL}`, import.meta.url);
+    expect(existsSync(file)).toBe(true);
+    expect(statSync(file).size).toBeLessThan(1024 * 1024);
+    expect(read("../vite.config.ts")).toContain("dropFixtures()");
   });
 });
