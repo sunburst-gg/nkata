@@ -32,6 +32,9 @@ const Env = z.object({
   // Without both, only dev mode can sign anyone in.
   RESEND_API_KEY: z.string().min(1).optional(),
   MAIL_FROM: z.string().min(3).optional(),
+  // Where the installers are, as the latest/ folder of the downloads bucket (infra/aws/downloads.yaml).
+  // The invite page links to the files inside it.
+  DOWNLOADS_URL: z.url().default("https://nkata-downloads-445567075963.s3.ap-northeast-1.amazonaws.com/latest"),
   // Extra origins the desktop window may call from, comma separated. The Tauri origins and the
   // Vite dev server are always allowed.
   CORS_ORIGINS: z.string().optional().transform((v) => (v ?? "").split(",").map((s) => s.trim()).filter(Boolean)),
