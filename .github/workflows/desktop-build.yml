@@ -1,6 +1,7 @@
 name: desktop-build
-# The desktop app for Windows and macOS. Every push to main builds both for the team to test, as
-# workflow artifacts. A version tag (v0.1.0) also publishes them to the downloads bucket
+# The desktop app for Windows and macOS. Only a version tag builds them, or Run workflow on the
+# Actions tab for a test build kept as workflow artifacts. A push to main does not: macOS minutes
+# bill at ten times the Linux rate on a private repo. A tag also publishes them to the downloads bucket
 # (infra/aws/downloads.yaml): under releases/<version>/ and as the fixed latest/ names the
 # website links to. Every build talks to the live server; `pnpm tauri dev` keeps the local one.
 # Signing: macOS signs and notarizes when the Apple secrets exist (docs/deploy.md); until then
@@ -13,7 +14,6 @@ name: desktop-build
 # Tauri's build: https://v2.tauri.app/distribute/
 on:
   push:
-    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
 env:
